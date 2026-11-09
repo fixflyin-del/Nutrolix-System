@@ -1,0 +1,6 @@
+{
+  "name": "Nutrolix",
+  "description": "Nutrolix - Nutrition That Works. Premium branded packaged functional nutrition, supplements, superfoods, live order tracking, and clean consumer experience.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

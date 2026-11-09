@@ -1,0 +1,12 @@
+[
+  {
+    "id": "notif_1793990125723",
+    "title": "Test Offer",
+    "message": "15% off test",
+    "target": "ALL_CUSTOMERS",
+    "type": "PROMO",
+    "orderId": null,
+    "timestamp": "2026-11-06T18:35:25.723Z",
+    "status": "SENT"
+  }
+]

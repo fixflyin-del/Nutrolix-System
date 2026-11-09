@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Nutrolix</string>
+    <string name="admin_app_name">Nutrolix Admin</string>
+    <string name="default_web_client_id" translatable="false">836516139018-ramalocm8jf1cvp1sqiuvhlj5itfv170.apps.googleusercontent.com</string>
+</resources>

@@ -1,0 +1,27 @@
+{
+  "entities": {
+    "UserProfile": {
+      "collection": "users",
+      "fields": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "nutriPoints": { "type": "number" },
+        "currentAddress": { "type": "string" }
+      }
+    },
+    "Order": {
+      "collection": "orders",
+      "fields": {
+        "orderNumber": { "type": "string" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "status": { "type": "string" },
+        "total": { "type": "number" },
+        "deliveryOtp": { "type": "string" },
+        "kitchenName": { "type": "string" }
+      }
+    }
+  }
+}

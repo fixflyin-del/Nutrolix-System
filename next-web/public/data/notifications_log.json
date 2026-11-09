@@ -1,0 +1,48 @@
+[
+  {
+    "id": "notif_1794137759936",
+    "orderId": "NUTRO-STORE-111581",
+    "title": "Nutrolix – Order Placed Successfully!",
+    "message": "Your order #NUTRO-STORE-111581 has been placed successfully.",
+    "url": "/orders.html?orderId=NUTRO-STORE-111581",
+    "timestamp": "2026-11-08T11:35:59.936Z",
+    "deliveryStatus": [
+      {
+        "status": "LOGGED_NO_ACTIVE_SUBSCRIPTION"
+      }
+    ]
+  },
+  {
+    "id": "notif_1794136937479",
+    "title": "Test Notification",
+    "message": "Testing broadcast",
+    "target": "ALL_CUSTOMERS",
+    "type": "PROMOTIONAL",
+    "orderId": null,
+    "timestamp": "2026-11-08T11:22:17.479Z",
+    "status": "SENT"
+  },
+  {
+    "id": "notif_1794136663527",
+    "orderId": "NUTRO-STORE-281594",
+    "title": "Nutrolix – Order Placed Successfully!",
+    "message": "Your order #NUTRO-STORE-281594 has been placed successfully.",
+    "url": "/orders.html?orderId=NUTRO-STORE-281594",
+    "timestamp": "2026-11-08T11:17:43.527Z",
+    "deliveryStatus": [
+      {
+        "status": "LOGGED_NO_ACTIVE_SUBSCRIPTION"
+      }
+    ]
+  },
+  {
+    "id": "notif_1793990125723",
+    "title": "Test Offer",
+    "message": "15% off test",
+    "target": "ALL_CUSTOMERS",
+    "type": "PROMO",
+    "orderId": null,
+    "timestamp": "2026-11-06T18:35:25.723Z",
+    "status": "SENT"
+  }
+]

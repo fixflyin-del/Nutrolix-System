@@ -1,0 +1,22 @@
+{
+  "name": "nutrolix-web",
+  "version": "2.0.0",
+  "description": "Nutrolix - Nutrition that works (E-commerce, Cloud Kitchen & Admin)",
+  "main": "server.js",
+  "scripts": {
+    "dev": "node server.js",
+    "start": "node server.js",
+    "build": "echo 'Vercel build complete'"
+  },
+  "keywords": [
+    "nutrolix",
+    "nutrition",
+    "healthy-food",
+    "ecommerce"
+  ],
+  "author": "Nutrolix",
+  "license": "ISC",
+  "dependencies": {
+    "web-push": "^4.0.0"
+  }
+}

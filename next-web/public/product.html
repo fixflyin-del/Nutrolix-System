@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Nutrolix – Product Details | Nutrition That Works</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'nutro-dark': '#064E3B',
+            'nutro-forest': '#0F3E2E',
+            'nutro-emerald': '#059669',
+            'nutro-light': '#10B981',
+            'nutro-orange': '#EA580C',
+            'nutro-amber': '#F59E0B'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
+    @media (max-width: 768px) {
+      .product-mobile-bottom-space { padding-bottom: 6rem; }
+    }
+  </style>
+
+  <!-- Instant 0ms Nutrition Data Cache -->
+  <script src="assets/nutrolix-data.js"></script>
+  <script src="assets/nutrolix-drawer.js"></script>
+</head>
+<body class="product-mobile-bottom-space flex flex-col min-h-screen">
+
+  <!-- Header with Nutrolix Original Logo -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <a href="index.html" class="flex items-center shrink-0 group py-1">
+        <img src="assets/nutrolix-logo.png" alt="Nutrolix – Nutrition that works" class="h-10 sm:h-12 w-auto object-contain max-w-[190px] sm:max-w-[220px]">
+      </a>
+
+      <nav class="hidden md:flex items-center space-x-6 text-sm font-bold text-slate-700">
+        <a href="index.html" class="hover:text-nutro-emerald transition">Home</a>
+        <a href="shop.html" class="text-nutro-emerald transition">Shop</a>
+        <a href="orders.html" class="hover:text-nutro-emerald transition flex items-center space-x-1.5 py-1 px-2.5 rounded-lg text-slate-700 hover:bg-slate-100 font-bold">
+          <i class="fa-solid fa-truck-fast text-xs text-emerald-600"></i>
+          <span>Track Orders</span>
+        </a>
+        <a href="about.html" class="hover:text-nutro-emerald transition">About</a>
+        <a href="blogs.html" class="hover:text-nutro-emerald transition">Blogs</a>
+        <a href="contact.html" class="hover:text-nutro-emerald transition">Contact</a>
+      </nav>
+
+      <div class="flex items-center space-x-3">
+        <a href="cart.html" class="relative flex items-center space-x-2 bg-nutro-forest text-white px-3.5 py-2 rounded-xl text-xs font-black shadow-md">
+          <i class="fa-solid fa-bag-shopping text-emerald-400"></i>
+          <span>Cart</span>
+          <span id="headerCartCount" class="w-4 h-4 rounded-full bg-amber-400 text-slate-900 text-[10px] font-black flex items-center justify-center">0</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Breadcrumb -->
+  <div class="bg-white border-b border-slate-200 py-3 text-xs text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 flex items-center space-x-2">
+      <a href="/" class="hover:text-slate-900">Home</a>
+      <span>/</span>
+      <a href="/shop" class="hover:text-slate-900">Shop</a>
+      <span>/</span>
+      <span id="breadcrumbCategory" class="text-slate-700 font-semibold">Product</span>
+      <span>/</span>
+      <span id="breadcrumbTitle" class="text-nutro-emerald font-bold truncate max-w-xs">Loading...</span>
+    </div>
+  </div>
+
+  <!-- Main Product Detail View -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
+    
+    <div id="productLoading" class="text-center py-20 text-slate-400">
+      <i class="fa-solid fa-spinner fa-spin text-3xl text-emerald-600 mb-3"></i>
+      <p class="font-bold">Loading verified product details...</p>
+    </div>
+
+    <div id="productContent" class="hidden">
+      <!-- 2-Column Responsive Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10">
+        
+        <!-- Left: Image Gallery (5-Image Packaged Nutrition Support with Zoom & Swipe) -->
+        <div class="lg:col-span-7 flex flex-col gap-3">
+          <!-- Main Product Image Card (With Click-to-Zoom & Swipe) -->
+          <div id="mainImageContainer" class="w-full bg-white rounded-3xl border border-slate-200 p-4 sm:p-6 relative overflow-hidden flex items-center justify-center shadow-sm min-h-[280px] max-h-[380px] sm:max-h-[480px] cursor-zoom-in select-none" onclick="window.openImageZoom()">
+            <img id="mainProductImage" src="" alt="Nutrolix Functional Nutrition" class="max-h-[250px] sm:max-h-[400px] w-auto max-w-full object-contain rounded-2xl transition duration-300">
+            
+            <span id="productDiscountBadge" class="absolute top-3 left-3 bg-nutro-orange text-white text-[11px] sm:text-xs font-black px-2.5 py-1 rounded-xl shadow-md">
+              22% OFF
+            </span>
+
+            <!-- Zoom affordance button -->
+            <button type="button" onclick="event.stopPropagation(); window.openImageZoom();" class="absolute bottom-3 right-3 bg-slate-900/80 hover:bg-slate-900 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl backdrop-blur-sm flex items-center space-x-1.5 transition shadow-sm">
+              <i class="fa-solid fa-magnifying-glass-plus text-amber-400"></i>
+              <span>Zoom & Inspect</span>
+            </button>
+
+            <!-- Previous/Next Desktop Arrows -->
+            <button type="button" onclick="event.stopPropagation(); window.navigateGallery(-1);" class="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md items-center justify-center border border-slate-200 transition active:scale-95" title="Previous Image">
+              <i class="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+            <button type="button" onclick="event.stopPropagation(); window.navigateGallery(1);" class="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 w-9 h-9 rounded-full bg-white/90 hover:bg-white text-slate-800 shadow-md items-center justify-center border border-slate-200 transition active:scale-95" title="Next Image">
+              <i class="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+          </div>
+
+          <!-- Horizontal Miniature Thumbnails Row Directly Beneath Image (Change 7) -->
+          <div id="imageThumbnails" class="flex gap-2.5 overflow-x-auto py-1 px-1 custom-scrollbar w-full justify-start sm:justify-center">
+            <!-- Injected by JS for only available images -->
+          </div>
+          <div class="text-[11px] text-slate-400 text-center sm:text-left flex items-center justify-center sm:justify-start space-x-2">
+            <i class="fa-solid fa-hand-pointer text-emerald-600"></i>
+            <span>Tap thumbnails or swipe left/right to view packaging, nutrition tables & benefits</span>
+          </div>
+        </div>
+
+        <!-- Right: Product Purchase & Attributes Panel -->
+        <div class="lg:col-span-5 space-y-4">
+          <div>
+            <div class="flex items-center space-x-2">
+              <span id="productCategoryBadge" class="text-xs font-bold text-nutro-emerald bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 uppercase tracking-wide">Category</span>
+              <span class="text-xs font-semibold text-emerald-700"><i class="fa-solid fa-circle-check"></i> In Stock & Ready to Dispatch</span>
+            </div>
+            
+            <h1 id="productTitle" class="text-xl sm:text-3xl font-black text-slate-900 mt-2 leading-tight">Product Name</h1>
+            <p id="productTagline" class="text-xs sm:text-sm text-slate-500 font-medium mt-1">Product Subtitle & Highlights</p>
+          </div>
+
+          <!-- MANDATORY PROMINENT RATING -->
+          <div class="flex items-center space-x-2.5 bg-amber-50/70 p-2.5 rounded-2xl border border-amber-200/80">
+            <div class="flex text-amber-400 text-xs sm:text-sm">
+              <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+            </div>
+            <span id="productRatingNum" class="text-xs sm:text-sm font-black text-slate-900">4.9 / 5.0</span>
+            <span class="text-slate-400 text-xs">|</span>
+            <a href="#reviewsSection" id="productReviewCountLink" class="text-xs font-bold text-nutro-dark hover:underline">184 Customer Reviews</a>
+          </div>
+
+          <!-- Price Row -->
+          <div class="flex items-baseline space-x-3 pt-1">
+            <span class="text-2xl sm:text-3xl font-black text-slate-900" id="productPriceDisplay">₹349</span>
+            <span class="text-sm sm:text-base text-slate-400 line-through" id="productMrpDisplay">₹449</span>
+            <span class="text-xs font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-lg" id="productSavingsDisplay">Save ₹100</span>
+          </div>
+          <div class="text-[11px] text-slate-400 font-medium">Inclusive of all taxes. Free shipping on orders above ₹499.</div>
+
+          <!-- Variant Selector -->
+          <div class="pt-1">
+            <div class="text-xs font-bold text-slate-700 mb-2">Available Pack Sizes:</div>
+            <div id="productVariantsContainer" class="flex flex-wrap gap-2">
+              <!-- Variants buttons injected here -->
+            </div>
+          </div>
+
+          <!-- Key Features Bullet Points -->
+          <div class="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-1.5">
+            <div class="text-xs font-extrabold text-slate-900 uppercase tracking-wide">Why Nutrolix Formula Works:</div>
+            <ul id="productKeyFeatures" class="space-y-1 text-xs text-slate-600 font-medium">
+              <!-- Injected by JS -->
+            </ul>
+          </div>
+
+          <!-- Add to Cart Action Row -->
+          <div class="flex items-center space-x-2.5 pt-1">
+            <div class="flex items-center border border-slate-300 rounded-xl bg-white px-2.5 py-2 space-x-2.5 shrink-0">
+              <button onclick="window.changeQuantity(-1)" class="text-sm font-bold text-slate-600 hover:text-slate-950 px-1">-</button>
+              <span id="selectedQty" class="text-sm font-black">1</span>
+              <button onclick="window.changeQuantity(1)" class="text-sm font-bold text-slate-600 hover:text-slate-950 px-1">+</button>
+            </div>
+
+            <button onclick="window.handleAddToCart()" class="flex-1 bg-nutro-forest hover:bg-nutro-dark text-white font-black py-3 rounded-xl transition shadow-lg flex items-center justify-center space-x-2 text-xs sm:text-sm">
+              <i class="fa-solid fa-cart-shopping"></i>
+              <span>Add to Bag</span>
+            </button>
+          </div>
+
+          <!-- Trust Badges Row -->
+          <div class="grid grid-cols-3 gap-2 pt-1 text-center text-[10px] font-bold text-slate-600">
+            <div class="p-2 bg-white rounded-xl border border-slate-200">
+              <i class="fa-solid fa-shield-halved text-emerald-600 mb-1 text-sm block"></i>
+              FSSAI Approved
+            </div>
+            <div class="p-2 bg-white rounded-xl border border-slate-200">
+              <i class="fa-solid fa-flask text-teal-600 mb-1 text-sm block"></i>
+              NABL Lab Tested
+            </div>
+            <div class="p-2 bg-white rounded-xl border border-slate-200">
+              <i class="fa-solid fa-truck-fast text-amber-600 mb-1 text-sm block"></i>
+              Dispatched in 24h
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Deep Dive Tabs: Nutrition Facts, Ingredients, Benefits, Usage -->
+      <div class="mt-12 bg-white rounded-3xl border border-slate-200 p-4 sm:p-8 shadow-sm space-y-6">
+        
+        <!-- Modern Segmented Pill Tabs (Zero horizontal overflow) -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-1.5 p-1 bg-slate-100 rounded-2xl">
+          <button onclick="window.switchTab('nutrition')" id="tabBtn-nutrition" class="py-2.5 px-2 text-xs font-extrabold bg-nutro-forest text-white rounded-xl shadow-sm transition text-center">Nutrition Facts</button>
+          <button onclick="window.switchTab('ingredients')" id="tabBtn-ingredients" class="py-2.5 px-2 text-xs font-bold text-slate-600 rounded-xl hover:bg-slate-200 transition text-center">Clean Ingredients</button>
+          <button onclick="window.switchTab('benefits')" id="tabBtn-benefits" class="py-2.5 px-2 text-xs font-bold text-slate-600 rounded-xl hover:bg-slate-200 transition text-center">Physiological Benefits</button>
+          <button onclick="window.switchTab('usage')" id="tabBtn-usage" class="py-2.5 px-2 text-xs font-bold text-slate-600 rounded-xl hover:bg-slate-200 transition text-center">How to Use & Store</button>
+        </div>
+
+        <!-- Tab 1: Nutrition Facts Table -->
+        <div id="tabContent-nutrition" class="space-y-4">
+          <h3 class="text-base sm:text-lg font-black text-slate-900">Verified Nutritional Breakdown (Per 100g / Serving)</h3>
+          <div class="overflow-x-auto max-w-xl">
+            <table class="w-full text-xs text-left border border-slate-200 rounded-xl overflow-hidden">
+              <tbody id="nutritionTableBody" class="divide-y divide-slate-200">
+                <!-- Injected by JS -->
+              </tbody>
+            </table>
+          </div>
+          <div class="text-[11px] text-slate-400 italic">* Tested in NABL accredited analytical laboratories. Values based on natural grain agricultural lots.</div>
+        </div>
+
+        <!-- Tab 2: Ingredients -->
+        <div id="tabContent-ingredients" class="hidden space-y-3">
+          <h3 class="text-lg font-black text-slate-900">100% Whole & Non-GMO Ingredients</h3>
+          <p id="tabIngredientsText" class="text-sm text-slate-700 leading-relaxed font-medium">Ingredients...</p>
+          <div class="bg-emerald-50 p-4 rounded-2xl border border-emerald-200 text-xs text-emerald-900 space-y-1">
+            <div class="font-bold">Zero Tolerance Promise:</div>
+            <div>No Maida • No Invert Corn Syrup • No Chemical Preservatives • No Hydrogenated Palm Oil</div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Benefits -->
+        <div id="tabContent-benefits" class="hidden space-y-3">
+          <h3 class="text-lg font-black text-slate-900">Verified Functional Health Outcomes</h3>
+          <ul id="tabBenefitsList" class="space-y-2 text-sm text-slate-700">
+            <!-- Injected by JS -->
+          </ul>
+        </div>
+
+        <!-- Tab 4: Usage & Storage -->
+        <div id="tabContent-usage" class="hidden space-y-6">
+          <div>
+            <h4 class="text-sm font-extrabold text-slate-900 mb-1">Recommended Usage:</h4>
+            <p id="tabUsageText" class="text-sm text-slate-600 leading-relaxed"></p>
+          </div>
+          <div>
+            <h4 class="text-sm font-extrabold text-slate-900 mb-1">Storage Guidelines:</h4>
+            <p id="tabStorageText" class="text-sm text-slate-600 leading-relaxed"></p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Customer Reviews & Rating Breakdown (Requirement 5) -->
+      <section id="reviewsSection" class="mt-16 bg-white rounded-3xl border border-slate-200 p-6 sm:p-10 shadow-sm space-y-8">
+        
+        <div class="flex flex-col md:flex-row md:items-center justify-between pb-6 border-b border-slate-200 gap-4">
+          <div>
+            <h3 class="text-2xl font-black text-slate-900">Customer Ratings & Reviews</h3>
+            <p class="text-xs text-slate-500 mt-1">Real ratings from verified buyers of Nutrolix Nutrition Store.</p>
+          </div>
+
+          <button onclick="window.openWriteReviewModal()" class="bg-nutro-forest hover:bg-nutro-dark text-white text-xs font-black px-5 py-3 rounded-xl transition shadow-sm flex items-center space-x-2">
+            <i class="fa-solid fa-pen"></i>
+            <span>Write a Verified Review</span>
+          </button>
+        </div>
+
+        <!-- Rating Overview Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-12 gap-8 items-center">
+          
+          <!-- Rating Score Box -->
+          <div class="md:col-span-4 bg-slate-50 p-6 rounded-2xl border border-slate-200 text-center space-y-2">
+            <div class="text-5xl font-black text-slate-900" id="detailedScoreDisplay">4.9</div>
+            <div class="flex text-amber-400 text-base justify-center">
+              <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+            </div>
+            <div class="text-xs font-bold text-slate-500" id="detailedReviewsCount">Based on 184 reviews</div>
+            <div class="text-[11px] text-emerald-700 font-extrabold">98% of customers recommend this</div>
+          </div>
+
+          <!-- Star Distribution Bars -->
+          <div class="md:col-span-8 space-y-2 text-xs font-bold text-slate-600">
+            <div class="flex items-center space-x-3">
+              <span class="w-12">5 Star</span>
+              <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-amber-400 rounded-full" style="width: 88%"></div>
+              </div>
+              <span class="w-10 text-right">88%</span>
+            </div>
+            <div class="flex items-center space-x-3">
+              <span class="w-12">4 Star</span>
+              <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-amber-400 rounded-full" style="width: 9%"></div>
+              </div>
+              <span class="w-10 text-right">9%</span>
+            </div>
+            <div class="flex items-center space-x-3">
+              <span class="w-12">3 Star</span>
+              <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-amber-400 rounded-full" style="width: 2%"></div>
+              </div>
+              <span class="w-10 text-right">2%</span>
+            </div>
+            <div class="flex items-center space-x-3">
+              <span class="w-12">2 Star</span>
+              <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-amber-400 rounded-full" style="width: 1%"></div>
+              </div>
+              <span class="w-10 text-right">1%</span>
+            </div>
+            <div class="flex items-center space-x-3">
+              <span class="w-12">1 Star</span>
+              <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                <div class="h-full bg-slate-200 rounded-full" style="width: 0%"></div>
+              </div>
+              <span class="w-10 text-right">0%</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Reviews List -->
+        <div id="productReviewsList" class="space-y-4 pt-4">
+          <!-- Reviews list injected by JS -->
+        </div>
+
+      </section>
+
+      <!-- Related Products -->
+      <section class="mt-16">
+        <h3 class="text-2xl font-black text-slate-900 mb-6">Frequently Bought Together</h3>
+        <div id="relatedProductsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <!-- Injected by JS -->
+        </div>
+      </section>
+
+    </div>
+
+  </main>
+
+  <!-- Comprehensive Premium Footer with Original Logo -->
+  <footer class="bg-nutro-forest text-slate-300 pt-16 pb-24 border-t border-emerald-950 mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 mb-12">
+        
+        <!-- Col 1: Brand Info -->
+        <div class="lg:col-span-2 space-y-4">
+          <a href="index.html" class="flex items-center space-x-3">
+            <img src="assets/nutrolix-logo.png" alt="Nutrolix" class="h-10 w-auto object-contain bg-white rounded-xl p-1.5 shadow-md">
+          </a>
+          <p class="text-xs text-slate-400 leading-relaxed max-w-sm">
+            Nutrolix Wellness Pvt. Ltd. is an Indian functional nutrition company pioneering research-backed packaged foods, high protein staples, and healthy dining.
+          </p>
+          <div class="pt-2">
+            <div class="text-xs font-bold text-slate-200 mb-2">Connect on Official Social Media:</div>
+            <div class="flex items-center space-x-3">
+              <a href="https://www.facebook.com/people/Nutrolix/61593206843289/" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-blue-600 text-white flex items-center justify-center text-sm transition" title="Facebook">
+                <i class="fa-brands fa-facebook-f"></i>
+              </a>
+              <a href="https://www.instagram.com/nutrolix.wellness/" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-gradient-to-tr hover:from-amber-500 hover:to-rose-600 text-white flex items-center justify-center text-sm transition" title="Instagram">
+                <i class="fa-brands fa-instagram"></i>
+              </a>
+              <a href="https://www.youtube.com/@Nutrolix" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-red-600 text-white flex items-center justify-center text-sm transition" title="YouTube">
+                <i class="fa-brands fa-youtube"></i>
+              </a>
+              <a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-amber-500 text-white flex items-center justify-center text-sm transition" title="Google Business Profile">
+                <i class="fa-brands fa-google"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col 2: Nutrition Store -->
+        <div>
+          <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrition Store</h4>
+          <ul class="space-y-2.5 text-xs text-slate-400">
+            <li><a href="shop.html" class="hover:text-white transition">All Products</a></li>
+            <li><a href="shop.html?cat=High+Protein+Foods" class="hover:text-white transition">High Protein Atta</a></li>
+            <li><a href="shop.html?cat=Superfood+Blends" class="hover:text-white transition">Complete Nutri Meal</a></li>
+            <li><a href="shop.html?cat=Healthy+Breakfast" class="hover:text-white transition">Talbeenah Porridge</a></li>
+            <li><a href="shop.html?cat=Millet+Products" class="hover:text-white transition">Multi-Millet Flakes</a></li>
+            <li><a href="shop.html?cat=Wellness+Nutrition" class="hover:text-white transition">Black Seed Oil</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 3: Company & Information -->
+        <div>
+          <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrolix Brand</h4>
+          <ul class="space-y-2.5 text-xs text-slate-400">
+            <li><a href="about.html" class="hover:text-white transition">About Us</a></li>
+            <li><a href="orders.html" class="text-emerald-400 font-bold hover:text-emerald-300 transition flex items-center space-x-1">
+              <span><i class="fa-solid fa-truck-fast mr-1"></i> Track Orders</span>
+              <span class="text-[9px] bg-emerald-800 text-white px-1.5 py-0.2 rounded">Live</span>
+            </a></li>
+            <li><a href="blogs.html" class="hover:text-white transition">Nutrition Blogs</a></li>
+            <li><a href="contact.html" class="hover:text-white transition">Contact Us</a></li>
+            <li><a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="hover:text-white transition">Google Customer Reviews</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 4: Trust & Policies -->
+        <div>
+          <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Customer Care</h4>
+          <ul class="space-y-2.5 text-xs text-slate-400">
+            <li><a href="faqs.html" class="hover:text-white transition">FAQs</a></li>
+            <li><a href="shipping.html" class="hover:text-white transition">Shipping Policy</a></li>
+            <li><a href="refund.html" class="hover:text-white transition">Return & Refund Policy</a></li>
+            <li><a href="cancellation.html" class="hover:text-white transition">Cancellation Policy</a></li>
+            <li><a href="privacy.html" class="hover:text-white transition">Privacy Policy</a></li>
+            <li><a href="terms.html" class="hover:text-white transition">Terms & Conditions</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Bottom Bar -->
+      <div class="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
+        <div>
+          © 2026 Nutrolix Wellness Pvt. Ltd. All rights reserved.
+        </div>
+        <div class="flex items-center space-x-4">
+          <span class="text-slate-400"><i class="fa-solid fa-shield-halved text-emerald-400 mr-1"></i> FSSAI Central Lic. # 21526024003044</span>
+          <span>•</span>
+          <span class="text-slate-400">ISO 9001:2015</span>
+        </div>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- Universal Mobile Bottom Nav -->
+  <!-- Fixed Mobile Bottom Navigation (Change 6: Unselected = Black, Selected = Nutrolix Green) -->
+  <div class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-2 flex items-center justify-around shadow-2xl">
+    <a href="index.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-house text-lg mb-0.5"></i>
+      <span class="text-[10px]">Home</span>
+    </a>
+    <a href="shop.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-bag-shopping text-lg mb-0.5"></i>
+      <span class="text-[10px]">Shop</span>
+    </a>
+    <a href="food.html" class="relative flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <span class="absolute -top-1.5 right-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-sm leading-tight border border-amber-300 pointer-events-none">
+        ₹100 OFF
+      </span>
+      <i class="fa-solid fa-utensils text-lg mb-0.5"></i>
+      <span class="text-[10px]">Healthy Food</span>
+    </a>
+    <a href="orders.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-truck-fast text-lg mb-0.5"></i>
+      <span class="text-[10px]">My Orders</span>
+    </a>
+    <a href="account.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-user text-lg mb-0.5"></i>
+      <span class="text-[10px]">Profile</span>
+    </a>
+  </div>
+  <script>
+    window.currentProduct = null;
+    window.selectedQty = 1;
+    window.selectedVariantIndex = 0;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const prodId = urlParams.get('id') || 'prod_high_protein_atta';
+      loadProductDetails(prodId);
+      updateHeaderBadge();
+    });
+
+    function loadProductDetails(id) {
+      const list = window.nutroProducts || [];
+      const p = list.find(item => item.id === id) || list[0];
+      if (p) {
+        window.currentProduct = p;
+        renderProduct(p, list);
+      }
+
+      // Non-blocking background fetch only if online and not file protocol
+      if (window.location.protocol !== 'file:') {
+        fetch('/api/nutrition-products')
+          .then(res => res.ok ? res.json() : null)
+          .then(remoteList => {
+            if (remoteList && Array.isArray(remoteList) && remoteList.length) {
+              window.nutroProducts = remoteList;
+              const rp = remoteList.find(item => item.id === id);
+              if (rp) {
+                window.currentProduct = rp;
+                renderProduct(rp, remoteList);
+              }
+            }
+          })
+          .catch(() => {});
+      }
+    }
+
+    function renderProduct(p, all) {
+      document.getElementById('productLoading').classList.add('hidden');
+      document.getElementById('productContent').classList.remove('hidden');
+
+      // Breadcrumbs & Titles
+      document.title = `${p.name} | Nutrolix Nutrition That Works`;
+      document.getElementById('breadcrumbCategory').textContent = p.category;
+      document.getElementById('breadcrumbTitle').textContent = p.name;
+      document.getElementById('productCategoryBadge').textContent = p.category;
+      document.getElementById('productTitle').textContent = p.name;
+      document.getElementById('productTagline').textContent = p.tagline;
+
+      // Rating
+      document.getElementById('productRatingNum').textContent = `${p.rating} / 5.0`;
+      document.getElementById('productReviewCountLink').textContent = `${p.reviewCount} Customer Reviews`;
+      document.getElementById('detailedScoreDisplay').textContent = p.rating;
+      document.getElementById('detailedReviewsCount').textContent = `Based on ${p.reviewCount} verified reviews`;
+
+      // Price
+      document.getElementById('productPriceDisplay').textContent = `₹${p.price}`;
+      document.getElementById('productMrpDisplay').textContent = `₹${p.mrp}`;
+      document.getElementById('productSavingsDisplay').textContent = `Save ₹${p.mrp - p.price}`;
+      document.getElementById('productDiscountBadge').textContent = `${p.discountPercent}% OFF`;
+      document.getElementById('stickyMobilePrice').textContent = `₹${p.price}`;
+
+      // Images (Change 7: Support up to 5 verified images without empty broken slots)
+      window.activeProductImages = (p.images && p.images.length) 
+        ? p.images.filter(Boolean) 
+        : [
+            p.image || "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80",
+            "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80"
+          ];
+      window.currentImageIndex = 0;
+
+      const mainImg = document.getElementById('mainProductImage');
+      mainImg.src = window.activeProductImages[0];
+
+      const positionLabels = ['Main Product', 'Packaging', 'Benefits', 'Nutrition', 'Usage'];
+      const thumbsContainer = document.getElementById('imageThumbnails');
+      thumbsContainer.innerHTML = window.activeProductImages.map((img, idx) => `
+        <button type="button" onclick="window.selectImageIndex(${idx})" class="thumb-btn flex flex-col items-center group/th focus:outline-none shrink-0" data-idx="${idx}">
+          <div class="w-16 h-16 rounded-xl border-2 ${idx === 0 ? 'border-emerald-600 ring-2 ring-emerald-500/20' : 'border-slate-200'} overflow-hidden transition bg-slate-50 p-0.5">
+            <img src="${img}" class="w-full h-full object-cover rounded-lg">
+          </div>
+          <span class="text-[9px] font-bold text-slate-500 mt-1">${positionLabels[idx] || ('View ' + (idx+1))}</span>
+        </button>
+      `).join('');
+
+      // Attach mobile swipe gestures
+      initSwipeListeners();
+
+      // Variants
+      const variantsContainer = document.getElementById('productVariantsContainer');
+      if (p.variants && p.variants.length) {
+        variantsContainer.innerHTML = p.variants.map((v, i) => `
+          <button onclick="window.selectVariant(${i})" class="px-4 py-2 rounded-xl border text-xs font-extrabold transition ${i === 0 ? 'bg-nutro-forest text-white border-nutro-forest shadow-sm' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}">
+            ${v.size} • ₹${v.price}
+          </button>
+        `).join('');
+      } else {
+        variantsContainer.innerHTML = `<span class="text-xs text-slate-500 font-bold">Standard Pack</span>`;
+      }
+
+      // Key Features
+      const featuresContainer = document.getElementById('productKeyFeatures');
+      featuresContainer.innerHTML = (p.keyFeatures || [
+        "Clinically Balanced Functional Nutrition",
+        "Zero Added Sugars, Zero Trans Fats",
+        "High Bioavailability Botanical Extraction",
+        "NABL Accredited Third-Party Lab Certified"
+      ]).map(f => `<li class="flex items-start space-x-2"><i class="fa-solid fa-check text-emerald-600 mt-0.5"></i><span>${f}</span></li>`).join('');
+
+      // Nutrition Facts Table
+      const nutBody = document.getElementById('nutritionTableBody');
+      const facts = p.nutritionFacts || {};
+      const rows = [
+        ["Serving Size", facts.servingSize || "100g"],
+        ["Energy / Calories", (facts.calories || 360) + " kcal"],
+        ["Protein", (facts.protein || 30) + " g"],
+        ["Total Carbohydrates", (facts.carbs || 35) + " g"],
+        ["Dietary Fiber", (facts.dietaryFiber || 10) + " g"],
+        ["Total Sugars", (facts.totalSugar || 1.5) + " g"],
+        ["Added Sugars", (facts.addedSugar || 0.0) + " g (Zero)"],
+        ["Total Fats", (facts.fats || 4.2) + " g"],
+        ["Saturated Fat", (facts.saturatedFat || 0.6) + " g"],
+        ["Trans Fat", (facts.transFat || 0.0) + " g (Zero)"],
+        ["Sodium", (facts.sodium || 60) + " mg"]
+      ];
+      nutBody.innerHTML = rows.map(([label, val]) => `
+        <tr class="hover:bg-slate-50">
+          <td class="px-4 py-2 font-bold text-slate-700">${label}</td>
+          <td class="px-4 py-2 font-black text-slate-900">${val}</td>
+        </tr>
+      `).join('');
+
+      // Ingredients, Benefits, Usage
+      document.getElementById('tabIngredientsText').textContent = p.ingredients || "Whole Non-GMO plant matrix.";
+      document.getElementById('tabBenefitsList').innerHTML = (p.benefits || [
+        "Builds and sustains lean muscular tissues",
+        "Zero glycemic insulin spike",
+        "Encourages active microbial gut balance"
+      ]).map(b => `<li class="flex items-start space-x-2"><i class="fa-solid fa-heart-pulse text-rose-500 mt-1"></i><span>${b}</span></li>`).join('');
+      document.getElementById('tabUsageText').textContent = p.usageInstructions || "Use daily as part of a wholesome balanced lifestyle.";
+      document.getElementById('tabStorageText').textContent = p.storageInstructions || "Store in an airtight container in a dry, cool cabinet.";
+
+      // Sample Detailed Reviews
+      renderReviewsList(p);
+
+      // Related Products
+      const related = all.filter(item => item.id !== p.id).slice(0, 4);
+      document.getElementById('relatedProductsGrid').innerHTML = related.map(rel => `
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition p-4 flex flex-col justify-between">
+          <div>
+            <img src="${rel.images[0]}" class="w-full h-40 object-cover rounded-xl mb-3">
+            <span class="text-[10px] font-bold text-emerald-700 uppercase">${rel.category}</span>
+            <h4 class="font-extrabold text-sm text-slate-900 mt-1"><a href="/product?id=${rel.id}">${rel.name}</a></h4>
+            <div class="flex text-amber-400 text-xs mt-1">
+              <i class="fa-solid fa-star"></i><span class="font-black text-slate-900 text-xs ml-1">${rel.rating}</span>
+            </div>
+          </div>
+          <div class="mt-4 flex items-center justify-between pt-3 border-t border-slate-100">
+            <span class="font-black text-base">₹${rel.price}</span>
+            <a href="/product?id=${rel.id}" class="text-xs font-bold bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg">View</a>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderReviewsList(p) {
+      const list = [
+        { name: "Vikram S.", rating: 5, date: "October 28, 2026", text: "The texture and taste are unbelievable. Making phulkas with this high-protein atta is so simple and the rotis remain soft for hours.", verified: true },
+        { name: "Ananya Mehta", rating: 5, date: "October 20, 2026", text: "Verified quality. Checked the NABL QR code on the packaging. Genuine 46g protein and no bloating whatsoever. Will be a permanent subscriber.", verified: true },
+        { name: "Karan Johar", rating: 4, date: "October 14, 2026", text: "High quality functional flour. Slightly thicker dough kneading required with warm water, but results are extraordinary.", verified: true }
+      ];
+
+      const container = document.getElementById('productReviewsList');
+      container.innerHTML = list.map(r => `
+        <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-2">
+              <span class="font-black text-xs text-slate-900">${r.name}</span>
+              ${r.verified ? '<span class="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full">✓ Verified Buyer</span>' : ''}
+            </div>
+            <span class="text-[11px] text-slate-400">${r.date}</span>
+          </div>
+          <div class="flex text-amber-400 text-xs mb-2">
+            ${'<i class="fa-solid fa-star"></i>'.repeat(r.rating)}
+          </div>
+          <p class="text-xs text-slate-600 leading-relaxed">${r.text}</p>
+        </div>
+      `).join('');
+    }
+
+    window.selectImageIndex = function(idx) {
+      if (!window.activeProductImages || !window.activeProductImages[idx]) return;
+      window.currentImageIndex = idx;
+      const src = window.activeProductImages[idx];
+      const mainImg = document.getElementById('mainProductImage');
+      if (mainImg) mainImg.src = src;
+
+      const allThumbs = document.querySelectorAll('.thumb-btn div');
+      allThumbs.forEach((box, i) => {
+        if (i === idx) {
+          box.className = 'w-16 h-16 rounded-xl border-2 border-emerald-600 ring-2 ring-emerald-500/20 overflow-hidden transition bg-slate-50 p-0.5';
+        } else {
+          box.className = 'w-16 h-16 rounded-xl border-2 border-slate-200 overflow-hidden transition bg-slate-50 p-0.5';
+        }
+      });
+    };
+
+    window.navigateGallery = function(direction) {
+      if (!window.activeProductImages || window.activeProductImages.length <= 1) return;
+      let next = window.currentImageIndex + direction;
+      if (next < 0) next = window.activeProductImages.length - 1;
+      if (next >= window.activeProductImages.length) next = 0;
+      window.selectImageIndex(next);
+    };
+
+    // Mobile Swipe Handling
+    let touchStartX = 0;
+    let touchEndX = 0;
+
+    function initSwipeListeners() {
+      const el = document.getElementById('mainImageContainer');
+      if (!el) return;
+      el.addEventListener('touchstart', e => {
+        touchStartX = e.changedTouches[0].screenX;
+      }, { passive: true });
+
+      el.addEventListener('touchend', e => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+      }, { passive: true });
+    }
+
+    function handleSwipe() {
+      const diff = touchEndX - touchStartX;
+      if (Math.abs(diff) > 40) {
+        if (diff < 0) window.navigateGallery(1); // Swipe left -> next
+        else window.navigateGallery(-1);        // Swipe right -> prev
+      }
+    }
+
+    // Zoom Modal Controls
+    window.openImageZoom = function() {
+      const mainImg = document.getElementById('mainProductImage');
+      const zoomImg = document.getElementById('zoomModalImg');
+      const modal = document.getElementById('imageZoomModal');
+      if (mainImg && zoomImg && modal) {
+        zoomImg.src = mainImg.src;
+        zoomImg.style.transform = 'scale(1)';
+        modal.classList.remove('hidden');
+      }
+    };
+
+    window.closeImageZoom = function() {
+      const modal = document.getElementById('imageZoomModal');
+      if (modal) modal.classList.add('hidden');
+    };
+
+    window.setZoomScale = function(scale) {
+      const zoomImg = document.getElementById('zoomModalImg');
+      if (zoomImg) {
+        zoomImg.style.transform = `scale(${scale})`;
+      }
+    };
+
+    window.selectVariant = function(index) {
+      window.selectedVariantIndex = index;
+      const v = window.currentProduct.variants[index];
+      document.getElementById('productPriceDisplay').textContent = `₹${v.price}`;
+      document.getElementById('productMrpDisplay').textContent = `₹${v.mrp}`;
+      document.getElementById('stickyMobilePrice').textContent = `₹${v.price}`;
+      
+      const buttons = document.querySelectorAll('#productVariantsContainer button');
+      buttons.forEach((b, i) => {
+        if (i === index) {
+          b.className = 'px-4 py-2 rounded-xl border text-xs font-extrabold transition bg-nutro-forest text-white border-nutro-forest shadow-sm';
+        } else {
+          b.className = 'px-4 py-2 rounded-xl border text-xs font-extrabold transition bg-white text-slate-700 border-slate-300 hover:bg-slate-50';
+        }
+      });
+    };
+
+    window.changeQuantity = function(delta) {
+      window.selectedQty = Math.max(1, window.selectedQty + delta);
+      document.getElementById('selectedQty').textContent = window.selectedQty;
+    };
+
+    window.switchTab = function(tabName) {
+      ['nutrition', 'ingredients', 'benefits', 'usage'].forEach(t => {
+        const content = document.getElementById(`tabContent-${t}`);
+        const btn = document.getElementById(`tabBtn-${t}`);
+        if (content) content.classList.add('hidden');
+        if (btn) btn.className = 'py-2.5 px-2 text-xs font-bold text-slate-600 rounded-xl hover:bg-slate-200 transition text-center';
+      });
+      const activeContent = document.getElementById(`tabContent-${tabName}`);
+      const activeBtn = document.getElementById(`tabBtn-${tabName}`);
+      if (activeContent) activeContent.classList.remove('hidden');
+      if (activeBtn) activeBtn.className = 'py-2.5 px-2 text-xs font-extrabold bg-nutro-forest text-white rounded-xl shadow-sm transition text-center';
+    };
+
+    window.handleAddToCart = function() {
+      if (!window.currentProduct) return;
+      const p = window.currentProduct;
+      const v = (p.variants && p.variants[window.selectedVariantIndex]) || { price: p.price, size: 'Standard Pack' };
+      const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+      
+      const itemKey = `${p.id}_${v.size}`;
+      const existing = cart.find(i => i.itemKey === itemKey);
+      if (existing) {
+        existing.quantity += window.selectedQty;
+      } else {
+        cart.push({
+          id: p.id,
+          itemKey: itemKey,
+          title: p.name,
+          name: p.name,
+          variant: v.size,
+          price: v.price,
+          mrp: v.mrp || p.mrp || (v.price * 1.25),
+          image: (p.images && p.images[0]) || '',
+          quantity: window.selectedQty
+        });
+      }
+      localStorage.setItem('nutrolix_store_cart', JSON.stringify(cart));
+      localStorage.setItem('nutrolix_packaged_cart', JSON.stringify(cart));
+      updateHeaderBadge();
+      alert(`🎉 Added ${window.selectedQty}x ${p.name} (${v.size}) to your bag!`);
+    };
+
+    function updateHeaderBadge() {
+      const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+      const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+      const badge = document.getElementById('headerCartCount');
+      if (badge) badge.textContent = count;
+    }
+
+    window.openWriteReviewModal = function() {
+      document.getElementById('writeReviewModal').classList.remove('hidden');
+    };
+    window.closeWriteReviewModal = function() {
+      document.getElementById('writeReviewModal').classList.add('hidden');
+    };
+    window.submitReview = function(e) {
+      e.preventDefault();
+      alert("✅ Thank you! Your verified review has been submitted for publishing.");
+      window.closeWriteReviewModal();
+    };
+  </script>
+  <!-- Universal Pull to Refresh with Circular Progress Indicator -->
+  <script src="assets/pull-to-refresh.js"></script>
+  <!-- ============================================================== -->
+  <!-- HIGH RESOLUTION IMAGE ZOOM MODAL (Change 7) -->
+  <!-- ============================================================== -->
+  <div id="imageZoomModal" class="fixed inset-0 z-50 bg-slate-950/90 backdrop-blur-md hidden flex flex-col items-center justify-center p-4 transition-opacity duration-300">
+    <div class="w-full max-w-4xl flex items-center justify-between pb-3 text-white">
+      <div class="flex items-center space-x-2">
+        <span class="text-xs font-bold text-emerald-400 uppercase tracking-wider" id="zoomImageTitle">Nutrolix Packaging & Nutrition Assay</span>
+      </div>
+      <div class="flex items-center space-x-3">
+        <button onclick="window.setZoomScale(1)" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition">1x</button>
+        <button onclick="window.setZoomScale(1.5)" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition">1.5x</button>
+        <button onclick="window.setZoomScale(2)" class="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-bold text-white transition">2x Zoom</button>
+        <button onclick="window.closeImageZoom()" class="w-9 h-9 rounded-full bg-white/10 hover:bg-rose-600 text-white flex items-center justify-center transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+    </div>
+
+    <div class="flex-1 w-full max-w-4xl flex items-center justify-center overflow-auto p-2">
+      <img id="zoomModalImg" src="" alt="Zoomed Product View" class="max-h-[80vh] max-w-full object-contain rounded-2xl transition-transform duration-300 transform scale-100 shadow-2xl">
+    </div>
+  </div>
+</body>
+</html>

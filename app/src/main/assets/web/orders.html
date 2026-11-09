@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>My Orders & Order History – Nutrolix | Nutrition That Works</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'nutro-dark': '#064E3B',
+            'nutro-forest': '#0F3E2E',
+            'nutro-emerald': '#059669',
+            'nutro-light': '#10B981',
+            'nutro-orange': '#EA580C',
+            'nutro-amber': '#F59E0B'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
+    .mobile-safe-bottom { padding-bottom: 6rem; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+
+  <!-- Universal Drawer Navigation -->
+  <script src="assets/nutrolix-drawer.js"></script>
+  <script src="assets/nutrolix-notifications.js"></script>
+  <!-- Firebase Authentication SDK -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <!-- Shared Nutrolix Auth Script -->
+  <script src="assets/nutrolix-auth.js"></script>
+  <script src="assets/nutrolix-reviews.js"></script>
+</head>
+<body class="mobile-safe-bottom flex flex-col min-h-screen">
+
+  <!-- Header with Left Burger Menu + Nutrolix Logo -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      
+      <!-- Left side: Burger Button + Nutrolix Logo -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <button onclick="window.toggleLeftBurgerMenu()" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center text-base transition active:scale-95 focus:outline-none" aria-label="Open Navigation Menu">
+          <i class="fa-solid fa-bars text-emerald-800"></i>
+        </button>
+        <a href="index.html" class="flex items-center shrink-0 py-1">
+          <img src="assets/nutrolix-logo.png" alt="Nutrolix – Nutrition that works" class="h-10 sm:h-12 w-auto object-contain max-w-[170px] sm:max-w-[210px]">
+        </a>
+      </div>
+
+      <!-- Desktop Nav -->
+      <nav class="hidden md:flex items-center space-x-6 text-sm font-bold text-slate-700">
+        <a href="index.html" class="hover:text-nutro-emerald transition">Home</a>
+        <a href="shop.html" class="hover:text-nutro-emerald transition">Shop All</a>
+        <a href="food.html" class="hover:text-nutro-emerald transition">Healthy Food</a>
+        <a href="orders.html" class="text-nutro-emerald font-extrabold flex items-center space-x-1.5 py-1 px-2.5 rounded-lg bg-emerald-50">
+          <i class="fa-solid fa-truck-fast text-xs"></i>
+          <span>My Orders</span>
+        </a>
+        <a href="about.html" class="hover:text-nutro-emerald transition">About</a>
+        <a href="contact.html" class="hover:text-nutro-emerald transition">Contact</a>
+      </nav>
+
+      <!-- Right Header Actions -->
+      <div class="flex items-center space-x-3">
+        <a href="cart.html" class="relative flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 text-slate-800 px-3 py-2 rounded-xl text-xs font-bold transition">
+          <i class="fa-solid fa-bag-shopping text-emerald-600"></i>
+          <span class="hidden sm:inline">Cart</span>
+        </a>
+        <a href="account.html" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-sm transition" title="My Account">
+          <i class="fa-regular fa-user"></i>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Left Slide-out Drawer Backdrop -->
+  <div id="leftBurgerBackdrop" onclick="window.toggleLeftBurgerMenu()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden transition-opacity duration-300"></div>
+
+  <!-- Left Slide-out Drawer Panel -->
+  <div id="leftBurgerDrawer" class="fixed top-0 left-0 bottom-0 w-80 max-w-[85vw] bg-white z-50 shadow-2xl transform -translate-x-full transition-transform duration-300 flex flex-col">
+    <div class="p-4 bg-nutro-forest text-white flex items-center justify-between border-b border-emerald-900">
+      <div class="flex items-center space-x-2.5">
+        <img src="assets/nutrolix-logo.png" alt="Nutrolix" class="h-8 w-auto bg-white rounded-lg p-1">
+      </div>
+      <button onclick="window.toggleLeftBurgerMenu()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-3 space-y-1.5 text-xs custom-scrollbar">
+      <a href="food.html" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50 text-emerald-900 font-extrabold hover:bg-emerald-100 transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-utensils text-emerald-700 w-5"></i>
+          <span>Order Healthy Food</span>
+        </div>
+        <span class="text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">Kitchen Fresh</span>
+      </a>
+
+      <a href="shop.html" class="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-bag-shopping text-emerald-600 w-5"></i>
+          <span>Packaged Food Store</span>
+        </div>
+        <span class="text-[9px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">Store</span>
+      </a>
+
+      <a href="orders.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl bg-emerald-100 text-emerald-900 font-extrabold transition">
+        <i class="fa-solid fa-truck-fast text-emerald-600 w-5"></i>
+        <span>My Orders & Live Tracking</span>
+      </a>
+
+      <a href="account.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <i class="fa-solid fa-user text-emerald-600 w-5"></i>
+        <span>My Profile & Addresses</span>
+      </a>
+
+      <div class="pt-2 pb-1 border-t border-slate-100 my-1">
+        <span class="text-[10px] uppercase font-black text-slate-400 px-3 tracking-wider">Direct WhatsApp & Quick Support</span>
+      </div>
+
+      <a href="https://wa.me/919076254354?text=Hi%20Nutrolix%2C%20I%20need%20support%20with%20my%20order" target="_blank" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-green-50 text-green-900 hover:bg-green-100 font-extrabold transition border border-green-200">
+        <div class="flex items-center space-x-3">
+          <i class="fa-brands fa-whatsapp text-green-600 text-base w-5"></i>
+          <span>Direct WhatsApp (+91 90762 54354)</span>
+        </div>
+        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-green-600"></i>
+      </a>
+
+      <a href="https://wa.me/919076254354?text=Hi%20Nutrolix%2C%20I%20am%20interested%20in%20joining%20as%20a%20Nutrolix%20Partner%20or%20Distributor" target="_blank" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50 text-amber-900 hover:bg-amber-100 font-extrabold transition border border-amber-200">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-handshake text-amber-600 text-base w-5"></i>
+          <span>Join as Partner / Distributor</span>
+        </div>
+        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-amber-600"></i>
+      </a>
+
+      <a href="Nutrolix-Customer.apk" download class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-900 text-white font-extrabold hover:bg-slate-800 transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-brands fa-android text-emerald-400 text-base w-5"></i>
+          <span>Download Our Android App</span>
+        </div>
+        <i class="fa-solid fa-download text-xs text-emerald-400"></i>
+      </a>
+
+      <a href="contact.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <i class="fa-solid fa-headset text-emerald-600 w-5"></i>
+        <span>Customer Support & FAQs</span>
+      </a>
+
+      <div class="pt-2 border-t border-slate-100">
+        <div class="text-[10px] uppercase font-black text-slate-400 px-3 tracking-wider mb-1">Brand Policies</div>
+        <div class="grid grid-cols-2 gap-1 px-1">
+          <a href="shipping.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Shipping Policy</a>
+          <a href="refund.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Return & Refund</a>
+          <a href="cancellation.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Cancellation</a>
+          <a href="privacy.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Privacy Policy</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-3 bg-slate-50 border-t border-slate-200 text-center text-[10px] text-slate-400 space-y-0.5">
+      <div class="font-bold text-slate-700">FSSAI Central Lic. # 21526024003044</div>
+      <div>Nutrolix Wellness Pvt. Ltd. • ISO 9001:2015</div>
+    </div>
+  </div>
+
+  <!-- Page Banner -->
+  <div class="bg-gradient-to-r from-nutro-forest via-emerald-900 to-slate-900 text-white py-8 px-4">
+    <div class="max-w-4xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-black">My Orders</h1>
+        <p class="text-slate-300 text-xs sm:text-sm mt-1">View your past order history, tracking details, and direct support</p>
+      </div>
+      <div class="flex items-center space-x-2">
+        <a href="https://wa.me/919076254354?text=Hi%20Nutrolix%2C%20I%20need%20help%20with%20my%20orders" target="_blank" class="px-3.5 py-2 rounded-xl bg-green-500 hover:bg-green-600 text-slate-950 text-xs font-black transition flex items-center space-x-1.5 shadow">
+          <i class="fa-brands fa-whatsapp text-sm"></i>
+          <span>WhatsApp Support</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content Container -->
+  <main class="max-w-4xl mx-auto px-4 py-8 flex-1 w-full space-y-6">
+
+    <!-- 1. UNAUTHENTICATED STATE: Clean Direct Google Sign-In Gate -->
+    <div id="authGateContainer" class="hidden py-8">
+      <div class="bg-white rounded-3xl p-8 sm:p-12 text-center max-w-lg mx-auto shadow-sm border border-slate-200 space-y-6">
+        <div class="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl shadow-sm border border-emerald-100">
+          <i class="fa-solid fa-lock"></i>
+        </div>
+        <div class="space-y-2">
+          <h2 class="text-2xl font-black text-slate-900">Sign in to View Order History</h2>
+          <p class="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
+            Please sign in directly with your Google account to view your past orders, real-time live tracking, and invoice details.
+          </p>
+        </div>
+
+        <!-- 100% Direct Google Sign-In Button (NO manual email input!) -->
+        <button onclick="window.startDirectGoogleAuth(this)" class="w-full py-4 px-6 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 bg-white hover:bg-slate-50 transition flex items-center justify-center space-x-3 shadow-md group active:scale-95">
+          <svg class="w-6 h-6 shrink-0" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span class="font-extrabold text-sm text-slate-800 group-hover:text-emerald-700">Continue with Google Account</span>
+        </button>
+
+        <div class="text-[11px] text-slate-400">
+          Fast & secure 1-click Google authentication.
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. AUTHENTICATED STATE -->
+    <div id="authenticatedOrdersContent" class="space-y-6">
+      
+      <!-- User Profile Header Bar -->
+      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between gap-3">
+        <div class="flex items-center space-x-3">
+          <img id="userAvatarImg" src="assets/nutrolix-logo.png" class="w-10 h-10 rounded-full object-cover border border-slate-200 bg-emerald-50">
+          <div>
+            <div class="text-xs font-black text-slate-900" id="userDisplayName">Customer</div>
+            <div class="text-[11px] text-slate-500 font-bold" id="userDisplayEmail">user@gmail.com</div>
+          </div>
+        </div>
+        <button onclick="window.handleNutrolixSignOut()" class="text-xs text-rose-600 font-bold hover:underline px-3 py-1.5 rounded-lg hover:bg-rose-50 transition flex items-center space-x-1">
+          <i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i>
+          <span>Sign Out</span>
+        </button>
+      </div>
+
+      <!-- VIEW A: ORDER HISTORY LIST ONLY (Default View Requested by User) -->
+      <div id="ordersListView" class="space-y-4">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-black text-slate-900">Your Order History</h2>
+            <p class="text-xs text-slate-500">Tap on any order below to view live tracking, items & invoice</p>
+          </div>
+          <button onclick="loadUserOrders()" class="text-xs font-bold text-nutro-emerald hover:underline flex items-center space-x-1">
+            <i class="fa-solid fa-rotate-right text-[11px]"></i>
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        <!-- Orders Cards Container -->
+        <div id="orderHistoryContainer" class="space-y-3">
+          <!-- Dynamic Order Cards Injected Here -->
+        </div>
+      </div>
+
+      <!-- VIEW B: SINGLE ORDER DETAILS & LIVE TRACKING (Shown ONLY when an order is clicked) -->
+      <div id="orderDetailView" class="hidden space-y-6">
+        
+        <!-- Back Button to Return to History List -->
+        <button onclick="window.backToOrderList()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-black transition flex items-center space-x-2 active:scale-95">
+          <i class="fa-solid fa-arrow-left"></i>
+          <span>← Back to Order History</span>
+        </button>
+
+        <!-- Order Top Summary Card -->
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-100">
+            <div>
+              <div class="flex items-center space-x-2">
+                <span class="text-xs font-black uppercase text-slate-400">Order ID:</span>
+                <span class="text-lg font-black text-slate-900" id="detailOrderId">#NTX-XXXXXX</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5" id="detailOrderDate">Placed on ...</p>
+            </div>
+            <div id="detailStatusBadgeContainer">
+              <span class="px-3 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-800" id="detailStatusBadge">Order Placed</span>
+            </div>
+          </div>
+
+          <!-- 5-Step Live Tracking Progress Stepper -->
+          <div class="py-2">
+            <h4 class="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">Live Delivery Progress</h4>
+            
+            <div class="relative">
+              <div class="hidden sm:block absolute top-5 left-6 right-6 h-1 bg-slate-200 -z-0">
+                <div id="stepperProgressBar" class="h-full bg-emerald-600 transition-all duration-500" style="width: 25%;"></div>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 relative z-10 text-xs font-bold">
+                <div class="flex sm:flex-col items-center sm:text-center space-x-3 sm:space-x-0" id="stepNode-1">
+                  <div class="w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm shrink-0 shadow">
+                    <i class="fa-solid fa-receipt"></i>
+                  </div>
+                  <div class="sm:mt-2">
+                    <p class="font-extrabold text-slate-900">Placed</p>
+                    <p class="text-[10px] text-slate-400">Order Confirmed</p>
+                  </div>
+                </div>
+
+                <div class="flex sm:flex-col items-center sm:text-center space-x-3 sm:space-x-0" id="stepNode-2">
+                  <div class="w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-sm shrink-0">
+                    <i class="fa-solid fa-boxes-packing"></i>
+                  </div>
+                  <div class="sm:mt-2">
+                    <p class="font-extrabold text-slate-700">Packed</p>
+                    <p class="text-[10px] text-slate-400">Lab Tested Seal</p>
+                  </div>
+                </div>
+
+                <div class="flex sm:flex-col items-center sm:text-center space-x-3 sm:space-x-0" id="stepNode-3">
+                  <div class="w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-sm shrink-0">
+                    <i class="fa-solid fa-truck"></i>
+                  </div>
+                  <div class="sm:mt-2">
+                    <p class="font-extrabold text-slate-700">Dispatched</p>
+                    <p class="text-[10px] text-slate-400">Courier Transit</p>
+                  </div>
+                </div>
+
+                <div class="flex sm:flex-col items-center sm:text-center space-x-3 sm:space-x-0" id="stepNode-4">
+                  <div class="w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-sm shrink-0">
+                    <i class="fa-solid fa-motorcycle"></i>
+                  </div>
+                  <div class="sm:mt-2">
+                    <p class="font-extrabold text-slate-700">Out for Delivery</p>
+                    <p class="text-[10px] text-slate-400">Near Doorstep</p>
+                  </div>
+                </div>
+
+                <div class="flex sm:flex-col items-center sm:text-center space-x-3 sm:space-x-0" id="stepNode-5">
+                  <div class="w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-sm shrink-0">
+                    <i class="fa-solid fa-house-chimney-user"></i>
+                  </div>
+                  <div class="sm:mt-2">
+                    <p class="font-extrabold text-slate-700">Delivered</p>
+                    <p class="text-[10px] text-slate-400">Completed</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dedicated WhatsApp Support Button (Customized for this specific order) -->
+        <div class="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-4 sm:p-5 border-2 border-green-300 flex flex-col sm:flex-row items-center justify-between gap-3">
+          <div class="flex items-center space-x-3">
+            <div class="w-12 h-12 rounded-xl bg-green-500 text-white flex items-center justify-center text-2xl shrink-0 shadow">
+              <i class="fa-brands fa-whatsapp"></i>
+            </div>
+            <div>
+              <h4 class="text-sm font-black text-green-950">Need Help or Tracking Update for this Order?</h4>
+              <p class="text-xs text-green-800">Direct instant WhatsApp support with Order ID pre-filled for +91 90762 54354</p>
+            </div>
+          </div>
+          <a id="btnOrderWhatsappSupport" href="#" target="_blank" class="w-full sm:w-auto px-5 py-3 rounded-xl bg-green-600 hover:bg-green-700 text-white font-black text-xs transition shadow flex items-center justify-center space-x-2 shrink-0 active:scale-95">
+            <i class="fa-brands fa-whatsapp text-base"></i>
+            <span>Chat on WhatsApp</span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+          </a>
+        </div>
+
+        <!-- Ordered Items Card -->
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+          <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider">Ordered Items</h4>
+          <div id="detailItemsContainer" class="divide-y divide-slate-100">
+            <!-- Dynamic Items -->
+          </div>
+        </div>
+
+        <!-- Delivery Address & Payment Summary -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <!-- Delivery Address -->
+          <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-2">
+            <h4 class="text-xs font-black text-slate-400 uppercase tracking-wider">Delivery Address</h4>
+            <div class="text-xs font-bold text-slate-800 space-y-1">
+              <div id="detailRecipientName" class="font-black text-slate-900 text-sm">--</div>
+              <div id="detailAddressText" class="text-slate-600">--</div>
+              <div id="detailPhoneText" class="text-emerald-700">Phone: --</div>
+              <div id="detailMapsLinkRow" class="hidden pt-1">
+                <a id="detailMapsLink" href="#" target="_blank" class="text-emerald-700 hover:underline font-bold text-[11px] flex items-center space-x-1">
+                  <i class="fa-solid fa-map-pin text-rose-500"></i>
+                  <span>View Exact Google Maps Pin</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Total Bill Breakdown -->
+          <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-2.5 text-xs">
+            <h4 class="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">Payment Summary</h4>
+            <div class="flex justify-between text-slate-600">
+              <span>Payment Mode:</span>
+              <span id="detailPaymentMethod" class="font-bold text-slate-900">Cash on Delivery</span>
+            </div>
+            <div class="flex justify-between text-slate-600">
+              <span>Items Total:</span>
+              <span id="detailSubtotal" class="font-bold text-slate-900">₹0</span>
+            </div>
+            <div class="flex justify-between text-emerald-600">
+              <span>Discount:</span>
+              <span id="detailDiscount" class="font-bold">-₹0</span>
+            </div>
+            <div class="flex justify-between text-slate-600">
+              <span>Shipping Fee:</span>
+              <span id="detailShipping" class="font-bold text-emerald-600">FREE</span>
+            </div>
+            <div class="pt-2 border-t border-slate-100 flex justify-between text-sm font-black text-slate-900">
+              <span>Grand Total:</span>
+              <span id="detailGrandTotal" class="text-emerald-700 text-base">₹0</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Delivered Review Box (Only shown if status is Delivered/Completed) -->
+        <div id="deliveredReviewPromptBox" class="hidden bg-amber-50 rounded-3xl p-6 border border-amber-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div>
+            <h4 class="font-black text-slate-900 text-sm">How was your Nutrolix order?</h4>
+            <p class="text-xs text-slate-600 mt-0.5">Your review helps other wellness enthusiasts choose functional nutrition.</p>
+          </div>
+          <button onclick="window.openReviewModal()" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-black text-xs transition shadow flex items-center space-x-1.5 shrink-0">
+            <i class="fa-solid fa-star"></i>
+            <span>Write a Review</span>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Review Modal -->
+  <div id="orderReviewModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h4 class="font-black text-base text-slate-900">Rate Delivered Order</h4>
+          <p class="text-[11px] text-slate-500" id="reviewModalSubtitle">Order #NTX-XXXXXX</p>
+        </div>
+        <button onclick="window.closeReviewModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div>
+        <label class="block font-bold text-slate-700 text-xs mb-1">Your Rating</label>
+        <div class="flex items-center space-x-2 text-amber-400 text-2xl cursor-pointer my-2" id="orderStarRatingRow">
+          <i class="fa-solid fa-star text-amber-400" onclick="window.setRating(1)"></i>
+          <i class="fa-solid fa-star text-amber-400" onclick="window.setRating(2)"></i>
+          <i class="fa-solid fa-star text-amber-400" onclick="window.setRating(3)"></i>
+          <i class="fa-solid fa-star text-amber-400" onclick="window.setRating(4)"></i>
+          <i class="fa-solid fa-star text-amber-400" onclick="window.setRating(5)"></i>
+        </div>
+      </div>
+      <div>
+        <label class="block font-bold text-slate-700 text-xs mb-1">Feedback & Quality Review</label>
+        <textarea id="orderReviewText" rows="3" placeholder="Share your experience on product results, packaging, and delivery..." class="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600"></textarea>
+      </div>
+      <button onclick="window.submitReview()" class="w-full py-3 rounded-xl bg-nutro-forest text-white font-extrabold text-xs hover:bg-nutro-dark transition shadow">
+        Submit Verified Review
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile Bottom Navigation -->
+    <!-- Fixed Mobile Bottom Navigation (Change 6: Unselected = Black, Selected = Nutrolix Green) -->
+  <div class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-2 flex items-center justify-around shadow-2xl">
+    <a href="index.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-house text-lg mb-0.5"></i>
+      <span class="text-[10px]">Home</span>
+    </a>
+    <a href="shop.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-bag-shopping text-lg mb-0.5"></i>
+      <span class="text-[10px]">Shop</span>
+    </a>
+    <a href="food.html" class="relative flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <span class="absolute -top-1.5 right-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-sm leading-tight border border-amber-300 pointer-events-none">
+        ₹100 OFF
+      </span>
+      <i class="fa-solid fa-utensils text-lg mb-0.5"></i>
+      <span class="text-[10px]">Healthy Food</span>
+    </a>
+    <a href="orders.html" class="flex flex-col items-center justify-center py-1 px-2 text-emerald-700 font-extrabold active:scale-95 transition">
+      <i class="fa-solid fa-truck-fast text-lg mb-0.5"></i>
+      <span class="text-[10px]">My Orders</span>
+    </a>
+    <a href="account.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-user text-lg mb-0.5"></i>
+      <span class="text-[10px]">Profile</span>
+    </a>
+  </div>
+
+  <script>
+    let userOrders = [];
+    let currentSelectedOrder = null;
+    let currentRating = 5;
+
+    // Check Authentication & Load Orders
+    function checkAuthAndLoadOrders() {
+      const user = window.getNutrolixUser();
+      const authGate = document.getElementById('authGateContainer');
+      const authContent = document.getElementById('authenticatedOrdersContent');
+
+      if (!user) {
+        authGate.classList.remove('hidden');
+        authContent.classList.add('hidden');
+        return;
+      }
+
+      authGate.classList.add('hidden');
+      authContent.classList.remove('hidden');
+
+      document.getElementById('userDisplayName').textContent = user.name || 'Nutrolix Customer';
+      document.getElementById('userDisplayEmail').textContent = user.email || '';
+      if (user.photo) {
+        document.getElementById('userAvatarImg').src = user.photo;
+      }
+
+      loadUserOrders();
+    }
+
+    // Load Orders from localStorage & API
+    async function loadUserOrders() {
+      const user = window.getNutrolixUser();
+      if (!user) return;
+
+      const container = document.getElementById('orderHistoryContainer');
+      container.innerHTML = '<div class="text-center py-8 text-xs text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Loading centralized orders...</div>';
+
+      try {
+        let all = [];
+        try {
+          const o1 = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
+          if (Array.isArray(o1)) all = all.concat(o1);
+        } catch (_) {}
+        try {
+          const o2 = JSON.parse(localStorage.getItem('nutrolix_store_orders') || '[]');
+          if (Array.isArray(o2)) all = all.concat(o2);
+        } catch (_) {}
+        try {
+          const o3 = JSON.parse(localStorage.getItem('nutrolix_food_orders') || '[]');
+          if (Array.isArray(o3)) all = all.concat(o3);
+        } catch (_) {}
+
+        // Try fetching latest from server
+        try {
+          const res = await fetch('/api/nutrition-orders');
+          if (res.ok) {
+            const serverOrders = await res.json();
+            if (Array.isArray(serverOrders) && serverOrders.length) {
+              all = [...serverOrders, ...all];
+            }
+          }
+        } catch (_) {}
+
+        // Deduplicate by ID
+        const seen = new Set();
+        const unique = [];
+        for (const ord of all) {
+          const oid = ord.id || ord.orderId;
+          if (oid && !seen.has(oid)) {
+            seen.add(oid);
+            unique.push(ord);
+          }
+        }
+
+        // Add sample orders if none stored
+        if (unique.length === 0) {
+          unique.push({
+            id: 'NTX-782194',
+            orderId: 'NTX-782194',
+            orderType: 'packaged',
+            createdAt: new Date(Date.now() - 86400000).toISOString(),
+            status: 'Delivered',
+            courier: 'Bluedart Express',
+            trackingNumber: 'BLU-9841203',
+            grandTotal: 698,
+            paymentMethod: 'Prepaid (UPI)',
+            customer: { name: user.name || 'Verified Customer', email: user.email },
+            items: [
+              { title: 'Nutrolix High Protein Atta', name: 'Nutrolix High Protein Atta', variant: '1 Kg', quantity: 2, price: 349, image: 'assets/nutrolix-logo.png' }
+            ]
+          });
+          unique.push({
+            id: 'NTX-904512',
+            orderId: 'NTX-904512',
+            orderType: 'packaged',
+            createdAt: new Date(Date.now() - 36000000).toISOString(),
+            status: 'Dispatched',
+            courier: 'Delhivery Surface',
+            trackingNumber: 'DEL-4412098',
+            grandTotal: 699,
+            paymentMethod: 'Cash on Delivery',
+            customer: { name: user.name || 'Verified Customer', email: user.email },
+            items: [
+              { title: 'Nutrolix Complete Nutri Meal', name: 'Nutrolix Complete Nutri Meal', variant: '500g', quantity: 1, price: 699, image: 'assets/nutrolix-logo.png' }
+            ]
+          });
+        }
+
+        userOrders = unique;
+        renderOrdersList();
+      } catch (err) {
+        console.warn('Orders load error:', err);
+        renderOrdersList();
+      }
+    }
+
+    // Render Orders History List ONLY (Point 2)
+    function renderOrdersList() {
+      const container = document.getElementById('orderHistoryContainer');
+
+      if (!userOrders || userOrders.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 bg-white rounded-3xl border border-slate-200 text-slate-400 text-sm space-y-3">
+            <i class="fa-solid fa-box-open text-4xl text-slate-300"></i>
+            <p class="font-bold text-slate-700">No Orders Placed Yet</p>
+            <p class="text-xs text-slate-500 max-w-sm mx-auto">Explore high protein atta, functional mixes, and fresh healthy meals to place your first order.</p>
+            <a href="shop.html" class="inline-block px-5 py-2.5 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-extrabold text-xs transition shadow">
+              Shop Now →
+            </a>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = userOrders.map((ord, idx) => {
+        const orderId = ord.id || ord.orderId || ('NTX-' + (idx + 1000));
+        const itemCount = (ord.items || []).reduce((sum, it) => sum + (it.quantity || 1), 0);
+        const status = ord.status || 'Order Placed';
+        const dateStr = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent';
+        
+        // Status color styling
+        let badgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+        if (status.includes('Placed')) badgeClass = 'bg-blue-50 text-blue-800 border border-blue-200';
+        if (status.includes('Packed') || status.includes('Dispatched')) badgeClass = 'bg-amber-50 text-amber-800 border border-amber-200';
+        if (status.includes('Delivered')) badgeClass = 'bg-emerald-50 text-emerald-800 border border-emerald-200';
+
+        const firstItem = (ord.items && ord.items[0]) ? ord.items[0] : null;
+        const itemImg = firstItem ? (firstItem.image || 'assets/nutrolix-logo.png') : 'assets/nutrolix-logo.png';
+        const firstItemTitle = firstItem ? (firstItem.title || firstItem.name || 'Nutrition Product') : 'Nutrolix Nutrition Item';
+
+                const isFood = (ord.orderType === 'healthy_food' || (ord.items && ord.items.some(i => (i.category || '').toLowerCase().includes('food') || (i.category || '').toLowerCase().includes('meal'))));
+        const typeBadge = isFood 
+          ? `<span class="text-[9px] px-2 py-0.5 rounded-full font-black bg-emerald-100 text-emerald-800 border border-emerald-200">🥗 Fresh Kitchen Meal</span>`
+          : `<span class="text-[9px] px-2 py-0.5 rounded-full font-black bg-amber-100 text-amber-900 border border-amber-200">📦 Packaged Store Order</span>`;
+
+        const isDelivered = status.toLowerCase().includes('delivered');
+
+        return `
+          <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 hover:border-emerald-500 hover:shadow-md transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group">
+            <div onclick="window.showOrderDetail('${orderId}')" class="flex items-center space-x-3.5 min-w-0 cursor-pointer flex-1">
+              <img src="${itemImg}" alt="${firstItemTitle}" class="w-14 h-14 rounded-2xl object-contain bg-slate-50 border border-slate-200 p-1 shrink-0">
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-1.5">
+                  <span class="font-black text-sm text-slate-900 group-hover:text-emerald-700 transition">#${orderId}</span>
+                  ${typeBadge}
+                  <span class="text-[10px] px-2 py-0.5 rounded-full font-black ${badgeClass}">${status}</span>
+                </div>
+                <p class="text-xs text-slate-700 mt-1 truncate font-extrabold">${firstItemTitle} ${itemCount > 1 ? `+ ${itemCount - 1} more items` : ''}</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Placed on ${dateStr} • ${ord.paymentMethod || 'COD'}</p>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between sm:justify-end w-full sm:w-auto space-x-3 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
+              <div class="text-left sm:text-right pr-2">
+                <span class="block text-[10px] uppercase font-bold text-slate-400">Total Paid</span>
+                <span class="text-base font-black text-slate-900">₹${ord.grandTotal || ord.total || 0}</span>
+              </div>
+              <button onclick="window.showOrderDetail('${orderId}')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center space-x-1">
+                <i class="fa-solid fa-satellite-dish text-emerald-600"></i>
+                <span>Track</span>
+              </button>
+              ${isDelivered ? `
+                <button onclick="window.NutrolixReviews.openReviewModalForOrder(userOrders.find(o => o.id === '${orderId}' || o.orderId === '${orderId}'))" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold transition shadow-sm flex items-center space-x-1">
+                  <i class="fa-solid fa-star text-[10px]"></i>
+                  <span>Review</span>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Show Single Order Details & Tracking (Point 2)
+    window.showOrderDetail = function(orderId) {
+      const order = userOrders.find(o => (o.id === orderId || o.orderId === orderId));
+      if (!order) return;
+      currentSelectedOrder = order;
+
+      // Switch views
+      document.getElementById('ordersListView').classList.add('hidden');
+      document.getElementById('orderDetailView').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+
+      // Populate details
+      document.getElementById('detailOrderId').textContent = '#' + (order.id || order.orderId);
+      const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'Recent';
+      document.getElementById('detailOrderDate').textContent = 'Order Placed on ' + dateStr;
+
+      const status = order.status || 'Order Placed';
+      document.getElementById('detailStatusBadge').textContent = status;
+
+      // Update Stepper
+      let stepLevel = 1;
+      if (status.includes('Packed')) stepLevel = 2;
+      else if (status.includes('Dispatched') || status.includes('Shipped')) stepLevel = 3;
+      else if (status.includes('Out for Delivery')) stepLevel = 4;
+      else if (status.includes('Delivered') || status.includes('Completed')) stepLevel = 5;
+
+      document.getElementById('stepperProgressBar').style.width = ((stepLevel - 1) * 25) + '%';
+      for (let i = 1; i <= 5; i++) {
+        const node = document.getElementById(`stepNode-${i}`);
+        if (!node) continue;
+        const iconContainer = node.querySelector('div');
+        if (i <= stepLevel) {
+          iconContainer.className = 'w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm shrink-0 shadow';
+        } else {
+          iconContainer.className = 'w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-sm shrink-0';
+        }
+      }
+
+      // Customized WhatsApp Support Link (Point 2: Customized Message Button)
+      const ordIdText = order.id || order.orderId;
+      const itemsListText = (order.items || []).map(it => `${it.title || it.name} (x${it.quantity})`).join(', ');
+      const whatsappMsg = `Hi Nutrolix Support, I need assistance with my Order #${ordIdText}.\nItems: ${itemsListText}\nTotal Amount: ₹${order.grandTotal}.\nPlease update me on delivery status.`;
+      const whatsappUrl = `https://wa.me/919076254354?text=${encodeURIComponent(whatsappMsg)}`;
+      document.getElementById('btnOrderWhatsappSupport').href = whatsappUrl;
+
+      // Items list
+      const itemsContainer = document.getElementById('detailItemsContainer');
+      itemsContainer.innerHTML = (order.items || []).map(it => `
+        <div class="flex items-center justify-between py-3 text-xs gap-3">
+          <div class="flex items-center space-x-3 min-w-0">
+            <img src="${it.image || 'assets/nutrolix-logo.png'}" class="w-12 h-12 rounded-xl object-cover border border-slate-100 bg-slate-50 shrink-0">
+            <div class="min-w-0">
+              <h5 class="font-extrabold text-slate-900 truncate">${it.title || it.name}</h5>
+              <span class="text-slate-500 text-[11px]">${it.variant || 'Standard'} • Qty: ${it.quantity} • ₹${it.price} each</span>
+            </div>
+          </div>
+          <div class="font-black text-slate-900 text-sm shrink-0">₹${(it.price || 0) * (it.quantity || 1)}</div>
+        </div>
+      `).join('');
+
+      // Address & Customer Info
+      const cust = order.customer || {};
+      const addr = order.deliveryAddress || {};
+      document.getElementById('detailRecipientName').textContent = cust.name || 'Valued Customer';
+      document.getElementById('detailAddressText').textContent = [addr.address1, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ') || 'Address on file';
+      document.getElementById('detailPhoneText').textContent = 'Phone: ' + (cust.phone || 'Provided during checkout');
+
+      if (addr.googleMapsUrl || (addr.gpsLat && addr.gpsLon)) {
+        const mapsUrl = addr.googleMapsUrl || `https://maps.google.com/?q=${addr.gpsLat},${addr.gpsLon}`;
+        document.getElementById('detailMapsLink').href = mapsUrl;
+        document.getElementById('detailMapsLinkRow').classList.remove('hidden');
+      } else {
+        document.getElementById('detailMapsLinkRow').classList.add('hidden');
+      }
+
+      // Bill breakdown
+      document.getElementById('detailPaymentMethod').textContent = order.paymentMethod || 'Cash on Delivery';
+      document.getElementById('detailSubtotal').textContent = `₹${order.subtotal || order.grandTotal}`;
+      document.getElementById('detailDiscount').textContent = `-₹${order.discount || 0}`;
+      document.getElementById('detailShipping').textContent = (order.shipping === 0 || !order.shipping) ? 'FREE' : `₹${order.shipping}`;
+      document.getElementById('detailGrandTotal').textContent = `₹${order.grandTotal || 0}`;
+
+      // Delivered review prompt
+      const reviewBox = document.getElementById('deliveredReviewPromptBox');
+      if (status.includes('Delivered') || status.includes('Completed')) {
+        reviewBox.classList.remove('hidden');
+      } else {
+        reviewBox.classList.add('hidden');
+      }
+    };
+
+    // Return to Orders List
+    window.backToOrderList = function() {
+      document.getElementById('orderDetailView').classList.add('hidden');
+      document.getElementById('ordersListView').classList.remove('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Review Modal Handlers
+    window.openReviewModal = function() {
+      if (!currentSelectedOrder) return;
+      document.getElementById('reviewModalSubtitle').textContent = `Order #${currentSelectedOrder.id || currentSelectedOrder.orderId}`;
+      document.getElementById('orderReviewModal').classList.remove('hidden');
+    };
+
+    window.closeReviewModal = function() {
+      document.getElementById('orderReviewModal').classList.add('hidden');
+    };
+
+    window.setRating = function(r) {
+      currentRating = r;
+      const stars = document.getElementById('orderStarRatingRow').children;
+      for (let i = 0; i < 5; i++) {
+        stars[i].className = i < r ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-300';
+      }
+    };
+
+    window.submitReview = function() {
+      const text = document.getElementById('orderReviewText').value.trim();
+      if (!text) return alert('Please enter your feedback.');
+      alert(`🎉 Thank you! Your ${currentRating}-Star verified review has been submitted.`);
+      window.closeReviewModal();
+    };
+
+    // Listen for auth changes
+    window.addEventListener('nutrolix:auth-changed', () => {
+      checkAuthAndLoadOrders();
+    });
+
+    window.onAuthSuccessCallback = function() {
+      checkAuthAndLoadOrders();
+    };
+
+    window.onAuthSignOutCallback = function() {
+      checkAuthAndLoadOrders();
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      checkAuthAndLoadOrders();
+
+      // Check query param for direct order opening
+      const params = new URLSearchParams(window.location.search);
+      const queryId = params.get('orderId') || params.get('id');
+      if (queryId) {
+        setTimeout(() => window.showOrderDetail(queryId), 400);
+      }
+    });
+  </script>
+</body>
+</html>

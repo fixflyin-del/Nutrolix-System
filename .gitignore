@@ -1,0 +1,44 @@
+# Gradle & Android Build Outputs
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+local.properties
+.env
+/.idea/
+.DS_Store
+build/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Keystores & Sensitive Security Credentials
+*.keystore
+*.keystore.base64
+debug.keystore
+debug.keystore.base64
+*.jks
+*.p12
+
+# Heavy Binaries & Packages (Kept on Cloud CDN / Storage for Fast 1-Click Installs)
+*.apk
+*.aab
+*.ap_
+*.dat
+*.apk.dat
+.build-outputs/
+
+# Backups & Logs
+backup_*
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Node & Next.js / Vercel Build Artifacts
+node_modules/
+.next/
+.vercel/
+out/
+.turbo/

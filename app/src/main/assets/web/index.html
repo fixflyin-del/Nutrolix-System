@@ -1,0 +1,2091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nutrolix – Nutrition That Works | Premium Packaged Nutrition & Healthy Foods</title>
+  <meta name="description" content="Nutrolix Wellness Pvt. Ltd. - India's leading functional nutrition brand. High Protein Atta, Complete Nutri Meal, Superfoods, and traditional wellness formulations. Lab tested and certified.">
+
+  <!-- Tailwind CSS & Font Awesome -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'nutro-dark': '#064E3B',
+            'nutro-forest': '#0F3E2E',
+            'nutro-emerald': '#059669',
+            'nutro-light': '#10B981',
+            'nutro-orange': '#EA580C',
+            'nutro-amber': '#F59E0B',
+            'nutro-sand': '#FEF3C7',
+            'nutro-bg': '#F8FAFC'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #F8FAFC;
+      color: #1E293B;
+      -webkit-font-smoothing: antialiased;
+    }
+    .hero-gradient {
+      background: linear-gradient(135deg, #F0FDF4 0%, #ECFDF5 50%, #FFFBEB 100%);
+      border-bottom: 1px solid #E2E8F0;
+    }
+    .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: #F1F5F9; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    @media (max-width: 768px) {
+      .mobile-safe-bottom { padding-bottom: 5.5rem; }
+    }
+  </style>
+
+  <!-- Instant 0ms Nutrition Data Cache -->
+  <script src="assets/nutrolix-data.js"></script>
+  <script src="assets/nutrolix-drawer.js"></script>
+  <script src="assets/nutrolix-notifications.js"></script>
+  <script src="assets/nutrolix-reviews.js"></script>
+</head>
+<body class="mobile-safe-bottom flex flex-col min-h-screen">
+
+  <!-- ============================================================== -->
+  <!-- 1. STICKY DESKTOP & MOBILE HEADER WITH ORIGINAL NUTROLIX LOGO -->
+  <!-- ============================================================== -->
+    <!-- Top Single-Line Blinking Offer/Discount Announcement Bar (Requirement 4) -->
+  <div id="topBlinkingOfferBar" class="bg-gradient-to-r from-emerald-900 via-nutro-forest to-emerald-950 text-white text-[11px] sm:text-xs font-black py-2 px-3 text-center border-b border-emerald-800 shadow-inner flex items-center justify-center space-x-2">
+    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-black bg-amber-400 text-slate-950 uppercase tracking-wider animate-pulse shrink-0">
+      <span class="w-1.5 h-1.5 rounded-full bg-rose-600 mr-1 animate-ping"></span> Live Offer
+    </span>
+    <span id="topAnnouncementText" class="truncate font-extrabold tracking-wide">
+      🔥 Flat 10% OFF on all functional foods! Use Code: NUTRO10 • Free Delivery Above ₹499
+    </span>
+    <a href="shop.html" class="hidden md:inline-flex items-center space-x-1 text-amber-300 hover:text-white underline font-bold ml-2 shrink-0">
+      <span>Shop Now</span>
+      <i class="fa-solid fa-arrow-right text-[10px]"></i>
+    </a>
+  </div>
+
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        
+        <!-- Left side: Burger Button + Nutrolix Logo (Requirement 5) -->
+        <div class="flex items-center space-x-2 sm:space-x-3">
+          <button onclick="window.toggleLeftBurgerMenu()" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center text-base transition active:scale-95 focus:outline-none" aria-label="Open Navigation Menu">
+            <i class="fa-solid fa-bars text-emerald-800"></i>
+          </button>
+          <a href="index.html" class="flex items-center shrink-0 py-1">
+            <img src="assets/nutrolix-logo.png" alt="Nutrolix – Nutrition that works" class="h-10 sm:h-12 w-auto object-contain max-w-[170px] sm:max-w-[210px]">
+          </a>
+        </div>
+
+        <!-- Desktop Navigation Bar -->
+        <nav class="hidden lg:flex items-center space-x-7 text-sm font-bold text-slate-700">
+          <a href="index.html" class="text-nutro-emerald border-b-2 border-nutro-emerald pb-1 transition">Home</a>
+          <a href="shop.html" class="hover:text-nutro-emerald transition">Shop</a>
+          
+          <!-- Categories Dropdown -->
+          <div class="relative group">
+            <button class="flex items-center space-x-1 hover:text-nutro-emerald py-2 transition">
+              <span>Categories</span>
+              <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:rotate-180 transition"></i>
+            </button>
+            <div class="absolute left-0 mt-1 w-64 bg-white rounded-2xl shadow-xl border border-slate-100 py-3 hidden group-hover:block transition animate-fadeIn z-50">
+              <a href="/shop?cat=High+Protein+Foods" class="flex items-center px-4 py-2.5 hover:bg-slate-50 text-slate-800 text-xs font-semibold">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2.5"></span> High Protein Foods
+              </a>
+              <a href="/shop?cat=Superfood+Blends" class="flex items-center px-4 py-2.5 hover:bg-slate-50 text-slate-800 text-xs font-semibold">
+                <span class="w-2 h-2 rounded-full bg-amber-500 mr-2.5"></span> Superfood Blends
+              </a>
+              <a href="/shop?cat=Healthy+Breakfast" class="flex items-center px-4 py-2.5 hover:bg-slate-50 text-slate-800 text-xs font-semibold">
+                <span class="w-2 h-2 rounded-full bg-blue-500 mr-2.5"></span> Healthy Breakfast
+              </a>
+              <a href="/shop?cat=Millet+Products" class="flex items-center px-4 py-2.5 hover:bg-slate-50 text-slate-800 text-xs font-semibold">
+                <span class="w-2 h-2 rounded-full bg-orange-500 mr-2.5"></span> Millet Products
+              </a>
+              <a href="/shop?cat=Wellness+Nutrition" class="flex items-center px-4 py-2.5 hover:bg-slate-50 text-slate-800 text-xs font-semibold">
+                <span class="w-2 h-2 rounded-full bg-purple-500 mr-2.5"></span> Wellness Nutrition
+              </a>
+            </div>
+          </div>
+
+          <a href="/about" class="hover:text-nutro-emerald transition">About Us</a>
+          <a href="/about#story" class="hover:text-nutro-emerald transition">Our Story</a>
+
+          <!-- Track Orders Link -->
+          <a href="/orders.html" class="hover:text-nutro-emerald transition flex items-center space-x-1.5 py-1 px-2.5 rounded-lg text-slate-700 hover:bg-slate-100 font-bold">
+            <i class="fa-solid fa-truck-fast text-xs text-emerald-600"></i>
+            <span>Track Orders</span>
+          </a>
+
+          <a href="/blogs" class="hover:text-nutro-emerald transition">Blogs</a>
+          <a href="/contact" class="hover:text-nutro-emerald transition">Contact</a>
+        </nav>
+
+        <!-- Right Header Icons: Search, Wishlist, Account, Cart -->
+        <div class="flex items-center space-x-3 sm:space-x-4">
+          <!-- Search trigger -->
+          <button onclick="window.openSearchModal()" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition" title="Search products">
+            <i class="fa-solid fa-magnifying-glass text-sm"></i>
+          </button>
+
+          <!-- Wishlist -->
+          <a href="/account#wishlist" class="hidden sm:flex relative w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 items-center justify-center transition" title="My Wishlist">
+            <i class="fa-regular fa-heart text-sm"></i>
+            <span id="wishlistCountBadge" class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center hidden">0</span>
+          </a>
+
+          <!-- Account -->
+          <a href="/account" class="relative w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition" title="My Account">
+            <i class="fa-regular fa-user text-sm"></i>
+          </a>
+
+          <!-- Cart Drawer Button -->
+          <button onclick="window.toggleCartDrawer()" class="relative flex items-center space-x-2 bg-nutro-dark hover:bg-nutro-forest text-white px-4 py-2.5 rounded-xl transition shadow-md group">
+            <i class="fa-solid fa-bag-shopping text-emerald-400 group-hover:scale-110 transition"></i>
+            <span class="text-xs font-extrabold hidden md:inline">Cart</span>
+            <span id="cartCountBadge" class="w-5 h-5 rounded-full bg-amber-400 text-slate-900 text-xs font-black flex items-center justify-center">0</span>
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Left Slide-out Drawer Backdrop (Requirement 5) -->
+  <div id="leftBurgerBackdrop" onclick="window.toggleLeftBurgerMenu()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden transition-opacity duration-300"></div>
+
+  <!-- Left Slide-out Drawer Panel (Requirement 5: Short links, WhatsApp +919076254354, Partner) -->
+  <div id="leftBurgerDrawer" class="fixed top-0 left-0 bottom-0 w-84 max-w-[85vw] bg-white z-50 shadow-2xl transform -translate-x-full transition-transform duration-300 flex flex-col">
+    <div class="p-4 bg-nutro-forest text-white flex items-center justify-between border-b border-emerald-900">
+      <div class="flex items-center space-x-2.5">
+        <img src="assets/nutrolix-logo.png" alt="Nutrolix" class="h-8 w-auto bg-white rounded-lg p-1">
+      </div>
+      <button onclick="window.toggleLeftBurgerMenu()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-3 space-y-1.5 text-xs custom-scrollbar">
+      <a href="food.html" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50 text-emerald-900 font-extrabold hover:bg-emerald-100 transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-utensils text-emerald-700 w-5"></i>
+          <span>Order Healthy Food</span>
+        </div>
+        <span class="text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">Kitchen Fresh</span>
+      </a>
+
+      <a href="shop.html" class="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-bag-shopping text-emerald-600 w-5"></i>
+          <span>Packaged Food Store</span>
+        </div>
+        <span class="text-[9px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">Store</span>
+      </a>
+
+      <a href="orders.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <i class="fa-solid fa-truck-fast text-emerald-600 w-5"></i>
+        <span>My Orders & Live Tracking</span>
+      </a>
+
+      <a href="account.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <i class="fa-solid fa-user text-emerald-600 w-5"></i>
+        <span>My Profile & Addresses</span>
+      </a>
+
+      <div class="pt-2 pb-1 border-t border-slate-100 my-1">
+        <span class="text-[10px] uppercase font-black text-slate-400 px-3 tracking-wider">Direct WhatsApp & Quick Support</span>
+      </div>
+
+      <a href="https://wa.me/919076254354?text=Hi%20Nutrolix%2C%20I%20need%20support%20with%20my%20order" target="_blank" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-green-50 text-green-900 hover:bg-green-100 font-extrabold transition border border-green-200">
+        <div class="flex items-center space-x-3">
+          <i class="fa-brands fa-whatsapp text-green-600 text-base w-5"></i>
+          <span>Direct WhatsApp (+91 90762 54354)</span>
+        </div>
+        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-green-600"></i>
+      </a>
+
+      <a href="https://wa.me/919076254354?text=Hi%20Nutrolix%2C%20I%20am%20interested%20in%20joining%20as%20a%20Nutrolix%20Partner%20or%20Distributor" target="_blank" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50 text-amber-900 hover:bg-amber-100 font-extrabold transition border border-amber-200">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-handshake text-amber-600 text-base w-5"></i>
+          <span>Join as Partner / Distributor</span>
+        </div>
+        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-amber-600"></i>
+      </a>
+
+      <a href="Nutrolix-Customer.apk" download class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-900 text-white font-extrabold hover:bg-slate-800 transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-brands fa-android text-emerald-400 text-base w-5"></i>
+          <span>Download Our Android App</span>
+        </div>
+        <i class="fa-solid fa-download text-xs text-emerald-400"></i>
+      </a>
+
+      <a href="contact.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <i class="fa-solid fa-headset text-emerald-600 w-5"></i>
+        <span>Customer Support & FAQs</span>
+      </a>
+
+      <div class="pt-2 border-t border-slate-100">
+        <div class="text-[10px] uppercase font-black text-slate-400 px-3 tracking-wider mb-1">Brand Policies</div>
+        <div class="grid grid-cols-2 gap-1 px-1">
+          <a href="shipping.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Shipping Policy</a>
+          <a href="refund.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Return & Refund</a>
+          <a href="cancellation.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Cancellation</a>
+          <a href="privacy.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Privacy Policy</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-3 bg-slate-50 border-t border-slate-200 text-center text-[10px] text-slate-400 space-y-0.5">
+      <div class="font-bold text-slate-700">FSSAI Central Lic. # 21526024003044</div>
+      <div>Nutrolix Wellness Pvt. Ltd. • ISO 9001:2015</div>
+    </div>
+  </div>
+
+
+  <!-- ============================================================== -->
+  <!-- 3. SECTION 1: MODERN STATIC BRAND HERO (NO SLIDER - FAST & CLEAN) -->
+  <!-- ============================================================== -->
+  <!-- ============================================================== -->
+  <!-- 2. SECTION 1: MODERN LIGHT & ATTRACTIVE BRAND HERO -->
+  <!-- ============================================================== -->
+  <section class="hero-gradient text-slate-900 relative overflow-hidden py-10 lg:py-16" id="heroSection">
+    
+    <!-- Decorative subtle background wellness glow -->
+    <div class="absolute -top-24 -left-24 w-96 h-96 bg-emerald-300/25 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute -bottom-24 -right-24 w-96 h-96 bg-amber-300/20 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      
+      <!-- Top Quick Highlight Badge -->
+      <div class="flex items-center mb-5">
+        <div class="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-900 text-xs font-black tracking-wide shadow-sm">
+          <i class="fa-solid fa-circle-check text-emerald-600"></i>
+          <span>NABL LAB-TESTED • 100% CLINICAL FUNCTIONAL NUTRITION</span>
+        </div>
+      </div>
+
+      <!-- Static Brand Hero Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
+        
+        <!-- Left Hero Copy -->
+        <div class="lg:col-span-7 space-y-5">
+          <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-100 border border-amber-300 text-amber-900 text-xs font-black">
+            <span>🌿 PURE FUNCTIONAL FOODS • NO FILLERS</span>
+          </div>
+
+          <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-tight text-slate-950">
+            Nutrition That Works.<br>
+            <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-700 via-teal-700 to-amber-700">
+              Science In Every Grain.
+            </span>
+          </h1>
+
+          <p class="text-slate-700 text-sm sm:text-base font-medium leading-relaxed max-w-2xl">
+            Nutrolix crafts clinical-grade, unadulterated functional foods and daily metabolic wellness formulations. Zero maida, zero palm oil, zero artificial fillers, and verified bioavailability designed for real metabolic health.
+          </p>
+
+          <!-- 4. High Protein Atta & Complete Nutri Meal: True Horizontal Cards with Images -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1">
+            
+            <!-- Hero Horizontal Card 1: High Protein Atta -->
+            <div class="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-md hover:shadow-lg transition flex items-center gap-3.5 group">
+              <!-- Product Image (Left) -->
+              <a href="product.html?id=prod_high_protein_atta" class="w-24 sm:w-28 h-24 sm:h-28 rounded-xl overflow-hidden shrink-0 bg-slate-50 border border-slate-100 p-1 block">
+                <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=500&q=80" alt="Nutrolix High Protein Atta" class="w-full h-full object-cover rounded-lg group-hover:scale-105 transition duration-300">
+              </a>
+              <!-- Product Details (Right) -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center space-x-1.5 mb-1">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950">46g PROTEIN</span>
+                  <span class="text-[10px] text-emerald-800 font-extrabold truncate">100% Whole Grain</span>
+                </div>
+                <a href="product.html?id=prod_high_protein_atta">
+                  <h3 class="font-black text-sm sm:text-base text-slate-950 group-hover:text-emerald-700 transition truncate">High Protein Atta</h3>
+                </a>
+                <p class="text-[11px] text-slate-600 line-clamp-1 mt-0.5">Soft rotis with 4x protein of wheat. Zero spikes.</p>
+                <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                  <div>
+                    <span class="text-sm font-black text-emerald-800">₹349</span>
+                    <span class="text-xs text-slate-400 line-through ml-1">₹449</span>
+                  </div>
+                  <button onclick="window.quickAddToCart('prod_high_protein_atta', 349, 'Nutrolix High Protein Atta', 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=500&q=80')" class="text-xs font-black text-white bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow transition">
+                    <i class="fa-solid fa-plus text-[10px]"></i>
+                    <span>Add</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Hero Horizontal Card 2: Complete Nutri Meal -->
+            <div class="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-md hover:shadow-lg transition flex items-center gap-3.5 group">
+              <!-- Product Image (Left) -->
+              <a href="product.html?id=prod_complete_nutri_meal" class="w-24 sm:w-28 h-24 sm:h-28 rounded-xl overflow-hidden shrink-0 bg-slate-50 border border-slate-100 p-1 block">
+                <img src="https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=500&q=80" alt="Nutrolix Complete Nutri Meal" class="w-full h-full object-cover rounded-lg group-hover:scale-105 transition duration-300">
+              </a>
+              <!-- Product Details (Right) -->
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center space-x-1.5 mb-1">
+                  <span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-600 text-white">25+ SUPERFOODS</span>
+                  <span class="text-[10px] text-teal-800 font-extrabold truncate">Daily Wellness</span>
+                </div>
+                <a href="product.html?id=prod_complete_nutri_meal">
+                  <h3 class="font-black text-sm sm:text-base text-slate-950 group-hover:text-emerald-700 transition truncate">Complete Nutri Meal</h3>
+                </a>
+                <p class="text-[11px] text-slate-600 line-clamp-1 mt-0.5">Plant protein, ashwagandha, greens & enzymes.</p>
+                <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                  <div>
+                    <span class="text-sm font-black text-emerald-800">₹699</span>
+                    <span class="text-xs text-slate-400 line-through ml-1">₹899</span>
+                  </div>
+                  <button onclick="window.quickAddToCart('prod_complete_nutri_meal', 699, 'Nutrolix Complete Nutri Meal', 'https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=500&q=80')" class="text-xs font-black text-white bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow transition">
+                    <i class="fa-solid fa-plus text-[10px]"></i>
+                    <span>Add</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="flex flex-wrap items-center gap-3 pt-2">
+            <a href="shop.html" class="bg-nutro-dark hover:bg-nutro-forest text-white font-black px-6 py-3.5 rounded-xl shadow-lg transition flex items-center space-x-2 text-sm">
+              <i class="fa-solid fa-basket-shopping text-emerald-400"></i>
+              <span>Explore Nutrition Store</span>
+            </a>
+          </div>
+
+        </div>
+
+        <!-- Right Hero Visual Product Showcase -->
+        <div class="lg:col-span-5 relative">
+          <div class="relative bg-white/90 backdrop-blur-xl border border-emerald-200/80 rounded-3xl p-5 sm:p-6 shadow-xl">
+            <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80" alt="Nutrolix High Protein Atta" class="w-full h-64 sm:h-72 object-cover rounded-2xl shadow-sm mb-4">
+            
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center space-x-1 text-amber-500 text-xs">
+                  <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                  <span class="text-xs font-extrabold text-slate-900 ml-1.5">4.9 / 5.0</span>
+                  <span class="text-xs text-slate-500">(184 Reviews)</span>
+                </div>
+                <h4 class="text-lg font-black text-slate-950 mt-1">Nutrolix High Protein Atta</h4>
+              </div>
+              <div class="text-right">
+                <div class="text-xl font-black text-emerald-800">₹349</div>
+                <div class="text-[11px] text-emerald-700 font-bold">22% OFF</div>
+              </div>
+            </div>
+
+            <!-- Badges -->
+            <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100 text-center">
+              <div class="bg-emerald-50 rounded-xl p-2 border border-emerald-100">
+                <div class="text-base font-black text-emerald-800">46g</div>
+                <div class="text-[10px] text-slate-600 uppercase font-semibold">Protein / 100g</div>
+              </div>
+              <div class="bg-amber-50 rounded-xl p-2 border border-amber-100">
+                <div class="text-base font-black text-amber-800">12g</div>
+                <div class="text-[10px] text-slate-600 uppercase font-semibold">Prebiotic Fiber</div>
+              </div>
+              <div class="bg-teal-50 rounded-xl p-2 border border-teal-100">
+                <div class="text-base font-black text-teal-800">0%</div>
+                <div class="text-[10px] text-slate-600 uppercase font-semibold">Maida / Fillers</div>
+              </div>
+            </div>
+
+            <div class="mt-4">
+              <button onclick="window.quickAddToCart('prod_high_protein_atta', 349, 'Nutrolix High Protein Atta', 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-xl transition shadow-md flex items-center justify-center space-x-2 text-sm">
+                <i class="fa-solid fa-cart-plus"></i>
+                <span>Add to Bag • ₹349</span>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- 4. SECTION 2: TRUST & CERTIFICATION BAR (MANDATORY VERIFIED CLAIMS) -->
+  <!-- ============================================================== -->
+  <section class="bg-white border-y border-slate-200 py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid grid-cols-2 md:grid-cols-5 gap-6 items-center">
+        
+        <!-- Trust Item 1: Google Reviews -->
+        <a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="flex items-center space-x-3 group">
+          <div class="w-11 h-11 rounded-2xl bg-amber-50 text-amber-500 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition">
+            <i class="fa-brands fa-google"></i>
+          </div>
+          <div>
+            <div class="flex items-center space-x-1 text-amber-500 text-xs">
+              <i class="fa-solid fa-star"></i>
+              <span class="font-black text-slate-900 text-xs">4.9 ★</span>
+            </div>
+            <div class="text-xs font-bold text-slate-700">Google Reviews</div>
+            <div class="text-[10px] text-slate-400 font-medium">148+ Verified Reviews</div>
+          </div>
+        </a>
+
+        <!-- Trust Item 2: ISO Certified -->
+        <div class="flex items-center space-x-3">
+          <div class="w-11 h-11 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl shrink-0">
+            <i class="fa-solid fa-certificate"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-900">ISO 9001:2015</div>
+            <div class="text-[10px] text-slate-500">Certified Quality Management</div>
+            <div class="text-[10px] text-emerald-600 font-extrabold">Audited Standards</div>
+          </div>
+        </div>
+
+        <!-- Trust Item 3: GMP Certified -->
+        <div class="flex items-center space-x-3">
+          <div class="w-11 h-11 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center text-xl shrink-0">
+            <i class="fa-solid fa-industry"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-900">GMP Certified</div>
+            <div class="text-[10px] text-slate-500">Good Manufacturing Practice</div>
+            <div class="text-[10px] text-teal-600 font-extrabold">Clean Room Facility</div>
+          </div>
+        </div>
+
+        <!-- Trust Item 4: FSSAI Approved -->
+        <div class="flex items-center space-x-3">
+          <div class="w-11 h-11 rounded-2xl bg-orange-50 text-orange-600 flex items-center justify-center text-xl shrink-0">
+            <i class="fa-solid fa-shield-halved"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-900">FSSAI Licensed</div>
+            <div class="text-[10px] text-slate-500">Lic. 21526024003044</div>
+            <div class="text-[10px] text-orange-600 font-extrabold">Govt Approved Safety</div>
+          </div>
+        </div>
+
+        <!-- Trust Item 5: Lab Tested -->
+        <div class="flex items-center space-x-3 col-span-2 md:col-span-1 justify-center md:justify-start">
+          <div class="w-11 h-11 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl shrink-0">
+            <i class="fa-solid fa-flask-vial"></i>
+          </div>
+          <div>
+            <div class="text-xs font-bold text-slate-900">Every Batch Tested</div>
+            <div class="text-[10px] text-slate-500">NABL Accredited Labs</div>
+            <div class="text-[10px] text-indigo-600 font-extrabold">Zero Heavy Metals</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- 5. SECTION 3: GOOGLE CUSTOMER REVIEWS (LIVE VERIFIED INTEGRATION) -->
+  <!-- ============================================================== -->
+  <section class="py-16 bg-slate-50 border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <!-- Section Header with Official Google Profile Link -->
+      <div class="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
+        <div>
+          <div class="inline-flex items-center space-x-2 text-xs font-extrabold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
+            <i class="fa-brands fa-google text-amber-500"></i>
+            <span>GOOGLE BUSINESS PROFILE • LIVE CUSTOMER FEEDBACK</span>
+          </div>
+          <h2 class="text-3xl font-black text-slate-900 mt-2">What Real Customers Say on Google</h2>
+          <p class="text-slate-500 text-sm mt-1 max-w-xl">
+            Live, transparent reviews directly synced with our official Google Business Profile. Real people, verified experiences.
+          </p>
+        </div>
+
+        <!-- Rating Summary Box & CTA -->
+        <div class="flex items-center space-x-4 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm shrink-0">
+          <div class="text-right">
+            <div class="flex items-center space-x-1 text-amber-400 text-sm justify-end">
+              <i class="fa-solid fa-star"></i>
+              <i class="fa-solid fa-star"></i>
+              <i class="fa-solid fa-star"></i>
+              <i class="fa-solid fa-star"></i>
+              <i class="fa-solid fa-star"></i>
+            </div>
+            <div class="text-xs font-bold text-slate-800">4.9 / 5.0 Rating • 148+ Reviews</div>
+          </div>
+          <a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="bg-nutro-forest hover:bg-nutro-dark text-white text-xs font-extrabold px-4 py-2.5 rounded-xl transition flex items-center space-x-1.5 shadow-sm">
+            <span>Read All Google Reviews</span>
+            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+          </a>
+        </div>
+      </div>
+
+      <!-- Google Reviews Horizontal Scrolling Carousel Layout (Change 6) -->
+      <div class="relative">
+        <div class="flex items-center justify-between mb-3">
+          <div class="text-xs font-bold text-slate-500 flex items-center space-x-1.5">
+            <i class="fa-solid fa-arrows-left-right text-emerald-600"></i>
+            <span>Swipe or scroll horizontally to read all verified customer feedback</span>
+          </div>
+          <div class="hidden sm:flex items-center space-x-2">
+            <button onclick="window.scrollGoogleReviews(-1)" class="w-9 h-9 rounded-full bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 shadow-sm flex items-center justify-center transition active:scale-95" title="Previous Reviews">
+              <i class="fa-solid fa-chevron-left text-xs"></i>
+            </button>
+            <button onclick="window.scrollGoogleReviews(1)" class="w-9 h-9 rounded-full bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 shadow-sm flex items-center justify-center transition active:scale-95" title="Next Reviews">
+              <i class="fa-solid fa-chevron-right text-xs"></i>
+            </button>
+          </div>
+        </div>
+
+        <div id="googleReviewsGrid" class="flex space-x-5 overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory scroll-smooth">
+          <!-- Dynamic review cards injected here -->
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-800 font-black text-sm flex items-center justify-center">
+                SK
+              </div>
+              <div>
+                <h4 class="font-extrabold text-sm text-slate-900">Dr. Sameer Kulkarni</h4>
+                <div class="text-[11px] text-slate-400">Verified Google Reviewer</div>
+              </div>
+            </div>
+            <i class="fa-brands fa-google text-slate-300 text-lg"></i>
+          </div>
+          <div class="flex text-amber-400 text-xs mb-3">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </div>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            "As a lifestyle physician, I rigorously test what I recommend to my diabetic and fitness-oriented patients. Nutrolix High Protein Atta is genuinely revolutionary — 46g plant protein with real whole grains and zero glucose spike. Rotis turn out remarkably soft. Outstanding product!"
+          </p>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-full bg-teal-100 text-teal-800 font-black text-sm flex items-center justify-center">
+                PH
+              </div>
+              <div>
+                <h4 class="font-extrabold text-sm text-slate-900">Pooja Hegde</h4>
+                <div class="text-[11px] text-slate-400">Verified Google Reviewer</div>
+              </div>
+            </div>
+            <i class="fa-brands fa-google text-slate-300 text-lg"></i>
+          </div>
+          <div class="flex text-amber-400 text-xs mb-3">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </div>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            "I have been having the Complete Nutri Meal every morning before heading to work for the last 3 months. No afternoon lethargy, clean digestion, and absolutely no artificial sweetener aftertaste. Nutrolix has truly raised the bar for Indian wellness brands."
+          </p>
+        </div>
+
+        <div class="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center space-x-3">
+              <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-800 font-black text-sm flex items-center justify-center">
+                AV
+              </div>
+              <div>
+                <h4 class="font-extrabold text-sm text-slate-900">Aman Verma</h4>
+                <div class="text-[11px] text-slate-400">Verified Google Reviewer</div>
+              </div>
+            </div>
+            <i class="fa-brands fa-google text-slate-300 text-lg"></i>
+          </div>
+          <div class="flex text-amber-400 text-xs mb-3">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </div>
+          <p class="text-slate-600 text-xs leading-relaxed">
+            "The Talbeenah porridge is simply extraordinary. So gentle on the stomach and tastes comforting with natural date sweetness and cardamom. Their packaging and fast dispatch are top-tier. Highly recommend to everyone!"
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- 6. SECTION 4: NUTRITION STORE PRODUCTS CATALOG (INTERACTIVE CATEGORIES) -->
+  <!-- ============================================================== -->
+  <section class="py-16 bg-white" id="productsCatalogSection">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <!-- Section Header -->
+      <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+        <div>
+          <div class="inline-flex items-center space-x-2 text-xs font-black text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+            <i class="fa-solid fa-basket-shopping text-emerald-600"></i>
+            <span>NUTRITION STORE • CLINICAL GRADE CATALOG</span>
+          </div>
+          <h2 class="text-3xl sm:text-4xl font-black text-slate-900 mt-2">Functional Foods & Supplements</h2>
+          <p class="text-slate-500 text-sm mt-1 max-w-xl">
+            Pure, unadulterated nourishment formulated for real physiological results. Verified lab standards and customer reviews.
+          </p>
+        </div>
+
+        <a href="/shop" class="text-sm font-extrabold text-nutro-dark hover:text-nutro-emerald flex items-center space-x-1.5 transition shrink-0">
+          <span>Explore All Categories</span>
+          <i class="fa-solid fa-arrow-right text-xs"></i>
+        </a>
+      </div>
+
+      <!-- Modern Category Filter Pills -->
+      <div class="flex items-center space-x-2.5 overflow-x-auto pb-4 mb-8 custom-scrollbar text-xs font-bold" id="catalogCategoryTabs">
+        <button onclick="window.filterCatalogByCategory('All', this)" class="cat-pill active px-4 py-2 rounded-full bg-nutro-forest text-white transition shadow-sm shrink-0 flex items-center space-x-1.5">
+          <i class="fa-solid fa-sparkles text-amber-400"></i>
+          <span>All Products</span>
+          <span class="ml-1 px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]" id="catCountAll">8</span>
+        </button>
+        <button onclick="window.filterCatalogByCategory('High Protein Foods', this)" class="cat-pill px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0 flex items-center space-x-1.5">
+          <span>🌾 High Protein Atta & Flours</span>
+        </button>
+        <button onclick="window.filterCatalogByCategory('Superfood Blends', this)" class="cat-pill px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0 flex items-center space-x-1.5">
+          <span>🌱 Superfood Shakes & Blends</span>
+        </button>
+        <button onclick="window.filterCatalogByCategory('Healthy Breakfast', this)" class="cat-pill px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0 flex items-center space-x-1.5">
+          <span>🥣 Ancient Grains & Breakfast</span>
+        </button>
+        <button onclick="window.filterCatalogByCategory('Millet Products', this)" class="cat-pill px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0 flex items-center space-x-1.5">
+          <span>🌾 Millet Innovations</span>
+        </button>
+        <button onclick="window.filterCatalogByCategory('Wellness Nutrition', this)" class="cat-pill px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0 flex items-center space-x-1.5">
+          <span>🍯 Pure Elixirs & Honey</span>
+        </button>
+      </div>
+
+      <!-- Products Grid (2 columns on mobile, 4 columns on large screens) -->
+      <div id="featuredProductsContainer" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <!-- 1. High Protein Atta -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
+          <div class="relative overflow-hidden bg-slate-100 aspect-square">
+            <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80" alt="Nutrolix High Protein Atta" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+            <span class="absolute top-3 left-3 bg-nutro-orange text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm">
+              22% OFF
+            </span>
+            <button onclick="window.toggleWishlist('prod_high_protein_atta')" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs shadow-sm transition">
+              <i class="fa-solid fa-heart"></i>
+            </button>
+          </div>
+          <div class="p-2.5 sm:p-4 flex-1 flex flex-col justify-between">
+            <div>
+              <div class="text-[9px] sm:text-[10px] font-bold text-nutro-emerald uppercase tracking-wider line-clamp-1">High Protein Foods</div>
+              <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 mt-0.5 line-clamp-2 group-hover:text-nutro-emerald transition leading-snug">
+                <a href="product.html?id=prod_high_protein_atta">Nutrolix High Protein Atta</a>
+              </h3>
+              <div class="flex items-center space-x-1 mt-1 text-[10px] sm:text-xs">
+                <div class="flex text-amber-400 text-[9px] sm:text-[11px]">
+                  <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                </div>
+                <span class="font-black text-slate-800 text-[10px] sm:text-xs">4.9</span>
+                <span class="text-slate-400 text-[9px]">(184)</span>
+              </div>
+              <p class="text-[11px] text-slate-500 line-clamp-1 mt-1">46g Plant Protein Per 100g • 100% Whole Grain</p>
+            </div>
+            <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
+              <div>
+                <span class="text-xs sm:text-base font-black text-slate-900">₹349</span>
+                <span class="text-[10px] sm:text-xs text-slate-400 line-through ml-1">₹449</span>
+              </div>
+              <button onclick="window.addToStoreCart('prod_high_protein_atta')" class="bg-nutro-forest hover:bg-nutro-dark text-white text-[10px] sm:text-xs font-black px-2.5 sm:px-3 py-1.5 rounded-lg transition shadow-sm flex items-center space-x-1">
+                <i class="fa-solid fa-bag-shopping text-emerald-400"></i>
+                <span>Add</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Complete Nutri Meal -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
+          <div class="relative overflow-hidden bg-slate-100 aspect-square">
+            <img src="https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?auto=format&fit=crop&w=800&q=80" alt="Nutrolix Complete Nutri Meal" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+            <span class="absolute top-3 left-3 bg-nutro-orange text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm">
+              22% OFF
+            </span>
+            <button onclick="window.toggleWishlist('prod_complete_nutri_meal')" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs shadow-sm transition">
+              <i class="fa-solid fa-heart"></i>
+            </button>
+          </div>
+          <div class="p-2.5 sm:p-4 flex-1 flex flex-col justify-between">
+            <div>
+              <div class="text-[9px] sm:text-[10px] font-bold text-nutro-emerald uppercase tracking-wider line-clamp-1">Superfood Blends</div>
+              <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 mt-0.5 line-clamp-2 group-hover:text-nutro-emerald transition leading-snug">
+                <a href="product.html?id=prod_complete_nutri_meal">Nutrolix Complete Nutri Meal</a>
+              </h3>
+              <div class="flex items-center space-x-1 mt-1 text-[10px] sm:text-xs">
+                <div class="flex text-amber-400 text-[9px] sm:text-[11px]">
+                  <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                </div>
+                <span class="font-black text-slate-800 text-[10px] sm:text-xs">4.8</span>
+                <span class="text-slate-400 text-[9px]">(142)</span>
+              </div>
+              <p class="text-[11px] text-slate-500 line-clamp-1 mt-1">25+ Superfoods Daily Wellness & Clean Shake</p>
+            </div>
+            <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
+              <div>
+                <span class="text-xs sm:text-base font-black text-slate-900">₹699</span>
+                <span class="text-[10px] sm:text-xs text-slate-400 line-through ml-1">₹899</span>
+              </div>
+              <button onclick="window.addToStoreCart('prod_complete_nutri_meal')" class="bg-nutro-forest hover:bg-nutro-dark text-white text-[10px] sm:text-xs font-black px-2.5 sm:px-3 py-1.5 rounded-lg transition shadow-sm flex items-center space-x-1">
+                <i class="fa-solid fa-bag-shopping text-emerald-400"></i>
+                <span>Add</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Premium Talbeenah -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
+          <div class="relative overflow-hidden bg-slate-100 aspect-square">
+            <img src="https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80" alt="Nutrolix Premium Talbeenah" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+            <span class="absolute top-3 left-3 bg-nutro-orange text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm">
+              25% OFF
+            </span>
+            <button onclick="window.toggleWishlist('prod_premium_talbeenah')" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs shadow-sm transition">
+              <i class="fa-solid fa-heart"></i>
+            </button>
+          </div>
+          <div class="p-2.5 sm:p-4 flex-1 flex flex-col justify-between">
+            <div>
+              <div class="text-[9px] sm:text-[10px] font-bold text-nutro-emerald uppercase tracking-wider line-clamp-1">Healthy Breakfast</div>
+              <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 mt-0.5 line-clamp-2 group-hover:text-nutro-emerald transition leading-snug">
+                <a href="product.html?id=prod_premium_talbeenah">Nutrolix Premium Talbeenah</a>
+              </h3>
+              <div class="flex items-center space-x-1 mt-1 text-[10px] sm:text-xs">
+                <div class="flex text-amber-400 text-[9px] sm:text-[11px]">
+                  <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                </div>
+                <span class="font-black text-slate-800 text-[10px] sm:text-xs">4.9</span>
+                <span class="text-slate-400 text-[9px]">(96)</span>
+              </div>
+              <p class="text-[11px] text-slate-500 line-clamp-1 mt-1">Ancient Roasted Barley, Almond & Date Porridge</p>
+            </div>
+            <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
+              <div>
+                <span class="text-xs sm:text-base font-black text-slate-900">₹299</span>
+                <span class="text-[10px] sm:text-xs text-slate-400 line-through ml-1">₹399</span>
+              </div>
+              <button onclick="window.addToStoreCart('prod_premium_talbeenah')" class="bg-nutro-forest hover:bg-nutro-dark text-white text-[10px] sm:text-xs font-black px-2.5 sm:px-3 py-1.5 rounded-lg transition shadow-sm flex items-center space-x-1">
+                <i class="fa-solid fa-bag-shopping text-emerald-400"></i>
+                <span>Add</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Cold-Pressed Black Seed Elixir -->
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
+          <div class="relative overflow-hidden bg-slate-100 aspect-square">
+            <img src="https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&w=800&q=80" alt="Nutrolix Cold-Pressed Black Seed Oil" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+            <span class="absolute top-3 left-3 bg-nutro-orange text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm">
+              25% OFF
+            </span>
+            <button onclick="window.toggleWishlist('prod_cold_pressed_black_seed_oil')" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs shadow-sm transition">
+              <i class="fa-solid fa-heart"></i>
+            </button>
+          </div>
+          <div class="p-2.5 sm:p-4 flex-1 flex flex-col justify-between">
+            <div>
+              <div class="text-[9px] sm:text-[10px] font-bold text-nutro-emerald uppercase tracking-wider line-clamp-1">Wellness Nutrition</div>
+              <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 mt-0.5 line-clamp-2 group-hover:text-nutro-emerald transition leading-snug">
+                <a href="product.html?id=prod_cold_pressed_black_seed_oil">Nutrolix Black Seed Elixir</a>
+              </h3>
+              <div class="flex items-center space-x-1 mt-1 text-[10px] sm:text-xs">
+                <div class="flex text-amber-400 text-[9px] sm:text-[11px]">
+                  <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                </div>
+                <span class="font-black text-slate-800 text-[10px] sm:text-xs">4.9</span>
+                <span class="text-slate-400 text-[9px]">(110)</span>
+              </div>
+              <p class="text-[11px] text-slate-500 line-clamp-1 mt-1">Virgin Nigella Sativa • High Thymoquinone</p>
+            </div>
+            <div class="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between">
+              <div>
+                <span class="text-xs sm:text-base font-black text-slate-900">₹449</span>
+                <span class="text-[10px] sm:text-xs text-slate-400 line-through ml-1">₹599</span>
+              </div>
+              <button onclick="window.addToStoreCart('prod_cold_pressed_black_seed_oil')" class="bg-nutro-forest hover:bg-nutro-dark text-white text-[10px] sm:text-xs font-black px-2.5 sm:px-3 py-1.5 rounded-lg transition shadow-sm flex items-center space-x-1">
+                <i class="fa-solid fa-bag-shopping text-emerald-400"></i>
+                <span>Add</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- 7. SECTION 5: REAL CUSTOMER VIDEO REVIEWS (YOUTUBE SHORTS CAROUSEL) -->
+  <!-- ============================================================== -->
+  <section class="py-16 bg-slate-950 text-white relative overflow-hidden" id="videoReviewsSection">
+    <!-- Subtle glow background -->
+    <div class="absolute top-0 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
+        <div>
+          <div class="inline-flex items-center space-x-2 text-xs font-black text-emerald-400 bg-emerald-950/80 px-3 py-1 rounded-full border border-emerald-500/30">
+            <i class="fa-brands fa-youtube text-red-500 text-sm"></i>
+            <span>REAL RESULTS • CUSTOMER VIDEO STORIES</span>
+          </div>
+          <h2 class="text-3xl font-black mt-2 text-white">Watch What Real Customers Say</h2>
+          <p class="text-slate-400 text-xs sm:text-sm mt-1 max-w-xl">
+            Unfiltered video reviews from real athletes, doctors, and families. Tap any video to unmute and hear their transformation.
+          </p>
+        </div>
+
+        <!-- Carousel navigation arrows -->
+        <div class="flex items-center space-x-3">
+          <button onclick="window.scrollVideoCarousel(-1)" class="w-10 h-10 rounded-2xl bg-slate-900 border border-slate-700/80 hover:bg-slate-800 text-white flex items-center justify-center transition shadow-lg group" title="Previous review">
+            <i class="fa-solid fa-chevron-left text-xs group-hover:-translate-x-0.5 transition"></i>
+          </button>
+          <button onclick="window.scrollVideoCarousel(1)" class="w-10 h-10 rounded-2xl bg-slate-900 border border-slate-700/80 hover:bg-slate-800 text-white flex items-center justify-center transition shadow-lg group" title="Next review">
+            <i class="fa-solid fa-chevron-right text-xs group-hover:translate-x-0.5 transition"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Horizontal Video Scroll Container -->
+      <div id="videoReviewsCarousel" class="flex space-x-5 overflow-x-auto pb-6 custom-scrollbar snap-x snap-mandatory">
+        <!-- 1. Video Reel 1 -->
+        <div class="relative w-48 sm:w-60 aspect-[9/16] rounded-2xl overflow-hidden shrink-0 snap-start bg-black border border-slate-800 shadow-xl group cursor-pointer" onclick="window.playOrToggleVideo(0)">
+          <div id="vframe-box-0" class="absolute inset-0 w-full h-full bg-black">
+            <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80" alt="Nutrolix Video Review Reel" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+            <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition"></div>
+            <div id="playCenter-0" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div class="w-14 h-14 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/50 transform group-hover:scale-110 transition">
+                <i class="fa-solid fa-play text-xl ml-1"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Video Reel 2 -->
+        <div class="relative w-48 sm:w-60 aspect-[9/16] rounded-2xl overflow-hidden shrink-0 snap-start bg-black border border-slate-800 shadow-xl group cursor-pointer" onclick="window.playOrToggleVideo(1)">
+          <div id="vframe-box-1" class="absolute inset-0 w-full h-full bg-black">
+            <img src="https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=600&q=80" alt="Nutrolix Video Review Reel" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+            <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition"></div>
+            <div id="playCenter-1" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div class="w-14 h-14 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/50 transform group-hover:scale-110 transition">
+                <i class="fa-solid fa-play text-xl ml-1"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Video Reel 3 -->
+        <div class="relative w-48 sm:w-60 aspect-[9/16] rounded-2xl overflow-hidden shrink-0 snap-start bg-black border border-slate-800 shadow-xl group cursor-pointer" onclick="window.playOrToggleVideo(2)">
+          <div id="vframe-box-2" class="absolute inset-0 w-full h-full bg-black">
+            <img src="https://images.unsplash.com/photo-1594824813637-8e67e35b7123?auto=format&fit=crop&w=600&q=80" alt="Nutrolix Video Review Reel" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+            <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition"></div>
+            <div id="playCenter-2" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div class="w-14 h-14 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/50 transform group-hover:scale-110 transition">
+                <i class="fa-solid fa-play text-xl ml-1"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Video Reel 4 -->
+        <div class="relative w-48 sm:w-60 aspect-[9/16] rounded-2xl overflow-hidden shrink-0 snap-start bg-black border border-slate-800 shadow-xl group cursor-pointer" onclick="window.playOrToggleVideo(3)">
+          <div id="vframe-box-3" class="absolute inset-0 w-full h-full bg-black">
+            <img src="https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&q=80" alt="Nutrolix Video Review Reel" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+            <div class="absolute inset-0 bg-black/20 group-hover:bg-black/10 transition"></div>
+            <div id="playCenter-3" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <div class="w-14 h-14 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/50 transform group-hover:scale-110 transition">
+                <i class="fa-solid fa-play text-xl ml-1"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Video Reviews Carousel End -->
+
+    </div>
+  </section>
+
+
+  <!-- ============================================================== -->
+  <!-- 9. SECTION 7: OUR EXPERTISE & CLINICAL FORMULATION STANDARDS -->
+  <!-- ============================================================== -->
+  <section class="py-20 bg-gradient-to-b from-nutro-forest via-slate-900 to-slate-950 text-white relative overflow-hidden" id="ourExpertiseSection">
+    
+    <!-- Background subtle science glow -->
+    <div class="absolute -top-32 left-1/3 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="absolute bottom-0 right-10 w-96 h-96 bg-teal-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      
+      <!-- Section Header -->
+      <div class="text-center max-w-3xl mx-auto mb-16">
+        <div class="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 text-xs font-black uppercase tracking-wider mb-3">
+          <i class="fa-solid fa-microscope text-emerald-400"></i>
+          <span>CLINICAL EXPERTISE • BIOCHEMISTRY & NABL ACCREDITED</span>
+        </div>
+        <h2 class="text-3xl sm:text-5xl font-black text-white tracking-tight">Our Scientific Expertise & Philosophy</h2>
+        <p class="text-slate-300 text-sm sm:text-base mt-4 leading-relaxed font-medium">
+          Nutrolix rejects empty supplement marketing. Every formulation is engineered by biochemists and clinical nutritionists for cellular bioavailability, validated glycemic response, and radical label transparency.
+        </p>
+      </div>
+
+      <!-- 4 Pillars Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        
+        <!-- Pillar 1 -->
+        <div class="bg-white/5 border border-white/10 p-6 rounded-3xl hover:border-emerald-400/60 hover:bg-white/10 transition group flex flex-col justify-between">
+          <div>
+            <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition">
+              <i class="fa-solid fa-dna"></i>
+            </div>
+            <h3 class="text-lg font-black text-white group-hover:text-emerald-300 transition">Clinical Macronutrient Balance</h3>
+            <p class="text-slate-300 text-xs mt-2.5 leading-relaxed">
+              Formulated with complete amino acid profiles (PDCAAS score 1.0) and high prebiotic fiber to eliminate insulin spikes while sustaining muscle protein synthesis.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/10 flex items-center space-x-2 text-[11px] font-bold text-emerald-400">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Low-GI Certified</span>
+          </div>
+        </div>
+
+        <!-- Pillar 2 -->
+        <div class="bg-white/5 border border-white/10 p-6 rounded-3xl hover:border-amber-400/60 hover:bg-white/10 transition group flex flex-col justify-between">
+          <div>
+            <div class="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition">
+              <i class="fa-solid fa-flask-vial"></i>
+            </div>
+            <h3 class="text-lg font-black text-white group-hover:text-amber-300 transition">100% NABL Lab Certified</h3>
+            <p class="text-slate-300 text-xs mt-2.5 leading-relaxed">
+              Every production batch undergoes strict third-party laboratory testing for heavy metals, microbial pathogens, aflatoxins, and verified protein density.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/10 flex items-center space-x-2 text-[11px] font-bold text-amber-400">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Batch-Wise CoA Verified</span>
+          </div>
+        </div>
+
+        <!-- Pillar 3 -->
+        <div class="bg-white/5 border border-white/10 p-6 rounded-3xl hover:border-teal-400/60 hover:bg-white/10 transition group flex flex-col justify-between">
+          <div>
+            <div class="w-14 h-14 rounded-2xl bg-teal-500/20 text-teal-400 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition">
+              <i class="fa-solid fa-seedling"></i>
+            </div>
+            <h3 class="text-lg font-black text-white group-hover:text-teal-300 transition">Single-Origin Ancient Grains</h3>
+            <p class="text-slate-300 text-xs mt-2.5 leading-relaxed">
+              Sourced directly from certified regenerative Indian farmers: indigenous Bhalia wheat, sprouted legumes, organic pearl millets, and mountain botanicals.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/10 flex items-center space-x-2 text-[11px] font-bold text-teal-400">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Farmer Direct • Non-GMO</span>
+          </div>
+        </div>
+
+        <!-- Pillar 4 -->
+        <div class="bg-white/5 border border-white/10 p-6 rounded-3xl hover:border-rose-400/60 hover:bg-white/10 transition group flex flex-col justify-between">
+          <div>
+            <div class="w-14 h-14 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center text-2xl mb-5 group-hover:scale-110 transition">
+              <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <h3 class="text-lg font-black text-white group-hover:text-rose-300 transition">Zero Industrial Adulteration</h3>
+            <p class="text-slate-300 text-xs mt-2.5 leading-relaxed">
+              Absolute zero tolerance for hidden maltodextrin, cheap palm oil, artificial colors, gums, or chemical sweeteners that compromise your gut microbiome.
+            </p>
+          </div>
+          <div class="mt-6 pt-4 border-t border-white/10 flex items-center space-x-2 text-[11px] font-bold text-rose-400">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>0% Maida • 0% Palm Oil</span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Stat Badges Bar -->
+      <div class="mt-12 bg-white/5 border border-white/10 rounded-3xl p-6 sm:p-8 backdrop-blur-md grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
+        <div>
+          <div class="text-3xl sm:text-4xl font-black text-emerald-400 tracking-tight">46.2g</div>
+          <p class="text-xs text-slate-300 font-bold uppercase tracking-wider mt-1">Bioactive Protein / 100g</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">Highest in Indian Flour Category</p>
+        </div>
+        <div>
+          <div class="text-3xl sm:text-4xl font-black text-amber-400 tracking-tight">100%</div>
+          <p class="text-xs text-slate-300 font-bold uppercase tracking-wider mt-1">NABL Accredited Testing</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">Zero Heavy Metals & Additives</p>
+        </div>
+        <div>
+          <div class="text-3xl sm:text-4xl font-black text-teal-400 tracking-tight">4.9 / 5.0</div>
+          <p class="text-xs text-slate-300 font-bold uppercase tracking-wider mt-1">Google Customer Rating</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">From 148+ Verified Reviews</p>
+        </div>
+        <div>
+          <div class="text-3xl sm:text-4xl font-black text-white tracking-tight">0%</div>
+          <p class="text-xs text-slate-300 font-bold uppercase tracking-wider mt-1">Refined Gimmicks</p>
+          <p class="text-[10px] text-slate-400 mt-0.5">Zero Maida, Sugar or Palm Oil</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- 10. SECTION 10: FEATURED IN (MEDIA COVERAGE) -->
+  <!-- ============================================================== -->
+  <section class="py-12 bg-white border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <span class="text-xs font-black text-slate-400 uppercase tracking-widest">Recognized & Featured In</span>
+      <div class="flex flex-wrap items-center justify-center gap-8 sm:gap-14 mt-6 opacity-75 grayscale hover:grayscale-0 transition-all duration-300">
+        <div class="flex items-center space-x-2 text-slate-700 font-black text-lg">
+          <i class="fa-solid fa-newspaper text-red-600"></i>
+          <span>Dailyhunt</span>
+        </div>
+        <div class="flex items-center space-x-2 text-slate-700 font-black text-lg">
+          <i class="fa-solid fa-globe text-blue-600"></i>
+          <span>Hindustan Wires</span>
+        </div>
+        <div class="flex items-center space-x-2 text-slate-700 font-black text-lg">
+          <i class="fa-solid fa-building text-amber-600"></i>
+          <span>The Entrepreneur Stories</span>
+        </div>
+        <div class="flex items-center space-x-2 text-slate-700 font-black text-lg">
+          <i class="fa-solid fa-chart-line text-emerald-600"></i>
+          <span>The Business Stories</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- 11. SECTION 12: NUTROLIX EXPRESS DISPATCH & LIVE ORDER TRACKING -->
+  <!-- ============================================================== -->
+  <section class="py-14 bg-gradient-to-r from-emerald-950 via-nutro-forest to-slate-950 text-white relative overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="bg-white/10 backdrop-blur-md rounded-3xl p-8 sm:p-12 border border-white/20 flex flex-col lg:flex-row items-center justify-between gap-8 shadow-2xl">
+        <div class="max-w-2xl space-y-4">
+          <div class="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-emerald-400 text-slate-950 text-xs font-black">
+            <i class="fa-solid fa-truck-fast text-sm"></i>
+            <span>FAST EXPRESS DISPATCH • PAN-INDIA DELIVERY</span>
+          </div>
+          <h2 class="text-3xl sm:text-4xl font-black text-white leading-tight">
+            Track Your Nutrition Order in Real-Time.<br>
+            <span class="text-emerald-300">Clean Packaged Products Shipped Direct to Your Doorstep.</span>
+          </h2>
+          <p class="text-slate-300 text-sm leading-relaxed">
+            Every Nutrolix order is packed in a clean-room facility and dispatched with express pan-India tracking. Get live stage updates from processing to doorstep delivery.
+          </p>
+          <div class="flex flex-wrap items-center gap-4 text-xs font-bold text-emerald-200">
+            <span>✓ Verified NABL Lab Reports</span>
+            <span>✓ Real-Time Dispatch Tracking</span>
+            <span>✓ Direct WhatsApp VIP Support</span>
+          </div>
+        </div>
+
+        <div class="shrink-0 flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <a href="orders.html" class="w-full sm:w-auto bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-slate-950 font-black px-8 py-4 rounded-2xl shadow-xl transition text-sm flex items-center justify-center space-x-2 transform hover:scale-105">
+            <i class="fa-solid fa-truck-fast"></i>
+            <span>Track Your Orders</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </a>
+          <a href="https://wa.me/919076254354" target="_blank" class="w-full sm:w-auto bg-white/15 hover:bg-white/25 text-white font-extrabold px-6 py-4 rounded-2xl border border-white/20 transition text-sm flex items-center justify-center space-x-2">
+            <i class="fa-brands fa-whatsapp text-emerald-400 text-base"></i>
+            <span>WhatsApp Support</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- 12. SECTION 13: BLOGS & NUTRITION KNOWLEDGE -->
+  <!-- ============================================================== -->
+  <section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-4">
+        <div>
+          <span class="text-xs font-black text-nutro-emerald uppercase tracking-wider">Evidence-Based</span>
+          <h2 class="text-3xl font-black text-slate-900 mt-1">Nutrition & Wellness Insights</h2>
+          <p class="text-slate-500 text-sm mt-1">Written by clinical nutritionists and functional food food scientists.</p>
+        </div>
+        <a href="/blogs" class="text-sm font-extrabold text-nutro-dark hover:text-nutro-emerald flex items-center space-x-1 transition">
+          <span>Read All Articles</span>
+          <i class="fa-solid fa-arrow-right text-xs"></i>
+        </a>
+      </div>
+
+      <div id="blogsContainer" class="grid grid-cols-1 md:grid-cols-3 gap-8">
+        <!-- Rendered by JS -->
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- 13. SECTION 14: NEWSLETTER & COUPON -->
+  <!-- ============================================================== -->
+  <section class="py-16 bg-slate-50 border-t border-slate-200">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl mx-auto mb-4">
+        <i class="fa-solid fa-envelope-open-text"></i>
+      </div>
+      <h2 class="text-3xl font-black text-slate-900">Unlock 10% OFF Your First Order</h2>
+      <p class="text-slate-500 text-sm mt-2 max-w-lg mx-auto">
+        Join the Nutrolix Wellness community for weekly evidence-based diet guides, product drops, and exclusive subscriber discounts.
+      </p>
+
+      <form onsubmit="window.handleNewsletter(event)" class="mt-6 flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+        <input type="email" id="newsletterEmail" required placeholder="Enter your email address" class="flex-1 px-4 py-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600">
+        <button type="submit" class="bg-nutro-forest hover:bg-nutro-dark text-white font-extrabold px-6 py-3 rounded-xl transition text-sm shrink-0">
+          Subscribe & Get 10% OFF
+        </button>
+      </form>
+      <div id="newsletterSuccess" class="hidden text-xs font-bold text-emerald-600 mt-3">
+        🎉 Thank you! Check your inbox for your 10% coupon: <span class="bg-emerald-100 px-2 py-0.5 rounded text-slate-900">NUTRO10</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== -->
+  <!-- 14. FOOTER (COMPREHENSIVE PREMIUM FOOTER) -->
+  <!-- ============================================================== -->
+  <footer class="bg-nutro-forest text-slate-300 pt-16 pb-12 border-t border-emerald-950">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 mb-12">
+        
+        <!-- Col 1: Brand Info -->
+        <div class="lg:col-span-2 space-y-4">
+          <a href="index.html" class="flex items-center space-x-3">
+            <img src="assets/nutrolix-logo.png" alt="Nutrolix" class="h-10 w-auto object-contain bg-white rounded-xl p-1.5 shadow-md">
+          </a>
+          <p class="text-xs text-slate-400 leading-relaxed max-w-sm">
+            Nutrolix Wellness Pvt. Ltd. is an Indian functional nutrition company pioneering research-backed packaged foods, high protein staples, and healthy cloud-kitchen dining.
+          </p>
+          <div class="pt-2">
+            <div class="text-xs font-bold text-slate-200 mb-2">Connect on Official Social Media:</div>
+            <div class="flex items-center space-x-3">
+              <a href="https://www.facebook.com/people/Nutrolix/61593206843289/" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-blue-600 text-white flex items-center justify-center text-sm transition" title="Facebook">
+                <i class="fa-brands fa-facebook-f"></i>
+              </a>
+              <a href="https://www.instagram.com/nutrolix.wellness/" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-gradient-to-tr hover:from-amber-500 hover:to-rose-600 text-white flex items-center justify-center text-sm transition" title="Instagram">
+                <i class="fa-brands fa-instagram"></i>
+              </a>
+              <a href="https://www.youtube.com/@Nutrolix" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-red-600 text-white flex items-center justify-center text-sm transition" title="YouTube">
+                <i class="fa-brands fa-youtube"></i>
+              </a>
+              <a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-amber-500 text-white flex items-center justify-center text-sm transition" title="Google Business Profile">
+                <i class="fa-brands fa-google"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col 2: Nutrition Store -->
+        <div>
+          <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrition Store</h4>
+          <ul class="space-y-2.5 text-xs text-slate-400">
+            <li><a href="/shop" class="hover:text-white transition">All Products</a></li>
+            <li><a href="/shop?cat=High+Protein+Foods" class="hover:text-white transition">High Protein Atta</a></li>
+            <li><a href="/shop?cat=Superfood+Blends" class="hover:text-white transition">Complete Nutri Meal</a></li>
+            <li><a href="/shop?cat=Healthy+Breakfast" class="hover:text-white transition">Talbeenah Porridge</a></li>
+            <li><a href="/shop?cat=Millet+Products" class="hover:text-white transition">Multi-Millet Flakes</a></li>
+            <li><a href="/shop?cat=Wellness+Nutrition" class="hover:text-white transition">Black Seed Oil</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 3: Company & Information -->
+        <div>
+          <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrolix Brand</h4>
+          <ul class="space-y-2.5 text-xs text-slate-400">
+            <li><a href="/about" class="hover:text-white transition">About Us</a></li>
+            <li><a href="/about#story" class="hover:text-white transition">Our Story</a></li>
+            <li><a href="/orders.html" class="text-emerald-400 font-bold hover:text-emerald-300 transition flex items-center space-x-1">
+              <span><i class="fa-solid fa-truck-fast mr-1"></i> Track Orders</span>
+              <span class="text-[9px] bg-emerald-800 text-white px-1.5 py-0.2 rounded">Live</span>
+            </a></li>
+            <li><a href="/blogs" class="hover:text-white transition">Nutrition Blogs</a></li>
+            <li><a href="/contact" class="hover:text-white transition">Contact Us</a></li>
+            <li><a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="hover:text-white transition">Google Customer Reviews</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 4: Trust & Policies -->
+        <div>
+          <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Customer Care</h4>
+          <ul class="space-y-2.5 text-xs text-slate-400">
+            <li><a href="/faqs" class="hover:text-white transition">FAQs</a></li>
+            <li><a href="/shipping" class="hover:text-white transition">Shipping Policy</a></li>
+            <li><a href="/refund" class="hover:text-white transition">Return & Refund Policy</a></li>
+            <li><a href="/cancellation" class="hover:text-white transition">Cancellation Policy</a></li>
+            <li><a href="/privacy" class="hover:text-white transition">Privacy Policy</a></li>
+            <li><a href="/terms" class="hover:text-white transition">Terms & Conditions</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Bottom Bar -->
+      <div class="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
+        <div>
+          © 2026 Nutrolix Wellness Pvt. Ltd. All rights reserved.
+        </div>
+        <div class="flex items-center space-x-4">
+          <span class="text-slate-400"><i class="fa-solid fa-shield-halved text-emerald-400 mr-1"></i> FSSAI Central Lic. # 21526024003044</span>
+          <span>•</span>
+          <span class="text-slate-400">ISO 9001:2015</span>
+        </div>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- ============================================================== -->
+  <!-- 15. MOBILE BOTTOM NAVIGATION (Home, Shop, Cart, My Orders, More) -->
+  <!-- ============================================================== -->
+  <!-- 15. MOBILE BOTTOM NAVIGATION (Home, Shop, Cart, My Orders, More) -->
+  <!-- ============================================================== -->
+  <!-- Fixed Mobile Bottom Navigation (Change 6: Unselected = Black, Selected = Nutrolix Green) -->
+  <div class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-2 flex items-center justify-around shadow-2xl">
+    <a href="index.html" class="flex flex-col items-center justify-center py-1 px-2 text-emerald-700 font-extrabold active:scale-95 transition">
+      <i class="fa-solid fa-house text-lg mb-0.5"></i>
+      <span class="text-[10px]">Home</span>
+    </a>
+    <a href="shop.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-bag-shopping text-lg mb-0.5"></i>
+      <span class="text-[10px]">Shop</span>
+    </a>
+    <a href="food.html" class="relative flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <span class="absolute -top-1.5 right-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-sm leading-tight border border-amber-300 pointer-events-none">
+        ₹100 OFF
+      </span>
+      <i class="fa-solid fa-utensils text-lg mb-0.5"></i>
+      <span class="text-[10px]">Healthy Food</span>
+    </a>
+    <a href="orders.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-truck-fast text-lg mb-0.5"></i>
+      <span class="text-[10px]">My Orders</span>
+    </a>
+    <a href="account.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-user text-lg mb-0.5"></i>
+      <span class="text-[10px]">Profile</span>
+    </a>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 15.1 SLIDE-OUT MORE SIDEBAR (TRIGGERED BY 'MORE' TAB) -->
+  <!-- ============================================================== -->
+  <div id="moreSidebarBackdrop" onclick="window.toggleMoreSidebar()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-[60] hidden pointer-events-none transition-opacity"></div>
+  <div id="moreSidebar" class="fixed top-0 right-0 bottom-0 w-80 max-w-[85vw] bg-white z-[70] shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
+    <!-- Header -->
+    <div class="p-4 bg-nutro-forest text-white flex items-center justify-between">
+      <div class="flex items-center space-x-2.5">
+        <img src="assets/nutrolix-logo.png" alt="Nutrolix" class="h-7 w-auto object-contain bg-white rounded-lg p-1">
+        <div>
+          <h3 class="font-black text-sm">Nutrolix Brand Menu</h3>
+          <p class="text-[10px] text-emerald-300">Nutrition That Works</p>
+        </div>
+      </div>
+      <button onclick="window.toggleMoreSidebar()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Quick User Status -->
+    <div class="p-4 bg-slate-50 border-b border-slate-200">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-800 flex items-center justify-center font-black text-sm" id="sidebarAvatar">
+            <i class="fa-solid fa-user"></i>
+          </div>
+          <div>
+            <div class="font-extrabold text-xs text-slate-900" id="sidebarUserName">Guest Customer</div>
+            <div class="text-[10px] text-slate-500" id="sidebarUserEmail">1-Click Auto Save Enabled</div>
+          </div>
+        </div>
+        <a href="account.html" class="text-xs font-black text-nutro-emerald hover:underline">Profile</a>
+      </div>
+    </div>
+
+    <!-- Navigation List -->
+    <div class="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar text-xs">
+      <a href="shop.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 font-bold transition">
+        <i class="fa-solid fa-bag-shopping text-emerald-600 w-5"></i>
+        <span>Shop All Products</span>
+      </a>
+      <a href="orders.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 font-bold transition">
+        <i class="fa-solid fa-truck-fast text-emerald-600 w-5"></i>
+        <span>Track Live Orders</span>
+      </a>
+      <a href="about.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 font-bold transition">
+        <i class="fa-solid fa-circle-info text-blue-600 w-5"></i>
+        <span>About Us</span>
+      </a>
+      <a href="about.html#story" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 font-bold transition">
+        <i class="fa-solid fa-seedling text-emerald-600 w-5"></i>
+        <span>Our Story & Science</span>
+      </a>
+      <a href="blogs.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 font-bold transition">
+        <i class="fa-solid fa-newspaper text-amber-600 w-5"></i>
+        <span>Nutrition Science Blogs</span>
+      </a>
+      <a href="contact.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 font-bold transition">
+        <i class="fa-solid fa-headset text-teal-600 w-5"></i>
+        <span>Contact Us</span>
+      </a>
+
+      <!-- WhatsApp VIP Support -->
+      <div class="pt-3 border-t border-slate-200 mt-2">
+        <div class="text-[10px] uppercase font-black text-slate-400 px-3 mb-1">Direct Health Support</div>
+        <a href="https://wa.me/919076254354?text=Hello%20Nutrolix%2C%20I%20need%20help%20with%20an%20order." target="_blank" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl bg-green-50 text-green-800 font-bold hover:bg-green-100 transition">
+          <i class="fa-brands fa-whatsapp text-green-600 text-base w-5"></i>
+          <span>WhatsApp Chat Support</span>
+        </a>
+        <a href="tel:+919076254354" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-700 font-bold transition">
+          <i class="fa-solid fa-phone text-slate-500 w-5"></i>
+          <span>Call: +91 90762 54354</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 16. SLIDING CART DRAWER -->
+  <!-- ============================================================== -->
+  <div id="cartDrawerBackdrop" onclick="window.toggleCartDrawer()" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[60] hidden transition-opacity"></div>
+  <div id="cartDrawer" class="fixed top-0 right-0 bottom-0 w-full sm:w-96 bg-white z-[70] shadow-2xl transform translate-x-full transition-transform duration-300 flex flex-col">
+    
+    <div class="p-4 bg-nutro-forest text-white flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-bag-shopping text-emerald-400"></i>
+        <h3 class="font-extrabold text-base">Your Nutrition Bag</h3>
+      </div>
+      <button onclick="window.toggleCartDrawer()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Free Delivery Progress Bar -->
+    <div class="bg-amber-50 p-3 border-b border-amber-200">
+      <div class="flex items-center justify-between text-xs font-bold text-slate-800 mb-1.5">
+        <span id="freeShippingText">Add ₹150 more for FREE Delivery!</span>
+        <span id="freeShippingPercent" class="text-emerald-700">70%</span>
+      </div>
+      <div class="w-full h-2 bg-amber-200 rounded-full overflow-hidden">
+        <div id="freeShippingBar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 70%"></div>
+      </div>
+    </div>
+
+    <!-- Items list -->
+    <div id="cartDrawerItems" class="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+      <!-- Dynamic cart items -->
+      <div class="text-center py-12 text-slate-400 text-sm">
+        <i class="fa-solid fa-bag-shopping text-4xl text-slate-300 mb-3"></i>
+        <p>Your nutrition bag is empty.</p>
+        <a href="/shop" onclick="window.toggleCartDrawer()" class="mt-4 inline-block text-xs font-black text-nutro-emerald hover:underline">Start Shopping →</a>
+      </div>
+    </div>
+
+    <!-- Cart Footer & Checkout -->
+    <div class="p-4 border-t border-slate-200 bg-slate-50 space-y-3">
+      <div class="flex items-center justify-between text-sm">
+        <span class="text-slate-600 font-semibold">Subtotal</span>
+        <span id="cartDrawerSubtotal" class="font-black text-slate-900 text-base">₹0</span>
+      </div>
+      <div class="flex items-center justify-between text-xs">
+        <span class="text-slate-500">Shipping</span>
+        <span id="cartDrawerShipping" class="font-bold text-emerald-600">FREE</span>
+      </div>
+      <a href="/cart" class="w-full bg-nutro-forest hover:bg-nutro-dark text-white font-extrabold py-3.5 rounded-xl transition flex items-center justify-center space-x-2 text-sm shadow-md">
+        <span>Proceed to Checkout</span>
+        <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+  </div>
+
+  <!-- ============================================================== -->
+  <!-- 17. SEARCH MODAL OVERLAY -->
+  <!-- ============================================================== -->
+  <div id="searchModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-start justify-center pt-20 px-4">
+    <div class="bg-white rounded-3xl w-full max-w-xl p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="font-black text-base text-slate-900">Search Nutrolix Products</h3>
+        <button onclick="window.closeSearchModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+      </div>
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-4 top-3.5 text-slate-400"></i>
+        <input type="text" id="searchInput" oninput="window.handleSearch(this.value)" placeholder="Search High Protein Atta, Nutri Meal, Barley..." class="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-emerald-600">
+      </div>
+      <div id="searchResults" class="max-h-64 overflow-y-auto space-y-2 text-xs">
+        <!-- Rendered search results -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Application Scripts -->
+  <script>
+    // State management: preserve in-memory products from nutrolix-data.js
+    if (!window.nutroProducts || !window.nutroProducts.length) {
+      window.nutroProducts = window.nutroFallbackProducts || [];
+    }
+    window.nutroCart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+    window.nutroWishlist = JSON.parse(localStorage.getItem('nutrolix_wishlist') || '[]');
+
+    // Initialize application
+    // Hero Slider Controller
+    window.currentHeroSlide = 0;
+    window.heroSlideTimer = null;
+
+    window.setHeroSlide = function(idx) {
+      window.currentHeroSlide = idx;
+      for (let i = 0; i < 3; i++) {
+        const slide = document.getElementById('heroSlide' + i);
+        const dot = document.getElementById('heroDot' + i);
+        if (slide) {
+          if (i === idx) {
+            slide.classList.remove('hidden');
+            slide.classList.add('block');
+          } else {
+            slide.classList.remove('block');
+            slide.classList.add('hidden');
+          }
+        }
+        if (dot) {
+          if (i === idx) {
+            dot.className = 'hero-dot w-8 h-2 rounded-full bg-emerald-400 transition-all duration-300';
+          } else {
+            dot.className = 'hero-dot w-2.5 h-2 rounded-full bg-white/30 hover:bg-white/60 transition-all duration-300';
+          }
+        }
+      }
+    };
+
+    // More Drawer Toggle Function
+    window.toggleMoreSidebar = function() {
+      const drawer = document.getElementById('moreSidebar');
+      const backdrop = document.getElementById('moreSidebarBackdrop');
+      if (!drawer || !backdrop) return;
+      const isOpen = !drawer.classList.contains('translate-x-full');
+      if (isOpen) {
+        drawer.classList.add('translate-x-full');
+        backdrop.classList.add('hidden');
+      } else {
+        drawer.classList.remove('translate-x-full');
+        backdrop.classList.remove('hidden');
+        // Update user state if saved
+        try {
+          const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+          if (profile && (profile.name || profile.email)) {
+            const nameEl = document.getElementById('sidebarUserName');
+            const subEl = document.getElementById('sidebarUserEmail');
+            const avEl = document.getElementById('sidebarAvatar');
+            if (nameEl) nameEl.textContent = profile.name || 'Member';
+            if (subEl) subEl.textContent = profile.phone || profile.email || 'Verified Customer';
+            if (avEl) avEl.innerHTML = `<span class="font-black text-sm">${(profile.name || 'U')[0].toUpperCase()}</span>`;
+          }
+        } catch (_) {}
+      }
+    };
+
+    // Instant Fallback Video Reviews for 0ms initial load
+    window.nutroFallbackVideoReviews = [
+      {
+        "id": "odGWbkDD8KU",
+        "reviewerName": "Ananya Sharma",
+        "reviewerRole": "Marathon Runner & Fitness Coach",
+        "productName": "High Protein Atta",
+        "youtubeUrl": "https://www.youtube.com/shorts/odGWbkDD8KU",
+        "embedUrl": "https://www.youtube.com/embed/odGWbkDD8KU?autoplay=1&playsinline=1&rel=0&modestbranding=1",
+        "thumbnail": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80"
+      },
+      {
+        "id": "1ad7_ckidlo",
+        "reviewerName": "Karan Malhotra",
+        "reviewerRole": "CrossFit Athlete",
+        "productName": "Complete Nutri Meal",
+        "youtubeUrl": "https://www.youtube.com/shorts/1ad7_ckidlo",
+        "embedUrl": "https://www.youtube.com/embed/1ad7_ckidlo?autoplay=1&playsinline=1&rel=0&modestbranding=1",
+        "thumbnail": "https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=600&q=80"
+      },
+      {
+        "id": "pAJIS42VkKc",
+        "reviewerName": "Dr. Ritu Sen",
+        "reviewerRole": "Consultant Diabetologist",
+        "productName": "High Protein Atta & Talbeenah",
+        "youtubeUrl": "https://www.youtube.com/shorts/pAJIS42VkKc",
+        "embedUrl": "https://www.youtube.com/embed/pAJIS42VkKc?autoplay=1&playsinline=1&rel=0&modestbranding=1",
+        "thumbnail": "https://images.unsplash.com/photo-1594824813637-8e67e35b7123?auto=format&fit=crop&w=600&q=80"
+      },
+      {
+        "id": "4xuiijgmnrg",
+        "reviewerName": "Vikram Patel",
+        "reviewerRole": "Yoga Instructor & Trekker",
+        "productName": "Sprouted Ragi & Chia Mix",
+        "youtubeUrl": "https://www.youtube.com/shorts/4xuiijgmnrg",
+        "embedUrl": "https://www.youtube.com/embed/4xuiijgmnrg?autoplay=1&playsinline=1&rel=0&modestbranding=1",
+        "thumbnail": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&q=80"
+      }
+    ];
+
+    // Initialize application with 0ms Instant In-Memory Render
+    function initInstantHomepageContent() {
+      if (!window.nutroProducts || !window.nutroProducts.length) {
+        window.nutroProducts = window.nutroFallbackProducts || [];
+      }
+      if (!window.nutroVideoReviews || !window.nutroVideoReviews.length) {
+        window.nutroVideoReviews = window.nutroFallbackVideoReviews || [];
+      }
+      if (typeof renderFeaturedProducts === 'function') {
+        renderFeaturedProducts(window.nutroProducts);
+        renderBestSellers(window.nutroProducts.filter(p => p.isBestSeller));
+      }
+      const allCountBadge = document.getElementById('catCountAll');
+      if (allCountBadge) allCountBadge.textContent = window.nutroProducts.length;
+
+      if (typeof renderVideoReviews === 'function') {
+        renderVideoReviews(window.nutroVideoReviews);
+      }
+      if (typeof renderBlogs === 'function') {
+        renderBlogs(window.nutroBlogs || window.nutroFallbackBlogs);
+      }
+      if (typeof renderGoogleReviews === 'function') {
+        renderGoogleReviews();
+      }
+      if (typeof updateCartBadge === 'function') {
+        updateCartBadge();
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initInstantHomepageContent();
+
+      // Only attempt remote sync if running over HTTP/HTTPS with 2.5s timeout (never on file:///)
+      if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+        const ac = new AbortController();
+        const tid = setTimeout(() => ac.abort(), 2500);
+
+        fetch('/api/nutrition-products', { signal: ac.signal })
+          .then(r => r.ok ? r.json() : null)
+          .then(data => {
+            clearTimeout(tid);
+            if (data && Array.isArray(data) && data.length) {
+              window.nutroProducts = data;
+              renderFeaturedProducts(data);
+              renderBestSellers(data.filter(p => p.isBestSeller));
+            }
+          }).catch(() => {});
+
+        fetch('/api/video-reviews', { signal: ac.signal })
+          .then(r => r.ok ? r.json() : null)
+          .then(v => {
+            if (v && Array.isArray(v) && v.length) {
+              window.nutroVideoReviews = v;
+              renderVideoReviews(v);
+            }
+          }).catch(() => {});
+      }
+    });
+
+    // Category filter for the products catalog
+    window.filterCatalogByCategory = function(category, btn) {
+      const pills = document.querySelectorAll('#catalogCategoryTabs .cat-pill');
+      pills.forEach(p => {
+        p.classList.remove('bg-nutro-forest', 'text-white', 'active');
+        p.classList.add('bg-slate-100', 'text-slate-700');
+      });
+      if (btn) {
+        btn.classList.remove('bg-slate-100', 'text-slate-700');
+        btn.classList.add('bg-nutro-forest', 'text-white', 'active');
+      }
+
+      let filtered = [...window.nutroProducts];
+      if (category && category !== 'All') {
+        filtered = window.nutroProducts.filter(p => p.category === category);
+      }
+      renderFeaturedProducts(filtered);
+    };
+
+    // 2. Verified Google Reviews (Instant 0ms render)
+    const defaultGoogleReviews = [
+      {
+        authorName: "Vikram Malhotra",
+        authorPhoto: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
+        relativeTime: "3 days ago",
+        rating: 5,
+        reviewText: "High Protein Atta has been a gamechanger for my diabetes management. Rotis are super soft and zero post-meal spike. Excellent lab quality!"
+      },
+      {
+        authorName: "Sneha Kulkarni",
+        authorPhoto: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
+        relativeTime: "1 week ago",
+        rating: 5,
+        reviewText: "Complete Nutri Meal is my daily breakfast now. Pure ingredients, no artificial sweetener aftertaste, and keeps me energetic all through office."
+      },
+      {
+        authorName: "Dr. Arvind Rao",
+        authorPhoto: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
+        relativeTime: "2 weeks ago",
+        rating: 5,
+        reviewText: "Cold-Pressed Black Seed Oil quality is pristine. Dark amber glass bottle and genuine high thymoquinone scent. Highly recommended."
+      }
+    ];
+
+    window.scrollGoogleReviews = function(direction) {
+      const el = document.getElementById('googleReviewsGrid');
+      if (el) el.scrollBy({ left: direction * 350, behavior: 'smooth' });
+    };
+
+    function renderGoogleReviews(revs = defaultGoogleReviews) {
+      const container = document.getElementById('googleReviewsGrid');
+      if (!container) return;
+      
+      const allReviews = (Array.isArray(revs) && revs.length) ? revs : defaultGoogleReviews;
+
+      container.innerHTML = allReviews.map(rev => {
+        const initial = rev.authorName ? rev.authorName.charAt(0) : 'G';
+        const avatarHtml = rev.authorPhoto 
+          ? `<img src="${rev.authorPhoto}" alt="${rev.authorName}" class="w-11 h-11 rounded-full object-cover border border-slate-100 shrink-0">`
+          : `<div class="w-11 h-11 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-sm">${initial}</div>`;
+        
+        const ratingStars = '<i class="fa-solid fa-star text-amber-400 text-xs"></i>'.repeat(rev.rating || 5);
+
+        return `
+          <div class="w-80 sm:w-96 shrink-0 snap-start bg-white p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
+            <div class="space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                  ${avatarHtml}
+                  <div>
+                    <h4 class="font-black text-sm text-slate-900 group-hover:text-emerald-700 transition leading-snug">${rev.authorName}</h4>
+                    <div class="flex items-center space-x-1.5 text-[10px] text-slate-400">
+                      <i class="fa-brands fa-google text-blue-500"></i>
+                      <span>Verified Google Reviewer</span>
+                    </div>
+                  </div>
+                </div>
+                <span class="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md">${rev.relativeTime || 'Recent'}</span>
+              </div>
+
+              <div class="flex items-center space-x-1">
+                <div class="flex space-x-0.5">${ratingStars}</div>
+                <span class="text-[11px] font-black text-slate-700 ml-1.5">${rev.rating || 5}.0</span>
+              </div>
+
+              <p class="text-slate-600 text-xs leading-relaxed line-clamp-4">
+                "${rev.reviewText}"
+              </p>
+            </div>
+
+            <div class="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between text-[11px]">
+              <span class="text-emerald-700 font-bold flex items-center">
+                <i class="fa-solid fa-circle-check text-emerald-600 mr-1 text-xs"></i>
+                <span>Verified Purchase</span>
+              </span>
+              <a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="text-slate-400 hover:text-emerald-700 font-bold transition flex items-center space-x-1">
+                <span>Google Profile</span>
+                <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+              </a>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+    // 2.1 Video Reviews (YouTube Shorts Carousel)
+    if (!window.nutroVideoReviews || !window.nutroVideoReviews.length) {
+      window.nutroVideoReviews = window.nutroFallbackVideoReviews || [];
+    }
+
+    let currentPlayingVideoIndex = null;
+
+    function getVideoThumbnailHtml(v, idx) {
+      let videoId = 'odGWbkDD8KU';
+      if (v.youtubeUrl && v.youtubeUrl.includes('shorts/')) {
+        videoId = v.youtubeUrl.split('shorts/')[1].split('?')[0];
+      } else if (v.id) {
+        videoId = v.id;
+      }
+      const thumb = v.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+      return `
+        <img src="${thumb}" alt="Nutrolix Video Review Reel" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+        <div class="absolute inset-0 bg-black/25 group-hover:bg-black/10 transition"></div>
+        <div id="playCenter-${idx}" class="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div class="w-14 h-14 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center shadow-2xl shadow-emerald-500/50 transform group-hover:scale-110 transition">
+            <i class="fa-solid fa-play text-xl ml-1"></i>
+          </div>
+        </div>
+      `;
+    }
+
+    function resetVideoBox(idx) {
+      const v = window.nutroVideoReviews[idx];
+      if (!v) return;
+      const box = document.getElementById(`vframe-box-${idx}`);
+      if (box) {
+        box.innerHTML = getVideoThumbnailHtml(v, idx);
+      }
+    }
+
+    function renderVideoReviews(vids) {
+      const container = document.getElementById('videoReviewsCarousel');
+      if (!container || !vids || !vids.length) return;
+      window.nutroVideoReviews = vids;
+      currentPlayingVideoIndex = null;
+      container.innerHTML = vids.map((v, idx) => {
+        return `
+          <div class="relative w-48 sm:w-60 aspect-[9/16] rounded-2xl overflow-hidden shrink-0 snap-start bg-black border border-slate-800 shadow-xl group cursor-pointer" onclick="window.playOrToggleVideo(${idx})">
+            <div id="vframe-box-${idx}" class="absolute inset-0 w-full h-full bg-black">
+              ${getVideoThumbnailHtml(v, idx)}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Scroll carousel smoothly (Zero autoplay on carousel scroll)
+    window.scrollVideoCarousel = function(direction) {
+      const el = document.getElementById('videoReviewsCarousel');
+      if (el) {
+        el.scrollBy({ left: direction * 260, behavior: 'smooth' });
+      }
+    };
+
+    // Explicit manual click: strictly single video plays at a time
+    window.playOrToggleVideo = function(index) {
+      const v = window.nutroVideoReviews[index];
+      if (!v) return;
+      const box = document.getElementById(`vframe-box-${index}`);
+      if (!box) return;
+
+      // If tapping the already-playing video, toggle off back to thumbnail
+      if (currentPlayingVideoIndex === index) {
+        resetVideoBox(index);
+        currentPlayingVideoIndex = null;
+        return;
+      }
+
+      // If another video is playing, stop it and restore its thumbnail
+      if (currentPlayingVideoIndex !== null && currentPlayingVideoIndex !== index) {
+        resetVideoBox(currentPlayingVideoIndex);
+        currentPlayingVideoIndex = null;
+      }
+
+      let videoId = 'odGWbkDD8KU';
+      if (v.youtubeUrl && v.youtubeUrl.includes('shorts/')) {
+        videoId = v.youtubeUrl.split('shorts/')[1].split('?')[0];
+      } else if (v.id) {
+        videoId = v.id;
+      }
+
+      const appOrigin = window.location.origin && window.location.origin !== 'null' && window.location.origin !== 'file://'
+        ? window.location.origin 
+        : 'https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app';
+      
+      const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&playsinline=1&controls=1&rel=0&modestbranding=1&enablejsapi=1&origin=${encodeURIComponent(appOrigin)}&widget_referrer=${encodeURIComponent(appOrigin)}`;
+
+      box.innerHTML = `
+        <iframe 
+          id="vframe-${index}" 
+          src="${embedUrl}" 
+          class="w-full h-full object-cover border-0" 
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+          referrerpolicy="strict-origin-when-cross-origin" 
+          allowfullscreen>
+        </iframe>
+      `;
+      currentPlayingVideoIndex = index;
+    };
+async function loadBlogs() {
+      let blogs = null;
+      try {
+        const res = await fetch('/api/blogs');
+        if (res.ok) blogs = await res.json();
+      } catch (_) {}
+
+      if (!blogs || !blogs.length) {
+        try {
+          const resLocal = await fetch('data/blogs.json');
+          if (resLocal.ok) blogs = await resLocal.json();
+        } catch (_) {}
+      }
+
+      if (!blogs || !blogs.length) {
+        blogs = window.nutroFallbackBlogs || [];
+      }
+
+      const container = document.getElementById('blogsContainer');
+      if (container && blogs && blogs.length) {
+        container.innerHTML = blogs.slice(0, 3).map(b => `
+          <div class="bg-slate-50 rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition group">
+            <img src="${b.image}" alt="${b.title}" class="w-full h-44 object-cover group-hover:scale-105 transition duration-300">
+            <div class="p-5 space-y-2">
+              <div class="flex items-center justify-between text-[11px] text-slate-400">
+                <span class="font-bold text-nutro-emerald uppercase">${b.category}</span>
+                <span>${b.readTime}</span>
+              </div>
+              <h3 class="font-extrabold text-sm text-slate-900 group-hover:text-nutro-emerald transition line-clamp-2">${b.title}</h3>
+              <p class="text-xs text-slate-500 line-clamp-2">${b.excerpt}</p>
+              <a href="blogs.html" class="inline-block pt-2 text-xs font-bold text-nutro-dark hover:underline">Read Article →</a>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    // Render Featured Product Cards with real ratings
+    function renderFeaturedProducts(products) {
+      const container = document.getElementById('featuredProductsContainer');
+      container.innerHTML = products.map(prod => createProductCardHtml(prod)).join('');
+    }
+
+    function renderBestSellers(products) {
+      const container = document.getElementById('bestSellersContainer');
+      container.innerHTML = products.map(prod => createProductCardHtml(prod)).join('');
+    }
+
+    // Helper: Create Amazon-style product card with mandatory rating & review count
+    function createProductCardHtml(p) {
+      const mainImg = (p.images && p.images[0]) || 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80';
+      return `
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
+          <!-- Image & Discount Badge -->
+          <div class="relative overflow-hidden bg-slate-100 aspect-square">
+            <img src="${mainImg}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+            <span class="absolute top-3 left-3 bg-nutro-orange text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm">
+              ${p.discountPercent}% OFF
+            </span>
+            <button onclick="window.toggleWishlist('${p.id}')" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs shadow-sm transition">
+              <i class="fa-solid fa-heart ${window.nutroWishlist.includes(p.id) ? 'text-rose-500' : ''}"></i>
+            </button>
+          </div>
+
+          <!-- Product Info -->
+          <!-- Product Info (Responsive for 2-column mobile layout) -->
+          <div class="p-2.5 sm:p-4 flex-1 flex flex-col justify-between">
+            <div>
+              <div class="text-[9px] sm:text-[10px] font-bold text-nutro-emerald uppercase tracking-wider line-clamp-1">${p.category}</div>
+              
+              <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 mt-0.5 line-clamp-2 group-hover:text-nutro-emerald transition leading-snug">
+                <a href="/product?id=${p.id}">${p.name}</a>
+              </h3>
+
+              <!-- REAL RATING DISPLAY -->
+              <div class="flex items-center space-x-1 mt-1 text-[10px] sm:text-xs">
+                <div class="flex text-amber-400 text-[9px] sm:text-[11px]">
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                  <i class="fa-solid fa-star"></i>
+                </div>
+                <span class="font-black text-slate-900 text-[10px] sm:text-xs">${p.rating}</span>
+                <span class="text-slate-400 text-[9px] sm:text-[11px]">(${p.reviewCount})</span>
+              </div>
+
+              <p class="hidden sm:block text-[11px] text-slate-500 mt-1 line-clamp-2">${p.tagline}</p>
+            </div>
+
+            <!-- Price & Add to Bag -->
+            <div class="mt-2.5 sm:mt-4 pt-2 sm:pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5">
+              <div>
+                <div class="text-sm sm:text-base font-black text-slate-900">₹${p.price}</div>
+                <div class="text-[9px] sm:text-[10px] text-slate-400 line-through">₹${p.mrp}</div>
+              </div>
+
+              <div class="flex items-center space-x-1">
+                <button onclick="window.quickAddToCart('${p.id}', ${p.price}, '${p.name.replace(/'/g, "\\'")}', '${mainImg}')" class="bg-nutro-forest hover:bg-nutro-dark text-white text-[11px] sm:text-xs font-black px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-sm flex items-center space-x-1" title="Add to Cart">
+                  <i class="fa-solid fa-plus text-[9px]"></i>
+                  <span>Add</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      `;
+    }
+
+    // Filter best sellers
+    window.filterBestSellers = function(type) {
+      let list = [...window.nutroProducts];
+      if (type === 'toprated') {
+        list.sort((a,b) => b.rating - a.rating);
+      } else if (type === 'lowtohigh') {
+        list.sort((a,b) => a.price - b.price);
+      } else {
+        list = list.filter(p => p.isBestSeller);
+      }
+      renderBestSellers(list);
+    };
+
+    // Cart management
+    window.quickAddToCart = function(id, price, name, image) {
+      const existing = window.nutroCart.find(i => i.id === id);
+      if (existing) {
+        existing.quantity += 1;
+      } else {
+        window.nutroCart.push({ id, price, name, image, quantity: 1 });
+      }
+      localStorage.setItem('nutrolix_store_cart', JSON.stringify(window.nutroCart));
+      updateCartBadge();
+      renderCartDrawer();
+      window.openCartDrawer();
+    };
+
+    window.updateCartQuantity = function(id, delta) {
+      const item = window.nutroCart.find(i => i.id === id);
+      if (item) {
+        item.quantity += delta;
+        if (item.quantity <= 0) {
+          window.nutroCart = window.nutroCart.filter(i => i.id !== id);
+        }
+        localStorage.setItem('nutrolix_store_cart', JSON.stringify(window.nutroCart));
+        updateCartBadge();
+        renderCartDrawer();
+      }
+    };
+
+    function updateCartBadge() {
+      const count = window.nutroCart.reduce((sum, item) => sum + item.quantity, 0);
+      const topBadge = document.getElementById('cartCountBadge');
+      if (topBadge) topBadge.textContent = count;
+      const bottomBadge = document.getElementById('mobileBottomCartBadge');
+      if (bottomBadge) bottomBadge.textContent = count;
+    }
+
+    window.toggleCartDrawer = function() {
+      const drawer = document.getElementById('cartDrawer');
+      const backdrop = document.getElementById('cartDrawerBackdrop');
+      if (drawer.classList.contains('translate-x-full')) {
+        window.openCartDrawer();
+      } else {
+        window.closeCartDrawer();
+      }
+    };
+
+    window.openCartDrawer = function() {
+      document.getElementById('cartDrawer').classList.remove('translate-x-full');
+      document.getElementById('cartDrawerBackdrop').classList.remove('hidden');
+      renderCartDrawer();
+    };
+
+    window.closeCartDrawer = function() {
+      document.getElementById('cartDrawer').classList.add('translate-x-full');
+      document.getElementById('cartDrawerBackdrop').classList.add('hidden');
+    };
+
+    function renderCartDrawer() {
+      const container = document.getElementById('cartDrawerItems');
+      if (!window.nutroCart.length) {
+        container.innerHTML = `
+          <div class="text-center py-12 text-slate-400 text-sm">
+            <i class="fa-solid fa-bag-shopping text-4xl text-slate-300 mb-3"></i>
+            <p>Your nutrition bag is empty.</p>
+            <a href="/shop" onclick="window.closeCartDrawer()" class="mt-4 inline-block text-xs font-black text-nutro-emerald hover:underline">Start Shopping →</a>
+          </div>
+        `;
+        document.getElementById('cartDrawerSubtotal').textContent = '₹0';
+        return;
+      }
+
+      let subtotal = 0;
+      container.innerHTML = window.nutroCart.map(item => {
+        subtotal += item.price * item.quantity;
+        return `
+          <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+            <img src="${item.image}" alt="${item.name}" class="w-12 h-12 rounded-lg object-cover">
+            <div class="flex-1 px-3">
+              <h4 class="font-extrabold text-xs text-slate-900 line-clamp-1">${item.name}</h4>
+              <div class="text-xs font-black text-emerald-700 mt-0.5">₹${item.price}</div>
+            </div>
+            <div class="flex items-center space-x-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1">
+              <button onclick="window.updateCartQuantity('${item.id}', -1)" class="text-xs text-slate-500 hover:text-slate-900 font-bold px-1">-</button>
+              <span class="text-xs font-black px-1">${item.quantity}</span>
+              <button onclick="window.updateCartQuantity('${item.id}', 1)" class="text-xs text-slate-500 hover:text-slate-900 font-bold px-1">+</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      document.getElementById('cartDrawerSubtotal').textContent = '₹' + subtotal;
+      const progressPercent = Math.min(100, Math.round((subtotal / 499) * 100));
+      document.getElementById('freeShippingBar').style.width = progressPercent + '%';
+      document.getElementById('freeShippingPercent').textContent = progressPercent + '%';
+      if (subtotal >= 499) {
+        document.getElementById('freeShippingText').textContent = '🎉 You unlocked 100% FREE Delivery!';
+      } else {
+        document.getElementById('freeShippingText').textContent = `Add ₹${499 - subtotal} more for FREE Delivery!`;
+      }
+    }
+
+    // Wishlist
+    window.toggleWishlist = function(id) {
+      if (window.nutroWishlist.includes(id)) {
+        window.nutroWishlist = window.nutroWishlist.filter(i => i !== id);
+      } else {
+        window.nutroWishlist.push(id);
+      }
+      localStorage.setItem('nutrolix_wishlist', JSON.stringify(window.nutroWishlist));
+      renderFeaturedProducts(window.nutroProducts.filter(p => p.isFeatured));
+    };
+
+    // Search modal
+    window.openSearchModal = function() {
+      document.getElementById('searchModal').classList.remove('hidden');
+      document.getElementById('searchInput').focus();
+    };
+    window.closeSearchModal = function() {
+      document.getElementById('searchModal').classList.add('hidden');
+    };
+    window.handleSearch = function(query) {
+      const q = query.trim().toLowerCase();
+      const results = document.getElementById('searchResults');
+      if (!q) { results.innerHTML = ''; return; }
+      const matched = window.nutroProducts.filter(p => p.name.toLowerCase().includes(q) || p.description.toLowerCase().includes(q));
+      if (!matched.length) {
+        results.innerHTML = `<div class="p-3 text-slate-400">No nutrition products found for "${query}".</div>`;
+        return;
+      }
+      results.innerHTML = matched.map(p => `
+        <a href="/product?id=${p.id}" class="flex items-center justify-between p-2.5 rounded-xl hover:bg-slate-50 border border-slate-100 transition">
+          <div class="flex items-center space-x-2">
+            <img src="${p.images[0]}" class="w-8 h-8 rounded-lg object-cover">
+            <div>
+              <div class="font-bold text-slate-800">${p.name}</div>
+              <div class="text-[10px] text-slate-400">${p.category}</div>
+            </div>
+          </div>
+          <span class="font-black text-emerald-700">₹${p.price}</span>
+        </a>
+      `).join('');
+    };
+
+    // Newsletter
+    window.handleNewsletter = function(e) {
+      e.preventDefault();
+      document.getElementById('newsletterSuccess').classList.remove('hidden');
+      document.getElementById('newsletterEmail').value = '';
+    };
+  </script>
+
+  <!-- Universal Pull to Refresh with Circular Progress Indicator -->
+  <script src="assets/pull-to-refresh.js"></script>
+</body>
+</html>

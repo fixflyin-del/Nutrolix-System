@@ -1,0 +1,50 @@
+[
+  {
+    "id": "odGWbkDD8KU",
+    "reviewerName": "Ananya Sharma",
+    "reviewerRole": "Marathon Runner & Fitness Coach",
+    "rating": 5,
+    "productName": "High Protein Atta",
+    "quote": "Made the softest rotis with 46g protein! No digestive bloating at all.",
+    "youtubeUrl": "https://www.youtube.com/shorts/odGWbkDD8KU",
+    "embedUrl": "https://www.youtube.com/embed/odGWbkDD8KU?autoplay=1&playsinline=1&rel=0&modestbranding=1",
+    "thumbnail": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=600&q=80",
+    "verified": true
+  },
+  {
+    "id": "1ad7_ckidlo",
+    "reviewerName": "Karan Malhotra",
+    "reviewerRole": "CrossFit Athlete",
+    "rating": 5,
+    "productName": "Complete Nutri Meal",
+    "quote": "25+ superfoods in one shake. Replaced my morning synthetic supplements.",
+    "youtubeUrl": "https://www.youtube.com/shorts/1ad7_ckidlo",
+    "embedUrl": "https://www.youtube.com/embed/1ad7_ckidlo?autoplay=1&playsinline=1&rel=0&modestbranding=1",
+    "thumbnail": "https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=600&q=80",
+    "verified": true
+  },
+  {
+    "id": "pAJIS42VkKc",
+    "reviewerName": "Dr. Ritu Sen",
+    "reviewerRole": "Consultant Diabetologist",
+    "rating": 5,
+    "productName": "High Protein Atta & Talbeenah",
+    "quote": "Tested on my patients with CGM — zero post-meal blood sugar spike!",
+    "youtubeUrl": "https://www.youtube.com/shorts/pAJIS42VkKc",
+    "embedUrl": "https://www.youtube.com/embed/pAJIS42VkKc?autoplay=1&playsinline=1&rel=0&modestbranding=1",
+    "thumbnail": "https://images.unsplash.com/photo-1594824813637-8e67e35b7123?auto=format&fit=crop&w=600&q=80",
+    "verified": true
+  },
+  {
+    "id": "4xuiijgmnrg",
+    "reviewerName": "Vikram Patel",
+    "reviewerRole": "Yoga Instructor & Trekker",
+    "rating": 5,
+    "productName": "Sprouted Ragi & Chia Mix",
+    "quote": "Natural sustained stamina. 100% clean ingredients you can trust.",
+    "youtubeUrl": "https://www.youtube.com/shorts/4xuiijgmnrg",
+    "embedUrl": "https://www.youtube.com/embed/4xuiijgmnrg?autoplay=1&playsinline=1&rel=0&modestbranding=1",
+    "thumbnail": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&q=80",
+    "verified": true
+  }
+]

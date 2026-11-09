@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Healthy Food Delivery & Kitchen Menu – Nutrolix</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'nutro-dark': '#064E3B',
+            'nutro-forest': '#0F3E2E',
+            'nutro-emerald': '#059669',
+            'nutro-light': '#10B981',
+            'nutro-orange': '#EA580C',
+            'nutro-amber': '#F59E0B'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
+    .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
+  </style>
+  <script src="assets/nutrolix-drawer.js"></script>
+  <script src="assets/nutrolix-notifications.js"></script>
+  <script src="assets/nutrolix-reviews.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col pb-28">
+
+  <!-- Header with Left Burger Menu (Point 5) & Original Nutrolix Logo -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-200">
+    <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      
+      <!-- Left side: Burger Button + Nutrolix Logo (Point 5) -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <!-- Hamburger Button to the left of Logo -->
+        <button onclick="window.toggleLeftBurgerMenu()" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center text-base transition active:scale-95 focus:outline-none" aria-label="Open Navigation Menu" title="Open Navigation Menu">
+          <i class="fa-solid fa-bars text-emerald-800"></i>
+        </button>
+
+        <a href="index.html" class="flex items-center shrink-0 py-1">
+          <img src="assets/nutrolix-logo.png" alt="Nutrolix – Nutrition that works" class="h-10 sm:h-12 w-auto object-contain max-w-[170px] sm:max-w-[210px]">
+        </a>
+      </div>
+
+      <!-- Desktop Nav -->
+      <nav class="hidden md:flex items-center space-x-6 text-sm font-bold text-slate-700">
+        <a href="index.html" class="hover:text-nutro-emerald transition">Home</a>
+        <a href="shop.html" class="hover:text-nutro-emerald transition">Store</a>
+        <a href="food.html" class="text-nutro-emerald font-extrabold transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-utensils text-xs"></i>
+          <span>Healthy Food</span>
+        </a>
+        <a href="orders.html" class="hover:text-nutro-emerald transition flex items-center space-x-1.5 text-slate-700 font-bold">
+          <i class="fa-solid fa-truck-fast text-xs text-emerald-600"></i>
+          <span>Track Orders</span>
+        </a>
+        <a href="account.html" class="hover:text-nutro-emerald transition">My Profile</a>
+      </nav>
+
+      <!-- Cart Icon & Live Counter in Header -->
+      <div class="flex items-center space-x-3">
+        <a href="cart.html" class="relative flex items-center space-x-2 bg-nutro-forest hover:bg-nutro-dark text-white px-3.5 py-2 rounded-xl text-xs font-black shadow-md transition active:scale-95">
+          <i class="fa-solid fa-bag-shopping text-emerald-400"></i>
+          <span>Cart</span>
+          <span id="headerCartCount" class="w-4 h-4 rounded-full bg-amber-400 text-slate-900 text-[10px] font-black flex items-center justify-center">0</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Left Slide-out Drawer Backdrop (Point 5) -->
+  <div id="leftBurgerBackdrop" onclick="window.toggleLeftBurgerMenu()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden transition-opacity duration-300"></div>
+
+  <!-- Left Slide-out Drawer Panel (Point 5: Short links, WhatsApp, Partner) -->
+  <div id="leftBurgerDrawer" class="fixed top-0 left-0 bottom-0 w-84 max-w-[85vw] bg-white z-50 shadow-2xl transform -translate-x-full transition-transform duration-300 flex flex-col">
+    <!-- Drawer Header -->
+    <div class="p-4 bg-nutro-forest text-white flex items-center justify-between border-b border-emerald-900">
+      <div class="flex items-center space-x-2.5">
+        <img src="assets/nutrolix-logo.png" alt="Nutrolix" class="h-8 w-auto bg-white rounded-lg p-1">
+      </div>
+      <button onclick="window.toggleLeftBurgerMenu()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Drawer Nav Links -->
+    <div class="flex-1 overflow-y-auto p-3 space-y-1.5 text-xs custom-scrollbar">
+      <a href="food.html" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50 text-emerald-900 font-extrabold hover:bg-emerald-100 transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-utensils text-emerald-700 w-5"></i>
+          <span>Order Healthy Food</span>
+        </div>
+        <span class="text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">Kitchen Fresh</span>
+      </a>
+
+      <a href="shop.html" class="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-bag-shopping text-emerald-600 w-5"></i>
+          <span>Packaged Food Store</span>
+        </div>
+        <span class="text-[9px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">Store</span>
+      </a>
+
+      <a href="orders.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <i class="fa-solid fa-truck-fast text-emerald-600 w-5"></i>
+        <span>My Orders & Live Tracking</span>
+      </a>
+
+      <a href="account.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <i class="fa-solid fa-user text-emerald-600 w-5"></i>
+        <span>My Profile & Addresses</span>
+      </a>
+
+      <div class="pt-2 pb-1 border-t border-slate-100 my-1">
+        <span class="text-[10px] uppercase font-black text-slate-400 px-3 tracking-wider">Quick Actions & Direct Support</span>
+      </div>
+
+      <!-- Direct WhatsApp Support Button (Point 5) -->
+      <a href="https://wa.me/919076254354?text=Hi%20Nutrolix%2C%20I%20need%20support%20with%20my%20order" target="_blank" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-green-50 text-green-900 hover:bg-green-100 font-extrabold transition border border-green-200">
+        <div class="flex items-center space-x-3">
+          <i class="fa-brands fa-whatsapp text-green-600 text-base w-5"></i>
+          <span>Direct WhatsApp (+91 90762 54354)</span>
+        </div>
+        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-green-600"></i>
+      </a>
+
+      <!-- Join as Partner / Distributor Button (Point 5) -->
+      <a href="https://wa.me/919076254354?text=Hi%20Nutrolix%2C%20I%20am%20interested%20in%20joining%20as%20a%20Nutrolix%20Partner%20or%20Distributor" target="_blank" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50 text-amber-900 hover:bg-amber-100 font-extrabold transition border border-amber-200">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-handshake text-amber-600 text-base w-5"></i>
+          <span>Join as Partner / Distributor</span>
+        </div>
+        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-amber-600"></i>
+      </a>
+
+      <!-- Download Our Android App Button (Point 5) -->
+      <a href="Nutrolix-Customer.apk" download class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-900 text-white font-extrabold hover:bg-slate-800 transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-brands fa-android text-emerald-400 text-base w-5"></i>
+          <span>Download Our Android App</span>
+        </div>
+        <i class="fa-solid fa-download text-xs text-emerald-400"></i>
+      </a>
+
+      <!-- Customer Support -->
+      <a href="contact.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <i class="fa-solid fa-headset text-emerald-600 w-5"></i>
+        <span>Customer Support & FAQs</span>
+      </a>
+
+      <!-- Legal & Policies -->
+      <div class="pt-2 border-t border-slate-100">
+        <div class="text-[10px] uppercase font-black text-slate-400 px-3 tracking-wider mb-1">Brand Policies</div>
+        <div class="grid grid-cols-2 gap-1 px-1">
+          <a href="shipping.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Shipping Policy</a>
+          <a href="refund.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Return & Refund</a>
+          <a href="cancellation.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Cancellation</a>
+          <a href="privacy.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Privacy Policy</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drawer Footer -->
+    <div class="p-3 bg-slate-50 border-t border-slate-200 text-center text-[10px] text-slate-400 space-y-0.5">
+      <div class="font-bold text-slate-700">FSSAI Central Lic. # 21526024003044</div>
+      <div>Nutrolix Wellness Pvt. Ltd. • ISO 9001:2015</div>
+    </div>
+  </div>
+
+  <!-- Hero Banner: Healthy Kitchen Delivery -->
+  <section class="bg-gradient-to-r from-emerald-950 via-nutro-forest to-slate-950 text-white py-8 px-4 sm:px-6 lg:px-8 shadow-inner">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <div class="inline-flex items-center space-x-2 bg-emerald-500/20 text-emerald-300 text-xs font-black uppercase px-3 py-1 rounded-full border border-emerald-400/30 mb-2">
+          <i class="fa-solid fa-fire-flame-curved text-amber-400"></i>
+          <span>Nutrolix Cloud Kitchen • Fast & Fresh Delivery</span>
+        </div>
+        <h1 class="text-2xl sm:text-3xl font-black text-white">Clean Healthy Food Dining Menu</h1>
+        <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
+          Zero Palm Oil • Zero Maida • Formulated with clinical macro-balance and whole organic grains. Tap any dish for complete nutrition facts, reviews & details!
+        </p>
+      </div>
+      <div class="flex items-center space-x-3 shrink-0">
+        <div class="p-3 bg-white/10 rounded-2xl border border-white/10 flex items-center space-x-3 text-xs">
+          <i class="fa-solid fa-clock text-amber-400 text-lg"></i>
+          <div>
+            <div class="font-bold text-white">Delivery Time: 30-40 Mins</div>
+            <div class="text-[10px] text-emerald-300">Live Kitchen Active • FSSAI Lic. 21526024003044</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Sticky Category Bar -->
+  <div class="sticky top-20 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 py-3 px-4 shadow-sm">
+    <div class="max-w-7xl mx-auto flex items-center space-x-2 overflow-x-auto custom-scrollbar text-xs font-bold" id="foodCategoriesContainer">
+      <button onclick="filterFoodCategory('All', this)" class="food-cat-btn active px-4 py-2 rounded-full bg-nutro-forest text-white shadow-sm shrink-0 flex items-center space-x-1.5">
+        <i class="fa-solid fa-sparkles text-amber-400"></i>
+        <span>All Dishes</span>
+        <span class="ml-1 px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]" id="totalFoodCountBadge">8</span>
+      </button>
+      <button onclick="filterFoodCategory('High Protein Meals', this)" class="food-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 shrink-0">
+        💪 High Protein Meals
+      </button>
+      <button onclick="filterFoodCategory('Diet & Calorie Conscious', this)" class="food-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 shrink-0">
+        🥗 Diet & Calorie Conscious
+      </button>
+      <button onclick="filterFoodCategory('Detox Juices & Smoothies', this)" class="food-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 shrink-0">
+        🥤 Detox Juices & Smoothies
+      </button>
+      <button onclick="filterFoodCategory('Salads & Bowls', this)" class="food-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 shrink-0">
+        🥑 Superfood Bowls & Salads
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Menu Grid -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+    
+    <!-- Dishes Grid (2-column on mobile, 4-column on desktop) -->
+    <div id="foodMenuGrid" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+      <!-- Injected via JavaScript -->
+    </div>
+
+  </main>
+
+  <!-- Dish Detail Modal (Requirement 1: Image, Title, Bullet Points, Description, Nutrition Facts, Reviews & Direct Add to Cart) -->
+  <div id="foodDishDetailModal" class="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4 transition duration-300">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-200">
+      
+      <!-- Modal Header with Close Button -->
+      <div class="p-4 bg-white border-b border-slate-100 flex items-center justify-between sticky top-0 z-10">
+        <div class="flex items-center space-x-2">
+          <span id="modalDishCategory" class="text-xs font-black uppercase tracking-wider text-nutro-emerald px-2.5 py-0.5 rounded-full bg-emerald-50">High Protein Meals</span>
+          <span class="text-slate-300">•</span>
+          <span class="text-xs text-slate-500 font-bold">Kitchen Fresh</span>
+        </div>
+        <button onclick="window.closeFoodDetailModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-600 transition">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+
+      <!-- Modal Scrollable Body -->
+      <div class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 custom-scrollbar">
+        
+        <!-- Main Dish Image with Badges -->
+        <div class="relative w-full h-56 sm:h-72 rounded-2xl overflow-hidden bg-slate-100 shadow-inner">
+          <img id="modalDishImage" src="" alt="Dish Image" class="w-full h-full object-cover">
+          
+          <!-- Veg / Non-Veg Icon -->
+          <div id="modalDishVegBadge" class="absolute top-3 left-3 w-6 h-6 bg-white/95 backdrop-blur-sm rounded-lg flex items-center justify-center shadow-md border">
+            <div id="modalDishVegDot" class="w-3 h-3 rounded-full"></div>
+          </div>
+
+          <!-- Macros Pill Overlay -->
+          <span id="modalDishMacroPill" class="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur-sm text-emerald-300 text-xs font-black px-3 py-1 rounded-xl border border-white/10 shadow-lg">
+            34g Protein • 410 kcal
+          </span>
+        </div>
+
+        <!-- Title & Price -->
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="modalDishTitle" class="text-xl sm:text-2xl font-black text-slate-900 leading-snug">
+              Grilled Paneer & Quinoa Muscle Bowl
+            </h2>
+            <div class="flex items-center space-x-2 mt-1">
+              <div class="flex text-amber-400 text-xs">
+                <i class="fa-solid fa-star"></i>
+                <i class="fa-solid fa-star"></i>
+                <i class="fa-solid fa-star"></i>
+                <i class="fa-solid fa-star"></i>
+                <i class="fa-solid fa-star"></i>
+              </div>
+              <span class="text-xs font-black text-slate-700">4.9</span>
+              <span class="text-xs text-slate-400 font-medium">(Verified Nutrition Reviews)</span>
+            </div>
+          </div>
+          <div class="text-right shrink-0">
+            <div id="modalDishPrice" class="text-2xl font-black text-slate-900">₹249</div>
+            <span class="text-[10px] text-emerald-700 font-bold block">Taxes Included</span>
+          </div>
+        </div>
+
+        <!-- Key Bullet Points (Requirement 1) -->
+        <div class="bg-emerald-50/70 border border-emerald-200/60 rounded-2xl p-4 space-y-2">
+          <h4 class="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center space-x-1.5">
+            <i class="fa-solid fa-certificate text-emerald-600"></i>
+            <span>Clinical Nutrition Highlights:</span>
+          </h4>
+          <ul id="modalDishHighlights" class="space-y-1.5 text-xs text-emerald-950 font-medium">
+            <!-- Dynamic bullets -->
+          </ul>
+        </div>
+
+        <!-- Full Detailed Description (Requirement 1) -->
+        <div class="space-y-1.5">
+          <h4 class="text-xs font-black uppercase tracking-wider text-slate-500">Dish Description & Ingredients:</h4>
+          <p id="modalDishDescription" class="text-xs sm:text-sm text-slate-700 leading-relaxed">
+            Herb-marinated low-fat cottage cheese on organic tri-color Peruvian quinoa with steamed edamame, sautéed broccoli, bell peppers, and cold-pressed extra virgin olive oil dressing.
+          </p>
+        </div>
+
+        <!-- Nutrition Facts Table (Requirement 1) -->
+        <div class="border border-slate-200 rounded-2xl overflow-hidden">
+          <div class="bg-slate-900 text-white p-3 flex items-center justify-between">
+            <div class="flex items-center space-x-2">
+              <i class="fa-solid fa-chart-pie text-emerald-400 text-sm"></i>
+              <h4 class="text-xs font-black uppercase tracking-wider">Nutrition Facts (Per Serving)</h4>
+            </div>
+            <span class="text-[10px] text-slate-300 font-bold">100% Lab Verified</span>
+          </div>
+          <div id="modalDishNutritionGrid" class="grid grid-cols-2 sm:grid-cols-3 divide-x divide-y divide-slate-100 bg-white text-xs">
+            <!-- Dynamic facts -->
+          </div>
+        </div>
+
+        <!-- Customer Reviews Section (Requirement 1) -->
+        <div class="space-y-3 pt-2">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center space-x-1.5">
+              <i class="fa-solid fa-comments text-amber-500"></i>
+              <span>Customer Reviews & Feedback</span>
+            </h4>
+            <span class="text-xs text-emerald-700 font-bold">100% Verified Diners</span>
+          </div>
+          <div id="modalDishReviewsList" class="space-y-2.5">
+            <!-- Dynamic reviews -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Bottom Sticky Action Bar (Requirement 1: Direct Add to Cart with Stepper) -->
+      <div class="p-4 bg-white border-t border-slate-200 flex items-center justify-between gap-4">
+        <div>
+          <span class="text-[10px] text-slate-400 uppercase font-black block">Total Price</span>
+          <span id="modalDishTotalPrice" class="text-xl sm:text-2xl font-black text-slate-900">₹249</span>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <!-- Stepper -->
+          <div class="flex items-center space-x-2 bg-slate-100 rounded-xl p-1 border border-slate-200 font-black text-xs">
+            <button onclick="window.stepModalQuantity(-1)" class="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 flex items-center justify-center text-slate-800 transition shadow-sm">-</button>
+            <span id="modalQuantityText" class="w-6 text-center text-sm font-black">1</span>
+            <button onclick="window.stepModalQuantity(1)" class="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 flex items-center justify-center text-slate-800 transition shadow-sm">+</button>
+          </div>
+
+          <!-- Add to Cart Button -->
+          <button onclick="window.submitModalAddToCart()" class="bg-nutro-forest hover:bg-nutro-dark text-white font-black text-xs sm:text-sm px-6 py-3 rounded-xl transition shadow-md flex items-center space-x-2 active:scale-95">
+            <i class="fa-solid fa-bag-shopping text-emerald-400"></i>
+            <span>Add to Cart</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Sticky Floating Cart Pill on Mobile (Shows when items exist in cart) -->
+  <div id="foodStickyCartBar" class="hidden fixed bottom-16 left-4 right-4 z-40 bg-nutro-forest text-white rounded-2xl p-3 shadow-2xl border border-emerald-500/40 flex items-center justify-between">
+    <div class="flex items-center space-x-3">
+      <div class="w-9 h-9 rounded-xl bg-amber-400 text-slate-950 font-black flex items-center justify-center text-sm shadow">
+        <span id="stickyCartItemCount">0</span>
+      </div>
+      <div>
+        <div class="text-xs font-black" id="stickyCartTotalText">₹0 Total</div>
+        <div class="text-[10px] text-emerald-300">Fresh Healthy Kitchen Order</div>
+      </div>
+    </div>
+    <a href="cart.html" class="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-4 py-2 rounded-xl text-xs transition shadow-md flex items-center space-x-1.5">
+      <span>View Cart & Order</span>
+      <i class="fa-solid fa-arrow-right text-[10px]"></i>
+    </a>
+  </div>
+
+  <!-- Bottom Navigation Bar (Home, Shop, Healthy Food, My Orders, Profile) -->
+    <!-- Fixed Mobile Bottom Navigation (Change 6: Unselected = Black, Selected = Nutrolix Green) -->
+  <div class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-2 flex items-center justify-around shadow-2xl">
+    <a href="index.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-house text-lg mb-0.5"></i>
+      <span class="text-[10px]">Home</span>
+    </a>
+    <a href="shop.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-bag-shopping text-lg mb-0.5"></i>
+      <span class="text-[10px]">Shop</span>
+    </a>
+    <a href="food.html" class="relative flex flex-col items-center justify-center py-1 px-2 text-emerald-700 font-extrabold active:scale-95 transition">
+      <span class="absolute -top-1.5 right-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-sm leading-tight border border-amber-300 pointer-events-none">
+        ₹100 OFF
+      </span>
+      <i class="fa-solid fa-utensils text-lg mb-0.5"></i>
+      <span class="text-[10px]">Healthy Food</span>
+    </a>
+    <a href="orders.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-truck-fast text-lg mb-0.5"></i>
+      <span class="text-[10px]">My Orders</span>
+    </a>
+    <a href="account.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-user text-lg mb-0.5"></i>
+      <span class="text-[10px]">Profile</span>
+    </a>
+  </div>
+
+  <script>
+    // Authentic Nutrolix Healthy Food Kitchen Menu with Full Details
+    const healthyFoodMenu = [
+  {
+    "id": "food_paneer_quinoa_bowl",
+    "name": "Grilled Paneer & Quinoa Muscle Bowl",
+    "category": "High Protein Meals",
+    "isVeg": true,
+    "protein": "34g Protein",
+    "calories": "410 kcal",
+    "price": 249,
+    "image": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
+    "description": "Herb-marinated low-fat cottage cheese on organic tri-color Peruvian quinoa with steamed edamame, saut\u00e9ed broccoli, bell peppers, and cold-pressed extra virgin olive oil dressing. Rich in essential amino acids.",
+    "highlights": [
+      "34g Bioavailable Plant & Dairy Protein per bowl",
+      "Zero Palm Oil, Zero Refined Flours, Zero Sugar",
+      "Tri-Color Organic Quinoa with Complete Amino Acid Profile",
+      "Slow-burning low-GI complex carbohydrates for sustained energy",
+      "Rich in natural magnesium, zinc, and dietary fiber"
+    ],
+    "nutritionFacts": [
+      {
+        "name": "Calories",
+        "value": "410 kcal"
+      },
+      {
+        "name": "Protein",
+        "value": "34 g"
+      },
+      {
+        "name": "Dietary Fiber",
+        "value": "11 g"
+      },
+      {
+        "name": "Total Carbs",
+        "value": "38 g"
+      },
+      {
+        "name": "Healthy Fats",
+        "value": "12 g"
+      },
+      {
+        "name": "Sodium",
+        "value": "180 mg"
+      }
+    ],
+    "reviews": [
+      {
+        "name": "Dr. Sameer Verma",
+        "rating": 5,
+        "comment": "As a sports physician, I recommend this meal to my athletic clients. Macro balance is scientifically sound and taste is exceptional."
+      },
+      {
+        "name": "Pooja Malhotra",
+        "rating": 5,
+        "comment": "Best healthy meal I have ordered! Paneer was super soft and the quinoa dressing was delicious without being oily."
+      }
+    ]
+  },
+  {
+    "id": "food_sprouted_khichdi",
+    "name": "Sprouted Supergrain Khichdi with A2 Gir Ghee",
+    "category": "Diet & Calorie Conscious",
+    "isVeg": true,
+    "protein": "22g Protein",
+    "calories": "320 kcal",
+    "price": 199,
+    "image": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80",
+    "description": "Slow-cooked sprouted green moong, whole pearl barley, and foxtail millet infused with digestive cumin seeds, fresh ginger, and finished with 100% pure Vedic A2 Gir Cow Ghee. Extremely soothing for gut health.",
+    "highlights": [
+      "22g Gentle Gut-Friendly Plant Protein",
+      "100% Certified Vedic A2 Gir Cow Cultured Ghee",
+      "High Soluble Fiber from Sprouted Moong & Pearl Barley",
+      "Ancient Ayurvedic Digestive Spice Blend (Hing, Jeera, Adrak)",
+      "Ultra-low Glycemic Load \u2014 prevents post-meal lethargy"
+    ],
+    "nutritionFacts": [
+      {
+        "name": "Calories",
+        "value": "320 kcal"
+      },
+      {
+        "name": "Protein",
+        "value": "22 g"
+      },
+      {
+        "name": "Dietary Fiber",
+        "value": "14 g"
+      },
+      {
+        "name": "Total Carbs",
+        "value": "42 g"
+      },
+      {
+        "name": "Healthy Fats",
+        "value": "7 g"
+      },
+      {
+        "name": "Potassium",
+        "value": "420 mg"
+      }
+    ],
+    "reviews": [
+      {
+        "name": "Ananya Sen",
+        "rating": 5,
+        "comment": "So comforting and light on the stomach. The aroma of authentic A2 ghee is unmistakable. Perfect dinner for recovery!"
+      },
+      {
+        "name": "Vikram Rathore",
+        "rating": 5,
+        "comment": "Great portion size and zero bloat. Finally a healthy kitchen that doesn't sacrifice traditional Indian flavors."
+      }
+    ]
+  },
+  {
+    "id": "food_tofu_avocado_salad",
+    "name": "Avocado & Smoked Tofu Green Goddess Bowl",
+    "category": "Salads & Bowls",
+    "isVeg": true,
+    "protein": "26g Protein",
+    "calories": "290 kcal",
+    "price": 269,
+    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80",
+    "description": "Creamy Hass avocado slices, smoked organic tofu cubes, tender baby spinach, microgreens, roasted sunflower seeds, and chia seeds tossed in an artisanal cold-pressed sesame tahini dressing.",
+    "highlights": [
+      "26g Plant Protein with Organic Non-GMO Soya Tofu",
+      "Loaded with Omega-3 & Monounsaturated Fatty Acids from Hass Avocado",
+      "Zero Added Sugar or Preservatives in Tahini Dressing",
+      "100% Raw Hydroponic Pesticide-Free Greens",
+      "High natural Vitamin E, K, and Folate content"
+    ],
+    "nutritionFacts": [
+      {
+        "name": "Calories",
+        "value": "290 kcal"
+      },
+      {
+        "name": "Protein",
+        "value": "26 g"
+      },
+      {
+        "name": "Dietary Fiber",
+        "value": "13 g"
+      },
+      {
+        "name": "Total Carbs",
+        "value": "18 g"
+      },
+      {
+        "name": "Healthy Fats",
+        "value": "14 g"
+      },
+      {
+        "name": "Omega-3",
+        "value": "1.8 g"
+      }
+    ],
+    "reviews": [
+      {
+        "name": "Kavita Rao",
+        "rating": 5,
+        "comment": "The avocado was perfectly ripe and the smoked tofu had an amazing texture. Loved the tahini dressing!"
+      },
+      {
+        "name": "Aman Gupta",
+        "rating": 5,
+        "comment": "Crunchy, super fresh and very filling for under 300 calories. My go-to lunch."
+      }
+    ]
+  },
+  {
+    "id": "food_chicken_protein_thali",
+    "name": "High Protein Roasted Chicken & Ragi Roti Thali",
+    "category": "High Protein Meals",
+    "isVeg": false,
+    "protein": "48g Protein",
+    "calories": "480 kcal",
+    "price": 299,
+    "image": "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=800&q=80",
+    "description": "Herb-charred skinless chicken breast fillet cooked without refined oil, served with 2 warm Nutrolix High-Protein Ragi rotis, yellow lentil soup (dal tadka), cucumber-mint yogurt raita, and pickled beetroot.",
+    "highlights": [
+      "48g Complete Animal & Plant Protein in one serving",
+      "Zero Palm Oil or Vanaspati \u2014 cooked in cold-pressed mustard oil",
+      "2 Fresh Ragi & Multigrain Rotis rich in calcium & iron",
+      "High Satiety Index \u2014 keeps hunger away for 5+ hours",
+      "Low Sodium, balanced electrolytes"
+    ],
+    "nutritionFacts": [
+      {
+        "name": "Calories",
+        "value": "480 kcal"
+      },
+      {
+        "name": "Protein",
+        "value": "48 g"
+      },
+      {
+        "name": "Dietary Fiber",
+        "value": "12 g"
+      },
+      {
+        "name": "Total Carbs",
+        "value": "44 g"
+      },
+      {
+        "name": "Healthy Fats",
+        "value": "9 g"
+      },
+      {
+        "name": "Calcium",
+        "value": "280 mg"
+      }
+    ],
+    "reviews": [
+      {
+        "name": "Rohan Mehra",
+        "rating": 5,
+        "comment": "The chicken was super tender and not dry at all. 48g protein in a clean Indian thali is unbeatable value."
+      },
+      {
+        "name": "Chef Devendra",
+        "rating": 5,
+        "comment": "Excellent culinary execution. The ragi rotis were soft and the dal had minimal clean seasoning."
+      }
+    ]
+  },
+  {
+    "id": "food_beetroot_amla_detox",
+    "name": "Cold-Pressed Beetroot, Carrot & Amla Detox Juice",
+    "category": "Detox Juices & Smoothies",
+    "isVeg": true,
+    "protein": "4g Protein",
+    "calories": "110 kcal",
+    "price": 149,
+    "image": "https://images.unsplash.com/photo-1589733955941-5eeaf752f6dd?auto=format&fit=crop&w=800&q=80",
+    "description": "100% hydraulic cold-pressed juice made with organic ruby beetroot, fresh mountain carrots, wild amla (Indian gooseberry), ginger, and Himalayan pink salt. Raw, unpasteurized, zero added water or sugar.",
+    "highlights": [
+      "100% Pure Hydraulic Cold-Pressed (No Heat, No Oxidation)",
+      "Zero Added Water, Zero Refined Sugar, Zero Preservatives",
+      "Natural Nitric Oxide booster for improved stamina & blood flow",
+      "High Vitamin C from raw wild Amla for immune resistance",
+      "Promotes liver detoxification and cellular vitality"
+    ],
+    "nutritionFacts": [
+      {
+        "name": "Calories",
+        "value": "110 kcal"
+      },
+      {
+        "name": "Protein",
+        "value": "4 g"
+      },
+      {
+        "name": "Dietary Fiber",
+        "value": "3 g"
+      },
+      {
+        "name": "Total Carbs",
+        "value": "22 g"
+      },
+      {
+        "name": "Vitamin C",
+        "value": "180% RDA"
+      },
+      {
+        "name": "Iron",
+        "value": "2.4 mg"
+      }
+    ],
+    "reviews": [
+      {
+        "name": "Meera Joshi",
+        "rating": 5,
+        "comment": "Tastes pure and raw. You can immediately feel the difference compared to packaged store juices."
+      },
+      {
+        "name": "Karthik N.",
+        "rating": 5,
+        "comment": "Great pre-workout drink. The amla and ginger give it an awesome refreshing kick."
+      }
+    ]
+  },
+  {
+    "id": "food_raw_spirulina_smoothie",
+    "name": "Nutrolix Green Power Spirulina & Almond Smoothie",
+    "category": "Detox Juices & Smoothies",
+    "isVeg": true,
+    "protein": "18g Protein",
+    "calories": "210 kcal",
+    "price": 189,
+    "image": "https://images.unsplash.com/photo-1556881286-fc6915169721?auto=format&fit=crop&w=800&q=80",
+    "description": "Stone-ground artisanal almond milk blended with organic Indian spirulina, baby spinach leaves, ripe banana, soaked chia seeds, and plant-based digestive enzymes for maximum bioavailability.",
+    "highlights": [
+      "18g Plant-Based Protein & Complete Chlorophyll Matrix",
+      "Fresh Stone-Ground Almond Milk Base (Lactose Free)",
+      "High in Phycocyanin & Potent Antioxidants",
+      "Fortified with Natural B-Complex Vitamins",
+      "No Artificial Sweeteners, zero gums, or fillers"
+    ],
+    "nutritionFacts": [
+      {
+        "name": "Calories",
+        "value": "210 kcal"
+      },
+      {
+        "name": "Protein",
+        "value": "18 g"
+      },
+      {
+        "name": "Dietary Fiber",
+        "value": "8 g"
+      },
+      {
+        "name": "Total Carbs",
+        "value": "24 g"
+      },
+      {
+        "name": "Healthy Fats",
+        "value": "6 g"
+      },
+      {
+        "name": "Antioxidant ORAC",
+        "value": "4500+"
+      }
+    ],
+    "reviews": [
+      {
+        "name": "Siddharth B.",
+        "rating": 5,
+        "comment": "Surprisingly delicious for a green smoothie! Very smooth and kept me full through the entire morning."
+      },
+      {
+        "name": "Nidhi Agarwal",
+        "rating": 5,
+        "comment": "My favorite morning drink. Pure energy and great digestion."
+      }
+    ]
+  },
+  {
+    "id": "food_keto_egg_paneer_bhurchi",
+    "name": "Keto 6-Egg White & Paneer Scramble with Salad",
+    "category": "High Protein Meals",
+    "isVeg": false,
+    "protein": "42g Protein",
+    "calories": "340 kcal",
+    "price": 219,
+    "image": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=800&q=80",
+    "description": "Six farm-fresh egg whites scrambled with low-fat artisanal paneer, green chilies, organic turmeric, coriander, and served with a zesty lemon cucumber crunch salad. Almost zero carbohydrates.",
+    "highlights": [
+      "42g Rapid-Absorption Egg & Paneer Protein",
+      "Under 4g Total Carbohydrates (Keto & Cut Friendly)",
+      "Cooked in Cold-Pressed Olive Oil, Zero Vanaspati",
+      "Enriched with Raw Organic Lakadong Turmeric",
+      "Ideal post-workout muscle repair meal"
+    ],
+    "nutritionFacts": [
+      {
+        "name": "Calories",
+        "value": "340 kcal"
+      },
+      {
+        "name": "Protein",
+        "value": "42 g"
+      },
+      {
+        "name": "Dietary Fiber",
+        "value": "4 g"
+      },
+      {
+        "name": "Total Carbs",
+        "value": "4 g"
+      },
+      {
+        "name": "Healthy Fats",
+        "value": "15 g"
+      },
+      {
+        "name": "Sodium",
+        "value": "210 mg"
+      }
+    ],
+    "reviews": [
+      {
+        "name": "Coach Tarun",
+        "rating": 5,
+        "comment": "42g protein with only 4g carbs. Essential for anyone in a fat loss or cutting phase. Great taste too!"
+      },
+      {
+        "name": "Deepak K.",
+        "rating": 5,
+        "comment": "Super fresh egg whites and tender paneer. Delivered warm in 30 mins."
+      }
+    ]
+  },
+  {
+    "id": "food_millet_sprouts_chaat",
+    "name": "Sprouted Multi-Millet & Pomegranate Protein Chaat",
+    "category": "Diet & Calorie Conscious",
+    "isVeg": true,
+    "protein": "16g Protein",
+    "calories": "180 kcal",
+    "price": 159,
+    "image": "https://images.unsplash.com/photo-1627483262268-9c2b5b2834b5?auto=format&fit=crop&w=800&q=80",
+    "description": "Steamed sprouted green gram, roasted fox nuts (makhana), puffed ragi & bajra, juicy ruby pomegranate seeds, tossed in cold-pressed raw mango mint chutney and roasted cumin rock salt.",
+    "highlights": [
+      "16g Whole Plant Fiber-Bound Protein",
+      "Under 180 kcal with High Micronutrient Density",
+      "Crunchy Roasted Foxnuts (Makhana) & Puffed Ancient Millets",
+      "Zero Added Sugar \u2014 sweetened naturally with Pomegranate",
+      "Delicious Street-Chaat Taste with 100% Clinical Clean Nutrition"
+    ],
+    "nutritionFacts": [
+      {
+        "name": "Calories",
+        "value": "180 kcal"
+      },
+      {
+        "name": "Protein",
+        "value": "16 g"
+      },
+      {
+        "name": "Dietary Fiber",
+        "value": "11 g"
+      },
+      {
+        "name": "Total Carbs",
+        "value": "26 g"
+      },
+      {
+        "name": "Healthy Fats",
+        "value": "3 g"
+      },
+      {
+        "name": "Iron",
+        "value": "3.1 mg"
+      }
+    ],
+    "reviews": [
+      {
+        "name": "Shweta Tiwari",
+        "rating": 5,
+        "comment": "Satisfies evening chaat cravings completely without guilt. Crunchy, tangy, and super healthy."
+      },
+      {
+        "name": "Rajeev M.",
+        "rating": 5,
+        "comment": "The combination of sprouted moong and makhana is genius. 10/10 snack!"
+      }
+    ]
+  }
+];
+
+    let currentCategory = 'All';
+    let currentSelectedModalDish = null;
+    let modalSelectedQuantity = 1;
+
+    // Toggle Left Slide-out Drawer (Point 5)
+    window.toggleLeftBurgerMenu = function() {
+      const drawer = document.getElementById('leftBurgerDrawer');
+      const backdrop = document.getElementById('leftBurgerBackdrop');
+      if (!drawer || !backdrop) return;
+      
+      const isClosed = drawer.classList.contains('-translate-x-full');
+      if (isClosed) {
+        drawer.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden');
+      } else {
+        drawer.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+      }
+    };
+
+    function renderFoodMenu() {
+      const container = document.getElementById('foodMenuGrid');
+      if (!container) return;
+
+      const filtered = currentCategory === 'All' 
+        ? healthyFoodMenu 
+        : healthyFoodMenu.filter(item => item.category === currentCategory);
+
+      const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+
+      container.innerHTML = filtered.map(item => {
+        const inCartItem = cart.find(i => i.id === item.id);
+        const qty = inCartItem ? inCartItem.quantity : 0;
+
+        return `
+          <div onclick="window.openFoodDetailModal('${item.id}')" class="cursor-pointer bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition flex flex-col justify-between group active:scale-[0.99]">
+            
+            <!-- Dish Image & Dietary Icon (Click opens detail modal) -->
+            <div class="relative aspect-square overflow-hidden bg-slate-100">
+              <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              
+              <!-- Veg / Non-Veg Indicator -->
+              <div class="absolute top-2.5 left-2.5 w-5 h-5 bg-white/95 rounded-md flex items-center justify-center shadow-sm border ${item.isVeg ? 'border-emerald-600' : 'border-rose-600'}">
+                <div class="w-2.5 h-2.5 rounded-full ${item.isVeg ? 'bg-emerald-600' : 'bg-rose-600'}"></div>
+              </div>
+
+              <!-- Macro Nutritional Tag -->
+              <span class="absolute bottom-2 left-2 bg-slate-900/90 backdrop-blur-sm text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-lg border border-white/10">
+                ${item.protein} • ${item.calories}
+              </span>
+
+              <!-- Tap to view details hint -->
+              <span class="absolute top-2.5 right-2.5 bg-white/90 backdrop-blur-sm text-slate-700 text-[9px] font-black px-2 py-0.5 rounded-md shadow-sm">
+                View Details
+              </span>
+            </div>
+
+            <!-- Dish Info & Actions -->
+            <div class="p-3 flex-1 flex flex-col justify-between">
+              <div>
+                <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 leading-snug line-clamp-2">
+                  ${item.name}
+                </h3>
+                <p class="text-[11px] text-slate-500 mt-1 line-clamp-2">
+                  ${item.description}
+                </p>
+              </div>
+
+              <!-- Price & Plus/Add Stepper -->
+              <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between" onclick="event.stopPropagation()">
+                <div>
+                  <span class="text-sm sm:text-base font-black text-slate-900">₹${item.price}</span>
+                  <span class="text-[9px] text-slate-400 block -mt-0.5">Kitchen Fresh</span>
+                </div>
+
+                <div id="cartActionBox-${item.id}">
+                  ${qty > 0 ? `
+                    <div class="flex items-center space-x-1.5 bg-nutro-forest text-white rounded-xl px-2 py-1 shadow-sm text-xs font-black">
+                      <button onclick="changeFoodQuantity('${item.id}', -1)" class="w-6 h-6 flex items-center justify-center hover:bg-emerald-800 rounded-lg transition">-</button>
+                      <span class="px-1">${qty}</span>
+                      <button onclick="changeFoodQuantity('${item.id}', 1)" class="w-6 h-6 flex items-center justify-center hover:bg-emerald-800 rounded-lg transition">+</button>
+                    </div>
+                  ` : `
+                    <button onclick="changeFoodQuantity('${item.id}', 1)" class="bg-nutro-forest hover:bg-nutro-dark text-white text-xs font-black px-3.5 py-1.5 rounded-xl transition shadow flex items-center space-x-1 active:scale-95">
+                      <i class="fa-solid fa-plus text-[10px]"></i>
+                      <span>Add</span>
+                    </button>
+                  `}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        `;
+      }).join('');
+
+      updateCartBadges();
+    }
+
+    function filterFoodCategory(cat, btn) {
+      currentCategory = cat;
+      const pills = document.querySelectorAll('.food-cat-btn');
+      pills.forEach(p => {
+        p.classList.remove('bg-nutro-forest', 'text-white', 'active');
+        p.classList.add('bg-slate-100', 'text-slate-700');
+      });
+      if (btn) {
+        btn.classList.remove('bg-slate-100', 'text-slate-700');
+        btn.classList.add('bg-nutro-forest', 'text-white', 'active');
+      }
+      renderFoodMenu();
+    }
+
+    // =========================================================================
+    // Dish Detail Modal Functions (Requirement 1)
+    // =========================================================================
+    window.openFoodDetailModal = function(dishId) {
+      const dish = healthyFoodMenu.find(d => d.id === dishId);
+      if (!dish) return;
+
+      currentSelectedModalDish = dish;
+      modalSelectedQuantity = 1;
+
+      // Populate Modal Fields
+      document.getElementById('modalDishCategory').textContent = dish.category;
+      document.getElementById('modalDishImage').src = dish.image;
+      document.getElementById('modalDishImage').alt = dish.name;
+      document.getElementById('modalDishMacroPill').textContent = `${dish.protein} • ${dish.calories}`;
+      document.getElementById('modalDishTitle').textContent = dish.name;
+      document.getElementById('modalDishPrice').textContent = `₹${dish.price}`;
+      document.getElementById('modalDishDescription').textContent = dish.description;
+
+      // Veg vs Non-Veg badge
+      const vegDot = document.getElementById('modalDishVegDot');
+      const vegBadge = document.getElementById('modalDishVegBadge');
+      if (dish.isVeg) {
+        vegDot.className = 'w-3 h-3 rounded-full bg-emerald-600';
+        vegBadge.className = 'absolute top-3 left-3 w-6 h-6 bg-white/95 backdrop-blur-sm rounded-lg flex items-center justify-center shadow-md border border-emerald-600';
+      } else {
+        vegDot.className = 'w-3 h-3 rounded-full bg-rose-600';
+        vegBadge.className = 'absolute top-3 left-3 w-6 h-6 bg-white/95 backdrop-blur-sm rounded-lg flex items-center justify-center shadow-md border border-rose-600';
+      }
+
+      // Populate Key Highlights Bullet Points (Requirement 1)
+      const highlightsList = document.getElementById('modalDishHighlights');
+      highlightsList.innerHTML = (dish.highlights || []).map(hl => `
+        <li class="flex items-start space-x-2">
+          <i class="fa-solid fa-circle-check text-emerald-600 mt-0.5 text-xs shrink-0"></i>
+          <span>${hl}</span>
+        </li>
+      `).join('');
+
+      // Populate Nutrition Facts Table (Requirement 1)
+      const nutritionGrid = document.getElementById('modalDishNutritionGrid');
+      nutritionGrid.innerHTML = (dish.nutritionFacts || []).map(f => `
+        <div class="p-3">
+          <span class="text-[10px] text-slate-400 uppercase font-black block">${f.name}</span>
+          <span class="text-sm font-black text-slate-900">${f.value}</span>
+        </div>
+      `).join('');
+
+      // Populate Customer Reviews Section (Requirement 1)
+      const reviewsList = document.getElementById('modalDishReviewsList');
+      reviewsList.innerHTML = (dish.reviews || []).map(r => `
+        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-xs text-slate-900">${r.name}</span>
+            <div class="flex text-amber-400 text-[10px]">
+              ${Array(r.rating).fill('<i class="fa-solid fa-star"></i>').join('')}
+            </div>
+          </div>
+          <p class="text-xs text-slate-600 leading-snug font-medium">${r.comment}</p>
+        </div>
+      `).join('');
+
+      updateModalPriceAndQty();
+
+      // Show Modal
+      document.getElementById('foodDishDetailModal').classList.remove('hidden');
+    };
+
+    window.closeFoodDetailModal = function() {
+      document.getElementById('foodDishDetailModal').classList.add('hidden');
+    };
+
+    window.stepModalQuantity = function(delta) {
+      modalSelectedQuantity = Math.max(1, modalSelectedQuantity + delta);
+      updateModalPriceAndQty();
+    };
+
+    function updateModalPriceAndQty() {
+      if (!currentSelectedModalDish) return;
+      document.getElementById('modalQuantityText').textContent = modalSelectedQuantity;
+      const total = currentSelectedModalDish.price * modalSelectedQuantity;
+      document.getElementById('modalDishTotalPrice').textContent = `₹${total}`;
+    }
+
+    window.submitModalAddToCart = function() {
+      if (!currentSelectedModalDish) return;
+
+      let cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+      let existing = cart.find(i => i.id === currentSelectedModalDish.id);
+
+      if (existing) {
+        existing.quantity += modalSelectedQuantity;
+      } else {
+        cart.push({
+          id: currentSelectedModalDish.id,
+          name: currentSelectedModalDish.name,
+          title: currentSelectedModalDish.name,
+          price: currentSelectedModalDish.price,
+          quantity: modalSelectedQuantity,
+          variant: 'Fresh Kitchen Meal',
+          type: 'healthy_food',
+          image: currentSelectedModalDish.image
+        });
+      }
+
+      localStorage.setItem('nutrolix_store_cart', JSON.stringify(cart));
+      window.closeFoodDetailModal();
+      renderFoodMenu();
+      updateCartBadges();
+
+      // Show friendly confirmation toast
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-nutro-forest text-white px-5 py-2.5 rounded-2xl shadow-2xl text-xs font-black flex items-center space-x-2 border border-emerald-400';
+      toast.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i><span>' + currentSelectedModalDish.name + ' (' + modalSelectedQuantity + ') added to Cart!</span>';
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2500);
+    };
+
+    function changeFoodQuantity(id, delta) {
+      const foodItem = healthyFoodMenu.find(i => i.id === id);
+      if (!foodItem) return;
+
+      let cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+      let item = cart.find(i => i.id === id);
+
+      if (item) {
+        item.quantity += delta;
+        if (item.quantity <= 0) {
+          cart = cart.filter(i => i.id !== id);
+        }
+      } else if (delta > 0) {
+        cart.push({
+          id: foodItem.id,
+          name: foodItem.name,
+          title: foodItem.name,
+          price: foodItem.price,
+          quantity: 1,
+          variant: 'Fresh Kitchen Meal',
+          type: 'healthy_food',
+          image: foodItem.image
+        });
+      }
+
+      localStorage.setItem('nutrolix_store_cart', JSON.stringify(cart));
+      renderFoodMenu();
+    }
+
+    function updateCartBadges() {
+      const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+      const count = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
+      const total = cart.reduce((sum, i) => sum + (i.price * (i.quantity || 1)), 0);
+
+      const headerCountEl = document.getElementById('headerCartCount');
+      if (headerCountEl) headerCountEl.textContent = count;
+
+      const stickyBar = document.getElementById('foodStickyCartBar');
+      const stickyCount = document.getElementById('stickyCartItemCount');
+      const stickyTotal = document.getElementById('stickyCartTotalText');
+
+      if (stickyBar && stickyCount && stickyTotal) {
+        if (count > 0) {
+          stickyBar.classList.remove('hidden');
+          stickyCount.textContent = count;
+          stickyTotal.textContent = `₹${total} Total`;
+        } else {
+          stickyBar.classList.add('hidden');
+        }
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderFoodMenu();
+      updateCartBadges();
+    });
+  </script>
+
+  <!-- Universal Pull to Refresh with Circular Progress Indicator -->
+  <script src="assets/pull-to-refresh.js"></script>
+</body>
+</html>
