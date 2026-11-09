@@ -52,19 +52,58 @@
         </a>
       </div>
 
-      <!-- Desktop Nav -->
-      <nav class="hidden md:flex items-center space-x-6 text-sm font-bold text-slate-700">
-        <a href="index.html" class="hover:text-nutro-emerald transition">Home</a>
-        <a href="shop.html" class="hover:text-nutro-emerald transition">Store</a>
-        <a href="food.html" class="text-nutro-emerald font-extrabold transition flex items-center space-x-1.5">
-          <i class="fa-solid fa-utensils text-xs"></i>
-          <span>Healthy Food</span>
-        </a>
-        <a href="orders.html" class="hover:text-nutro-emerald transition flex items-center space-x-1.5 text-slate-700 font-bold">
+      <!-- Desktop Nav (Requirement 2: Home, Store, Healthy Food, My Order & More Dropdown) -->
+      <nav class="hidden lg:flex items-center space-x-7 text-sm font-bold text-slate-700">
+        <a href="index.html" class="hover:text-emerald-700 transition">Home</a>
+        <a href="shop.html" class="hover:text-emerald-700 transition">Store</a>
+        <a href="food.html" class="text-emerald-700 border-b-2 border-emerald-700 pb-1 font-extrabold transition">Healthy Food</a>
+        <a href="orders.html" class="hover:text-emerald-700 transition flex items-center space-x-1.5 py-1 px-2.5 rounded-lg text-slate-700 hover:bg-slate-100 font-bold">
           <i class="fa-solid fa-truck-fast text-xs text-emerald-600"></i>
-          <span>Track Orders</span>
+          <span>My Order</span>
         </a>
-        <a href="account.html" class="hover:text-nutro-emerald transition">My Profile</a>
+
+        <!-- More Dropdown on Hover -->
+        <div class="relative group py-2">
+          <button class="flex items-center space-x-1 text-slate-700 hover:text-emerald-700 py-1 transition font-bold">
+            <span>More</span>
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:rotate-180 transition"></i>
+          </button>
+          <div class="absolute left-0 mt-1 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2.5 hidden group-hover:block transition z-50">
+            <a href="about.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-emerald-50 text-slate-800 text-xs font-semibold">
+              <i class="fa-solid fa-circle-info text-emerald-600 w-4"></i>
+              <span>About Us</span>
+            </a>
+            <a href="about.html#story" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-emerald-50 text-slate-800 text-xs font-semibold">
+              <i class="fa-solid fa-seedling text-teal-600 w-4"></i>
+              <span>Our Story</span>
+            </a>
+            <a href="blogs.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-emerald-50 text-slate-800 text-xs font-semibold">
+              <i class="fa-solid fa-newspaper text-purple-600 w-4"></i>
+              <span>Blogs & Articles</span>
+            </a>
+            <a href="contact.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-emerald-50 text-slate-800 text-xs font-semibold">
+              <i class="fa-solid fa-envelope text-blue-600 w-4"></i>
+              <span>Contact Us</span>
+            </a>
+            <div class="border-t border-slate-100 my-1"></div>
+            <a href="terms.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-slate-50 text-slate-600 text-xs font-medium">
+              <i class="fa-solid fa-scale-balanced text-slate-400 w-4"></i>
+              <span>Terms & Conditions</span>
+            </a>
+            <a href="privacy.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-slate-50 text-slate-600 text-xs font-medium">
+              <i class="fa-solid fa-shield-halved text-slate-400 w-4"></i>
+              <span>Privacy Policy</span>
+            </a>
+            <a href="refund.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-slate-50 text-slate-600 text-xs font-medium">
+              <i class="fa-solid fa-rotate-left text-slate-400 w-4"></i>
+              <span>Refund & Return</span>
+            </a>
+            <a href="shipping.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-slate-50 text-slate-600 text-xs font-medium">
+              <i class="fa-solid fa-box text-slate-400 w-4"></i>
+              <span>Shipping Policy</span>
+            </a>
+          </div>
+        </div>
       </nav>
 
       <!-- Cart Icon & Live Counter in Header -->

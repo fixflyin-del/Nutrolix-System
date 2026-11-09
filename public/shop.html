@@ -55,17 +55,38 @@
           </a>
         </div>
 
-        <!-- Desktop Navigation Bar -->
+        <!-- Desktop Navigation Bar (Requirement 2) -->
         <nav class="hidden lg:flex items-center space-x-7 text-sm font-bold text-slate-700">
           <a href="index.html" class="hover:text-nutro-emerald transition">Home</a>
-          <a href="shop.html" class="text-nutro-emerald border-b-2 border-nutro-emerald pb-1 transition">Shop</a>
+          <a href="shop.html" class="text-nutro-emerald border-b-2 border-nutro-emerald pb-1 transition">Store</a>
+          <a href="food.html" class="hover:text-nutro-emerald transition">Healthy Food</a>
           <a href="orders.html" class="hover:text-nutro-emerald transition flex items-center space-x-1.5 py-1 px-2.5 rounded-lg text-slate-700 hover:bg-slate-100 font-bold">
             <i class="fa-solid fa-truck-fast text-xs text-emerald-600"></i>
-            <span>Track Orders</span>
+            <span>My Order</span>
           </a>
-          <a href="about.html" class="hover:text-nutro-emerald transition">About Us</a>
-          <a href="blogs.html" class="hover:text-nutro-emerald transition">Blogs</a>
-          <a href="contact.html" class="hover:text-nutro-emerald transition">Contact</a>
+          <!-- More Dropdown (About Us, Contact Us, Blogs, Our Story, T&C, Policies) -->
+          <div class="relative group py-2">
+            <button class="hover:text-nutro-emerald transition flex items-center space-x-1 py-1 focus:outline-none">
+              <span>More</span>
+              <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:text-nutro-emerald group-hover:rotate-180 transition-transform"></i>
+            </button>
+            <div class="absolute left-0 top-full pt-2 w-56 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 text-xs font-bold text-slate-700 divide-y divide-slate-100">
+                <div class="py-1">
+                  <a href="about.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">About Us</a>
+                  <a href="our-story.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Our Story</a>
+                  <a href="blogs.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Blogs & Articles</a>
+                  <a href="contact.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Contact Us</a>
+                </div>
+                <div class="py-1">
+                  <a href="terms.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Terms & Conditions</a>
+                  <a href="privacy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Privacy Policy</a>
+                  <a href="refund-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Refund & Return Policy</a>
+                  <a href="shipping-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Shipping Policy</a>
+                </div>
+              </div>
+            </div>
+          </div>
         </nav>
 
         <!-- Right Header Icons -->
@@ -201,43 +222,14 @@
   <!-- Catalog Viewport Full-Width Products Grid -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
     
-    <!-- Modern Category Filter Tabs -->
-    <div class="flex items-center space-x-2 overflow-x-auto pb-4 mb-6 custom-scrollbar text-xs font-bold" id="shopCategoryTabs">
-      <button onclick="window.selectCategory('All', this)" class="shop-cat-btn px-4 py-2 rounded-full bg-nutro-forest text-white transition shadow-sm shrink-0">
-        All Products
-      </button>
-      <button onclick="window.selectCategory('High Protein Foods', this)" class="shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-        🌾 High Protein Atta
-      </button>
-      <button onclick="window.selectCategory('Superfood Blends', this)" class="shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-        🌱 Complete Nutri Meal
-      </button>
-      <button onclick="window.selectCategory('Healthy Breakfast', this)" class="shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-        🥣 Talbeenah Porridge
-      </button>
-      <button onclick="window.selectCategory('Millet Products', this)" class="shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-        🌾 Multi-Millet Flakes
-      </button>
-      <button onclick="window.selectCategory('Wellness Nutrition', this)" class="shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-        🍯 Pure Elixirs & Honey
-      </button>
-    </div>
-
-    <!-- Sorting & Count Bar -->
-    <div class="bg-white p-4 rounded-2xl border border-slate-200 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
-      <div class="text-slate-600 font-bold">
+    <!-- Clean Store Header Status (Category removed as per Requirement 3) -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 mb-6 flex items-center justify-between text-xs shadow-sm">
+      <div class="text-slate-700 font-bold">
         Showing <span id="productsCount" class="text-slate-900 font-black text-sm">8</span> Lab-Tested Nutrition Products
       </div>
-
-      <div class="flex items-center space-x-2">
-        <span class="text-slate-500 font-semibold">Sort By:</span>
-        <select id="sortSelect" onchange="window.applyFilters()" class="p-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 bg-slate-50">
-          <option value="featured">Featured First</option>
-          <option value="rating">Highest Rated ★</option>
-          <option value="bestseller">Best Selling 🔥</option>
-          <option value="lowtohigh">Price: Low to High</option>
-          <option value="hightolow">Price: High to Low</option>
-        </select>
+      <div class="text-xs text-emerald-700 font-bold flex items-center space-x-1.5">
+        <i class="fa-solid fa-shield-check text-emerald-600"></i>
+        <span>100% Direct Factory Dispatch</span>
       </div>
     </div>
 
@@ -457,7 +449,9 @@
         return `
           <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition flex flex-col group">
             <div class="relative aspect-square overflow-hidden bg-slate-100">
-              <img src="${img}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              <a href="product.html?id=${p.id}" class="block w-full h-full cursor-pointer">
+                <img src="${img}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              </a>
               <span class="absolute top-2 sm:top-3 left-2 sm:left-3 bg-nutro-orange text-white text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm">
                 ${p.discountPercent || 20}% OFF
               </span>

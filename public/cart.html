@@ -61,17 +61,38 @@
         </a>
       </div>
 
-      <!-- Desktop Nav -->
+      <!-- Desktop Nav (Requirement 2) -->
       <nav class="hidden md:flex items-center space-x-6 text-sm font-bold text-slate-700">
         <a href="index.html" class="hover:text-nutro-emerald transition">Home</a>
-        <a href="shop.html" class="hover:text-nutro-emerald transition">Shop All</a>
+        <a href="shop.html" class="hover:text-nutro-emerald transition">Store</a>
         <a href="food.html" class="hover:text-nutro-emerald transition">Healthy Food</a>
         <a href="orders.html" class="hover:text-nutro-emerald transition flex items-center space-x-1.5 py-1 px-2.5 rounded-lg text-slate-700 hover:bg-slate-100 font-bold">
           <i class="fa-solid fa-truck-fast text-xs text-emerald-600"></i>
-          <span>Track Orders</span>
+          <span>My Order</span>
         </a>
-        <a href="about.html" class="hover:text-nutro-emerald transition">About</a>
-        <a href="contact.html" class="hover:text-nutro-emerald transition">Contact</a>
+        <!-- More Dropdown -->
+        <div class="relative group py-2">
+          <button class="hover:text-nutro-emerald transition flex items-center space-x-1 py-1 focus:outline-none">
+            <span>More</span>
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:text-nutro-emerald group-hover:rotate-180 transition-transform"></i>
+          </button>
+          <div class="absolute left-0 top-full pt-2 w-56 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 text-xs font-bold text-slate-700 divide-y divide-slate-100">
+              <div class="py-1">
+                <a href="about.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">About Us</a>
+                <a href="our-story.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Our Story</a>
+                <a href="blogs.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Blogs & Articles</a>
+                <a href="contact.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Contact Us</a>
+              </div>
+              <div class="py-1">
+                <a href="terms.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Terms & Conditions</a>
+                <a href="privacy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Privacy Policy</a>
+                <a href="refund-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Refund & Return Policy</a>
+                <a href="shipping-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Shipping Policy</a>
+              </div>
+            </div>
+          </div>
+        </div>
       </nav>
 
       <!-- Right Header Actions -->

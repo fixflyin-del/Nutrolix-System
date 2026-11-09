@@ -2547,7 +2547,22 @@ const server = http.createServer((req, res) => {
         if (fs.existsSync(htmlPath)) {
           filePath = htmlPath;
         } else {
-          filePath = path.join(PUBLIC_DIR, 'index.html');
+          // Check if requested path is a blog article slug or blog path
+          const cleanSlug = reqPath.replace(/^\/+/, '').split('?')[0];
+          let isBlogMatch = false;
+          try {
+            const blogsFile = path.join(PUBLIC_DIR, 'data', 'blogs.json');
+            if (fs.existsSync(blogsFile)) {
+              const bl = JSON.parse(fs.readFileSync(blogsFile, 'utf8') || '[]');
+              isBlogMatch = bl.some(b => (b.slug && b.slug === cleanSlug) || (b.id && b.id === cleanSlug));
+            }
+          } catch (_) {}
+
+          if (isBlogMatch || cleanSlug.startsWith('blog/') || cleanSlug.startsWith('article/') || cleanSlug === 'article') {
+            filePath = path.join(PUBLIC_DIR, 'article.html');
+          } else {
+            filePath = path.join(PUBLIC_DIR, 'index.html');
+          }
         }
       } else {
         filePath = path.join(PUBLIC_DIR, 'index.html');

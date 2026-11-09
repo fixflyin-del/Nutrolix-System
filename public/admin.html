@@ -1418,7 +1418,18 @@
 
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Article Title *</label>
-          <input type="text" id="blogTitle" required placeholder="e.g. The Science of High-Protein Atta" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-bold">
+          <input type="text" id="blogTitle" required placeholder="e.g. Best Nutrition Meal for Energy" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-bold" oninput="window.autoGenerateBlogSlug(this.value)">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1 flex items-center justify-between">
+            <span>Article URL Slug (Google SEO Friendly) *</span>
+            <span class="text-[10px] text-purple-700 font-bold">Auto-generated from title</span>
+          </label>
+          <div class="flex items-center">
+            <span class="bg-slate-100 text-slate-500 px-3 py-2 text-xs rounded-l-xl border border-r-0 border-slate-300 font-mono font-bold">nutrolix.in/</span>
+            <input type="text" id="blogSlug" required placeholder="best-nutrition-meal" class="flex-1 px-3 py-2 text-xs rounded-r-xl border border-slate-300 font-bold text-purple-800 font-mono">
+          </div>
         </div>
 
         <div class="grid grid-cols-3 gap-3">
@@ -1429,6 +1440,8 @@
               <option value="Wellness Science">Wellness Science</option>
               <option value="Functional Foods">Functional Foods</option>
               <option value="Clinical Diets">Clinical Diets</option>
+              <option value="Gut Health">Gut Health</option>
+              <option value="Diabetic Care">Diabetic Care</option>
             </select>
           </div>
           <div>
@@ -1443,7 +1456,31 @@
 
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Cover Image URL *</label>
-          <input type="url" id="blogImage" required placeholder="https://images.unsplash.com/..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300">
+          <div class="flex space-x-2">
+            <input type="url" id="blogImage" required placeholder="https://..." class="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300">
+            <button type="button" onclick="document.getElementById('blogImage').value='assets/nutrolix_lab_facility.jpg'" class="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold whitespace-nowrap">Lab Preset</button>
+            <button type="button" onclick="document.getElementById('blogImage').value='assets/nutrolix_cleanroom_factory.jpg'" class="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold whitespace-nowrap">Factory Preset</button>
+          </div>
+        </div>
+
+        <!-- Google Search SEO Card -->
+        <div class="bg-purple-50/70 p-3 rounded-2xl border border-purple-200/80 space-y-2">
+          <div class="text-xs font-black text-purple-900 flex items-center space-x-1.5">
+            <i class="fa-solid fa-magnifying-glass text-purple-700"></i>
+            <span>Google Search Engine Optimization (SEO Setup)</span>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-0.5">Google Meta Title</label>
+            <input type="text" id="blogSeoTitle" placeholder="e.g. Best Nutrition Meal for Daily Energy – Nutrolix" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300">
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-0.5">Google Meta Description (Search snippet)</label>
+            <textarea id="blogSeoDescription" rows="2" placeholder="Brief 150-character summary for Google search snippet..." class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300"></textarea>
+          </div>
+          <div>
+            <label class="block text-[11px] font-bold text-slate-700 mb-0.5">SEO Focus Keywords (comma-separated)</label>
+            <input type="text" id="blogSeoKeywords" placeholder="best nutrition meal, clinical diet, high protein atta, glycemic health" class="w-full px-3 py-1.5 text-xs rounded-lg border border-slate-300">
+          </div>
         </div>
 
         <div>
@@ -1453,7 +1490,7 @@
 
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Full Article Content *</label>
-          <textarea id="blogContent" required rows="6" placeholder="Write the complete scientific article here..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-mono text-xs"></textarea>
+          <textarea id="blogContent" required rows="6" placeholder="Write the complete scientific article here (use blank lines between paragraphs)..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-mono text-xs"></textarea>
         </div>
 
         <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
@@ -2621,14 +2658,19 @@
           return;
         }
 
-        tbody.innerHTML = window.blogsList.map(b => `
+        tbody.innerHTML = window.blogsList.map(b => {
+          const articleUrl = '/' + (b.slug || b.id);
+          return `
           <tr class="hover:bg-slate-50 transition border-b border-slate-100">
             <td class="p-3.5">
               <div class="flex items-center space-x-3">
                 <img src="${b.image || '/assets/nutrolix_logo.png'}" class="w-12 h-12 rounded-xl object-cover border border-slate-200">
                 <div class="max-w-xs">
                   <span class="font-extrabold text-slate-900 block truncate text-xs">${b.title}</span>
-                  <span class="text-[11px] text-slate-500 line-clamp-1">${b.excerpt}</span>
+                  <a href="${articleUrl}" target="_blank" class="text-[11px] text-purple-700 font-bold hover:underline flex items-center space-x-1">
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                    <span class="font-mono">${articleUrl}</span>
+                  </a>
                 </div>
               </div>
             </td>
@@ -2639,17 +2681,31 @@
             <td class="p-3.5 text-xs text-slate-500">${b.date || 'Recent'}</td>
             <td class="p-3.5 text-xs text-slate-500">${b.readTime || '4 min'}</td>
             <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
-              <button onclick="window.editBlog('${b.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition">
+              <a href="${articleUrl}" target="_blank" class="inline-flex px-2.5 py-1 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-xs transition" title="View Live Article">
+                <i class="fa-solid fa-eye"></i>
+              </a>
+              <button onclick="window.editBlog('${b.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition" title="Edit Article">
                 <i class="fa-solid fa-pen-to-square"></i>
               </button>
-              <button onclick="window.deleteBlog('${b.id}')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold transition">
+              <button onclick="window.deleteBlog('${b.id}')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold transition" title="Delete">
                 <i class="fa-solid fa-trash-can"></i>
               </button>
             </td>
           </tr>
-        `).join('');
+        `;
+        }).join('');
       } catch (err) {
         console.error('Error loading blogs:', err);
+      }
+    };
+
+    window.autoGenerateBlogSlug = function(title) {
+      const slugInput = document.getElementById('blogSlug');
+      if (slugInput && !document.getElementById('blogId').value) {
+        slugInput.value = (title || '')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
       }
     };
 
@@ -2657,6 +2713,10 @@
       document.getElementById('blogModalTitle').innerHTML = '<i class="fa-solid fa-newspaper text-purple-600 mr-2"></i>Write / Edit Blog Article';
       document.getElementById('blogForm').reset();
       document.getElementById('blogId').value = '';
+      document.getElementById('blogSlug').value = '';
+      document.getElementById('blogSeoTitle').value = '';
+      document.getElementById('blogSeoDescription').value = '';
+      document.getElementById('blogSeoKeywords').value = '';
       document.getElementById('blogModal').classList.remove('hidden');
     };
 
@@ -2666,10 +2726,14 @@
       document.getElementById('blogModalTitle').innerHTML = '<i class="fa-solid fa-newspaper text-purple-600 mr-2"></i>Edit Blog Article';
       document.getElementById('blogId').value = b.id;
       document.getElementById('blogTitle').value = b.title || '';
+      document.getElementById('blogSlug').value = b.slug || b.id.replace(/^blog_/, '');
       document.getElementById('blogCategory').value = b.category || 'Nutrition Science';
       document.getElementById('blogAuthor').value = b.author || '';
       document.getElementById('blogReadTime').value = b.readTime || '4 min read';
       document.getElementById('blogImage').value = b.image || '';
+      document.getElementById('blogSeoTitle').value = b.seoTitle || '';
+      document.getElementById('blogSeoDescription').value = b.seoDescription || '';
+      document.getElementById('blogSeoKeywords').value = b.seoKeywords || '';
       document.getElementById('blogExcerpt').value = b.excerpt || '';
       document.getElementById('blogContent').value = b.content || '';
       document.getElementById('blogModal').classList.remove('hidden');
@@ -2677,16 +2741,37 @@
 
     window.saveBlog = async function(e) {
       e.preventDefault();
-      const id = document.getElementById('blogId').value || ('blog_' + Date.now());
+      const id = document.getElementById('blogId').value || ('blog_' + Date.now().toString(36));
       const title = document.getElementById('blogTitle').value.trim();
+      let slug = document.getElementById('blogSlug').value.trim();
+      if (!slug) {
+        slug = title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      }
       const category = document.getElementById('blogCategory').value;
       const author = document.getElementById('blogAuthor').value.trim();
       const readTime = document.getElementById('blogReadTime').value.trim();
       const image = document.getElementById('blogImage').value.trim();
+      const seoTitle = document.getElementById('blogSeoTitle').value.trim();
+      const seoDescription = document.getElementById('blogSeoDescription').value.trim();
+      const seoKeywords = document.getElementById('blogSeoKeywords').value.trim();
       const excerpt = document.getElementById('blogExcerpt').value.trim();
       const content = document.getElementById('blogContent').value.trim();
 
-      const payload = { id, title, category, author, readTime, image, excerpt, content, date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) };
+      const payload = { 
+        id, 
+        title, 
+        slug, 
+        category, 
+        author, 
+        readTime, 
+        image, 
+        seoTitle, 
+        seoDescription, 
+        seoKeywords, 
+        excerpt, 
+        content, 
+        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) 
+      };
 
       try {
         const btn = document.getElementById('saveBlogBtn');
@@ -2701,7 +2786,7 @@
         if (data.success) {
           window.closeModal('blogModal');
           window.loadBlogsAdmin();
-          alert('✓ Blog article published successfully to main website!');
+          alert('✓ Article successfully published! Accessible live at: nutrolix.in/' + slug);
         } else {
           alert('Failed to save blog: ' + (data.error || 'Server error'));
         }

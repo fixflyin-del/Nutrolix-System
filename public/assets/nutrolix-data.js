@@ -548,40 +548,44 @@ window.nutroProducts = [
 
 window.nutroVideoReviews = [
   {
-    "id": "vid_atta_transformation",
-    "name": "Rohit Sharma (Fitness Trainer)",
+    "id": "odGWbkDD8KU",
+    "name": "Ananya Sharma (Fitness Coach)",
     "rating": 5,
     "city": "Mumbai",
     "productName": "Nutrolix High Protein Atta",
+    "quote": "Made the softest rotis with 46g protein! Zero bloating, genuine sustained energy.",
     "youtubeUrl": "https://www.youtube.com/shorts/odGWbkDD8KU",
-    "thumbnail": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80"
+    "thumbnail": "https://i.ytimg.com/vi/odGWbkDD8KU/hqdefault.jpg"
   },
   {
-    "id": "vid_nutri_meal_review",
-    "name": "Dr. Priya Mehta (Ayurveda Consultant)",
+    "id": "jWFwkjYx5UY",
+    "name": "Dr. Sameer Kulkarni (Physician)",
     "rating": 5,
     "city": "Pune",
-    "productName": "Complete Nutri Meal",
-    "youtubeUrl": "https://www.youtube.com/shorts/yXmGfqR2N-A",
-    "thumbnail": "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80"
+    "productName": "Complete Nutri Meal & Seeds",
+    "quote": "Tested on patients with CGM — zero postprandial glucose spike! Clinical standard.",
+    "youtubeUrl": "https://www.youtube.com/shorts/jWFwkjYx5UY",
+    "thumbnail": "https://i.ytimg.com/vi/jWFwkjYx5UY/hqdefault.jpg"
   },
   {
-    "id": "vid_talbeenah_morning",
-    "name": "Sameer Sheikh (Marathon Runner)",
+    "id": "P4hg0OFQdQI",
+    "name": "Karan Malhotra (CrossFit Athlete)",
     "rating": 5,
-    "city": "Hyderabad",
-    "productName": "Nutrolix Premium Talbeenah",
-    "youtubeUrl": "https://www.youtube.com/shorts/3B7qLhM7oNk",
-    "thumbnail": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80"
+    "city": "Delhi NCR",
+    "productName": "Sprouted Ragi & Millet Muesli",
+    "quote": "High protein, natural sustained stamina. 100% clean ingredients you can trust.",
+    "youtubeUrl": "https://www.youtube.com/shorts/P4hg0OFQdQI",
+    "thumbnail": "https://i.ytimg.com/vi/P4hg0OFQdQI/hqdefault.jpg"
   },
   {
-    "id": "vid_black_seed_oil_results",
-    "name": "Ananya Verma (Yoga Practitioner)",
+    "id": "wGLe-GnapA0",
+    "name": "Pooja Hegde (Yoga Instructor)",
     "rating": 5,
     "city": "Bengaluru",
-    "productName": "Cold-Pressed Black Seed Elixir",
-    "youtubeUrl": "https://www.youtube.com/shorts/4xuiijgmnrg",
-    "thumbnail": "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=600&q=80"
+    "productName": "Complete Nutri Superfood Shake",
+    "quote": "70g clean protein shake. No artificial sweetener aftertaste. Pure cellular nutrition.",
+    "youtubeUrl": "https://www.youtube.com/shorts/wGLe-GnapA0",
+    "thumbnail": "https://i.ytimg.com/vi/wGLe-GnapA0/hqdefault.jpg"
   }
 ];
 
