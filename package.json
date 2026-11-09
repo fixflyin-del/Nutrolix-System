@@ -1,7 +1,7 @@
 {
-  "name": "nutrolix-web",
+  "name": "nutrolix-system",
   "version": "2.0.0",
-  "description": "Nutrolix - Nutrition that works (E-commerce, Cloud Kitchen & Admin)",
+  "description": "Nutrolix - Nutrition that works (E-commerce, Cloud Kitchen, PayU Live, Firebase & Admin)",
   "main": "server.js",
   "scripts": {
     "dev": "node server.js",
@@ -12,9 +12,11 @@
     "nutrolix",
     "nutrition",
     "healthy-food",
-    "ecommerce"
+    "ecommerce",
+    "admin",
+    "payu"
   ],
-  "author": "Nutrolix",
+  "author": "Nutrolix Wellness",
   "license": "ISC",
   "dependencies": {
     "web-push": "^4.0.0"

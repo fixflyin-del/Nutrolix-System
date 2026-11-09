@@ -1,15 +1,27 @@
 {
   "version": 2,
   "cleanUrls": true,
+  "trailingSlash": false,
   "rewrites": [
     { "source": "/api/(.*)", "destination": "/api/index.js" },
+    { "source": "/api", "destination": "/api/index.js" },
+    { "source": "/admin", "destination": "/admin.html" },
     { "source": "/shop", "destination": "/shop.html" },
     { "source": "/food", "destination": "/food.html" },
     { "source": "/cart", "destination": "/cart.html" },
     { "source": "/orders", "destination": "/orders.html" },
     { "source": "/account", "destination": "/account.html" },
-    { "source": "/admin", "destination": "/admin.html" },
     { "source": "/download", "destination": "/download.html" },
+    { "source": "/blogs", "destination": "/blogs.html" },
+    { "source": "/contact", "destination": "/contact.html" },
+    { "source": "/about", "destination": "/about.html" },
+    { "source": "/product", "destination": "/product.html" },
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/terms", "destination": "/terms.html" },
+    { "source": "/refund", "destination": "/refund.html" },
+    { "source": "/shipping", "destination": "/shipping.html" },
+    { "source": "/cancellation", "destination": "/cancellation.html" },
+    { "source": "/faqs", "destination": "/faqs.html" },
     { "source": "/app", "destination": "/index.html" },
     { "source": "/customer", "destination": "/index.html" }
   ],
@@ -18,7 +30,8 @@
       "source": "/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS" }
+        { "key": "Access-Control-Allow-Methods", "value": "GET, POST, OPTIONS, PUT, DELETE" },
+        { "key": "Access-Control-Allow-Headers", "value": "Content-Type, Authorization, x-gemini-api-key" }
       ]
     }
   ]
