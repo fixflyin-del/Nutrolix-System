@@ -1,5 +1,30 @@
 [
   {
+    "id": "notif_1794326582292",
+    "title": "Nutrolix – Order Being Prepared!",
+    "message": "Your Nutrolix Order #ORD-123456 is now being freshly Prepared with whole functional grains.",
+    "target": "CUSTOMER",
+    "type": "ORDER_UPDATE",
+    "orderId": "ORD-123456",
+    "timestamp": "2026-11-10T16:03:02.292Z",
+    "status": "SENT"
+  },
+  {
+    "id": "notif_1794326582291",
+    "orderId": "ORD-123456",
+    "title": "Nutrolix – Order Being Prepared!",
+    "message": "Your Nutrolix Order #ORD-123456 is now being freshly Prepared with whole functional grains.",
+    "customerPhone": "",
+    "customerEmail": "",
+    "url": "/orders.html?orderId=ORD-123456",
+    "timestamp": "2026-11-10T16:03:02.291Z",
+    "deliveryStatus": [
+      {
+        "status": "LOGGED_NO_ACTIVE_SUBSCRIPTION"
+      }
+    ]
+  },
+  {
     "id": "notif_1794319833446",
     "title": "Special Nutrolix Offer",
     "message": "Get healthy meals now",

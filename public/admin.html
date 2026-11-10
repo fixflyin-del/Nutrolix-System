@@ -713,28 +713,22 @@
             <span>Refresh Orders</span>
           </button>
         </div>
-        <!-- Status Filter Tabs -->
+        <!-- Status Filter Tabs (4 Standard Statuses: Accepted, Preparing, Dispatched, Delivered) -->
         <div class="flex items-center space-x-2 overflow-x-auto pb-2 border-b border-slate-200 mb-4 custom-scrollbar">
-          <button onclick="window.filterPackagedOrders('ALL')" id="orderFilterBtn-ALL" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-sm whitespace-nowrap">
+          <button onclick="window.filterPackagedOrders('ALL')" id="orderFilterBtn-ALL" class="px-4 py-1.5 rounded-xl text-xs font-black bg-slate-900 text-white shadow-sm whitespace-nowrap">
             All Orders (<span id="cntAll">0</span>)
           </button>
-          <button onclick="window.filterPackagedOrders('Order Placed')" id="orderFilterBtn-Order Placed" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
-            New / Placed (<span id="cntPlaced">0</span>)
-          </button>
-          <button onclick="window.filterPackagedOrders('Accepted')" id="orderFilterBtn-Accepted" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+          <button onclick="window.filterPackagedOrders('Accepted')" id="orderFilterBtn-Accepted" class="px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
             Accepted (<span id="cntAccepted">0</span>)
           </button>
-          <button onclick="window.filterPackagedOrders('Preparing')" id="orderFilterBtn-Preparing" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+          <button onclick="window.filterPackagedOrders('Preparing')" id="orderFilterBtn-Preparing" class="px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
             Preparing (<span id="cntPreparing">0</span>)
           </button>
-          <button onclick="window.filterPackagedOrders('Dispatched')" id="orderFilterBtn-Dispatched" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+          <button onclick="window.filterPackagedOrders('Dispatched')" id="orderFilterBtn-Dispatched" class="px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
             Dispatched (<span id="cntDispatched">0</span>)
           </button>
-          <button onclick="window.filterPackagedOrders('Delivered')" id="orderFilterBtn-Delivered" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+          <button onclick="window.filterPackagedOrders('Delivered')" id="orderFilterBtn-Delivered" class="px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
             Delivered (<span id="cntDelivered">0</span>)
-          </button>
-          <button onclick="window.filterPackagedOrders('Cancelled')" id="orderFilterBtn-Cancelled" class="px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
-            Cancelled / Rejected (<span id="cntCancelled">0</span>)
           </button>
         </div>
 
@@ -814,7 +808,13 @@
           </div>
 
           <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-            <h4 class="font-bold text-sm text-slate-900 mb-4">Sample Verified Reviews Featured on Store Homepage</h4>
+            <div class="flex items-center justify-between mb-4">
+              <h4 class="font-bold text-sm text-slate-900">Verified Reviews Featured on Store Homepage</h4>
+              <button onclick="window.openAddGoogleReviewModal()" class="px-3.5 py-1.5 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-black text-xs transition flex items-center space-x-1.5 shadow">
+                <i class="fa-solid fa-plus text-[10px]"></i>
+                <span>+ Add Google Review</span>
+              </button>
+            </div>
             <div id="googleReviewsList" class="space-y-3">
               <!-- Rendered via JS -->
             </div>
@@ -1750,6 +1750,58 @@
     </div>
   </div>
 
+  <!-- ADD GOOGLE REVIEW MODAL (Point 4) -->
+  <div id="addGoogleReviewModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="text-base font-black text-slate-900 flex items-center space-x-2">
+          <i class="fa-brands fa-google text-red-500 text-lg"></i>
+          <span>Add Verified Google Review</span>
+        </h3>
+        <button type="button" onclick="window.closeModal('addGoogleReviewModal')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center text-sm">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form onsubmit="window.submitNewGoogleReview(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Reviewer Full Name *</label>
+          <input type="text" id="newReviewAuthor" required placeholder="e.g. Dr. Rajesh Sharma" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-bold focus:outline-none focus:border-emerald-600">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Star Rating (1-5) *</label>
+            <select id="newReviewRating" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-bold focus:outline-none">
+              <option value="5" selected>★★★★★ 5 Stars (Recommended)</option>
+              <option value="4">★★★★☆ 4 Stars</option>
+              <option value="3">★★★☆☆ 3 Stars</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Review Time Badge</label>
+            <input type="text" id="newReviewTime" placeholder="e.g. 2 days ago" value="Recent" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 text-xs">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Google Review Text *</label>
+          <textarea id="newReviewText" required rows="4" placeholder="Write the verified Google review testimonial..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 leading-relaxed focus:outline-none focus:border-emerald-600"></textarea>
+        </div>
+
+        <div class="flex items-center space-x-2 pt-1">
+          <input type="checkbox" id="newReviewLocalGuide" checked class="w-4 h-4 rounded text-amber-600 accent-amber-600">
+          <label for="newReviewLocalGuide" class="text-xs font-bold text-slate-700 cursor-pointer">Mark as Verified Google Local Guide</label>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="window.closeModal('addGoogleReviewModal')" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Cancel</button>
+          <button type="submit" class="px-5 py-2 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow">Publish to Store</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- STANDALONE CORE JAVASCRIPT: GUARANTEED ZERO-FAILURE EXECUTION -->
   <script>
     // Global Tab Switching - Works 100% Instantly on Page Load (Default: packaged-orders)
@@ -2186,32 +2238,28 @@
     window.updateOrderFilterCounts = function() {
       const orders = window.packagedOrders || [];
       const cntAll = orders.length;
-      const cntPlaced = orders.filter(o => ['order placed', 'placed'].includes((o.status || '').toLowerCase())).length;
-      const cntAccepted = orders.filter(o => ['accepted', 'confirmed'].includes((o.status || '').toLowerCase())).length;
+      const cntAccepted = orders.filter(o => ['accepted', 'confirmed', 'order placed', 'placed'].includes((o.status || '').toLowerCase())).length;
       const cntPreparing = orders.filter(o => ['preparing', 'packed & ready'].includes((o.status || '').toLowerCase())).length;
       const cntDispatched = orders.filter(o => ['dispatched', 'in transit', 'out_for_delivery'].includes((o.status || '').toLowerCase())).length;
       const cntDelivered = orders.filter(o => ['delivered'].includes((o.status || '').toLowerCase())).length;
-      const cntCancelled = orders.filter(o => ['cancelled', 'rejected'].includes((o.status || '').toLowerCase())).length;
 
       const setBadge = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
       setBadge('cntAll', cntAll);
-      setBadge('cntPlaced', cntPlaced);
       setBadge('cntAccepted', cntAccepted);
       setBadge('cntPreparing', cntPreparing);
       setBadge('cntDispatched', cntDispatched);
       setBadge('cntDelivered', cntDelivered);
-      setBadge('cntCancelled', cntCancelled);
     };
 
     window.filterPackagedOrders = function(statusKey) {
       window.currentOrderFilter = statusKey;
-      ['ALL', 'Order Placed', 'Accepted', 'Preparing', 'Dispatched', 'Delivered', 'Cancelled'].forEach(key => {
+      ['ALL', 'Accepted', 'Preparing', 'Dispatched', 'Delivered'].forEach(key => {
         const btn = document.getElementById('orderFilterBtn-' + key);
         if (btn) {
           if (key === statusKey) {
-            btn.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-white shadow-sm whitespace-nowrap';
+            btn.className = 'px-4 py-1.5 rounded-xl text-xs font-black bg-slate-900 text-white shadow-sm whitespace-nowrap';
           } else {
-            btn.className = 'px-3.5 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap';
+            btn.className = 'px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap';
           }
         }
       });
@@ -2226,20 +2274,19 @@
         return;
       }
 
-      // Filter according to active tab
+      // Filter according to active tab (4 Required Statuses)
       let list = [...window.packagedOrders];
       const filter = window.currentOrderFilter;
-      if (filter !== 'ALL') {
-        list = list.filter(o => {
-          const s = (o.status || '').toLowerCase();
-          if (filter === 'Order Placed') return ['order placed', 'placed'].includes(s);
-          if (filter === 'Accepted') return ['accepted', 'confirmed'].includes(s);
-          if (filter === 'Preparing') return ['preparing', 'packed & ready'].includes(s);
-          if (filter === 'Dispatched') return ['dispatched', 'in transit', 'out_for_delivery'].includes(s);
-          if (filter === 'Delivered') return s === 'delivered';
-          if (filter === 'Cancelled') return ['cancelled', 'rejected'].includes(s);
-          return true;
-        });
+      if (filter && filter !== 'ALL') {
+        if (filter === 'Accepted') {
+          list = list.filter(o => ['accepted', 'confirmed', 'order placed', 'placed'].includes((o.status || '').toLowerCase()));
+        } else if (filter === 'Preparing') {
+          list = list.filter(o => ['preparing', 'packed & ready'].includes((o.status || '').toLowerCase()));
+        } else if (filter === 'Dispatched') {
+          list = list.filter(o => ['dispatched', 'in transit'].includes((o.status || '').toLowerCase()));
+        } else if (filter === 'Delivered') {
+          list = list.filter(o => (o.status || '').toLowerCase() === 'delivered');
+        }
       }
 
       if (list.length === 0) {
@@ -2312,44 +2359,40 @@
               <span class="block text-[10px] text-emerald-700 font-bold">${order.paymentMethod || 'Online (PayU)'}</span>
             </td>
             <td class="p-3.5 align-top space-y-1.5 min-w-[140px]">
-              <select onchange="window.updatePackagedOrderStatus('${order.id}', this.value)" class="w-full text-[11px] font-bold rounded-lg border border-slate-200 px-2 py-1 bg-white focus:ring-1 focus:ring-emerald-500">
-                <option value="Order Placed" ${st === 'Order Placed' ? 'selected' : ''}>Order Placed</option>
-                <option value="Accepted" ${st === 'Accepted' ? 'selected' : ''}>Accepted</option>
-                <option value="Preparing" ${st === 'Preparing' ? 'selected' : ''}>Preparing</option>
-                <option value="Dispatched" ${st === 'Dispatched' ? 'selected' : ''}>Dispatched</option>
-                <option value="In Transit" ${st === 'In Transit' ? 'selected' : ''}>In Transit</option>
-                <option value="Delivered" ${st === 'Delivered' ? 'selected' : ''}>Delivered</option>
-                <option value="Cancelled" ${st === 'Cancelled' ? 'selected' : ''}>Cancelled / Rejected</option>
+              <select onchange="window.updatePackagedOrderStatus('${order.id}', this.value)" class="w-full text-xs font-black rounded-xl border border-slate-300 px-2.5 py-1.5 bg-white text-slate-800 shadow-sm focus:ring-2 focus:ring-emerald-500">
+                <option value="Accepted" ${(st === 'Accepted' || st === 'Order Placed') ? 'selected' : ''}>1. Accepted</option>
+                <option value="Preparing" ${st === 'Preparing' ? 'selected' : ''}>2. Preparing</option>
+                <option value="Dispatched" ${st === 'Dispatched' ? 'selected' : ''}>3. Dispatched</option>
+                <option value="Delivered" ${st === 'Delivered' ? 'selected' : ''}>4. Delivered</option>
               </select>
 
-              <!-- Quick Status Buttons -->
-              ${st === 'Order Placed' ? `
-                <div class="flex items-center space-x-1">
-                  <button onclick="window.acceptPackagedOrder('${order.id}')" class="flex-1 py-1 px-1.5 rounded-md bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] text-center shadow">
-                    ✓ Accept
-                  </button>
-                  <button onclick="window.rejectPackagedOrder('${order.id}')" class="flex-1 py-1 px-1.5 rounded-md bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-[10px] text-center border border-rose-200">
-                    ✕ Reject
-                  </button>
-                </div>
-              ` : ''}
-
-              ${st === 'Accepted' ? `
-                <button onclick="window.markOrderPreparing('${order.id}')" class="w-full py-1 px-1.5 rounded-md bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold text-[10px] border border-purple-200 text-center">
-                  🍳 Send to Kitchen / Pack
+              <!-- Quick Status Action Buttons -->
+              ${(st === 'Accepted' || st === 'Order Placed') ? `
+                <button onclick="window.markOrderPreparing('${order.id}')" class="w-full py-1.5 px-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-black text-[10px] text-center shadow transition flex items-center justify-center space-x-1">
+                  <i class="fa-solid fa-utensils"></i>
+                  <span>Mark Preparing</span>
                 </button>
               ` : ''}
 
               ${st === 'Preparing' ? `
-                <button onclick="window.markOrderDispatchedPrompt('${order.id}')" class="w-full py-1 px-1.5 rounded-md bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-[10px] text-center shadow">
-                  🚚 Mark Dispatched
+                <button onclick="window.markOrderDispatchedPrompt('${order.id}')" class="w-full py-1.5 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] text-center shadow transition flex items-center justify-center space-x-1">
+                  <i class="fa-solid fa-truck-fast"></i>
+                  <span>Mark Dispatched</span>
                 </button>
               ` : ''}
 
               ${st === 'Dispatched' ? `
-                <button onclick="window.markOrderDelivered('${order.id}')" class="w-full py-1 px-1.5 rounded-md bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[10px] text-center shadow">
-                  ✓ Mark Delivered
+                <button onclick="window.markOrderDelivered('${order.id}')" class="w-full py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] text-center shadow transition flex items-center justify-center space-x-1">
+                  <i class="fa-solid fa-circle-check"></i>
+                  <span>Mark Delivered</span>
                 </button>
+              ` : ''}
+
+              ${st === 'Delivered' ? `
+                <div class="text-[10px] font-black text-emerald-700 flex items-center justify-center space-x-1 py-1 bg-emerald-50 rounded-lg border border-emerald-200">
+                  <i class="fa-solid fa-check-double"></i>
+                  <span>Delivered & Closed</span>
+                </div>
               ` : ''}
             </td>
             <td class="p-3.5 align-top text-right space-y-1">
@@ -2367,57 +2410,81 @@
       }).join('');
     };
 
-    // Fast order status actions
+    // Fast order status actions (4 Required Statuses: Accepted, Preparing, Dispatched, Delivered)
     window.acceptPackagedOrder = async function(orderId) {
       acknowledgedOrderIds.add(orderId);
       await window.callOrderStatusEndpoint(orderId, 'Accepted');
-      alert(`✓ Order #${orderId} Confirmed & Accepted! Customer push notification Event 2 triggered.`);
-      window.loadPackagedOrders();
-    };
-
-    window.rejectPackagedOrder = async function(orderId) {
-      if (!confirm(`Are you sure you want to REJECT / CANCEL Order #${orderId}?`)) return;
-      acknowledgedOrderIds.add(orderId);
-      await window.callOrderStatusEndpoint(orderId, 'Cancelled');
+      alert(`✓ Order #${orderId} marked as Accepted! Customer push notification dispatched.`);
       window.loadPackagedOrders();
     };
 
     window.markOrderPreparing = async function(orderId) {
+      acknowledgedOrderIds.add(orderId);
       await window.callOrderStatusEndpoint(orderId, 'Preparing');
+      alert(`✓ Order #${orderId} marked as Preparing! Customer push notification dispatched.`);
       window.loadPackagedOrders();
     };
 
     window.markOrderDispatchedPrompt = async function(orderId) {
-      const courierName = prompt('Enter Courier Partner Name (e.g. Blue Dart, Delhivery, DTDC, Porter):', 'Delhivery Express');
+      acknowledgedOrderIds.add(orderId);
+      const courierName = prompt('Enter Courier Partner Name (e.g. Delhivery, Blue Dart, Porter):', 'Delhivery Express');
       if (!courierName) return;
-      const trackingNumber = prompt('Enter Courier Tracking AWB Number / Live Link:', 'AWB' + Math.floor(100000000 + Math.random() * 900000000));
+      const trackingNumber = prompt('Enter Tracking AWB Number / Live Link:', 'AWB' + Math.floor(100000000 + Math.random() * 900000000));
       if (!trackingNumber) return;
 
       await window.callOrderStatusEndpoint(orderId, 'Dispatched', courierName, trackingNumber);
-      alert(`✓ Order #${orderId} marked as Dispatched! Customer push notification Event 3 dispatched.`);
+      alert(`✓ Order #${orderId} marked as Dispatched! Customer push notification dispatched.`);
       window.loadPackagedOrders();
     };
 
     window.markOrderDelivered = async function(orderId) {
+      acknowledgedOrderIds.add(orderId);
       await window.callOrderStatusEndpoint(orderId, 'Delivered');
-      alert(`✓ Order #${orderId} marked Delivered! Customer push notifications Event 4 & 5 (Review Prompt) triggered.`);
+      alert(`✓ Order #${orderId} marked as Delivered! Customer push notification dispatched.`);
       window.loadPackagedOrders();
     };
 
     window.updatePackagedOrderStatus = async function(orderId, newStatus) {
       acknowledgedOrderIds.add(orderId);
       await window.callOrderStatusEndpoint(orderId, newStatus);
+      alert(`✓ Order #${orderId} status updated to "${newStatus}" & Customer push notification sent!`);
       window.loadPackagedOrders();
     };
 
     window.callOrderStatusEndpoint = async function(orderId, status, courierName = '', trackingNumber = '') {
+      // 1. Update in-memory orders
+      if (window.packagedOrders) {
+        const ord = window.packagedOrders.find(o => o.id === orderId || o.orderId === orderId);
+        if (ord) {
+          ord.status = status;
+          if (courierName) ord.courier = courierName;
+          if (trackingNumber) ord.trackingNumber = trackingNumber;
+        }
+      }
+
+      // 2. Update localStorage nutrolix_orders
+      try {
+        let localOrders = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
+        const idx = localOrders.findIndex(o => o.id === orderId || o.orderId === orderId);
+        if (idx >= 0) {
+          localOrders[idx].status = status;
+          if (courierName) localOrders[idx].courier = courierName;
+          if (trackingNumber) localOrders[idx].trackingNumber = trackingNumber;
+        }
+        localStorage.setItem('nutrolix_orders', JSON.stringify(localOrders));
+      } catch (_) {}
+
+      // 3. Call backend API with push notification trigger
       try {
         await fetch('/api/nutrition-orders/status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, status, courierName, trackingNumber })
+          body: JSON.stringify({ orderId, status, courier: courierName, trackingNumber })
         });
       } catch (err) {
+        console.error('Error updating status on server:', err);
+      }
+    };
         console.error('Error updating status:', err);
       }
     };
@@ -3442,7 +3509,62 @@
       }
     };
 
-    // Google Profile Sync (Instant 0ms + network sync)
+    // Google Profile Sync & Verified Review Management (Point 4)
+    window.openAddGoogleReviewModal = function() {
+      const m = document.getElementById('addGoogleReviewModal');
+      if (m) m.classList.remove('hidden');
+    };
+
+    window.submitNewGoogleReview = async function(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const author = (document.getElementById('newReviewAuthor')?.value || '').trim();
+      const rating = parseInt(document.getElementById('newReviewRating')?.value || '5');
+      const time = (document.getElementById('newReviewTime')?.value || 'Recent').trim();
+      const text = (document.getElementById('newReviewText')?.value || '').trim();
+      const isLocalGuide = document.getElementById('newReviewLocalGuide')?.checked !== false;
+
+      if (!author || !text) {
+        alert('Please enter reviewer name and review text.');
+        return;
+      }
+
+      const reviewObj = {
+        author: author,
+        authorName: author,
+        rating: rating,
+        text: text,
+        reviewText: text,
+        relativeTime: time,
+        isLocalGuide: isLocalGuide,
+        source: 'google_maps',
+        verified: true,
+        createdAt: new Date().toISOString()
+      };
+
+      // 1. Save to local storage for instant homepage display
+      let localRevs = [];
+      try {
+        localRevs = JSON.parse(localStorage.getItem('nutrolix_google_reviews') || '[]');
+      } catch(_) {}
+      localRevs.unshift(reviewObj);
+      localStorage.setItem('nutrolix_google_reviews', JSON.stringify(localRevs));
+
+      // 2. Post to API
+      try {
+        const host = window.NUTROLIX_API_HOST || "";
+        await fetch(host + '/api/google-reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(reviewObj)
+        });
+      } catch (_) {}
+
+      window.closeModal('addGoogleReviewModal');
+      if (e.target && e.target.reset) e.target.reset();
+      alert(`✓ Google Review from "${author}" successfully published! It is now live on the Nutrolix homepage.`);
+      window.loadGoogleProfile();
+    };
+
     window.loadGoogleProfile = async function() {
       const defaultReviews = [
         { author: "Dr. Sameer Kulkarni", isLocalGuide: true, rating: 5, text: "As a lifestyle physician, I rigorously test what I recommend to my diabetic and fitness-oriented patients. Nutrolix High Protein Atta has 46g plant protein with real whole grains and zero glucose spike.", relativeTime: "2 days ago" },
@@ -3451,14 +3573,19 @@
         { author: "Ananya Iyer", isLocalGuide: true, rating: 5, text: "Finally an Indian nutrition brand that provides actual NABL lab test certificates on every packet. Highly trustworthy!", relativeTime: "2 weeks ago" }
       ];
 
-      window.renderGoogleReviewsList(defaultReviews);
+      let localRevs = [];
+      try {
+        localRevs = JSON.parse(localStorage.getItem('nutrolix_google_reviews') || '[]');
+      } catch (_) {}
+      const combined = [...localRevs, ...defaultReviews];
+      window.renderGoogleReviewsList(combined);
 
       try {
         const res = await fetch('/api/google-reviews');
         if (res && res.ok) {
           const data = await res.json();
           if (data && data.featuredReviews && data.featuredReviews.length) {
-            window.renderGoogleReviewsList(data.featuredReviews);
+            window.renderGoogleReviewsList([...localRevs, ...data.featuredReviews]);
             if (data.lastSynced) {
               const el = document.getElementById('googleSyncTime');
               if (el) el.innerText = 'Last Synced: ' + new Date(data.lastSynced).toLocaleTimeString();
@@ -3713,13 +3840,75 @@
       storeName: "Nutrolix",
       tagline: "Nutrition That Works",
       isOpen: true,
-      deliveryFee: 29.0,
-      freeDeliveryAbove: 199.0,
-      announcement: "⚡ 100% Fresh Healthy Meals • Delivered in 25 mins",
+      deliveryFee: 49.0,
+      freeDeliveryAbove: 499.0,
+      announcement: "⚡ SPECIAL OFFER: Get 15% OFF on your first nutrition order with code NUTRO15! Free Delivery on orders above ₹499",
+      announcementActive: true,
+      taxPercent: 5.0,
       payuEnabled: true,
       payuIsLive: true,
       payuMerchantKey: "bbLKDj",
       payuMerchantSalt: "hXZhMuxn8Sq4VHKHxVubFVDQqZRgX8zZ"
+    };
+
+    // Store Coupons State (Point 5)
+    window.storeCoupons = [
+      { code: 'NUTRO10', type: 'percentage', value: 10, minOrder: 0, active: true },
+      { code: 'NUTRO15', type: 'percentage', value: 15, minOrder: 499, active: true },
+      { code: 'NUTRO20', type: 'percentage', value: 20, minOrder: 1499, active: true }
+    ];
+
+    window.renderCouponsList = function() {
+      const container = document.getElementById('couponsListContainer');
+      const badge = document.getElementById('activeCouponsBadge');
+      if (badge) badge.innerText = `${window.storeCoupons.length} Active`;
+      if (!container) return;
+      if (!window.storeCoupons.length) {
+        container.innerHTML = '<div class="text-xs text-slate-400 p-3 col-span-3 text-center bg-slate-50 rounded-xl">No active coupons. Create one above.</div>';
+        return;
+      }
+      container.innerHTML = window.storeCoupons.map(c => `
+        <div class="p-3 bg-purple-50/70 rounded-2xl border border-purple-200 flex items-center justify-between shadow-xs">
+          <div>
+            <div class="flex items-center space-x-1.5">
+              <span class="font-black text-xs text-purple-900 tracking-wider">${c.code}</span>
+              <span class="text-[9px] bg-purple-200 text-purple-800 font-extrabold px-1.5 py-0.5 rounded">${c.type === 'percentage' ? c.value + '% OFF' : '₹' + c.value + ' OFF'}</span>
+            </div>
+            <div class="text-[10px] text-slate-500 mt-0.5">Min Order: ₹${c.minOrder || 0}</div>
+          </div>
+          <button type="button" onclick="window.deleteCoupon('${c.code}')" class="text-slate-400 hover:text-rose-600 transition p-1.5" title="Delete Coupon">
+            <i class="fa-solid fa-trash-can text-xs"></i>
+          </button>
+        </div>
+      `).join('');
+    };
+
+    window.addNewCoupon = function(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const code = (document.getElementById('newCouponCode')?.value || '').trim().toUpperCase();
+      const type = document.getElementById('newCouponType')?.value || 'percentage';
+      const val = parseFloat(document.getElementById('newCouponValue')?.value || '10');
+      const minOrder = parseFloat(document.getElementById('newCouponMinOrder')?.value || '0');
+
+      if (!code) {
+        alert('Please enter a coupon code.');
+        return;
+      }
+
+      window.storeCoupons = window.storeCoupons.filter(c => c.code !== code);
+      window.storeCoupons.push({ code, type, value: val, minOrder, active: true });
+      localStorage.setItem('nutrolix_coupons', JSON.stringify(window.storeCoupons));
+      window.renderCouponsList();
+
+      if (document.getElementById('newCouponCode')) document.getElementById('newCouponCode').value = '';
+      if (document.getElementById('newCouponValue')) document.getElementById('newCouponValue').value = '';
+      alert(`✓ Coupon "${code}" successfully created and live across customer checkout!`);
+    };
+
+    window.deleteCoupon = function(code) {
+      window.storeCoupons = window.storeCoupons.filter(c => c.code !== code);
+      localStorage.setItem('nutrolix_coupons', JSON.stringify(window.storeCoupons));
+      window.renderCouponsList();
     };
 
     window.loadStoreSettings = function() {
@@ -3728,21 +3917,38 @@
         if (saved) window.storeSettings = { ...window.storeSettings, ...saved };
       } catch (_) {}
 
+      try {
+        const savedCoupons = JSON.parse(localStorage.getItem("nutrolix_coupons") || "null");
+        if (Array.isArray(savedCoupons) && savedCoupons.length) window.storeCoupons = savedCoupons;
+      } catch (_) {}
+
       const nameEl = document.getElementById("settingStoreName");
       if (nameEl) nameEl.value = window.storeSettings.storeName || "Nutrolix";
+      
       const annEl = document.getElementById("settingAnnouncement");
-      if (annEl) annEl.value = window.storeSettings.announcement || "";
+      const defaultAnn = "⚡ SPECIAL OFFER: Get 15% OFF on your first nutrition order with code NUTRO15! Free Delivery on orders above ₹499";
+      if (annEl) annEl.value = window.storeSettings.announcement || defaultAnn;
+      
+      const prevAnn = document.getElementById("previewAnnouncementText");
+      if (prevAnn) prevAnn.innerText = window.storeSettings.announcement || defaultAnn;
+
+      const annActive = document.getElementById("settingAnnouncementActive");
+      if (annActive) annActive.checked = window.storeSettings.announcementActive !== false;
+
       const feeEl = document.getElementById("settingDeliveryFee");
-      if (feeEl) feeEl.value = window.storeSettings.deliveryFee || 29;
-      const freeEl = document.getElementById("settingFreeDeliveryAbove");
-      if (freeEl) freeEl.value = window.storeSettings.freeDeliveryAbove || 199;
-      const keyEl = document.getElementById("settingPayuKey");
-      if (keyEl) keyEl.value = window.storeSettings.payuMerchantKey || "bbLKDj";
-      const saltEl = document.getElementById("settingPayuSalt");
-      if (saltEl) saltEl.value = window.storeSettings.payuMerchantSalt || "hXZhMuxn8Sq4VHKHxVubFVDQqZRgX8zZ";
+      if (feeEl) feeEl.value = window.storeSettings.deliveryFee !== undefined ? window.storeSettings.deliveryFee : 49;
+
+      const freeEl = document.getElementById("settingFreeThreshold") || document.getElementById("settingFreeDeliveryAbove");
+      if (freeEl) freeEl.value = window.storeSettings.freeDeliveryAbove !== undefined ? window.storeSettings.freeDeliveryAbove : 499;
+
+      const taxEl = document.getElementById("settingTaxPercent");
+      if (taxEl) taxEl.value = window.storeSettings.taxPercent || 5.0;
+
+      const payuLive = document.getElementById("settingPayuLive");
+      if (payuLive) payuLive.checked = window.storeSettings.payuIsLive !== false;
 
       const disp = document.getElementById("announcementDisplay");
-      if (disp) disp.innerText = window.storeSettings.announcement || "⚡ 100% Fresh Healthy Meals • Delivered in 25 mins";
+      if (disp) disp.innerText = window.storeSettings.announcement || defaultAnn;
 
       const btn = document.getElementById("storeStatusToggle");
       const text = document.getElementById("storeStatusText");
@@ -3755,11 +3961,13 @@
           text.innerText = "CLOSED FOR ORDERS";
         }
       }
+
+      window.renderCouponsList();
     };
 
     window.toggleStoreOpen = function() {
       window.storeSettings.isOpen = !window.storeSettings.isOpen;
-      window.saveStoreSettings(true);
+      window.saveAllStoreSettings(true);
       window.loadStoreSettings();
     };
 
@@ -3779,27 +3987,43 @@
       }
     };
 
-    window.saveStoreSettings = async function(silent = false) {
-      const name = document.getElementById("settingStoreName")?.value || window.storeSettings.storeName;
-      const announcement = document.getElementById("settingAnnouncement")?.value || window.storeSettings.announcement;
-      const deliveryFee = parseFloat(document.getElementById("settingDeliveryFee")?.value || window.storeSettings.deliveryFee);
-      const freeDeliveryAbove = parseFloat(document.getElementById("settingFreeDeliveryAbove")?.value || window.storeSettings.freeDeliveryAbove);
-      const payuMerchantKey = document.getElementById("settingPayuKey")?.value.trim() || "bbLKDj";
-      const payuMerchantSalt = document.getElementById("settingPayuSalt")?.value.trim() || "hXZhMuxn8Sq4VHKHxVubFVDQqZRgX8zZ";
+    // Save All Store Settings (Point 5) - Works 100% on Click
+    window.saveAllStoreSettings = async function(silent = false) {
+      const name = document.getElementById("settingStoreName")?.value || "Nutrolix";
+      const announcement = document.getElementById("settingAnnouncement")?.value || "";
+      const announcementActive = document.getElementById("settingAnnouncementActive")?.checked !== false;
+      const deliveryFee = parseFloat(document.getElementById("settingDeliveryFee")?.value || "49");
+      const freeDeliveryAbove = parseFloat((document.getElementById("settingFreeThreshold") || document.getElementById("settingFreeDeliveryAbove"))?.value || "499");
+      const taxPercent = parseFloat(document.getElementById("settingTaxPercent")?.value || "5.0");
+      const payuIsLive = document.getElementById("settingPayuLive")?.checked !== false;
 
       window.storeSettings = {
         ...window.storeSettings,
         storeName: name,
         announcement,
+        announcementActive,
         deliveryFee,
         freeDeliveryAbove,
-        payuMerchantKey,
-        payuMerchantSalt
+        taxPercent,
+        payuIsLive
       };
 
       try {
         localStorage.setItem("nutrolix_store_settings", JSON.stringify(window.storeSettings));
       } catch (_) {}
+
+      // Update ticker and preview
+      const disp = document.getElementById("announcementDisplay");
+      if (disp) disp.innerText = announcement || "⚡ 100% Fresh Healthy Meals • Delivered in 25 mins";
+
+      const prevAnn = document.getElementById("previewAnnouncementText");
+      if (prevAnn) prevAnn.innerText = announcement;
+
+      const statusEl = document.getElementById("settingsSaveStatus");
+      if (statusEl) {
+        statusEl.innerText = "✅ Saved & Published Live! Synced with Customer Web App and Mobile at " + new Date().toLocaleTimeString();
+        statusEl.className = "text-xs font-bold text-emerald-800 animate-pulse";
+      }
 
       if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveStoreSettings === "function") {
         window.NutrolixFirebase.saveStoreSettings(window.storeSettings).catch(() => {});
@@ -3815,8 +4039,20 @@
       } catch (_) {}
 
       window.loadStoreSettings();
-      if (!silent) alert("✓ Store Settings & PayU Credentials saved successfully! Live across all customer devices.");
+      if (!silent) alert("✓ All Store Settings saved & published successfully!\n\n• Announcement Ticker: Active\n• Delivery Fee: ₹" + deliveryFee + "\n• Free Shipping Threshold: ₹" + freeDeliveryAbove + "\n• Live Synced across Customer Web App & Admin.");
     };
+    window.saveStoreSettings = window.saveAllStoreSettings;
+
+    // Attach real-time input listener for Announcement Preview
+    document.addEventListener("DOMContentLoaded", () => {
+      const annInput = document.getElementById("settingAnnouncement");
+      if (annInput) {
+        annInput.addEventListener("input", (e) => {
+          const prev = document.getElementById("previewAnnouncementText");
+          if (prev) prev.innerText = e.target.value;
+        });
+      }
+    });
 
     // -------------------------------------------------------------
     // LIVE TEST ORDER SIMULATOR

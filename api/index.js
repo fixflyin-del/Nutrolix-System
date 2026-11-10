@@ -1,16 +1,34 @@
 const server = require('../server.js');
 const { Readable } = require('stream');
+const url = require('url');
 
 module.exports = (req, res) => {
   // Determine real API path on Vercel
   let effectiveUrl = req.url || '/api';
-  const matchedPath = req.headers['x-matched-path'] || req.headers['x-forwarded-uri'];
-  if (matchedPath && (effectiveUrl.startsWith('/api/index.js') || effectiveUrl === '/api' || effectiveUrl === '/api/')) {
-    effectiveUrl = matchedPath;
-  } else if (effectiveUrl.startsWith('/api/index.js')) {
-    if (req.query && req.query['0']) {
-      effectiveUrl = '/api/' + req.query['0'];
+  let targetPath = '';
+
+  // 1. From __route or __path query parameter
+  if (req.query && (req.query.__route || req.query.__path || req.query['0'])) {
+    const sub = req.query.__route || req.query.__path || req.query['0'];
+    targetPath = '/api/' + String(sub).replace(/^\/+/, '');
+  } else if (req.headers && req.headers['x-matched-path']) {
+    targetPath = req.headers['x-matched-path'];
+  } else if (req.headers && req.headers['x-forwarded-uri']) {
+    targetPath = req.headers['x-forwarded-uri'];
+  } else if (req.headers && req.headers['x-now-route-matches']) {
+    const match = String(req.headers['x-now-route-matches']).match(/1=([^&]+)/);
+    if (match && match[1]) {
+      targetPath = '/api/' + decodeURIComponent(match[1]).replace(/^\/+/, '');
     }
+  } else if (effectiveUrl.includes('__route=')) {
+    const match = effectiveUrl.match(/__route=([^&]+)/);
+    if (match && match[1]) {
+      targetPath = '/api/' + decodeURIComponent(match[1]).replace(/^\/+/, '');
+    }
+  }
+
+  if (targetPath) {
+    effectiveUrl = targetPath;
   }
 
   // If Vercel already consumed the body into req.body and the stream has ended

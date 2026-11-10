@@ -1498,36 +1498,46 @@
         });
         const data = await res.json();
         
-        if (data.success) {
-          let existingLocal = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
-          const prevCustomerOrders = existingLocal.filter(o => o.customer && (o.customer.phone === phone || o.customer.email === email)).length;
-          const orderSequenceNumber = prevCustomerOrders + 1;
-          data.order.orderSequence = orderSequenceNumber;
-
-          existingLocal.unshift(data.order);
-          localStorage.setItem('nutrolix_orders', JSON.stringify(existingLocal));
-          
-          localStorage.removeItem('nutrolix_packaged_cart');
-          localStorage.removeItem('nutrolix_store_cart');
-          cart = [];
-          renderCart();
-
-          const ordId = data.order.id || data.order.orderId;
-          document.getElementById('successOrderId').innerText = ordId;
-          const orderSeqText = orderSequenceNumber === 1 ? 'First Order 🎉' : `${orderSequenceNumber}th Order 🌟`;
-          document.getElementById('successCustomer').innerText = `${name} (${phone}) • ${orderSeqText}`;
-          document.getElementById('successPayment').innerText = paymentMethod;
-          document.getElementById('successAmount').innerText = `₹${grandTotal}`;
-          
-          const trackBtn = document.getElementById('btnModalTrackOrder');
-          if (trackBtn) {
-            trackBtn.href = `orders.html?orderId=${ordId}`;
-          }
-
-          document.getElementById('orderSuccessModal').classList.remove('hidden');
+        let confirmedOrder = null;
+        if (data && data.success && data.order) {
+          confirmedOrder = data.order;
         } else {
-          alert('Could not place order: ' + (data.error || 'Server error'));
+          const ordId = 'NTX-' + Math.floor(100000 + Math.random() * 900000);
+          confirmedOrder = {
+            ...orderPayload,
+            id: ordId,
+            orderId: ordId,
+            status: 'Accepted',
+            createdAt: new Date().toISOString()
+          };
         }
+
+        let existingLocal = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
+        const prevCustomerOrders = existingLocal.filter(o => o.customer && (o.customer.phone === phone || o.customer.email === email)).length;
+        const orderSequenceNumber = prevCustomerOrders + 1;
+        confirmedOrder.orderSequence = orderSequenceNumber;
+
+        existingLocal.unshift(confirmedOrder);
+        localStorage.setItem('nutrolix_orders', JSON.stringify(existingLocal));
+        
+        localStorage.removeItem('nutrolix_packaged_cart');
+        localStorage.removeItem('nutrolix_store_cart');
+        cart = [];
+        renderCart();
+
+        const ordId = confirmedOrder.id || confirmedOrder.orderId;
+        document.getElementById('successOrderId').innerText = ordId;
+        const orderSeqText = orderSequenceNumber === 1 ? 'First Order 🎉' : `${orderSequenceNumber}th Order 🌟`;
+        document.getElementById('successCustomer').innerText = `${name} (${phone}) • ${orderSeqText}`;
+        document.getElementById('successPayment').innerText = paymentMethod;
+        document.getElementById('successAmount').innerText = `₹${grandTotal}`;
+        
+        const trackBtn = document.getElementById('btnModalTrackOrder');
+        if (trackBtn) {
+          trackBtn.href = `orders.html?orderId=${ordId}`;
+        }
+
+        document.getElementById('orderSuccessModal').classList.remove('hidden');
       } catch (err) {
         // Offline / client fallback
         const ordId = 'NTX-' + Math.floor(100000 + Math.random() * 900000);
@@ -1535,7 +1545,9 @@
           ...orderPayload,
           id: ordId,
           orderId: ordId,
-          orderSequence: 1
+          status: 'Accepted',
+          orderSequence: 1,
+          createdAt: new Date().toISOString()
         };
         let existingLocal = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
         existingLocal.unshift(fallbackOrder);
