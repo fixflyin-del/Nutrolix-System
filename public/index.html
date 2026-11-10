@@ -1280,26 +1280,57 @@
   </section>
 
   <!-- ============================================================== -->
-  <!-- 13. SECTION 14: NEWSLETTER & COUPON -->
+  <!-- 13. SECTION 14: DOWNLOAD OUR APP & GET EXTRA 10% OFF -->
   <!-- ============================================================== -->
-  <section class="py-16 bg-slate-50 border-t border-slate-200">
-    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-      <div class="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-xl mx-auto mb-4">
-        <i class="fa-solid fa-envelope-open-text"></i>
-      </div>
-      <h2 class="text-3xl font-black text-slate-900">Unlock 10% OFF Your First Order</h2>
-      <p class="text-slate-500 text-sm mt-2 max-w-lg mx-auto">
-        Join the Nutrolix Wellness community for weekly evidence-based diet guides, product drops, and exclusive subscriber discounts.
-      </p>
+  <section class="py-16 bg-gradient-to-r from-emerald-950 via-nutro-forest to-slate-950 text-white relative overflow-hidden" id="downloadAppSection">
+    <div class="absolute -top-24 right-1/4 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+      <div class="bg-white/10 backdrop-blur-md rounded-3xl p-8 sm:p-12 border border-white/20 flex flex-col lg:flex-row items-center justify-between gap-10 shadow-2xl">
+        
+        <div class="max-w-2xl space-y-4">
+          <div class="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-amber-400 text-slate-950 text-xs font-black">
+            <i class="fa-solid fa-mobile-screen-button text-sm"></i>
+            <span>NUTROLIX OFFICIAL MOBILE APP • ANDROID & WEB</span>
+          </div>
+          
+          <h2 class="text-3xl sm:text-4xl font-black text-white leading-tight">
+            Download Our App and Get Extra 10% OFF on Every Order.
+          </h2>
+          
+          <p class="text-slate-300 text-sm leading-relaxed">
+            Experience ultra-fast reordering, live GPS dispatch tracking, flash drops, and an exclusive automatic 10% discount coupon applied on every app checkout.
+          </p>
 
-      <form onsubmit="window.handleNewsletter(event)" class="mt-6 flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
-        <input type="email" id="newsletterEmail" required placeholder="Enter your email address" class="flex-1 px-4 py-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600">
-        <button type="submit" class="bg-nutro-forest hover:bg-nutro-dark text-white font-extrabold px-6 py-3 rounded-xl transition text-sm shrink-0">
-          Subscribe & Get 10% OFF
-        </button>
-      </form>
-      <div id="newsletterSuccess" class="hidden text-xs font-bold text-emerald-600 mt-3">
-        🎉 Thank you! Check your inbox for your 10% coupon: <span class="bg-emerald-100 px-2 py-0.5 rounded text-slate-900">NUTRO10</span>
+          <!-- App Exclusive Coupon Tag -->
+          <div class="inline-flex items-center space-x-2 bg-emerald-500/20 border border-emerald-400/30 px-3.5 py-1.5 rounded-xl text-emerald-300 text-xs font-bold">
+            <i class="fa-solid fa-tag text-amber-400"></i>
+            <span>App Coupon Code: <strong class="text-white bg-emerald-900/80 px-2 py-0.5 rounded font-black tracking-wider">APP10</strong> (Extra 10% Instant OFF)</span>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-4 text-xs font-bold text-emerald-200 pt-1">
+            <span>✓ 100% Free Direct APK</span>
+            <span>✓ Zero Ads • Zero Spam</span>
+            <span>✓ Instant Live Dispatch Alerts</span>
+          </div>
+        </div>
+
+        <!-- Download Actions Card -->
+        <div class="shrink-0 flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
+          <a href="/api/download/customer-apk" download="Nutrolix_Customer_App.apk" class="w-full sm:w-auto bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-slate-950 font-black px-8 py-4 rounded-2xl shadow-2xl transition text-sm flex items-center justify-center space-x-3 transform hover:scale-105 active:scale-95">
+            <i class="fa-brands fa-android text-2xl text-slate-950"></i>
+            <div class="text-left">
+              <span class="text-[10px] uppercase font-bold block leading-none opacity-80">1-Click Direct Download</span>
+              <span class="text-sm font-black">Download Customer APK</span>
+            </div>
+            <i class="fa-solid fa-download ml-2 text-xs"></i>
+          </a>
+
+          <a href="https://wa.me/919076254354?text=Hi%20Nutrolix,%20please%20send%20me%20the%20official%20app%20download%20link%20and%2010%%20discount%20coupon." target="_blank" class="w-full sm:w-auto bg-white/15 hover:bg-white/25 text-white font-extrabold px-6 py-4 rounded-2xl border border-white/20 transition text-sm flex items-center justify-center space-x-2.5">
+            <i class="fa-brands fa-whatsapp text-emerald-400 text-xl"></i>
+            <span>Get Link on WhatsApp</span>
+          </a>
+        </div>
+
       </div>
     </div>
   </section>
@@ -1685,6 +1716,46 @@
       }
     ];
 
+    // Render horizontal blogs and articles carousel
+    window.renderBlogs = function(blogs) {
+      const container = document.getElementById('blogsContainer');
+      const list = (blogs && blogs.length) ? blogs : (window.nutroBlogs || window.nutroFallbackBlogs || []);
+      if (!container || !list || !list.length) return;
+      container.innerHTML = list.map(b => {
+        const slug = b.slug || b.id || 'best-nutrition-meal';
+        const articleUrl = `/${slug}`;
+        return `
+          <article class="w-[280px] sm:w-[340px] shrink-0 snap-start bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
+            <a href="${articleUrl}" class="block aspect-video overflow-hidden bg-slate-100 relative">
+              <img src="${b.image}" alt="${b.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+              <span class="absolute top-3 left-3 bg-nutro-forest text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow-sm">
+                ${b.category}
+              </span>
+            </a>
+            <div class="p-5 flex-1 flex flex-col justify-between space-y-3">
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-[11px] text-slate-400 font-bold">
+                  <span>${b.date || 'Recent'}</span>
+                  <span><i class="fa-regular fa-clock mr-1"></i>${b.readTime || '4 min read'}</span>
+                </div>
+                <h3 class="font-extrabold text-sm sm:text-base text-slate-900 group-hover:text-nutro-emerald transition line-clamp-2 leading-snug">
+                  <a href="${articleUrl}">${b.title}</a>
+                </h3>
+                <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">${b.excerpt}</p>
+              </div>
+              <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+                <a href="${articleUrl}" class="text-xs font-black text-nutro-dark hover:text-nutro-emerald flex items-center space-x-1.5 transition">
+                  <span>Read Article</span>
+                  <i class="fa-solid fa-arrow-right text-[10px]"></i>
+                </a>
+                <span class="text-[10px] font-bold text-slate-400">nutrolix.in/${slug}</span>
+              </div>
+            </div>
+          </article>
+        `;
+      }).join('');
+    };
+
     // Initialize application with 0ms Instant In-Memory Render
     function initInstantHomepageContent() {
       if (!window.nutroProducts || !window.nutroProducts.length) {
@@ -1741,6 +1812,10 @@
               renderVideoReviews(v);
             }
           }).catch(() => {});
+
+        if (typeof loadBlogs === 'function') {
+          loadBlogs();
+        }
       }
     });
 

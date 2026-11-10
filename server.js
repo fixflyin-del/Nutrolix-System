@@ -2110,6 +2110,67 @@ const server = http.createServer((req, res) => {
   }
 
   // -------------------------------------------------------------
+  // HEALTHY FOOD CATEGORIES API
+  // -------------------------------------------------------------
+  if (reqPath === '/api/food-categories') {
+    const catFile = path.join(PUBLIC_DIR, 'data', 'healthy_food_categories.json');
+    if (req.method === 'GET') {
+      try {
+        if (!fs.existsSync(catFile)) {
+          const defaults = [
+            { "id": "cat_high_protein", "name": "High Protein Meals", "icon": "💪", "description": "Formulated with 35g+ bioavailable protein" },
+            { "id": "cat_diet_calorie", "name": "Diet & Calorie Conscious", "icon": "🥗", "description": "Under 400 kcal nutrition-dense clean meals" },
+            { "id": "cat_detox_juices", "name": "Detox Juices & Smoothies", "icon": "🥤", "description": "Cold-pressed, no added sugar, botanical blends" },
+            { "id": "cat_salads_bowls", "name": "Salads & Bowls", "icon": "🥑", "description": "Sprouted ancient grains & superfood matrix" },
+            { "id": "cat_millet_khichdi", "name": "Millet Innovations & Porridge", "icon": "🌾", "description": "Gut-healing ancient millets & A2 ghee" }
+          ];
+          fs.writeFileSync(catFile, JSON.stringify(defaults, null, 2));
+        }
+        const data = fs.readFileSync(catFile, 'utf8');
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(data);
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: e.message }));
+      }
+      return;
+    } else if (req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const payload = JSON.parse(body || '{}');
+          let cats = [];
+          try {
+            cats = JSON.parse(fs.readFileSync(catFile, 'utf8') || '[]');
+          } catch (_) { cats = []; }
+
+          if (Array.isArray(payload)) {
+            cats = payload;
+          } else if (payload.action === 'delete') {
+            cats = cats.filter(c => c.id !== payload.id && c.name !== payload.name);
+          } else {
+            const idx = cats.findIndex(c => c.id === payload.id || (payload.name && c.name === payload.name));
+            if (idx >= 0) {
+              cats[idx] = { ...cats[idx], ...payload };
+            } else {
+              if (!payload.id) payload.id = 'cat_' + Date.now();
+              cats.push(payload);
+            }
+          }
+          fs.writeFileSync(catFile, JSON.stringify(cats, null, 2));
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: true, categories: cats }));
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: err.message }));
+        }
+      });
+      return;
+    }
+  }
+
+  // -------------------------------------------------------------
   // PHASE 2 API: ADMIN AUTHENTICATION
   // -------------------------------------------------------------
   if (req.method === 'POST' && reqPath === '/api/admin/login') {

@@ -1017,6 +1017,52 @@
       }
       renderFoodMenu();
     }
+    window.filterFoodCategory = filterFoodCategory;
+
+    async function loadDynamicCategories() {
+      let cats = [];
+      try {
+        const local = localStorage.getItem('nutrolix_food_categories');
+        if (local) cats = JSON.parse(local);
+      } catch(_) {}
+
+      if (!cats || !cats.length) {
+        try {
+          const res = await fetch('/api/food-categories');
+          if (res.ok) cats = await res.json();
+        } catch(_) {}
+      }
+
+      if (cats && cats.length) {
+        renderCategoryPills(cats);
+      }
+    }
+
+    function renderCategoryPills(categories) {
+      const container = document.getElementById('foodCategoriesContainer');
+      if (!container) return;
+      
+      const totalCount = healthyFoodMenu.length;
+      let html = `
+        <button onclick="filterFoodCategory('All', this)" class="food-cat-btn ${currentCategory === 'All' ? 'active bg-nutro-forest text-white' : 'bg-slate-100 text-slate-700'} px-4 py-2 rounded-full shadow-sm shrink-0 flex items-center space-x-1.5 transition">
+          <i class="fa-solid fa-sparkles text-amber-400"></i>
+          <span>All Dishes</span>
+          <span class="ml-1 px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]" id="totalFoodCountBadge">${totalCount}</span>
+        </button>
+      `;
+
+      categories.forEach(cat => {
+        const catName = typeof cat === 'string' ? cat : (cat.name || cat.title);
+        const icon = typeof cat === 'object' && cat.icon ? cat.icon : '🥗';
+        const isActive = currentCategory === catName;
+        html += `
+          <button onclick="filterFoodCategory('${catName.replace(/'/g, "\\'")}', this)" class="food-cat-btn ${isActive ? 'active bg-nutro-forest text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} px-4 py-2 rounded-full shrink-0 transition">
+            ${icon} ${catName}
+          </button>
+        `;
+      });
+      container.innerHTML = html;
+    }
 
     // =========================================================================
     // Dish Detail Modal Functions (Requirement 1)
@@ -1191,6 +1237,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       renderFoodMenu();
       updateCartBadges();
+      loadDynamicCategories();
     });
   </script>
 

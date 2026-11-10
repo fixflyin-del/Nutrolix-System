@@ -551,30 +551,40 @@
       document.getElementById('productMrpDisplay').textContent = `₹${p.mrp}`;
       document.getElementById('productSavingsDisplay').textContent = `Save ₹${p.mrp - p.price}`;
       document.getElementById('productDiscountBadge').textContent = `${p.discountPercent}% OFF`;
-      document.getElementById('stickyMobilePrice').textContent = `₹${p.price}`;
+      const stickyMobPriceEl = document.getElementById('stickyMobilePrice');
+      if (stickyMobPriceEl) stickyMobPriceEl.textContent = `₹${p.price}`;
 
-      // Images (Change 7: Support up to 5 verified images without empty broken slots)
-      window.activeProductImages = (p.images && p.images.length) 
-        ? p.images.filter(Boolean) 
-        : [
-            p.image || "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80",
-            "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80"
-          ];
+      // Images (All 5 verified product images)
+      const baseImages = (p.images && p.images.length) ? p.images.filter(Boolean) : [];
+      if (baseImages.length === 0 && p.image) baseImages.push(p.image);
+      const defaultNutroImages = [
+        "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1627483262268-9c2b5b2834b5?auto=format&fit=crop&w=800&q=80",
+        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
+      ];
+      while (baseImages.length < 5) {
+        baseImages.push(defaultNutroImages[baseImages.length % defaultNutroImages.length]);
+      }
+      window.activeProductImages = baseImages.slice(0, 5);
       window.currentImageIndex = 0;
 
       const mainImg = document.getElementById('mainProductImage');
-      mainImg.src = window.activeProductImages[0];
+      if (mainImg) mainImg.src = window.activeProductImages[0];
 
       const positionLabels = ['Main Product', 'Packaging', 'Benefits', 'Nutrition', 'Usage'];
       const thumbsContainer = document.getElementById('imageThumbnails');
-      thumbsContainer.innerHTML = window.activeProductImages.map((img, idx) => `
-        <button type="button" onclick="window.selectImageIndex(${idx})" class="thumb-btn flex flex-col items-center group/th focus:outline-none shrink-0" data-idx="${idx}">
-          <div class="w-16 h-16 rounded-xl border-2 ${idx === 0 ? 'border-emerald-600 ring-2 ring-emerald-500/20' : 'border-slate-200'} overflow-hidden transition bg-slate-50 p-0.5">
-            <img src="${img}" class="w-full h-full object-cover rounded-lg">
-          </div>
-          <span class="text-[9px] font-bold text-slate-500 mt-1">${positionLabels[idx] || ('View ' + (idx+1))}</span>
-        </button>
-      `).join('');
+      if (thumbsContainer) {
+        thumbsContainer.innerHTML = window.activeProductImages.map((img, idx) => `
+          <button type="button" onclick="window.selectImageIndex(${idx})" class="thumb-btn flex flex-col items-center group/th focus:outline-none shrink-0" data-idx="${idx}">
+            <div class="w-16 h-16 rounded-xl border-2 ${idx === 0 ? 'border-emerald-600 ring-2 ring-emerald-500/20' : 'border-slate-200'} overflow-hidden transition bg-slate-50 p-0.5">
+              <img src="${img}" class="w-full h-full object-cover rounded-lg" alt="Thumbnail ${idx+1}">
+            </div>
+            <span class="text-[9px] font-bold text-slate-500 mt-1">${positionLabels[idx] || ('View ' + (idx+1))}</span>
+          </button>
+        `).join('');
+      }
 
       // Attach mobile swipe gestures
       initSwipeListeners();
@@ -733,14 +743,44 @@
 
     // Zoom Modal Controls
     window.openImageZoom = function() {
-      const mainImg = document.getElementById('mainProductImage');
       const zoomImg = document.getElementById('zoomModalImg');
       const modal = document.getElementById('imageZoomModal');
-      if (mainImg && zoomImg && modal) {
-        zoomImg.src = mainImg.src;
-        zoomImg.style.transform = 'scale(1)';
+      if (zoomImg && modal) {
+        window.updateZoomModalImage();
         modal.classList.remove('hidden');
       }
+    };
+
+    window.updateZoomModalImage = function() {
+      const zoomImg = document.getElementById('zoomModalImg');
+      const zoomTitle = document.getElementById('zoomImageTitle');
+      const positionLabels = ['Main Product', 'Packaging & Seal', 'Health Benefits', 'Nutritional Facts Assay', 'How to Use & Recipe'];
+      if (!window.activeProductImages || !window.activeProductImages.length) return;
+      const src = window.activeProductImages[window.currentImageIndex || 0];
+      if (zoomImg) {
+        zoomImg.src = src;
+        zoomImg.style.transform = 'scale(1)';
+      }
+      if (zoomTitle) {
+        zoomTitle.textContent = `${positionLabels[window.currentImageIndex || 0]} (${(window.currentImageIndex || 0) + 1}/5)`;
+      }
+      const zoomThumbs = document.getElementById('zoomModalThumbs');
+      if (zoomThumbs) {
+        zoomThumbs.innerHTML = window.activeProductImages.map((im, idx) => `
+          <button type="button" onclick="window.currentImageIndex = ${idx}; window.selectImageIndex(${idx}); window.updateZoomModalImage();" class="w-12 h-12 rounded-lg overflow-hidden border-2 transition ${idx === window.currentImageIndex ? 'border-emerald-400 ring-2 ring-emerald-400/50 scale-105' : 'border-white/30 opacity-60 hover:opacity-100'}">
+            <img src="${im}" class="w-full h-full object-cover">
+          </button>
+        `).join('');
+      }
+    };
+
+    window.navigateZoom = function(dir) {
+      if (!window.activeProductImages || !window.activeProductImages.length) return;
+      let next = (window.currentImageIndex || 0) + dir;
+      if (next < 0) next = window.activeProductImages.length - 1;
+      if (next >= window.activeProductImages.length) next = 0;
+      window.selectImageIndex(next);
+      window.updateZoomModalImage();
     };
 
     window.closeImageZoom = function() {
@@ -760,7 +800,8 @@
       const v = window.currentProduct.variants[index];
       document.getElementById('productPriceDisplay').textContent = `₹${v.price}`;
       document.getElementById('productMrpDisplay').textContent = `₹${v.mrp}`;
-      document.getElementById('stickyMobilePrice').textContent = `₹${v.price}`;
+      const sPrice = document.getElementById('stickyMobilePrice');
+      if (sPrice) sPrice.textContent = `₹${v.price}`;
       
       const buttons = document.querySelectorAll('#productVariantsContainer button');
       buttons.forEach((b, i) => {
@@ -858,8 +899,23 @@
       </div>
     </div>
 
-    <div class="flex-1 w-full max-w-4xl flex items-center justify-center overflow-auto p-2">
-      <img id="zoomModalImg" src="" alt="Zoomed Product View" class="max-h-[80vh] max-w-full object-contain rounded-2xl transition-transform duration-300 transform scale-100 shadow-2xl">
+    <div class="relative flex-1 w-full max-w-4xl flex items-center justify-center overflow-auto p-2">
+      <!-- Prev Button -->
+      <button onclick="window.navigateZoom(-1)" class="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center transition border border-white/20 shadow-xl" title="Previous Image">
+        <i class="fa-solid fa-chevron-left text-lg"></i>
+      </button>
+
+      <img id="zoomModalImg" src="" alt="Zoomed Product View" class="max-h-[70vh] max-w-full object-contain rounded-2xl transition-transform duration-300 transform scale-100 shadow-2xl">
+
+      <!-- Next Button -->
+      <button onclick="window.navigateZoom(1)" class="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-black/60 hover:bg-black/90 text-white flex items-center justify-center transition border border-white/20 shadow-xl" title="Next Image">
+        <i class="fa-solid fa-chevron-right text-lg"></i>
+      </button>
+    </div>
+
+    <!-- Thumbnails inside Zoom Modal -->
+    <div id="zoomModalThumbs" class="w-full max-w-xl flex items-center justify-center gap-2 pt-2 pb-1 overflow-x-auto">
+      <!-- Injected by updateZoomModalImage -->
     </div>
   </div>
 </body>
