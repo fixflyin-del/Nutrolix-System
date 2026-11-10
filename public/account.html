@@ -210,8 +210,13 @@
           <span class="font-extrabold text-sm text-slate-800 group-hover:text-emerald-700">Continue with Google Account</span>
         </button>
 
+        <button onclick="window.openInstantAuthModal()" class="w-full py-3 px-4 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-extrabold text-xs transition flex items-center justify-center space-x-2">
+          <i class="fa-solid fa-bolt text-amber-500"></i>
+          <span>Instant 1-Tap Google / WhatsApp Sign-In</span>
+        </button>
+
         <div class="text-[11px] text-slate-400">
-          Fast & 100% verified sign-in with your personal Gmail account.
+          Fast & 100% verified sign-in with your personal Gmail account or mobile.
         </div>
       </div>
     </div>
@@ -601,7 +606,7 @@
         const authGate = document.getElementById('profileAuthGate');
         const dashContent = document.getElementById('profileDashboardContent');
 
-        const isLoggedIn = profile && profile.email && profile.authProvider === 'google';
+        const isLoggedIn = profile && (profile.email || profile.phone) && (profile.authProvider === 'google' || profile.verified);
 
         if (!isLoggedIn) {
           if (authGate) authGate.classList.remove('hidden');

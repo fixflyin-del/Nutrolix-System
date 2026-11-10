@@ -1,5 +1,15 @@
 [
   {
+    "id": "notif_1794319833446",
+    "title": "Special Nutrolix Offer",
+    "message": "Get healthy meals now",
+    "target": "ALL_CUSTOMERS",
+    "type": "PROMOTIONAL",
+    "orderId": null,
+    "timestamp": "2026-11-10T14:10:33.446Z",
+    "status": "SENT"
+  },
+  {
     "id": "notif_1794137759936",
     "orderId": "NUTRO-STORE-111581",
     "title": "Nutrolix – Order Placed Successfully!",

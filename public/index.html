@@ -316,24 +316,24 @@
             <div class="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-md hover:shadow-lg transition flex items-center gap-3.5 group">
               <!-- Product Image (Left) -->
               <a href="product.html?id=prod_high_protein_atta" class="w-24 sm:w-28 h-24 sm:h-28 rounded-xl overflow-hidden shrink-0 bg-slate-50 border border-slate-100 p-1 block">
-                <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=500&q=80" alt="Nutrolix High Protein Atta" class="w-full h-full object-cover rounded-lg group-hover:scale-105 transition duration-300">
+                <img id="heroCard1Img" src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=500&q=80" onerror="this.onerror=null; this.src='assets/nutrolix-logo.png'" alt="Nutrolix High Protein Atta" class="w-full h-full object-cover rounded-lg group-hover:scale-105 transition duration-300">
               </a>
               <!-- Product Details (Right) -->
               <div class="flex-1 min-w-0">
                 <div class="flex items-center space-x-1.5 mb-1">
-                  <span class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950">46g PROTEIN</span>
+                  <span id="heroCard1Badge" class="px-2 py-0.5 rounded text-[10px] font-black bg-amber-400 text-slate-950">46g PROTEIN</span>
                   <span class="text-[10px] text-emerald-800 font-extrabold truncate">100% Whole Grain</span>
                 </div>
                 <a href="product.html?id=prod_high_protein_atta">
-                  <h3 class="font-black text-sm sm:text-base text-slate-950 group-hover:text-emerald-700 transition truncate">High Protein Atta</h3>
+                  <h3 id="heroCard1Title" class="font-black text-sm sm:text-base text-slate-950 group-hover:text-emerald-700 transition truncate">High Protein Atta</h3>
                 </a>
-                <p class="text-[11px] text-slate-600 line-clamp-1 mt-0.5">Soft rotis with 4x protein of wheat. Zero spikes.</p>
+                <p id="heroCard1Subtitle" class="text-[11px] text-slate-600 line-clamp-1 mt-0.5">Soft rotis with 4x protein of wheat. Zero spikes.</p>
                 <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
                   <div>
-                    <span class="text-sm font-black text-emerald-800">₹349</span>
+                    <span id="heroCard1Price" class="text-sm font-black text-emerald-800">₹349</span>
                     <span class="text-xs text-slate-400 line-through ml-1">₹449</span>
                   </div>
-                  <button onclick="window.quickAddToCart('prod_high_protein_atta', 349, 'Nutrolix High Protein Atta', 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=500&q=80')" class="text-xs font-black text-white bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow transition">
+                  <button id="heroCard1Btn" onclick="window.quickAddToCart('prod_high_protein_atta', 349, 'Nutrolix High Protein Atta', document.getElementById('heroCard1Img').src)" class="text-xs font-black text-white bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow transition">
                     <i class="fa-solid fa-plus text-[10px]"></i>
                     <span>Add</span>
                   </button>
@@ -345,24 +345,24 @@
             <div class="bg-white/95 backdrop-blur-md p-3 sm:p-4 rounded-2xl border border-emerald-200/90 shadow-md hover:shadow-lg transition flex items-center gap-3.5 group">
               <!-- Product Image (Left) -->
               <a href="product.html?id=prod_complete_nutri_meal" class="w-24 sm:w-28 h-24 sm:h-28 rounded-xl overflow-hidden shrink-0 bg-slate-50 border border-slate-100 p-1 block">
-                <img src="https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=500&q=80" alt="Nutrolix Complete Nutri Meal" class="w-full h-full object-cover rounded-lg group-hover:scale-105 transition duration-300">
+                <img id="heroCard2Img" src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=500&q=80'" alt="Nutrolix Complete Nutri Meal" class="w-full h-full object-cover rounded-lg group-hover:scale-105 transition duration-300">
               </a>
               <!-- Product Details (Right) -->
               <div class="flex-1 min-w-0">
                 <div class="flex items-center space-x-1.5 mb-1">
-                  <span class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-600 text-white">25+ SUPERFOODS</span>
+                  <span id="heroCard2Badge" class="px-2 py-0.5 rounded text-[10px] font-black bg-emerald-600 text-white">25+ SUPERFOODS</span>
                   <span class="text-[10px] text-teal-800 font-extrabold truncate">Daily Wellness</span>
                 </div>
                 <a href="product.html?id=prod_complete_nutri_meal">
-                  <h3 class="font-black text-sm sm:text-base text-slate-950 group-hover:text-emerald-700 transition truncate">Complete Nutri Meal</h3>
+                  <h3 id="heroCard2Title" class="font-black text-sm sm:text-base text-slate-950 group-hover:text-emerald-700 transition truncate">Complete Nutri Meal</h3>
                 </a>
-                <p class="text-[11px] text-slate-600 line-clamp-1 mt-0.5">Plant protein, ashwagandha, greens & enzymes.</p>
+                <p id="heroCard2Subtitle" class="text-[11px] text-slate-600 line-clamp-1 mt-0.5">Plant protein, ashwagandha, greens & enzymes.</p>
                 <div class="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
                   <div>
-                    <span class="text-sm font-black text-emerald-800">₹699</span>
+                    <span id="heroCard2Price" class="text-sm font-black text-emerald-800">₹699</span>
                     <span class="text-xs text-slate-400 line-through ml-1">₹899</span>
                   </div>
-                  <button onclick="window.quickAddToCart('prod_complete_nutri_meal', 699, 'Nutrolix Complete Nutri Meal', 'https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=500&q=80')" class="text-xs font-black text-white bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow transition">
+                  <button id="heroCard2Btn" onclick="window.quickAddToCart('prod_complete_nutri_meal', 699, 'Nutrolix Complete Nutri Meal', document.getElementById('heroCard2Img').src)" class="text-xs font-black text-white bg-emerald-600 hover:bg-emerald-500 px-3 py-1.5 rounded-lg flex items-center space-x-1 shadow transition">
                     <i class="fa-solid fa-plus text-[10px]"></i>
                     <span>Add</span>
                   </button>
@@ -385,7 +385,7 @@
         <!-- Right Hero Visual Product Showcase -->
         <div class="lg:col-span-5 relative">
           <div class="relative bg-white/90 backdrop-blur-xl border border-emerald-200/80 rounded-3xl p-5 sm:p-6 shadow-xl">
-            <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80" alt="Nutrolix High Protein Atta" class="w-full h-64 sm:h-72 object-cover rounded-2xl shadow-sm mb-4">
+            <img id="heroShowcaseImg" src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80" onerror="this.onerror=null; this.src='assets/nutrolix-logo.png'" alt="Nutrolix High Protein Atta" class="w-full h-64 sm:h-72 object-cover rounded-2xl shadow-sm mb-4">
             
             <div class="flex items-center justify-between">
               <div>
@@ -394,10 +394,10 @@
                   <span class="text-xs font-extrabold text-slate-900 ml-1.5">4.9 / 5.0</span>
                   <span class="text-xs text-slate-500">(184 Reviews)</span>
                 </div>
-                <h4 class="text-lg font-black text-slate-950 mt-1">Nutrolix High Protein Atta</h4>
+                <h4 id="heroShowcaseTitle" class="text-lg font-black text-slate-950 mt-1">Nutrolix High Protein Atta</h4>
               </div>
               <div class="text-right">
-                <div class="text-xl font-black text-emerald-800">₹349</div>
+                <div id="heroShowcasePrice" class="text-xl font-black text-emerald-800">₹349</div>
                 <div class="text-[11px] text-emerald-700 font-bold">22% OFF</div>
               </div>
             </div>
@@ -405,23 +405,23 @@
             <!-- Badges -->
             <div class="grid grid-cols-3 gap-2 mt-4 pt-4 border-t border-slate-100 text-center">
               <div class="bg-emerald-50 rounded-xl p-2 border border-emerald-100">
-                <div class="text-base font-black text-emerald-800">46g</div>
+                <div id="heroShowcaseBadge1" class="text-base font-black text-emerald-800">46g</div>
                 <div class="text-[10px] text-slate-600 uppercase font-semibold">Protein / 100g</div>
               </div>
               <div class="bg-amber-50 rounded-xl p-2 border border-amber-100">
-                <div class="text-base font-black text-amber-800">12g</div>
+                <div id="heroShowcaseBadge2" class="text-base font-black text-amber-800">12g</div>
                 <div class="text-[10px] text-slate-600 uppercase font-semibold">Prebiotic Fiber</div>
               </div>
               <div class="bg-teal-50 rounded-xl p-2 border border-teal-100">
-                <div class="text-base font-black text-teal-800">0%</div>
+                <div id="heroShowcaseBadge3" class="text-base font-black text-teal-800">0%</div>
                 <div class="text-[10px] text-slate-600 uppercase font-semibold">Maida / Fillers</div>
               </div>
             </div>
 
             <div class="mt-4">
-              <button onclick="window.quickAddToCart('prod_high_protein_atta', 349, 'Nutrolix High Protein Atta', 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80')" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-xl transition shadow-md flex items-center justify-center space-x-2 text-sm">
+              <button onclick="window.quickAddToCart('prod_high_protein_atta', 349, 'Nutrolix High Protein Atta', document.getElementById('heroShowcaseImg').src)" class="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-black py-3 rounded-xl transition shadow-md flex items-center justify-center space-x-2 text-sm">
                 <i class="fa-solid fa-cart-plus"></i>
-                <span>Add to Bag • ₹349</span>
+                <span id="heroShowcaseBtnText">Add to Bag • ₹349</span>
               </button>
             </div>
 
@@ -1273,7 +1273,92 @@
 
       <!-- Horizontal scrolling articles container (Requirement 7) -->
       <div id="blogsContainer" class="flex space-x-6 overflow-x-auto pb-6 custom-scrollbar snap-x snap-mandatory">
-        <!-- Rendered by JS -->
+        <!-- Article 1 -->
+        <article class="w-[280px] sm:w-[340px] shrink-0 snap-start bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
+          <a href="/science-high-protein-atta" class="block aspect-video overflow-hidden bg-slate-100 relative">
+            <img src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80" alt="The Science of High-Protein Atta" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+            <span class="absolute top-3 left-3 bg-nutro-forest text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow-sm">
+              Nutrition Science
+            </span>
+          </a>
+          <div class="p-5 flex-1 flex flex-col justify-between space-y-3">
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-[11px] text-slate-400 font-bold">
+                <span>October 24, 2026</span>
+                <span><i class="fa-regular fa-clock mr-1"></i>4 min read</span>
+              </div>
+              <h3 class="font-extrabold text-sm sm:text-base text-slate-900 group-hover:text-nutro-emerald transition line-clamp-2 leading-snug">
+                <a href="/science-high-protein-atta">The Science of High-Protein Atta: How 46g Bioactive Protein Protects Against Insulin Resistance</a>
+              </h3>
+              <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">Traditional wheat rotis, while a staple of Indian diets, are predominantly carbohydrates. Discover how bio-engineered plant proteins transform your daily staple.</p>
+            </div>
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <a href="/science-high-protein-atta" class="text-xs font-black text-nutro-dark hover:text-nutro-emerald flex items-center space-x-1.5 transition">
+                <span>Read Article</span>
+                <i class="fa-solid fa-arrow-right text-[10px]"></i>
+              </a>
+              <span class="text-[10px] font-bold text-slate-400">nutrolix.in/science-high-protein-atta</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Article 2 -->
+        <article class="w-[280px] sm:w-[340px] shrink-0 snap-start bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
+          <a href="/superfood-synergy-complete-nutrition" class="block aspect-video overflow-hidden bg-slate-100 relative">
+            <img src="https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=800&q=80" alt="25+ Superfoods Botanical Synergy" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+            <span class="absolute top-3 left-3 bg-nutro-forest text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow-sm">
+              Wellness Science
+            </span>
+          </a>
+          <div class="p-5 flex-1 flex flex-col justify-between space-y-3">
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-[11px] text-slate-400 font-bold">
+                <span>October 18, 2026</span>
+                <span><i class="fa-regular fa-clock mr-1"></i>5 min read</span>
+              </div>
+              <h3 class="font-extrabold text-sm sm:text-base text-slate-900 group-hover:text-nutro-emerald transition line-clamp-2 leading-snug">
+                <a href="/superfood-synergy-complete-nutrition">25+ Superfoods: Why Single-Nutrient Supplements Fail and Botanical Synergy Wins</a>
+              </h3>
+              <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">Isolating synthetic vitamins rarely replicates whole-plant matrices. Learn how adaptogens, greens, and plant protein work synergistically.</p>
+            </div>
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <a href="/superfood-synergy-complete-nutrition" class="text-xs font-black text-nutro-dark hover:text-nutro-emerald flex items-center space-x-1.5 transition">
+                <span>Read Article</span>
+                <i class="fa-solid fa-arrow-right text-[10px]"></i>
+              </a>
+              <span class="text-[10px] font-bold text-slate-400">nutrolix.in/superfood-synergy-complete-nutrition</span>
+            </div>
+          </div>
+        </article>
+
+        <!-- Article 3 -->
+        <article class="w-[280px] sm:w-[340px] shrink-0 snap-start bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
+          <a href="/talbeenah-traditional-barley-healing" class="block aspect-video overflow-hidden bg-slate-100 relative">
+            <img src="https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80" alt="Talbeenah Roasted Barley Healing" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+            <span class="absolute top-3 left-3 bg-nutro-forest text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow-sm">
+              Functional Foods
+            </span>
+          </a>
+          <div class="p-5 flex-1 flex flex-col justify-between space-y-3">
+            <div class="space-y-2">
+              <div class="flex items-center justify-between text-[11px] text-slate-400 font-bold">
+                <span>October 12, 2026</span>
+                <span><i class="fa-regular fa-clock mr-1"></i>3 min read</span>
+              </div>
+              <h3 class="font-extrabold text-sm sm:text-base text-slate-900 group-hover:text-nutro-emerald transition line-clamp-2 leading-snug">
+                <a href="/talbeenah-traditional-barley-healing">Talbeenah: The Traditional Slow-Roasted Barley Superfood for Gut Healing</a>
+              </h3>
+              <p class="text-xs text-slate-500 line-clamp-2 leading-relaxed">Roasted pearl barley porridge with concentrated beta-glucan fiber actively coats and soothes gastric lining while calming system stress.</p>
+            </div>
+            <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+              <a href="/talbeenah-traditional-barley-healing" class="text-xs font-black text-nutro-dark hover:text-nutro-emerald flex items-center space-x-1.5 transition">
+                <span>Read Article</span>
+                <i class="fa-solid fa-arrow-right text-[10px]"></i>
+              </a>
+              <span class="text-[10px] font-bold text-slate-400">nutrolix.in/talbeenah-traditional-barley-healing</span>
+            </div>
+          </div>
+        </article>
       </div>
 
     </div>
@@ -1756,8 +1841,45 @@
       }).join('');
     };
 
+    // Apply Admin Customized Hero Products & Images (Point 4)
+    window.applyHeroCustomizations = function() {
+      try {
+        let custom = null;
+        try { custom = JSON.parse(localStorage.getItem('nutrolix_hero_products') || 'null'); } catch(_) {}
+        if (!custom) return;
+
+        if (custom.card1) {
+          const img = document.getElementById('heroCard1Img');
+          if (img && custom.card1.image) img.src = custom.card1.image;
+          const t = document.getElementById('heroCard1Title');
+          if (t && custom.card1.title) t.innerText = custom.card1.title;
+          const p = document.getElementById('heroCard1Price');
+          if (p && custom.card1.price) p.innerText = '₹' + custom.card1.price;
+        }
+
+        if (custom.card2) {
+          const img = document.getElementById('heroCard2Img');
+          if (img && custom.card2.image) img.src = custom.card2.image;
+          const t = document.getElementById('heroCard2Title');
+          if (t && custom.card2.title) t.innerText = custom.card2.title;
+          const p = document.getElementById('heroCard2Price');
+          if (p && custom.card2.price) p.innerText = '₹' + custom.card2.price;
+        }
+
+        if (custom.showcase) {
+          const img = document.getElementById('heroShowcaseImg');
+          if (img && custom.showcase.image) img.src = custom.showcase.image;
+          const t = document.getElementById('heroShowcaseTitle');
+          if (t && custom.showcase.title) t.innerText = custom.showcase.title;
+          const p = document.getElementById('heroShowcasePrice');
+          if (p && custom.showcase.price) p.innerText = '₹' + custom.showcase.price;
+        }
+      } catch (_) {}
+    };
+
     // Initialize application with 0ms Instant In-Memory Render
     function initInstantHomepageContent() {
+      window.applyHeroCustomizations();
       if (!window.nutroProducts || !window.nutroProducts.length) {
         window.nutroProducts = window.nutroFallbackProducts || [];
       }

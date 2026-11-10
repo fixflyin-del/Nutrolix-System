@@ -628,6 +628,235 @@ window.nutroBlogs = [
   }
 ];
 
+window.nutroFoodMenu = [
+  {
+    "id": "food_paneer_quinoa_bowl",
+    "name": "Grilled Paneer & Quinoa Muscle Bowl",
+    "category": "High Protein Meals",
+    "isVeg": true,
+    "protein": "34g Protein",
+    "calories": "410 kcal",
+    "price": 249,
+    "image": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
+    "description": "Herb-marinated low-fat cottage cheese on organic tri-color Peruvian quinoa with steamed edamame, sautéed broccoli, bell peppers, and cold-pressed extra virgin olive oil dressing. Rich in essential amino acids.",
+    "highlights": [
+      "34g Bioavailable Plant & Dairy Protein per bowl",
+      "Zero Palm Oil, Zero Refined Flours, Zero Sugar",
+      "Tri-Color Organic Quinoa with Complete Amino Acid Profile",
+      "Slow-burning low-GI complex carbohydrates for sustained energy",
+      "Rich in natural magnesium, zinc, and dietary fiber"
+    ],
+    "nutritionFacts": [
+      { "name": "Calories", "value": "410 kcal" },
+      { "name": "Protein", "value": "34 g" },
+      { "name": "Dietary Fiber", "value": "11 g" },
+      { "name": "Total Carbs", "value": "38 g" },
+      { "name": "Healthy Fats", "value": "12 g" },
+      { "name": "Sodium", "value": "180 mg" }
+    ],
+    "inStock": true,
+    "prepTime": "25 mins"
+  },
+  {
+    "id": "food_sprouted_khichdi",
+    "name": "Sprouted Supergrain Khichdi with A2 Gir Ghee",
+    "category": "Diet & Calorie Conscious",
+    "isVeg": true,
+    "protein": "22g Protein",
+    "calories": "320 kcal",
+    "price": 199,
+    "image": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80",
+    "description": "Slow-cooked sprouted green moong, whole pearl barley, and foxtail millet infused with digestive cumin seeds, fresh ginger, and finished with 100% pure Vedic A2 Gir Cow Ghee. Extremely soothing for gut health.",
+    "highlights": [
+      "22g Gentle Gut-Friendly Plant Protein",
+      "100% Certified Vedic A2 Gir Cow Cultured Ghee",
+      "High Soluble Fiber from Sprouted Moong & Pearl Barley",
+      "Ancient Ayurvedic Digestive Spice Blend (Hing, Jeera, Adrak)",
+      "Ultra-low Glycemic Load — prevents post-meal lethargy"
+    ],
+    "nutritionFacts": [
+      { "name": "Calories", "value": "320 kcal" },
+      { "name": "Protein", "value": "22 g" },
+      { "name": "Dietary Fiber", "value": "14 g" },
+      { "name": "Total Carbs", "value": "42 g" },
+      { "name": "Healthy Fats", "value": "7 g" },
+      { "name": "Potassium", "value": "420 mg" }
+    ],
+    "inStock": true,
+    "prepTime": "20 mins"
+  },
+  {
+    "id": "food_tofu_avocado_salad",
+    "name": "Avocado & Smoked Tofu Green Goddess Bowl",
+    "category": "Salads & Bowls",
+    "isVeg": true,
+    "protein": "26g Protein",
+    "calories": "290 kcal",
+    "price": 269,
+    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80",
+    "description": "Creamy Hass avocado slices, smoked organic tofu cubes, tender baby spinach, microgreens, roasted sunflower seeds, and chia seeds tossed in an artisanal cold-pressed sesame tahini dressing.",
+    "highlights": [
+      "26g Plant Protein with Organic Non-GMO Soya Tofu",
+      "Loaded with Omega-3 & Monounsaturated Fatty Acids from Hass Avocado",
+      "Zero Added Sugar or Preservatives in Tahini Dressing",
+      "100% Raw Hydroponic Pesticide-Free Greens",
+      "High natural Vitamin E, K, and Folate content"
+    ],
+    "nutritionFacts": [
+      { "name": "Calories", "value": "290 kcal" },
+      { "name": "Protein", "value": "26 g" },
+      { "name": "Dietary Fiber", "value": "13 g" },
+      { "name": "Total Carbs", "value": "18 g" },
+      { "name": "Healthy Fats", "value": "14 g" },
+      { "name": "Omega-3", "value": "1.8 g" }
+    ],
+    "inStock": true,
+    "prepTime": "15 mins"
+  },
+  {
+    "id": "food_chicken_protein_thali",
+    "name": "High Protein Roasted Chicken & Ragi Roti Thali",
+    "category": "High Protein Meals",
+    "isVeg": false,
+    "protein": "48g Protein",
+    "calories": "480 kcal",
+    "price": 299,
+    "image": "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=800&q=80",
+    "description": "Herb-charred skinless chicken breast fillet cooked without refined oil, served with 2 warm Nutrolix High-Protein Ragi rotis, yellow lentil soup (dal tadka), cucumber-mint yogurt raita, and pickled beetroot.",
+    "highlights": [
+      "48g Complete Animal & Plant Protein in one serving",
+      "Zero Palm Oil or Vanaspati — cooked in cold-pressed mustard oil",
+      "2 Fresh Ragi & Multigrain Rotis rich in calcium & iron",
+      "High Satiety Index — keeps hunger away for 5+ hours",
+      "Low Sodium, balanced electrolytes"
+    ],
+    "nutritionFacts": [
+      { "name": "Calories", "value": "480 kcal" },
+      { "name": "Protein", "value": "48 g" },
+      { "name": "Dietary Fiber", "value": "12 g" },
+      { "name": "Total Carbs", "value": "44 g" },
+      { "name": "Healthy Fats", "value": "9 g" },
+      { "name": "Calcium", "value": "280 mg" }
+    ],
+    "inStock": true,
+    "prepTime": "30 mins"
+  },
+  {
+    "id": "food_beetroot_amla_detox",
+    "name": "Cold-Pressed Beetroot, Carrot & Amla Detox Juice",
+    "category": "Detox Juices & Smoothies",
+    "isVeg": true,
+    "protein": "4g Protein",
+    "calories": "110 kcal",
+    "price": 149,
+    "image": "https://images.unsplash.com/photo-1589733955941-5eeaf752f6dd?auto=format&fit=crop&w=800&q=80",
+    "description": "100% hydraulic cold-pressed juice made with organic ruby beetroot, fresh mountain carrots, wild amla (Indian gooseberry), ginger, and Himalayan pink salt. Raw, unpasteurized, zero added water or sugar.",
+    "highlights": [
+      "100% Pure Hydraulic Cold-Pressed (No Heat, No Oxidation)",
+      "Zero Added Water, Zero Refined Sugar, Zero Preservatives",
+      "Natural Nitric Oxide booster for improved stamina & blood flow",
+      "High Vitamin C from raw wild Amla for immune resistance",
+      "Promotes liver detoxification and cellular vitality"
+    ],
+    "nutritionFacts": [
+      { "name": "Calories", "value": "110 kcal" },
+      { "name": "Protein", "value": "4 g" },
+      { "name": "Dietary Fiber", "value": "3 g" },
+      { "name": "Total Carbs", "value": "22 g" },
+      { "name": "Vitamin C", "value": "180% RDA" },
+      { "name": "Iron", "value": "2.4 mg" }
+    ],
+    "inStock": true,
+    "prepTime": "10 mins"
+  },
+  {
+    "id": "food_raw_spirulina_smoothie",
+    "name": "Nutrolix Green Power Spirulina & Almond Smoothie",
+    "category": "Detox Juices & Smoothies",
+    "isVeg": true,
+    "protein": "18g Protein",
+    "calories": "210 kcal",
+    "price": 189,
+    "image": "https://images.unsplash.com/photo-1556881286-fc6915169721?auto=format&fit=crop&w=800&q=80",
+    "description": "Stone-ground artisanal almond milk blended with organic Indian spirulina, baby spinach leaves, ripe banana, soaked chia seeds, and plant-based digestive enzymes for maximum bioavailability.",
+    "highlights": [
+      "18g Plant-Based Protein & Complete Chlorophyll Matrix",
+      "Fresh Stone-Ground Almond Milk Base (Lactose Free)",
+      "High in Phycocyanin & Potent Antioxidants",
+      "Fortified with Natural B-Complex Vitamins",
+      "No Artificial Sweeteners, zero gums, or fillers"
+    ],
+    "nutritionFacts": [
+      { "name": "Calories", "value": "210 kcal" },
+      { "name": "Protein", "value": "18 g" },
+      { "name": "Dietary Fiber", "value": "8 g" },
+      { "name": "Total Carbs", "value": "24 g" },
+      { "name": "Healthy Fats", "value": "6 g" },
+      { "name": "Antioxidant ORAC", "value": "4500+" }
+    ],
+    "inStock": true,
+    "prepTime": "10 mins"
+  },
+  {
+    "id": "food_keto_egg_paneer_bhurchi",
+    "name": "Keto 6-Egg White & Paneer Scramble with Salad",
+    "category": "High Protein Meals",
+    "isVeg": false,
+    "protein": "42g Protein",
+    "calories": "340 kcal",
+    "price": 219,
+    "image": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=800&q=80",
+    "description": "Six farm-fresh egg whites scrambled with low-fat artisanal paneer, green chilies, organic turmeric, coriander, and served with a zesty lemon cucumber crunch salad. Almost zero carbohydrates.",
+    "highlights": [
+      "42g Rapid-Absorption Egg & Paneer Protein",
+      "Under 4g Total Carbohydrates (Keto & Cut Friendly)",
+      "Cooked in Cold-Pressed Olive Oil, Zero Vanaspati",
+      "Enriched with Raw Organic Lakadong Turmeric",
+      "Ideal post-workout muscle repair meal"
+    ],
+    "nutritionFacts": [
+      { "name": "Calories", "value": "340 kcal" },
+      { "name": "Protein", "value": "42 g" },
+      { "name": "Dietary Fiber", "value": "4 g" },
+      { "name": "Total Carbs", "value": "4 g" },
+      { "name": "Healthy Fats", "value": "15 g" },
+      { "name": "Sodium", "value": "210 mg" }
+    ],
+    "inStock": true,
+    "prepTime": "20 mins"
+  },
+  {
+    "id": "food_millet_sprouts_chaat",
+    "name": "Sprouted Multi-Millet & Pomegranate Protein Chaat",
+    "category": "Diet & Calorie Conscious",
+    "isVeg": true,
+    "protein": "16g Protein",
+    "calories": "180 kcal",
+    "price": 159,
+    "image": "https://images.unsplash.com/photo-1627483262268-9c2b5b2834b5?auto=format&fit=crop&w=800&q=80",
+    "description": "Steamed sprouted green gram, roasted fox nuts (makhana), puffed ragi & bajra, juicy ruby pomegranate seeds, tossed in cold-pressed raw mango mint chutney and roasted cumin rock salt.",
+    "highlights": [
+      "16g Whole Plant Fiber-Bound Protein",
+      "Under 180 kcal with High Micronutrient Density",
+      "Crunchy Roasted Foxnuts (Makhana) & Puffed Ancient Millets",
+      "Zero Added Sugar — sweetened naturally with Pomegranate",
+      "Delicious Street-Chaat Taste with 100% Clinical Clean Nutrition"
+    ],
+    "nutritionFacts": [
+      { "name": "Calories", "value": "180 kcal" },
+      { "name": "Protein", "value": "16 g" },
+      { "name": "Dietary Fiber", "value": "11 g" },
+      { "name": "Total Carbs", "value": "26 g" },
+      { "name": "Healthy Fats", "value": "3 g" },
+      { "name": "Iron", "value": "3.1 mg" }
+    ],
+    "inStock": true,
+    "prepTime": "15 mins"
+  }
+];
+
 window.nutroFallbackProducts = window.nutroProducts;
 window.nutroFallbackVideoReviews = window.nutroVideoReviews;
 window.nutroFallbackBlogs = window.nutroBlogs;
+window.nutroFallbackFoodMenu = window.nutroFoodMenu;
+
