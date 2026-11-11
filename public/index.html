@@ -2666,6 +2666,47 @@
       document.getElementById('newsletterSuccess').classList.remove('hidden');
       document.getElementById('newsletterEmail').value = '';
     };
+
+    // Live Store Settings & Announcement Ticker Sync (User Issue 3)
+    function syncLiveStoreSettings() {
+      try {
+        const bar = document.getElementById('topBlinkingOfferBar');
+        const textEl = document.getElementById('topAnnouncementText');
+        if (!bar || !textEl) return;
+        
+        let settings = null;
+        try {
+          settings = JSON.parse(localStorage.getItem('nutrolix_store_settings') || 'null');
+        } catch (_) {}
+
+        function applySettings(s) {
+          if (!s) return;
+          if (s.announcement) textEl.innerText = s.announcement;
+          if (s.announcementActive === false) {
+            bar.classList.add('hidden');
+          } else {
+            bar.classList.remove('hidden');
+          }
+        }
+
+        if (settings) applySettings(settings);
+
+        fetch('/api/settings')
+          .then(res => res.json())
+          .then(data => {
+            if (data && data.announcement) {
+              applySettings(data);
+              try { localStorage.setItem('nutrolix_store_settings', JSON.stringify(data)); } catch (_) {}
+            }
+          })
+          .catch(() => {});
+      } catch (_) {}
+    }
+
+    document.addEventListener('DOMContentLoaded', syncLiveStoreSettings);
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'nutrolix_store_settings') syncLiveStoreSettings();
+    });
   </script>
 
   <!-- Universal Pull to Refresh with Circular Progress Indicator -->

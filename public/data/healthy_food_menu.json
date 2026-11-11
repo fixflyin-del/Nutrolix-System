@@ -1,5 +1,11 @@
 [
   {
+    "title": "Test Healthy Meal",
+    "price": 249,
+    "category": "High-Protein Bowls",
+    "id": "food_1794392274994"
+  },
+  {
     "id": "food_paneer_quinoa_bowl",
     "name": "Grilled Paneer & Quinoa Muscle Bowl",
     "category": "High Protein Meals",
@@ -8,7 +14,7 @@
     "calories": "410 kcal",
     "price": 249,
     "image": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
-    "description": "Herb-marinated low-fat cottage cheese on organic tri-color Peruvian quinoa with steamed edamame, saut\u00e9ed broccoli, bell peppers, and cold-pressed extra virgin olive oil dressing. Rich in essential amino acids.",
+    "description": "Herb-marinated low-fat cottage cheese on organic tri-color Peruvian quinoa with steamed edamame, sautéed broccoli, bell peppers, and cold-pressed extra virgin olive oil dressing. Rich in essential amino acids.",
     "highlights": [
       "34g Bioavailable Plant & Dairy Protein per bowl",
       "Zero Palm Oil, Zero Refined Flours, Zero Sugar",
@@ -70,7 +76,7 @@
       "100% Certified Vedic A2 Gir Cow Cultured Ghee",
       "High Soluble Fiber from Sprouted Moong & Pearl Barley",
       "Ancient Ayurvedic Digestive Spice Blend (Hing, Jeera, Adrak)",
-      "Ultra-low Glycemic Load \u2014 prevents post-meal lethargy"
+      "Ultra-low Glycemic Load — prevents post-meal lethargy"
     ],
     "nutritionFacts": [
       {
@@ -179,9 +185,9 @@
     "description": "Herb-charred skinless chicken breast fillet cooked without refined oil, served with 2 warm Nutrolix High-Protein Ragi rotis, yellow lentil soup (dal tadka), cucumber-mint yogurt raita, and pickled beetroot.",
     "highlights": [
       "48g Complete Animal & Plant Protein in one serving",
-      "Zero Palm Oil or Vanaspati \u2014 cooked in cold-pressed mustard oil",
+      "Zero Palm Oil or Vanaspati — cooked in cold-pressed mustard oil",
       "2 Fresh Ragi & Multigrain Rotis rich in calcium & iron",
-      "High Satiety Index \u2014 keeps hunger away for 5+ hours",
+      "High Satiety Index — keeps hunger away for 5+ hours",
       "Low Sodium, balanced electrolytes"
     ],
     "nutritionFacts": [
@@ -405,7 +411,7 @@
       "16g Whole Plant Fiber-Bound Protein",
       "Under 180 kcal with High Micronutrient Density",
       "Crunchy Roasted Foxnuts (Makhana) & Puffed Ancient Millets",
-      "Zero Added Sugar \u2014 sweetened naturally with Pomegranate",
+      "Zero Added Sugar — sweetened naturally with Pomegranate",
       "Delicious Street-Chaat Taste with 100% Clinical Clean Nutrition"
     ],
     "nutritionFacts": [

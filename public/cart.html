@@ -407,9 +407,8 @@
             <button onclick="applyCoupon()" class="px-4 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition">Apply</button>
           </div>
           <div id="couponMessage" class="mt-2 text-xs"></div>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <span onclick="setCoupon('NUTRO10')" class="cursor-pointer text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition">🎟️ NUTRO10 (10% Off)</span>
-            <span onclick="setCoupon('NUTRO20')" class="cursor-pointer text-[11px] font-bold px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition">⚡ NUTRO20 (20% Off > ₹1499)</span>
+          <div id="couponSuggestionsContainer" class="mt-3 flex flex-wrap gap-2">
+            <!-- Dynamically populated from getStoreCoupons() -->
           </div>
         </div>
 
@@ -689,17 +688,48 @@
     function getStoreCoupons() {
       try {
         const defaultCoupons = [
-          { code: 'NUTRO10', discountPercent: 10, minOrder: 0, status: 'Active' },
-          { code: 'NUTRO20', discountPercent: 20, minOrder: 1499, status: 'Active' }
+          { code: 'NUTRO10', title: '10% OFF on All Products', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true },
+          { code: 'NUTRO20', title: '20% OFF on Orders > ₹1499', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true },
+          { code: 'APP10', title: 'Extra 10% OFF via App', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true }
         ];
         const saved = JSON.parse(localStorage.getItem('nutrolix_coupons') || 'null');
-        return (saved && Array.isArray(saved) && saved.length > 0) ? saved : defaultCoupons;
+        const list = (saved && Array.isArray(saved) && saved.length > 0) ? saved : defaultCoupons;
+        return list.map(c => ({
+          code: String(c.code || '').toUpperCase().trim(),
+          title: c.title || (c.type === 'flat' ? `Flat ₹${c.value} OFF` : `${c.value || c.discountPercent || 10}% OFF`),
+          type: (c.type === 'flat' || c.type === 'FIXED_AMOUNT') ? 'flat' : 'percentage',
+          value: Number(c.value !== undefined ? c.value : (c.discountPercent || 10)),
+          discountPercent: Number(c.discountPercent !== undefined ? c.discountPercent : (c.value || 10)),
+          minOrder: Number(c.minOrder || 0),
+          active: c.active !== false && c.status !== 'Inactive'
+        }));
       } catch (_) {
         return [
-          { code: 'NUTRO10', discountPercent: 10, minOrder: 0, status: 'Active' },
-          { code: 'NUTRO20', discountPercent: 20, minOrder: 1499, status: 'Active' }
+          { code: 'NUTRO10', title: '10% OFF', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true },
+          { code: 'NUTRO20', title: '20% OFF', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true }
         ];
       }
+    }
+
+    function renderAvailableCoupons() {
+      const container = document.getElementById('couponSuggestionsContainer');
+      if (!container) return;
+      const coupons = getStoreCoupons().filter(c => c.active);
+      if (coupons.length === 0) {
+        container.innerHTML = '<span class="text-[11px] text-slate-400">No promo codes active right now</span>';
+        return;
+      }
+      container.innerHTML = coupons.map(c => {
+        const discountLabel = c.type === 'flat' ? `₹${c.value} OFF` : `${c.value}% OFF`;
+        const minOrderLabel = c.minOrder > 0 ? ` > ₹${c.minOrder}` : '';
+        return `
+          <button type="button" onclick="setCoupon('${c.code}')" class="cursor-pointer text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition shadow-xs flex items-center space-x-1">
+            <span>🎟️</span>
+            <span class="font-extrabold">${c.code}</span>
+            <span class="text-[10px] text-emerald-600 font-semibold">(${discountLabel}${minOrderLabel})</span>
+          </button>
+        `;
+      }).join('');
     }
 
     function getCart() {
@@ -757,7 +787,7 @@
       }
 
       const allCoupons = getStoreCoupons();
-      const match = allCoupons.find(c => c.code.toUpperCase() === code && c.status !== 'Inactive');
+      const match = allCoupons.find(c => c.code === code && c.active);
 
       if (match) {
         const minOrder = Number(match.minOrder || 0);
@@ -765,8 +795,14 @@
           msgEl.innerHTML = `<span class="text-rose-600 font-bold">⚠️ ${match.code} requires minimum order value of ₹${minOrder}.</span>`;
           appliedCoupon = null;
         } else {
-          appliedCoupon = { code: match.code, discountPercent: Number(match.discountPercent) };
-          msgEl.innerHTML = `<span class="text-emerald-600 font-bold">🎉 Coupon ${match.code} applied! ${match.discountPercent}% OFF saved.</span>`;
+          appliedCoupon = { 
+            code: match.code, 
+            type: match.type, 
+            value: match.value,
+            discountPercent: match.type === 'percentage' ? match.value : 0 
+          };
+          const savedText = match.type === 'flat' ? `₹${match.value} FLAT OFF` : `${match.value}% OFF`;
+          msgEl.innerHTML = `<span class="text-emerald-600 font-bold">🎉 Coupon ${match.code} applied! ${savedText} saved.</span>`;
         }
       } else {
         appliedCoupon = null;
@@ -783,7 +819,11 @@
       
       let couponDiscount = 0;
       if (appliedCoupon) {
-        couponDiscount = Math.round((subtotal * appliedCoupon.discountPercent) / 100);
+        if (appliedCoupon.type === 'flat') {
+          couponDiscount = Math.min(subtotal, Math.round(appliedCoupon.value));
+        } else {
+          couponDiscount = Math.round((subtotal * appliedCoupon.value) / 100);
+        }
         document.getElementById('couponDiscountRow').classList.remove('hidden');
         document.getElementById('couponCodeLabel').innerText = appliedCoupon.code;
         document.getElementById('summaryCouponDiscount').innerText = `-₹${couponDiscount}`;
@@ -1577,7 +1617,18 @@
       loadUserProfile();
       checkAndRenderSavedAddresses();
       renderCart();
+      renderAvailableCoupons();
       window.checkCartAuthStatus();
+
+      // Live Cross-Tab Sync with Admin Panel changes
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'nutrolix_coupons') {
+          renderAvailableCoupons();
+          renderSummary();
+        } else if (e.key === 'nutrolix_store_settings') {
+          renderSummary();
+        }
+      });
     });
   </script>
 </body>

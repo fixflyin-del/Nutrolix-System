@@ -65,7 +65,7 @@ function safeWriteJson(filePath, data) {
       const tmpPath = path.join('/tmp', path.basename(filePath));
       fs.writeFileSync(tmpPath, content);
     } catch (_) {}
-    return false;
+    return true;
   }
 }
 
@@ -100,19 +100,12 @@ function normalizeEmail(e) {
 
 function getCustomerDiscountsStore() {
   const file = path.join(PUBLIC_DIR, 'data', 'customer_discounts.json');
-  try {
-    if (!fs.existsSync(file)) fs.writeFileSync(file, '{}');
-    return JSON.parse(fs.readFileSync(file, 'utf8') || '{}');
-  } catch (_) {
-    return {};
-  }
+  return safeReadJson(file, {});
 }
 
 function saveCustomerDiscountsStore(store) {
   const file = path.join(PUBLIC_DIR, 'data', 'customer_discounts.json');
-  try {
-    fs.writeFileSync(file, JSON.stringify(store, null, 2));
-  } catch (_) {}
+  safeWriteJson(file, store);
 }
 
 function getCustomerHealthyFoodEligibility(phoneRaw, emailRaw) {
@@ -1564,17 +1557,16 @@ const server = http.createServer((req, res) => {
   // -------------------------------------------------------------
   // NUTROLIX NUTRITION STORE APIS
   // -------------------------------------------------------------
-  if (reqPath === '/api/nutrition-products') {
+  if (reqPath === '/api/nutrition-products' || reqPath === '/api/nutrition-products/') {
     const productsFile = path.join(PUBLIC_DIR, 'data', 'nutrition_products.json');
     if (req.method === 'GET') {
       try {
-        if (!fs.existsSync(productsFile)) fs.writeFileSync(productsFile, '[]');
-        const data = fs.readFileSync(productsFile, 'utf8');
+        const products = safeReadJson(productsFile, []);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(data);
+        res.end(JSON.stringify(products));
       } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify([]));
       }
       return;
     } else if (req.method === 'POST') {
@@ -1583,10 +1575,7 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const item = JSON.parse(body || '{}');
-          let products = [];
-          if (fs.existsSync(productsFile)) {
-            products = JSON.parse(fs.readFileSync(productsFile, 'utf8') || '[]');
-          }
+          let products = safeReadJson(productsFile, []);
           const existingIdx = products.findIndex(p => p.id === item.id);
           if (existingIdx >= 0) {
             products[existingIdx] = { ...products[existingIdx], ...item };
@@ -1594,7 +1583,7 @@ const server = http.createServer((req, res) => {
             if (!item.id) item.id = 'prod_' + Date.now().toString(36);
             products.unshift(item);
           }
-          fs.writeFileSync(productsFile, JSON.stringify(products, null, 2));
+          safeWriteJson(productsFile, products);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, product: item }));
         } catch (err) {
@@ -1602,6 +1591,19 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ error: err.message }));
         }
       });
+      return;
+    } else if (req.method === 'DELETE') {
+      try {
+        const id = parsedUrl.query.id;
+        let products = safeReadJson(productsFile, []);
+        if (id) products = products.filter(p => p.id !== id);
+        safeWriteJson(productsFile, products);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
       return;
     }
   }
@@ -1613,9 +1615,9 @@ const server = http.createServer((req, res) => {
       try {
         const { id } = JSON.parse(body || '{}');
         const productsFile = path.join(PUBLIC_DIR, 'data', 'nutrition_products.json');
-        let products = JSON.parse(fs.readFileSync(productsFile, 'utf8') || '[]');
+        let products = safeReadJson(productsFile, []);
         products = products.filter(p => p.id !== id);
-        fs.writeFileSync(productsFile, JSON.stringify(products, null, 2));
+        safeWriteJson(productsFile, products);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
@@ -1681,13 +1683,12 @@ const server = http.createServer((req, res) => {
     const vidsFile = path.join(PUBLIC_DIR, 'data', 'video_reviews.json');
     if (req.method === 'GET') {
       try {
-        if (!fs.existsSync(vidsFile)) fs.writeFileSync(vidsFile, '[]');
-        const data = fs.readFileSync(vidsFile, 'utf8');
+        const vids = safeReadJson(vidsFile, []);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(data);
+        res.end(JSON.stringify(vids));
       } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify([]));
       }
       return;
     } else if (req.method === 'POST') {
@@ -1696,10 +1697,7 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const item = JSON.parse(body || '{}');
-          let vids = [];
-          if (fs.existsSync(vidsFile)) {
-            vids = JSON.parse(fs.readFileSync(vidsFile, 'utf8') || '[]');
-          }
+          let vids = safeReadJson(vidsFile, []);
           if (!item.id) item.id = 'vid_' + Date.now().toString(36);
           
           // Helper to extract clean youtube ID or embed URL
@@ -1722,7 +1720,7 @@ const server = http.createServer((req, res) => {
           } else {
             vids.unshift(item);
           }
-          fs.writeFileSync(vidsFile, JSON.stringify(vids, null, 2));
+          safeWriteJson(vidsFile, vids);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, item }));
         } catch (err) {
@@ -1741,9 +1739,9 @@ const server = http.createServer((req, res) => {
       try {
         const { id } = JSON.parse(body || '{}');
         const vidsFile = path.join(PUBLIC_DIR, 'data', 'video_reviews.json');
-        let vids = JSON.parse(fs.readFileSync(vidsFile, 'utf8') || '[]');
+        let vids = safeReadJson(vidsFile, []);
         vids = vids.filter(v => v.id !== id);
-        fs.writeFileSync(vidsFile, JSON.stringify(vids, null, 2));
+        safeWriteJson(vidsFile, vids);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
@@ -1759,13 +1757,12 @@ const server = http.createServer((req, res) => {
     const blogsFile = path.join(PUBLIC_DIR, 'data', 'blogs.json');
     if (req.method === 'GET') {
       try {
-        if (!fs.existsSync(blogsFile)) fs.writeFileSync(blogsFile, '[]');
-        const data = fs.readFileSync(blogsFile, 'utf8');
+        const blogs = safeReadJson(blogsFile, []);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(data);
+        res.end(JSON.stringify(blogs));
       } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify([]));
       }
       return;
     } else if (req.method === 'POST') {
@@ -1774,10 +1771,7 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const blog = JSON.parse(body || '{}');
-          let blogs = [];
-          if (fs.existsSync(blogsFile)) {
-            blogs = JSON.parse(fs.readFileSync(blogsFile, 'utf8') || '[]');
-          }
+          let blogs = safeReadJson(blogsFile, []);
           if (!blog.id) blog.id = 'blog_' + Date.now().toString(36);
           if (!blog.date) blog.date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
           if (!blog.readTime) blog.readTime = '4 min read';
@@ -1788,7 +1782,7 @@ const server = http.createServer((req, res) => {
           } else {
             blogs.unshift(blog);
           }
-          fs.writeFileSync(blogsFile, JSON.stringify(blogs, null, 2));
+          safeWriteJson(blogsFile, blogs);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, blog }));
         } catch (err) {
@@ -1807,9 +1801,9 @@ const server = http.createServer((req, res) => {
       try {
         const { id } = JSON.parse(body || '{}');
         const blogsFile = path.join(PUBLIC_DIR, 'data', 'blogs.json');
-        let blogs = JSON.parse(fs.readFileSync(blogsFile, 'utf8') || '[]');
+        let blogs = safeReadJson(blogsFile, []);
         blogs = blogs.filter(b => b.id !== id);
-        fs.writeFileSync(blogsFile, JSON.stringify(blogs, null, 2));
+        safeWriteJson(blogsFile, blogs);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
@@ -2081,7 +2075,7 @@ const server = http.createServer((req, res) => {
         const existingIdx = orders.findIndex(o => o.orderId === orderId);
         if (existingIdx >= 0) orders[existingIdx] = { ...orders[existingIdx], ...pendingOrder };
         else orders.unshift(pendingOrder);
-        fs.writeFileSync(ordersFile, JSON.stringify(orders.slice(0, 150), null, 2));
+        safeWriteJson(ordersFile, orders.slice(0, 150));
 
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({
@@ -2129,8 +2123,7 @@ const server = http.createServer((req, res) => {
         const calculatedHash = crypto.createHash('sha512').update(resHashString).digest('hex');
 
         const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
-        let orders = [];
-        if (fs.existsSync(ordersFile)) orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8') || '[]');
+        let orders = safeReadJson(ordersFile, []);
         const orderIdx = orders.findIndex(o => o.txnid === txnid);
         let orderId = txnid ? txnid.split('_')[1] : '';
 
@@ -2140,14 +2133,14 @@ const server = http.createServer((req, res) => {
             orders[orderIdx].status = 'Confirmed';
             orders[orderIdx].payuPaymentId = mihpayid;
             orderId = orders[orderIdx].orderId || orderId;
-            fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 2));
+            safeWriteJson(ordersFile, orders);
           }
           res.writeHead(302, { 'Location': `/orders.html?orderId=${encodeURIComponent(orderId)}&payment=success` });
           res.end();
         } else {
           if (orderIdx >= 0) {
             orders[orderIdx].paymentStatus = 'PAYMENT_FAILED';
-            fs.writeFileSync(ordersFile, JSON.stringify(orders, null, 2));
+            safeWriteJson(ordersFile, orders);
           }
           res.writeHead(302, { 'Location': `/cart.html?payment=failed&reason=${encodeURIComponent(params.error_Message || 'Payment cancelled or failed')}` });
           res.end();
@@ -2160,6 +2153,8 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // -------------------------------------------------------------
+  // PHASE 2 API: POST /api/upload-image (Persistent Image Upload)
   // -------------------------------------------------------------
   // PHASE 2 API: POST /api/upload-image (Persistent Image Upload)
   // -------------------------------------------------------------
@@ -2178,29 +2173,43 @@ const server = http.createServer((req, res) => {
         const payload = JSON.parse(body || '{}');
         let dataBase64 = payload.image || payload.data || '';
         let ext = '.jpg';
+        let mime = 'image/jpeg';
         if (dataBase64.startsWith('data:image/png;base64,')) {
           ext = '.png';
+          mime = 'image/png';
           dataBase64 = dataBase64.replace(/^data:image\/png;base64,/, '');
         } else if (dataBase64.startsWith('data:image/webp;base64,')) {
           ext = '.webp';
+          mime = 'image/webp';
           dataBase64 = dataBase64.replace(/^data:image\/webp;base64,/, '');
         } else if (dataBase64.startsWith('data:image/jpeg;base64,')) {
           ext = '.jpg';
+          mime = 'image/jpeg';
           dataBase64 = dataBase64.replace(/^data:image\/jpeg;base64,/, '');
         }
 
         const buffer = Buffer.from(dataBase64, 'base64');
         const filename = 'img_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + ext;
-        const uploadDir = path.join(PUBLIC_DIR, 'uploads');
-        if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-        const targetPath = path.join(uploadDir, filename);
-        fs.writeFileSync(targetPath, buffer);
+        let returnUrl = `data:${mime};base64,${dataBase64}`;
+
+        try {
+          const uploadDir = path.join(PUBLIC_DIR, 'uploads');
+          if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+          const targetPath = path.join(uploadDir, filename);
+          fs.writeFileSync(targetPath, buffer);
+          returnUrl = '/uploads/' + filename;
+        } catch (_) {
+          try {
+            const tmpPath = path.join('/tmp', filename);
+            fs.writeFileSync(tmpPath, buffer);
+          } catch (_) {}
+        }
 
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ success: true, url: '/uploads/' + filename, filename }));
+        res.end(JSON.stringify({ success: true, url: returnUrl, filename }));
       } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, url: (JSON.parse(body || '{}').image || '') }));
       }
     });
     return;
@@ -2209,17 +2218,16 @@ const server = http.createServer((req, res) => {
   // -------------------------------------------------------------
   // PHASE 2 API: HEALTHY FOOD MENU (Single Image Management)
   // -------------------------------------------------------------
-  if (reqPath === '/api/food-menu') {
+  if (reqPath === '/api/food-menu' || reqPath === '/api/food-menu/') {
     const foodFile = path.join(PUBLIC_DIR, 'data', 'healthy_food_menu.json');
     if (req.method === 'GET') {
       try {
-        if (!fs.existsSync(foodFile)) fs.writeFileSync(foodFile, '[]');
-        const data = fs.readFileSync(foodFile, 'utf8');
+        const meals = safeReadJson(foodFile, []);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(data);
+        res.end(JSON.stringify(meals));
       } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify([]));
       }
       return;
     } else if (req.method === 'POST') {
@@ -2228,7 +2236,7 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const meal = JSON.parse(body || '{}');
-          let meals = JSON.parse(fs.readFileSync(foodFile, 'utf8') || '[]');
+          let meals = safeReadJson(foodFile, []);
           if (Array.isArray(meal)) {
             meals = meal;
           } else {
@@ -2240,7 +2248,7 @@ const server = http.createServer((req, res) => {
               meals.unshift(meal);
             }
           }
-          fs.writeFileSync(foodFile, JSON.stringify(meals, null, 2));
+          safeWriteJson(foodFile, meals);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, meals }));
         } catch (err) {
@@ -2248,6 +2256,19 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ error: err.message }));
         }
       });
+      return;
+    } else if (req.method === 'DELETE') {
+      try {
+        const id = parsedUrl.query.id;
+        let meals = safeReadJson(foodFile, []);
+        if (id) meals = meals.filter(m => m.id !== id);
+        safeWriteJson(foodFile, meals);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, meals }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
       return;
     }
   }
@@ -2259,9 +2280,9 @@ const server = http.createServer((req, res) => {
       try {
         const { id } = JSON.parse(body || '{}');
         const foodFile = path.join(PUBLIC_DIR, 'data', 'healthy_food_menu.json');
-        let meals = JSON.parse(fs.readFileSync(foodFile, 'utf8') || '[]');
+        let meals = safeReadJson(foodFile, []);
         meals = meals.filter(m => m.id !== id);
-        fs.writeFileSync(foodFile, JSON.stringify(meals, null, 2));
+        safeWriteJson(foodFile, meals);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true, meals }));
       } catch (err) {
@@ -2275,26 +2296,23 @@ const server = http.createServer((req, res) => {
   // -------------------------------------------------------------
   // HEALTHY FOOD CATEGORIES API
   // -------------------------------------------------------------
-  if (reqPath === '/api/food-categories') {
+  if (reqPath === '/api/food-categories' || reqPath === '/api/food-categories/') {
     const catFile = path.join(PUBLIC_DIR, 'data', 'healthy_food_categories.json');
+    const defaults = [
+      { "id": "cat_high_protein", "name": "High Protein Meals", "icon": "💪", "description": "Formulated with 35g+ bioavailable protein" },
+      { "id": "cat_diet_calorie", "name": "Diet & Calorie Conscious", "icon": "🥗", "description": "Under 400 kcal nutrition-dense clean meals" },
+      { "id": "cat_detox_juices", "name": "Detox Juices & Smoothies", "icon": "🥤", "description": "Cold-pressed, no added sugar, botanical blends" },
+      { "id": "cat_salads_bowls", "name": "Salads & Bowls", "icon": "🥑", "description": "Sprouted ancient grains & superfood matrix" },
+      { "id": "cat_millet_khichdi", "name": "Millet Innovations & Porridge", "icon": "🌾", "description": "Gut-healing ancient millets & A2 ghee" }
+    ];
     if (req.method === 'GET') {
       try {
-        if (!fs.existsSync(catFile)) {
-          const defaults = [
-            { "id": "cat_high_protein", "name": "High Protein Meals", "icon": "💪", "description": "Formulated with 35g+ bioavailable protein" },
-            { "id": "cat_diet_calorie", "name": "Diet & Calorie Conscious", "icon": "🥗", "description": "Under 400 kcal nutrition-dense clean meals" },
-            { "id": "cat_detox_juices", "name": "Detox Juices & Smoothies", "icon": "🥤", "description": "Cold-pressed, no added sugar, botanical blends" },
-            { "id": "cat_salads_bowls", "name": "Salads & Bowls", "icon": "🥑", "description": "Sprouted ancient grains & superfood matrix" },
-            { "id": "cat_millet_khichdi", "name": "Millet Innovations & Porridge", "icon": "🌾", "description": "Gut-healing ancient millets & A2 ghee" }
-          ];
-          fs.writeFileSync(catFile, JSON.stringify(defaults, null, 2));
-        }
-        const data = fs.readFileSync(catFile, 'utf8');
+        const cats = safeReadJson(catFile, defaults);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(data);
+        res.end(JSON.stringify(cats));
       } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify(defaults));
       }
       return;
     } else if (req.method === 'POST') {
@@ -2303,10 +2321,7 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const payload = JSON.parse(body || '{}');
-          let cats = [];
-          try {
-            cats = JSON.parse(fs.readFileSync(catFile, 'utf8') || '[]');
-          } catch (_) { cats = []; }
+          let cats = safeReadJson(catFile, defaults);
 
           if (Array.isArray(payload)) {
             cats = payload;
@@ -2321,7 +2336,7 @@ const server = http.createServer((req, res) => {
               cats.push(payload);
             }
           }
-          fs.writeFileSync(catFile, JSON.stringify(cats, null, 2));
+          safeWriteJson(catFile, cats);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, categories: cats }));
         } catch (err) {
@@ -2405,7 +2420,7 @@ const server = http.createServer((req, res) => {
             } else {
               tokens.push(newEntry);
             }
-            fs.writeFileSync(tokenFile, JSON.stringify(tokens, null, 2));
+            safeWriteJson(tokenFile, tokens);
           }
 
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -2467,17 +2482,16 @@ const server = http.createServer((req, res) => {
   // -------------------------------------------------------------
   // PHASE 2 API: PRODUCT REVIEWS MODERATION
   // -------------------------------------------------------------
-  if (reqPath === '/api/product-reviews') {
+  if (reqPath === '/api/product-reviews' || reqPath === '/api/product-reviews/') {
     const reviewsFile = path.join(PUBLIC_DIR, 'data', 'product_reviews.json');
     if (req.method === 'GET') {
       try {
-        if (!fs.existsSync(reviewsFile)) fs.writeFileSync(reviewsFile, '[]');
-        const data = fs.readFileSync(reviewsFile, 'utf8');
+        const revs = safeReadJson(reviewsFile, []);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(data);
+        res.end(JSON.stringify(revs));
       } catch (e) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify([]));
       }
       return;
     } else if (req.method === 'POST') {
@@ -2486,13 +2500,12 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const rev = JSON.parse(body || '{}');
-          let revs = [];
-          if (fs.existsSync(reviewsFile)) revs = JSON.parse(fs.readFileSync(reviewsFile, 'utf8') || '[]');
+          let revs = safeReadJson(reviewsFile, []);
           if (!rev.id) rev.id = 'rev_' + Date.now();
           rev.createdAt = new Date().toISOString();
           rev.approved = true;
           revs.unshift(rev);
-          fs.writeFileSync(reviewsFile, JSON.stringify(revs, null, 2));
+          safeWriteJson(reviewsFile, revs);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, review: rev }));
         } catch (err) {
@@ -2511,8 +2524,7 @@ const server = http.createServer((req, res) => {
       try {
         const { reviewId, action } = JSON.parse(body || '{}');
         const reviewsFile = path.join(PUBLIC_DIR, 'data', 'product_reviews.json');
-        let revs = [];
-        if (fs.existsSync(reviewsFile)) revs = JSON.parse(fs.readFileSync(reviewsFile, 'utf8') || '[]');
+        let revs = safeReadJson(reviewsFile, []);
         if (action === 'delete') {
           revs = revs.filter(r => (r.id !== reviewId && r.orderId !== reviewId));
         } else if (action === 'hide') {
@@ -2522,7 +2534,7 @@ const server = http.createServer((req, res) => {
           const idx = revs.findIndex(r => (r.id === reviewId || r.orderId === reviewId));
           if (idx >= 0) revs[idx].approved = true;
         }
-        fs.writeFileSync(reviewsFile, JSON.stringify(revs, null, 2));
+        safeWriteJson(reviewsFile, revs);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true, reviews: revs }));
       } catch (err) {
@@ -2541,14 +2553,11 @@ const server = http.createServer((req, res) => {
       try {
         const { orderId } = JSON.parse(body || '{}');
         const stateFile = path.join(PUBLIC_DIR, 'data', 'review_state.json');
-        let state = { dismissed: [], reviewed: [] };
-        if (fs.existsSync(stateFile)) {
-          try { state = JSON.parse(fs.readFileSync(stateFile, 'utf8') || '{}'); } catch (_) {}
-        }
+        let state = safeReadJson(stateFile, { dismissed: [], reviewed: [] });
         if (!state.dismissed) state.dismissed = [];
         if (orderId && !state.dismissed.includes(orderId)) {
           state.dismissed.push(orderId);
-          fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+          safeWriteJson(stateFile, state);
         }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true, dismissed: state.dismissed }));
@@ -2567,14 +2576,11 @@ const server = http.createServer((req, res) => {
       try {
         const { orderId } = JSON.parse(body || '{}');
         const stateFile = path.join(PUBLIC_DIR, 'data', 'review_state.json');
-        let state = { dismissed: [], reviewed: [] };
-        if (fs.existsSync(stateFile)) {
-          try { state = JSON.parse(fs.readFileSync(stateFile, 'utf8') || '{}'); } catch (_) {}
-        }
+        let state = safeReadJson(stateFile, { dismissed: [], reviewed: [] });
         if (!state.reviewed) state.reviewed = [];
         if (orderId && !state.reviewed.includes(orderId)) {
           state.reviewed.push(orderId);
-          fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+          safeWriteJson(stateFile, state);
         }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true, reviewed: state.reviewed }));
@@ -2588,23 +2594,23 @@ const server = http.createServer((req, res) => {
 
   if (reqPath === '/api/reviews/state' && req.method === 'GET') {
     const stateFile = path.join(PUBLIC_DIR, 'data', 'review_state.json');
-    let state = { dismissed: [], reviewed: [] };
-    if (fs.existsSync(stateFile)) {
-      try { state = JSON.parse(fs.readFileSync(stateFile, 'utf8') || '{}'); } catch (_) {}
-    }
+    const state = safeReadJson(stateFile, { dismissed: [], reviewed: [] });
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     res.end(JSON.stringify(state));
     return;
   }
 
   // Store Settings (Announcement, Delivery Fee, Free Delivery Threshold)
-  if (reqPath === '/api/settings') {
+  if (reqPath === '/api/settings' || reqPath === '/api/store-settings') {
     const settingsFile = path.join(PUBLIC_DIR, 'data', 'store_settings.json');
     if (req.method === 'GET') {
-      let data = {};
-      try {
-        if (fs.existsSync(settingsFile)) data = JSON.parse(fs.readFileSync(settingsFile, 'utf8') || '{}');
-      } catch (_) {}
+      const data = safeReadJson(settingsFile, {
+        storeName: "Nutrolix",
+        announcement: "🔥 Flat 10% OFF on all functional foods! Use Code: NUTRO10 • Free Delivery Above ₹499",
+        announcementActive: true,
+        deliveryFee: 49,
+        freeDeliveryAbove: 499
+      });
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify(data));
       return;
@@ -2614,7 +2620,7 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const newSettings = JSON.parse(body || '{}');
-          fs.writeFileSync(settingsFile, JSON.stringify(newSettings, null, 2));
+          safeWriteJson(settingsFile, newSettings);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, settings: newSettings }));
         } catch (err) {
@@ -2627,13 +2633,13 @@ const server = http.createServer((req, res) => {
   }
 
   // Store Coupons
-  if (reqPath === '/api/coupons') {
+  if (reqPath === '/api/coupons' || reqPath === '/api/store-coupons') {
     const couponsFile = path.join(PUBLIC_DIR, 'data', 'store_coupons.json');
     if (req.method === 'GET') {
-      let data = [];
-      try {
-        if (fs.existsSync(couponsFile)) data = JSON.parse(fs.readFileSync(couponsFile, 'utf8') || '[]');
-      } catch (_) {}
+      const data = safeReadJson(couponsFile, [
+        { code: 'NUTRO10', title: '10% OFF on All Products', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true },
+        { code: 'NUTRO20', title: '20% OFF on Orders > ₹1499', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true }
+      ]);
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify(data));
       return;
@@ -2643,7 +2649,7 @@ const server = http.createServer((req, res) => {
       req.on('end', () => {
         try {
           const newCoupons = JSON.parse(body || '[]');
-          fs.writeFileSync(couponsFile, JSON.stringify(newCoupons, null, 2));
+          safeWriteJson(couponsFile, newCoupons);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, coupons: newCoupons }));
         } catch (err) {

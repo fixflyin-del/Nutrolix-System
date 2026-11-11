@@ -1,5 +1,11 @@
 [
   {
+    "title": "Test Resilience Product",
+    "price": 349,
+    "category": "High Protein",
+    "id": "prod_mwbytsx8"
+  },
+  {
     "id": "prod_high_protein_atta",
     "name": "Nutrolix High Protein Atta",
     "tagline": "46g Plant Protein Per 100g • 100% Whole Grain",
@@ -21,8 +27,16 @@
       "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
     ],
     "variants": [
-      { "size": "1 Kg", "price": 349, "mrp": 449 },
-      { "size": "5 Kg", "price": 1649, "mrp": 2199 }
+      {
+        "size": "1 Kg",
+        "price": 349,
+        "mrp": 449
+      },
+      {
+        "size": "5 Kg",
+        "price": 1649,
+        "mrp": 2199
+      }
     ],
     "description": "Nutrolix High Protein Atta is a scientifically formulated, all-natural functional flour crafted for individuals seeking clean muscle support, steady glucose metabolism, and sustained daily stamina. Made from premium non-GMO whole wheat, defatted roasted peanut protein, isolated soy protein, sprouted ragi, and dietary fiber.",
     "keyFeatures": [
@@ -38,10 +52,10 @@
       "protein": 46.2,
       "carbs": 31.4,
       "totalSugar": 2.1,
-      "addedSugar": 0.0,
+      "addedSugar": 0,
       "fats": 4.8,
       "saturatedFat": 0.8,
-      "transFat": 0.0,
+      "transFat": 0,
       "dietaryFiber": 12.3,
       "sodium": 65
     },
@@ -54,7 +68,12 @@
     ],
     "usageInstructions": "Knead with lukewarm water like regular wheat flour. Allow dough to rest for 10-15 minutes before rolling. Makes delicious, soft phulkas, parathas, and rotis.",
     "storageInstructions": "Store in a cool, dry, and hygienic place. Transfer into an airtight food-grade container after opening.",
-    "certifications": ["FSSAI Approved", "ISO 9001:2015", "GMP Certified Facility", "NABL Lab Tested"]
+    "certifications": [
+      "FSSAI Approved",
+      "ISO 9001:2015",
+      "GMP Certified Facility",
+      "NABL Lab Tested"
+    ]
   },
   {
     "id": "prod_complete_nutri_meal",
@@ -78,8 +97,16 @@
       "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80"
     ],
     "variants": [
-      { "size": "500g", "price": 699, "mrp": 899 },
-      { "size": "1 Kg", "price": 1299, "mrp": 1699 }
+      {
+        "size": "500g",
+        "price": 699,
+        "mrp": 899
+      },
+      {
+        "size": "1 Kg",
+        "price": 1299,
+        "mrp": 1699
+      }
     ],
     "description": "Nutrolix Complete Nutri Meal is an all-in-one nutritional powerhouse designed for busy professionals, fitness enthusiasts, and health-conscious families. Combining 25+ superfoods, organic plant proteins, digestive enzymes, and essential micronutrients.",
     "keyFeatures": [
@@ -92,13 +119,13 @@
     "nutritionFacts": {
       "servingSize": "40g",
       "calories": 156,
-      "protein": 26.0,
+      "protein": 26,
       "carbs": 8.2,
       "totalSugar": 1.4,
-      "addedSugar": 0.0,
+      "addedSugar": 0,
       "fats": 2.2,
       "saturatedFat": 0.4,
-      "transFat": 0.0,
+      "transFat": 0,
       "dietaryFiber": 5.8,
       "sodium": 80
     },
@@ -111,7 +138,12 @@
     ],
     "usageInstructions": "Add 1 level scoop (40g) into 250ml chilled water, almond milk, or coconut water. Shake well in a shaker bottle for 30 seconds. Enjoy as a healthy breakfast or post-workout recovery meal.",
     "storageInstructions": "Store tightly sealed in a cool, dry area away from direct sunlight.",
-    "certifications": ["FSSAI Approved", "GMP Certified", "ISO 22000", "Non-GMO Project Verified"]
+    "certifications": [
+      "FSSAI Approved",
+      "GMP Certified",
+      "ISO 22000",
+      "Non-GMO Project Verified"
+    ]
   },
   {
     "id": "prod_premium_talbeenah",
@@ -135,8 +167,16 @@
       "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
     ],
     "variants": [
-      { "size": "400g", "price": 299, "mrp": 399 },
-      { "size": "800g", "price": 549, "mrp": 749 }
+      {
+        "size": "400g",
+        "price": 299,
+        "mrp": 399
+      },
+      {
+        "size": "800g",
+        "price": 549,
+        "mrp": 749
+      }
     ],
     "description": "Talbeenah is a revered traditional therapeutic porridge mentioned in prophetic medicine and Ayurvedic texts for soothing the digestive tract, calming the nervous system, and restoring vitality. Prepared by slow-roasting pearl barley grains with crushed California almonds, pure Arabian dates, and green cardamom.",
     "keyFeatures": [
@@ -152,10 +192,10 @@
       "protein": 6.8,
       "carbs": 33.5,
       "totalSugar": 4.5,
-      "addedSugar": 0.0,
+      "addedSugar": 0,
       "fats": 3.2,
       "saturatedFat": 0.3,
-      "transFat": 0.0,
+      "transFat": 0,
       "dietaryFiber": 7.4,
       "sodium": 15
     },
@@ -168,7 +208,12 @@
     ],
     "usageInstructions": "Mix 2-3 tablespoons with 200ml hot milk or water. Simmer on low flame for 4-5 minutes while stirring. Serve warm with chopped nuts or honey if desired.",
     "storageInstructions": "Keep stored in a cool, airtight container away from moisture.",
-    "certifications": ["FSSAI Licensed", "100% Natural", "GMP Verified", "Lab Certified"]
+    "certifications": [
+      "FSSAI Licensed",
+      "100% Natural",
+      "GMP Verified",
+      "Lab Certified"
+    ]
   },
   {
     "id": "prod_multi_millet_flakes",
@@ -192,7 +237,11 @@
       "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
     ],
     "variants": [
-      { "size": "400g", "price": 249, "mrp": 329 }
+      {
+        "size": "400g",
+        "price": 249,
+        "mrp": 329
+      }
     ],
     "description": "Crispy, oven-toasted multigrain flakes made from four indigenous Indian super-millets combined with South American quinoa. Lightly sweetened with Kakvi liquid jaggery, offering 3x the calcium of conventional cornflakes without palm oil or preservatives.",
     "keyFeatures": [
@@ -208,10 +257,10 @@
       "protein": 5.2,
       "carbs": 27.6,
       "totalSugar": 3.1,
-      "addedSugar": 0.0,
+      "addedSugar": 0,
       "fats": 1.4,
       "saturatedFat": 0.2,
-      "transFat": 0.0,
+      "transFat": 0,
       "dietaryFiber": 6.1,
       "sodium": 42
     },
@@ -224,7 +273,11 @@
     ],
     "usageInstructions": "Pour into a bowl with cold milk, warm oat milk, or Greek yogurt. Top with fresh berries and seeds for a supreme breakfast bowl.",
     "storageInstructions": "Seal zipper pouch tightly after each pour. Store in a dry pantry.",
-    "certifications": ["FSSAI Approved", "Gluten-Free Lab Tested", "ISO Certified"]
+    "certifications": [
+      "FSSAI Approved",
+      "Gluten-Free Lab Tested",
+      "ISO Certified"
+    ]
   },
   {
     "id": "prod_sprouted_moong_protein",
@@ -248,8 +301,16 @@
       "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80"
     ],
     "variants": [
-      { "size": "500g", "price": 379, "mrp": 499 },
-      { "size": "1 Kg", "price": 699, "mrp": 899 }
+      {
+        "size": "500g",
+        "price": 379,
+        "mrp": 499
+      },
+      {
+        "size": "1 Kg",
+        "price": 699,
+        "mrp": 899
+      }
     ],
     "description": "Crafted using the age-old bio-activation process of sprouting and gentle solar drying, this powder unlocks maximum protein digestibility, destroys anti-nutrients (phytic acid), and delivers 32g of pure plant protein per 100g.",
     "keyFeatures": [
@@ -263,12 +324,12 @@
       "servingSize": "100g",
       "calories": 372,
       "protein": 32.5,
-      "carbs": 48.0,
-      "totalSugar": 2.0,
-      "addedSugar": 0.0,
+      "carbs": 48,
+      "totalSugar": 2,
+      "addedSugar": 0,
       "fats": 4.1,
       "saturatedFat": 0.6,
-      "transFat": 0.0,
+      "transFat": 0,
       "dietaryFiber": 14.2,
       "sodium": 120
     },
@@ -281,7 +342,11 @@
     ],
     "usageInstructions": "Mix 2 scoops (30g) in 250ml water or chaas (buttermilk) with a pinch of lemon juice. Stir and consume fresh.",
     "storageInstructions": "Keep stored in a cool place, tightly covered.",
-    "certifications": ["FSSAI Licensed", "NABL Tested", "GMP Certified"]
+    "certifications": [
+      "FSSAI Licensed",
+      "NABL Tested",
+      "GMP Certified"
+    ]
   },
   {
     "id": "prod_cold_pressed_black_seed_oil",
@@ -305,7 +370,11 @@
       "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
     ],
     "variants": [
-      { "size": "200ml", "price": 449, "mrp": 599 }
+      {
+        "size": "200ml",
+        "price": 449,
+        "mrp": 599
+      }
     ],
     "description": "Cold-pressed from wild-harvested Turkish Nigella Sativa seeds without heat, solvents, or chemicals. Standardized to contain exceptionally high Thymoquinone (TQ > 1.8%), the potent active compound celebrated globally for respiratory, joint, and metabolic wellness.",
     "keyFeatures": [
@@ -318,14 +387,14 @@
     "nutritionFacts": {
       "servingSize": "5ml (1 tsp)",
       "calories": 42,
-      "protein": 0.0,
-      "carbs": 0.0,
-      "totalSugar": 0.0,
-      "addedSugar": 0.0,
+      "protein": 0,
+      "carbs": 0,
+      "totalSugar": 0,
+      "addedSugar": 0,
       "fats": 4.6,
       "saturatedFat": 0.6,
-      "transFat": 0.0,
-      "dietaryFiber": 0.0,
+      "transFat": 0,
+      "dietaryFiber": 0,
       "sodium": 0
     },
     "ingredients": "100% Pure Cold-Pressed Nigella Sativa (Kalonji) Seed Oil.",
@@ -337,7 +406,11 @@
     ],
     "usageInstructions": "Take 1 teaspoon (5ml) daily with warm water or raw honey on an empty stomach in the morning.",
     "storageInstructions": "Store in the provided dark amber bottle away from direct heat and light.",
-    "certifications": ["FSSAI Approved", "ISO 9001:2015", "GMP Certified"]
+    "certifications": [
+      "FSSAI Approved",
+      "ISO 9001:2015",
+      "GMP Certified"
+    ]
   },
   {
     "id": "prod_raw_forest_honey_shilajit",
@@ -361,7 +434,11 @@
       "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&w=800&q=80"
     ],
     "variants": [
-      { "size": "500g", "price": 499, "mrp": 650 }
+      {
+        "size": "500g",
+        "price": 499,
+        "mrp": 650
+      }
     ],
     "description": "Harvested from wild multi-floral forest hives and kept raw and unpasteurized to preserve active digestive enzymes and pollen. Synergistically infused with purified Grade-A Himalayan Shilajit resin and KSM-66 Ashwagandha for stamina, cognitive sharpness, and daily vigor.",
     "keyFeatures": [
@@ -377,10 +454,10 @@
       "protein": 0.2,
       "carbs": 16.2,
       "totalSugar": 15.8,
-      "addedSugar": 0.0,
-      "fats": 0.0,
-      "saturatedFat": 0.0,
-      "transFat": 0.0,
+      "addedSugar": 0,
+      "fats": 0,
+      "saturatedFat": 0,
+      "transFat": 0,
       "dietaryFiber": 0.1,
       "sodium": 2
     },
@@ -393,7 +470,11 @@
     ],
     "usageInstructions": "Consume 1 teaspoon (15g-20g) directly or mixed with lukewarm water/milk twice daily. Do not heat to boiling temperature.",
     "storageInstructions": "Store at ambient room temperature. Do not refrigerate as raw honey may naturally crystallize.",
-    "certifications": ["FSSAI Licensed", "Purity NABL Lab Certified", "GMP Verified"]
+    "certifications": [
+      "FSSAI Licensed",
+      "Purity NABL Lab Certified",
+      "GMP Verified"
+    ]
   },
   {
     "id": "prod_chia_flax_omega_blend",
@@ -417,8 +498,16 @@
       "https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?auto=format&fit=crop&w=800&q=80"
     ],
     "variants": [
-      { "size": "250g", "price": 199, "mrp": 260 },
-      { "size": "500g", "price": 359, "mrp": 480 }
+      {
+        "size": "250g",
+        "price": 199,
+        "mrp": 260
+      },
+      {
+        "size": "500g",
+        "price": 359,
+        "mrp": 480
+      }
     ],
     "description": "A precision 50:50 blend of whole organic black chia seeds and slow cold-milled golden flaxseeds. Rich in heart-healthy Alpha-Linolenic Acid (Omega-3 ALA), lignans, and soluble mucilage fiber for digestion.",
     "keyFeatures": [
@@ -434,10 +523,10 @@
       "protein": 4.8,
       "carbs": 8.6,
       "totalSugar": 0.4,
-      "addedSugar": 0.0,
+      "addedSugar": 0,
       "fats": 8.2,
       "saturatedFat": 0.8,
-      "transFat": 0.0,
+      "transFat": 0,
       "dietaryFiber": 7.9,
       "sodium": 8
     },
@@ -450,6 +539,10 @@
     ],
     "usageInstructions": "Sprinkle 1-2 tablespoons onto morning yogurt, porridge, or blend directly into your Nutrolix protein shake.",
     "storageInstructions": "Keep refrigerated or in a cool dry cabinet after opening.",
-    "certifications": ["Certified Organic", "FSSAI Approved", "GMP Certified"]
+    "certifications": [
+      "Certified Organic",
+      "FSSAI Approved",
+      "GMP Certified"
+    ]
   }
 ]
