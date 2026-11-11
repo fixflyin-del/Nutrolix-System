@@ -454,7 +454,7 @@
 
   <script>
     // Authentic Nutrolix Healthy Food Kitchen Menu with Full Details
-    const healthyFoodMenu = [
+    const healthyFoodMenuDefaults = [
   {
     "id": "food_paneer_quinoa_bowl",
     "name": "Grilled Paneer & Quinoa Muscle Bowl",
@@ -909,6 +909,40 @@
     let currentSelectedModalDish = null;
     let modalSelectedQuantity = 1;
 
+    function normalizeMeal(m) {
+      if (!m) return null;
+      const name = m.name || m.title || 'Nutrolix Healthy Meal';
+      const img = m.image || (m.images && m.images[0]) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80';
+      return {
+        ...m,
+        id: m.id || ('meal_' + Math.random().toString(36).substring(2, 8)),
+        name,
+        title: name,
+        image: img,
+        category: m.category || 'High Protein Meals',
+        price: Number(m.price || 199),
+        protein: m.protein ? (String(m.protein).includes('g') ? m.protein : m.protein + 'g Protein') : '25g Protein',
+        calories: m.calories ? (String(m.calories).includes('kcal') ? m.calories : m.calories + ' kcal') : '350 kcal',
+        description: m.description || 'Clean, clinical-grade nutrition prepared fresh with zero palm oil.',
+        isVeg: m.isVeg !== undefined ? m.isVeg : (m.category !== 'Non-Veg Meals')
+      };
+    }
+
+    function getLiveHealthyFoodMenu() {
+      try {
+        const local = JSON.parse(localStorage.getItem('nutrolix_healthy_food') || 'null');
+        if (Array.isArray(local) && local.length > 0) {
+          return local.map(normalizeMeal).filter(Boolean);
+        }
+      } catch (_) {}
+      return healthyFoodMenuDefaults.map(normalizeMeal).filter(Boolean);
+    }
+    window.getLiveHealthyFoodMenu = getLiveHealthyFoodMenu;
+    Object.defineProperty(window, 'healthyFoodMenu', {
+      get() { return getLiveHealthyFoodMenu(); },
+      configurable: true
+    });
+
     // Toggle Left Slide-out Drawer (Point 5)
     window.toggleLeftBurgerMenu = function() {
       const drawer = document.getElementById('leftBurgerDrawer');
@@ -929,9 +963,10 @@
       const container = document.getElementById('foodMenuGrid');
       if (!container) return;
 
+      const activeList = getLiveHealthyFoodMenu();
       const filtered = currentCategory === 'All' 
-        ? healthyFoodMenu 
-        : healthyFoodMenu.filter(item => item.category === currentCategory);
+        ? activeList 
+        : activeList.filter(item => item.category === currentCategory);
 
       const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
 
@@ -1042,7 +1077,7 @@
       const container = document.getElementById('foodCategoriesContainer');
       if (!container) return;
       
-      const totalCount = healthyFoodMenu.length;
+      const totalCount = getLiveHealthyFoodMenu().length;
       let html = `
         <button onclick="filterFoodCategory('All', this)" class="food-cat-btn ${currentCategory === 'All' ? 'active bg-nutro-forest text-white' : 'bg-slate-100 text-slate-700'} px-4 py-2 rounded-full shadow-sm shrink-0 flex items-center space-x-1.5 transition">
           <i class="fa-solid fa-sparkles text-amber-400"></i>
@@ -1068,7 +1103,7 @@
     // Dish Detail Modal Functions (Requirement 1)
     // =========================================================================
     window.openFoodDetailModal = function(dishId) {
-      const dish = healthyFoodMenu.find(d => d.id === dishId);
+      const dish = getLiveHealthyFoodMenu().find(d => d.id === dishId);
       if (!dish) return;
 
       currentSelectedModalDish = dish;
@@ -1183,7 +1218,7 @@
     };
 
     function changeFoodQuantity(id, delta) {
-      const foodItem = healthyFoodMenu.find(i => i.id === id);
+      const foodItem = getLiveHealthyFoodMenu().find(i => i.id === id);
       if (!foodItem) return;
 
       let cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
@@ -1238,6 +1273,24 @@
       renderFoodMenu();
       updateCartBadges();
       loadDynamicCategories();
+
+      // Background sync with server
+      fetch('/api/food-menu')
+        .then(r => r.ok ? r.json() : null)
+        .then(meals => {
+          if (Array.isArray(meals) && meals.length > 0) {
+            try { localStorage.setItem('nutrolix_healthy_food', JSON.stringify(meals)); } catch (_) {}
+            renderFoodMenu();
+          }
+        })
+        .catch(() => {});
+
+      // Cross-tab live sync with Admin Panel
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'nutrolix_healthy_food') {
+          renderFoodMenu();
+        }
+      });
     });
   </script>
 

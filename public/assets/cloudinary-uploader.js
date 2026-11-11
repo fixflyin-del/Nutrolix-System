@@ -1,12 +1,15 @@
 /**
- * Nutrolix Cloudinary Direct Image Uploader & Resilient Asset Manager
- * Direct browser-to-CDN unsigned uploads with automatic local/data-URL fallback.
- * Zero server load, permanent global CDN hosting for Vercel and Android.
+ * Nutrolix Cloudinary Direct & Server-Signed Image Uploader
+ * 1. Supports direct browser-to-CDN unsigned uploads.
+ * 2. Supports automatic server-side signed uploads (/api/cloudinary-upload).
+ * 3. Fallback to high-res data URL so user is NEVER blocked.
  */
 window.CloudinaryService = {
   defaultSettings: {
     cloudName: "muy6zdcd",
-    uploadPreset: "ml_default"
+    uploadPreset: "ml_default",
+    apiKey: "",
+    apiSecret: ""
   },
 
   getSettings() {
@@ -15,17 +18,21 @@ window.CloudinaryService = {
       if (saved && saved.cloudName) {
         return {
           cloudName: saved.cloudName.trim(),
-          uploadPreset: (saved.uploadPreset || "ml_default").trim()
+          uploadPreset: (saved.uploadPreset || "ml_default").trim(),
+          apiKey: (saved.apiKey || "").trim(),
+          apiSecret: (saved.apiSecret || "").trim()
         };
       }
     } catch (_) {}
     return { ...this.defaultSettings };
   },
 
-  saveSettings(cloudName, uploadPreset) {
+  saveSettings(cloudName, uploadPreset, apiKey = "", apiSecret = "") {
     const settings = {
       cloudName: (cloudName || "muy6zdcd").trim(),
       uploadPreset: (uploadPreset || "ml_default").trim(),
+      apiKey: (apiKey || "").trim(),
+      apiSecret: (apiSecret || "").trim(),
       updatedAt: new Date().toISOString()
     };
     localStorage.setItem("nutrolix_cloudinary_settings", JSON.stringify(settings));
@@ -42,7 +49,7 @@ window.CloudinaryService = {
   },
 
   /**
-   * Upload File to Cloudinary with transparent fallback
+   * Upload File to Cloudinary with automatic signed / unsigned / fallback handling
    * @param {File|Blob} file 
    * @param {Function} onProgress 
    * @returns {Promise<string>} secure_url or data-URL fallback
@@ -53,7 +60,36 @@ window.CloudinaryService = {
     const settings = this.getSettings();
     const cloudName = settings.cloudName || "muy6zdcd";
     const uploadPreset = settings.uploadPreset || "ml_default";
+    const apiKey = settings.apiKey || "";
+    const apiSecret = settings.apiSecret || "";
 
+    const base64Data = await this.fileToBase64(file);
+
+    // 1. If API Key and Secret are configured, use Server-Side Signed Upload (Guaranteed Cloudinary Dashboard sync!)
+    if (apiKey && apiSecret) {
+      try {
+        if (onProgress) onProgress(30);
+        const res = await fetch('/api/cloudinary-upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            image: base64Data,
+            cloudName,
+            apiKey,
+            apiSecret
+          })
+        });
+        const data = await res.json();
+        if (data && data.success && data.url) {
+          if (onProgress) onProgress(100);
+          return data.url;
+        }
+      } catch (err) {
+        console.warn("Server signed upload error:", err);
+      }
+    }
+
+    // 2. Direct browser upload with Upload Preset
     const formData = new FormData();
     formData.append("file", file);
     formData.append("upload_preset", uploadPreset);
@@ -92,38 +128,40 @@ window.CloudinaryService = {
           errorMsg = err.error?.message || "";
         } catch (_) {}
 
-        console.warn("Cloudinary upload notice:", errorMsg || `HTTP ${xhr.status}`);
+        console.warn("Cloudinary direct upload notice:", errorMsg || `HTTP ${xhr.status}`);
 
-        // If preset is not unsigned or credentials need tweak:
-        // Automatically convert to base64 so user is 100% NEVER blocked!
+        // Try server upload route as second attempt
         try {
-          const base64Url = await window.CloudinaryService.fileToBase64(file);
-          
-          if (errorMsg.includes("must be whitelisted for unsigned uploads")) {
-            setTimeout(() => {
-              window.CloudinaryService.showUnsignedGuide(cloudName, uploadPreset);
-            }, 300);
+          const sRes = await fetch('/api/cloudinary-upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: base64Data, cloudName, uploadPreset })
+          });
+          const sData = await sRes.json();
+          if (sData && sData.success && sData.url) {
+            return resolve(sData.url);
           }
+        } catch (_) {}
 
-          resolve(base64Url);
-        } catch (fallbackErr) {
-          resolve("https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=900&auto=format&fit=crop");
+        // If preset is signed, explain how to toggle to unsigned for direct dashboard sync
+        if (errorMsg.includes("must be whitelisted for unsigned uploads")) {
+          setTimeout(() => {
+            window.CloudinaryService.showUnsignedGuide(cloudName, uploadPreset);
+          }, 400);
         }
+
+        // Return base64 so product/meal photo works immediately in app
+        resolve(base64Data);
       };
 
       xhr.onerror = async () => {
-        try {
-          const base64Url = await window.CloudinaryService.fileToBase64(file);
-          resolve(base64Url);
-        } catch (_) {
-          resolve("https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=900&auto=format&fit=crop");
-        }
+        resolve(base64Data);
       };
 
       try {
         xhr.send(formData);
       } catch (_) {
-        window.CloudinaryService.fileToBase64(file).then(resolve).catch(() => resolve(""));
+        resolve(base64Data);
       }
     });
   },
@@ -140,21 +178,27 @@ window.CloudinaryService = {
             ☁️
           </div>
           <div>
-            <h3 class="text-sm font-black text-slate-900">Cloudinary (${cloudName}) Connected!</h3>
-            <p class="text-[11px] text-slate-500 font-semibold">Image is active & saved. One quick 30-sec step for direct global CDN:</p>
+            <h3 class="text-sm font-black text-slate-900">Cloudinary (${cloudName}) Setup Guide</h3>
+            <p class="text-[11px] text-slate-500 font-semibold">Image is active & saved in app! To see it directly in Cloudinary Dashboard:</p>
           </div>
         </div>
 
-        <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 text-xs text-slate-700 space-y-2">
-          <p class="font-bold text-slate-900">To make Cloudinary URLs permanent CDN:</p>
-          <ol class="list-decimal list-inside space-y-1.5 font-medium text-[11px] text-slate-600">
-            <li>Open <a href="https://console.cloudinary.com/settings/upload" target="_blank" class="text-emerald-600 underline font-bold">Cloudinary Dashboard ↗</a></li>
-            <li>Go to <strong>Settings (gear icon) ➔ Upload</strong></li>
-            <li>Scroll down to <strong>Upload presets</strong></li>
-            <li>Click <strong>Edit</strong> on <code>${uploadPreset}</code> (or Add new preset)</li>
-            <li>Change <strong>Signing Mode</strong> from <em>Signed</em> ➔ <strong class="text-emerald-700 bg-emerald-100 px-1 py-0.5 rounded">Unsigned</strong></li>
-            <li>Click <strong>Save</strong>!</li>
-          </ol>
+        <div class="bg-slate-50 rounded-2xl p-4 border border-slate-200 text-xs text-slate-700 space-y-2.5">
+          <p class="font-bold text-slate-900">Choose Option 1 (10 seconds) or Option 2:</p>
+          
+          <div class="p-3 bg-white rounded-xl border border-emerald-200">
+            <span class="font-bold text-emerald-800">Option 1: Enable Unsigned Mode (Recommended)</span>
+            <ol class="list-decimal list-inside space-y-1 font-medium text-[11px] text-slate-600 mt-1">
+              <li>Open <a href="https://console.cloudinary.com/settings/upload" target="_blank" class="text-emerald-600 underline font-bold">Cloudinary Dashboard ➔ Settings ➔ Upload ↗</a></li>
+              <li>Scroll to <strong>Upload presets</strong> ➔ Click <strong>Edit</strong> on <code>${uploadPreset}</code></li>
+              <li>Change <strong>Signing Mode</strong> from <em>Signed</em> ➔ <strong class="text-emerald-700 bg-emerald-100 px-1 py-0.5 rounded">Unsigned</strong> ➔ Save!</li>
+            </ol>
+          </div>
+
+          <div class="p-3 bg-white rounded-xl border border-sky-200">
+            <span class="font-bold text-sky-800">Option 2: Add API Key & Secret in Admin Panel</span>
+            <p class="text-[11px] text-slate-600 mt-0.5">In Admin Panel ➔ Store Settings ➔ Enter your Cloudinary <strong>API Key</strong> and <strong>API Secret</strong> for automatic server signing.</p>
+          </div>
         </div>
 
         <div class="flex justify-end pt-2">

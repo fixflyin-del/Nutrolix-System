@@ -1739,10 +1739,45 @@
 
   <!-- Global Application Scripts -->
   <script>
-    // State management: preserve in-memory products from nutrolix-data.js
-    if (!window.nutroProducts || !window.nutroProducts.length) {
-      window.nutroProducts = window.nutroFallbackProducts || [];
+    // Normalization helper for packaged nutrition products
+    function normalizeNutroProduct(p) {
+      if (!p) return null;
+      const title = p.name || p.title || 'Nutrolix Product';
+      const imgList = (p.images && p.images.length) ? p.images.filter(Boolean) : (p.image ? [p.image] : ['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80']);
+      const price = Number(p.price || 349);
+      const mrp = Number(p.mrp || Math.round(price * 1.28));
+      const discountPercent = Number(p.discountPercent || (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 20));
+      return {
+        ...p,
+        id: p.id || ('prod_' + Math.random().toString(36).substring(2, 9)),
+        name: title,
+        title: title,
+        tagline: p.tagline || p.heroClaim || 'Clinical Grade Nutrition • 100% Pure & Lab Tested',
+        price,
+        mrp,
+        discountPercent,
+        rating: Number(p.rating || 4.8),
+        reviewCount: Number(p.reviewCount || 120),
+        images: imgList,
+        image: imgList[0],
+        category: p.category || 'High Protein Foods',
+        inStock: p.stockStatus ? (p.stockStatus !== 'Out of Stock') : (p.inStock !== false)
+      };
     }
+
+    function getLiveNutroProducts() {
+      try {
+        const local = JSON.parse(localStorage.getItem('nutrolix_products') || 'null');
+        if (Array.isArray(local) && local.length > 0) {
+          return local.map(normalizeNutroProduct).filter(Boolean);
+        }
+      } catch (_) {}
+      const fallback = (window.nutroProducts && window.nutroProducts.length) ? window.nutroProducts : (window.nutroFallbackProducts || []);
+      return fallback.map(normalizeNutroProduct).filter(Boolean);
+    }
+
+    // State management: preserve in-memory products from nutrolix-data.js and localStorage
+    window.nutroProducts = getLiveNutroProducts();
     window.nutroCart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
     window.nutroWishlist = JSON.parse(localStorage.getItem('nutrolix_wishlist') || '[]');
 
@@ -1957,9 +1992,7 @@
     // Initialize application with 0ms Instant In-Memory Render
     function initInstantHomepageContent() {
       window.applyHeroCustomizations();
-      if (!window.nutroProducts || !window.nutroProducts.length) {
-        window.nutroProducts = window.nutroFallbackProducts || [];
-      }
+      window.nutroProducts = getLiveNutroProducts();
       if (!window.nutroVideoReviews || !window.nutroVideoReviews.length) {
         window.nutroVideoReviews = window.nutroFallbackVideoReviews || [];
       }
@@ -2000,9 +2033,12 @@
           .then(data => {
             clearTimeout(tid);
             if (data && Array.isArray(data) && data.length) {
-              window.nutroProducts = data;
-              renderFeaturedProducts(data);
-              renderBestSellers(data.filter(p => p.isBestSeller));
+              window.nutroProducts = data.map(normalizeNutroProduct).filter(Boolean);
+              try { localStorage.setItem('nutrolix_products', JSON.stringify(window.nutroProducts)); } catch (_) {}
+              renderFeaturedProducts(window.nutroProducts);
+              renderBestSellers(window.nutroProducts.filter(p => p.isBestSeller));
+              const allCountBadge = document.getElementById('catCountAll');
+              if (allCountBadge) allCountBadge.textContent = window.nutroProducts.length;
             }
           }).catch(() => {});
 
@@ -2019,6 +2055,19 @@
           loadBlogs();
         }
       }
+
+      // Real-time Cross-tab Sync with Admin Console
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'nutrolix_products') {
+          window.nutroProducts = getLiveNutroProducts();
+          if (typeof renderFeaturedProducts === 'function') {
+            renderFeaturedProducts(window.nutroProducts);
+            renderBestSellers(window.nutroProducts.filter(p => p.isBestSeller));
+          }
+          const allCountBadge = document.getElementById('catCountAll');
+          if (allCountBadge) allCountBadge.textContent = window.nutroProducts.length;
+        }
+      });
     });
 
     // Category filter for the products catalog
@@ -2350,30 +2399,38 @@
 
     // Helper: Create Amazon-style product card with mandatory rating & review count
     function createProductCardHtml(p) {
-      const mainImg = (p.images && p.images[0]) || 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80';
+      const prodName = p.name || p.title || 'Nutrolix Product';
+      const safeTitleAttr = prodName.replace(/"/g, '&quot;');
+      const safeJsName = prodName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      const mainImg = (p.images && p.images[0]) || p.image || 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80';
+      const discount = p.discountPercent || (p.mrp && p.price ? Math.max(10, Math.round(((p.mrp - p.price) / p.mrp) * 100)) : 20);
+      const rating = p.rating || 4.8;
+      const reviewCount = p.reviewCount || 142;
+      const tagline = p.tagline || p.heroClaim || 'Clinical Grade Nutrition • 100% Pure & Lab Tested';
+      const category = p.category || 'High Protein Foods';
+
       return `
         <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
-          <!-- Image & Discount Badge -->
+          <!-- Image & Discount Badge (Clickable) -->
           <div class="relative overflow-hidden bg-slate-100 aspect-square">
-            <a href="/product?id=${p.id}" class="block w-full h-full cursor-pointer">
-              <img src="${mainImg}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+            <a href="/product?id=${encodeURIComponent(p.id)}" class="block w-full h-full cursor-pointer">
+              <img src="${mainImg}" alt="${safeTitleAttr}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
             </a>
             <span class="absolute top-3 left-3 bg-nutro-orange text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm pointer-events-none">
-              ${p.discountPercent}% OFF
+              ${discount}% OFF
             </span>
             <button onclick="window.toggleWishlist('${p.id}')" class="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 text-slate-400 hover:text-rose-500 flex items-center justify-center text-xs shadow-sm transition">
               <i class="fa-solid fa-heart ${window.nutroWishlist.includes(p.id) ? 'text-rose-500' : ''}"></i>
             </button>
           </div>
 
-          <!-- Product Info -->
           <!-- Product Info (Responsive for 2-column mobile layout) -->
           <div class="p-2.5 sm:p-4 flex-1 flex flex-col justify-between">
             <div>
-              <div class="text-[9px] sm:text-[10px] font-bold text-nutro-emerald uppercase tracking-wider line-clamp-1">${p.category}</div>
+              <div class="text-[9px] sm:text-[10px] font-bold text-nutro-emerald uppercase tracking-wider line-clamp-1">${category}</div>
               
               <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 mt-0.5 line-clamp-2 group-hover:text-nutro-emerald transition leading-snug">
-                <a href="/product?id=${p.id}">${p.name}</a>
+                <a href="/product?id=${encodeURIComponent(p.id)}">${prodName}</a>
               </h3>
 
               <!-- REAL RATING DISPLAY -->
@@ -2385,22 +2442,22 @@
                   <i class="fa-solid fa-star"></i>
                   <i class="fa-solid fa-star"></i>
                 </div>
-                <span class="font-black text-slate-900 text-[10px] sm:text-xs">${p.rating}</span>
-                <span class="text-slate-400 text-[9px] sm:text-[11px]">(${p.reviewCount})</span>
+                <span class="font-black text-slate-900 text-[10px] sm:text-xs">${rating}</span>
+                <span class="text-slate-400 text-[9px] sm:text-[11px]">(${reviewCount})</span>
               </div>
 
-              <p class="hidden sm:block text-[11px] text-slate-500 mt-1 line-clamp-2">${p.tagline}</p>
+              <p class="hidden sm:block text-[11px] text-slate-500 mt-1 line-clamp-2">${tagline}</p>
             </div>
 
             <!-- Price & Add to Bag -->
             <div class="mt-2.5 sm:mt-4 pt-2 sm:pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5">
               <div>
                 <div class="text-sm sm:text-base font-black text-slate-900">₹${p.price}</div>
-                <div class="text-[9px] sm:text-[10px] text-slate-400 line-through">₹${p.mrp}</div>
+                <div class="text-[9px] sm:text-[10px] text-slate-400 line-through">₹${p.mrp || (p.price + 100)}</div>
               </div>
 
               <div class="flex items-center space-x-1">
-                <button onclick="window.quickAddToCart('${p.id}', ${p.price}, '${p.name.replace(/'/g, "\\'")}', '${mainImg}')" class="bg-nutro-forest hover:bg-nutro-dark text-white text-[11px] sm:text-xs font-black px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-sm flex items-center space-x-1" title="Add to Cart">
+                <button onclick="window.quickAddToCart('${p.id}', ${p.price}, '${safeJsName}', '${mainImg}')" class="bg-nutro-forest hover:bg-nutro-dark text-white text-[11px] sm:text-xs font-black px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-sm flex items-center space-x-1" title="Add to Cart">
                   <i class="fa-solid fa-plus text-[9px]"></i>
                   <span>Add</span>
                 </button>

@@ -495,16 +495,59 @@
     window.selectedQty = 1;
     window.selectedVariantIndex = 0;
 
+    function normalizeNutroProduct(p) {
+      if (!p) return null;
+      const title = p.name || p.title || 'Nutrolix Product';
+      const imgList = (p.images && p.images.length) ? p.images.filter(Boolean) : (p.image ? [p.image] : ['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80']);
+      const price = Number(p.price || 349);
+      const mrp = Number(p.mrp || Math.round(price * 1.28));
+      const discountPercent = Number(p.discountPercent || (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 20));
+      return {
+        ...p,
+        id: p.id || ('prod_' + Math.random().toString(36).substring(2, 9)),
+        name: title,
+        title: title,
+        tagline: p.tagline || p.heroClaim || 'Clinical Grade Nutrition • 100% Pure & Lab Tested',
+        price,
+        mrp,
+        discountPercent,
+        rating: Number(p.rating || 4.8),
+        reviewCount: Number(p.reviewCount || 120),
+        images: imgList,
+        image: imgList[0],
+        category: p.category || 'High Protein Foods',
+        inStock: p.stockStatus ? (p.stockStatus !== 'Out of Stock') : (p.inStock !== false)
+      };
+    }
+
+    function getLiveProductList() {
+      try {
+        const local = JSON.parse(localStorage.getItem('nutrolix_products') || 'null');
+        if (Array.isArray(local) && local.length > 0) {
+          return local.map(normalizeNutroProduct).filter(Boolean);
+        }
+      } catch (_) {}
+      const fallback = (window.nutroProducts && window.nutroProducts.length) ? window.nutroProducts : (window.nutroFallbackProducts || []);
+      return fallback.map(normalizeNutroProduct).filter(Boolean);
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       const urlParams = new URLSearchParams(window.location.search);
       const prodId = urlParams.get('id') || 'prod_high_protein_atta';
       loadProductDetails(prodId);
       updateHeaderBadge();
+
+      // Live sync when admin updates product catalog
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'nutrolix_products') {
+          loadProductDetails(prodId);
+        }
+      });
     });
 
     function loadProductDetails(id) {
-      const list = window.nutroProducts || [];
-      const p = list.find(item => item.id === id) || list[0];
+      const list = getLiveProductList();
+      const p = list.find(item => item.id === id || item.name === id || item.title === id) || list[0];
       if (p) {
         window.currentProduct = p;
         renderProduct(p, list);
@@ -516,11 +559,13 @@
           .then(res => res.ok ? res.json() : null)
           .then(remoteList => {
             if (remoteList && Array.isArray(remoteList) && remoteList.length) {
-              window.nutroProducts = remoteList;
-              const rp = remoteList.find(item => item.id === id);
+              const normalized = remoteList.map(normalizeNutroProduct).filter(Boolean);
+              window.nutroProducts = normalized;
+              try { localStorage.setItem('nutrolix_products', JSON.stringify(normalized)); } catch (_) {}
+              const rp = normalized.find(item => item.id === id || item.name === id || item.title === id);
               if (rp) {
                 window.currentProduct = rp;
-                renderProduct(rp, remoteList);
+                renderProduct(rp, normalized);
               }
             }
           })

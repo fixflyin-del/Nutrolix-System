@@ -542,52 +542,69 @@
       }
 
       loadUserOrders();
+
+      // Listen for Admin Console order status updates in real time
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'nutrolix_orders' || e.key === 'nutrolix_store_orders' || e.key === 'nutrolix_food_orders') {
+          loadUserOrders(true);
+        }
+      });
+
+      // Background polling every 5 seconds so live updates sync across tabs and devices
+      setInterval(() => {
+        loadUserOrders(true);
+      }, 5000);
     }
 
-    // Load Orders from localStorage & API
-    async function loadUserOrders() {
+    // Load Orders from localStorage & API (Live 1000% Synced)
+    async function loadUserOrders(silent = false) {
       const user = window.getNutrolixUser();
       if (!user) return;
 
       const container = document.getElementById('orderHistoryContainer');
-      container.innerHTML = '<div class="text-center py-8 text-xs text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Loading centralized orders...</div>';
+      if (!silent && (!userOrders || userOrders.length === 0)) {
+        container.innerHTML = '<div class="text-center py-8 text-xs text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Loading live orders...</div>';
+      }
 
       try {
-        let all = [];
-        try {
-          const o1 = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
-          if (Array.isArray(o1)) all = all.concat(o1);
-        } catch (_) {}
-        try {
-          const o2 = JSON.parse(localStorage.getItem('nutrolix_store_orders') || '[]');
-          if (Array.isArray(o2)) all = all.concat(o2);
-        } catch (_) {}
-        try {
-          const o3 = JSON.parse(localStorage.getItem('nutrolix_food_orders') || '[]');
-          if (Array.isArray(o3)) all = all.concat(o3);
-        } catch (_) {}
+        const orderMap = new Map();
 
-        // Try fetching latest from server
+        // 1. Gather all local orders (Admin updates write here first)
+        const localSources = ['nutrolix_orders', 'nutrolix_store_orders', 'nutrolix_food_orders'];
+        localSources.forEach(key => {
+          try {
+            const arr = JSON.parse(localStorage.getItem(key) || '[]');
+            if (Array.isArray(arr)) {
+              arr.forEach(o => {
+                const oid = o.id || o.orderId;
+                if (oid) orderMap.set(oid, { ...o });
+              });
+            }
+          } catch (_) {}
+        });
+
+        // 2. Fetch server-side orders
         try {
           const res = await fetch('/api/nutrition-orders');
           if (res.ok) {
             const serverOrders = await res.json();
-            if (Array.isArray(serverOrders) && serverOrders.length) {
-              all = [...serverOrders, ...all];
+            if (Array.isArray(serverOrders)) {
+              serverOrders.forEach(so => {
+                const oid = so.id || so.orderId;
+                if (!oid) return;
+                const existing = orderMap.get(oid);
+                if (existing) {
+                  // Prefer newer status
+                  orderMap.set(oid, { ...existing, ...so, status: so.status || existing.status });
+                } else {
+                  orderMap.set(oid, so);
+                }
+              });
             }
           }
         } catch (_) {}
 
-        // Deduplicate by ID
-        const seen = new Set();
-        const unique = [];
-        for (const ord of all) {
-          const oid = ord.id || ord.orderId;
-          if (oid && !seen.has(oid)) {
-            seen.add(oid);
-            unique.push(ord);
-          }
-        }
+        const unique = Array.from(orderMap.values());
 
         // Add sample orders if none stored
         if (unique.length === 0) {

@@ -2158,6 +2158,108 @@ const server = http.createServer((req, res) => {
   // -------------------------------------------------------------
   // PHASE 2 API: POST /api/upload-image (Persistent Image Upload)
   // -------------------------------------------------------------
+  // CLOUDINARY SIGNED / SERVER UPLOAD API (DIRECT TO CLOUDINARY DASHBOARD)
+  // -------------------------------------------------------------
+  if (req.method === 'POST' && reqPath === '/api/cloudinary-upload') {
+    let body = '';
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > 25 * 1024 * 1024) {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'Image too large (max 25MB)' }));
+        req.destroy();
+      }
+    });
+    req.on('end', () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const fileData = payload.image || payload.file || '';
+        const settingsFile = path.join(PUBLIC_DIR, 'data', 'store_settings.json');
+        const storeSettings = safeReadJson(settingsFile, {});
+        
+        const cloudName = payload.cloudName || storeSettings.cloudinaryCloudName || process.env.CLOUDINARY_CLOUD_NAME || 'muy6zdcd';
+        const apiKey = payload.apiKey || storeSettings.cloudinaryApiKey || process.env.CLOUDINARY_API_KEY || '';
+        const apiSecret = payload.apiSecret || storeSettings.cloudinaryApiSecret || process.env.CLOUDINARY_API_SECRET || '';
+        const uploadPreset = payload.uploadPreset || storeSettings.cloudinaryPreset || 'ml_default';
+
+        if (!fileData) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          return res.end(JSON.stringify({ error: 'No image provided' }));
+        }
+
+        const https = require('https');
+        const timestamp = Math.round(Date.now() / 1000);
+
+        let postDataObj = {};
+        if (apiKey && apiSecret) {
+          // Cloudinary Signed Upload
+          const stringToSign = `folder=nutrolix_catalog&timestamp=${timestamp}${apiSecret}`;
+          const signature = crypto.createHash('sha1').update(stringToSign).digest('hex');
+          postDataObj = {
+            file: fileData,
+            api_key: apiKey,
+            timestamp: timestamp,
+            signature: signature,
+            folder: 'nutrolix_catalog'
+          };
+        } else {
+          // Unsigned Preset Upload
+          postDataObj = {
+            file: fileData,
+            upload_preset: uploadPreset,
+            folder: 'nutrolix_catalog'
+          };
+        }
+
+        const postBody = JSON.stringify(postDataObj);
+        const options = {
+          hostname: 'api.cloudinary.com',
+          path: `/v1_1/${cloudName}/image/upload`,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(postBody)
+          }
+        };
+
+        const cReq = https.request(options, (cRes) => {
+          let cData = '';
+          cRes.on('data', d => cData += d);
+          cRes.on('end', () => {
+            try {
+              const parsed = JSON.parse(cData);
+              if (parsed.secure_url) {
+                res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify({ success: true, url: parsed.secure_url, public_id: parsed.public_id }));
+              } else {
+                res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify({ success: false, error: parsed.error?.message || 'Cloudinary upload failed', raw: parsed }));
+              }
+            } catch (err) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ error: err.message, raw: cData }));
+            }
+          });
+        });
+
+        cReq.on('error', (e) => {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: e.message }));
+        });
+
+        cReq.write(postBody);
+        cReq.end();
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // -------------------------------------------------------------
+  // PHASE 2 API: POST /api/upload-image (Persistent Image Upload)
+  // -------------------------------------------------------------
   if (req.method === 'POST' && reqPath === '/api/upload-image') {
     let body = '';
     req.on('data', chunk => {

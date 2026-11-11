@@ -366,32 +366,70 @@
   <script>
     window.nutroProducts = [{"id": "prod_high_protein_atta", "name": "Nutrolix High Protein Atta", "tagline": "46g Plant Protein Per 100g • 100% Whole Grain", "category": "High Protein Foods", "rating": 4.9, "reviewCount": 184, "price": 349, "mrp": 449, "discountPercent": 22, "isFeatured": true, "isBestSeller": true, "inStock": true, "stockQuantity": 850, "images": ["https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80", "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80"], "description": "46g plant protein per 100g with zero bloat and low glycemic index."}, {"id": "prod_complete_nutri_meal", "name": "Nutrolix Complete Nutri Meal", "tagline": "25+ Superfoods Daily Wellness & Clean Protein Shake", "category": "Superfood Blends", "rating": 4.8, "reviewCount": 142, "price": 699, "mrp": 899, "discountPercent": 22, "isFeatured": true, "isBestSeller": true, "inStock": true, "stockQuantity": 620, "images": ["https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?auto=format&fit=crop&w=800&q=80", "https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=800&q=80"], "description": "All-in-one nutrition with 26g clean protein and 25+ organic superfoods."}, {"id": "prod_premium_talbeenah", "name": "Nutrolix Premium Talbeenah", "tagline": "Ancient Roasted Barley, Almond & Date Superfood Porridge", "category": "Healthy Breakfast", "rating": 4.9, "reviewCount": 96, "price": 299, "mrp": 399, "discountPercent": 25, "isFeatured": true, "isBestSeller": false, "inStock": true, "stockQuantity": 480, "images": ["https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80"], "description": "Roasted pearl barley with Arabian dates and California almonds."}, {"id": "prod_multi_millet_flakes", "name": "Nutrolix Multi-Millet Energy Flakes", "tagline": "Ancient Grains Breakfast Crisp: Ragi, Jowar, Bajra & Quinoa", "category": "Millet Products", "rating": 4.7, "reviewCount": 78, "price": 249, "mrp": 329, "discountPercent": 24, "isFeatured": false, "isBestSeller": false, "inStock": true, "stockQuantity": 390, "images": ["https://images.unsplash.com/photo-1525385133512-2f3bdd039054?auto=format&fit=crop&w=800&q=80"], "description": "Crispy multigrain flakes with 3x calcium and zero palm oil."}, {"id": "prod_sprouted_moong_protein", "name": "Nutrolix Sprouted Moong & Chana Protein Powder", "tagline": "100% Natural Sprouted Legume Super Protein • 32g Protein", "category": "High Protein Foods", "rating": 4.8, "reviewCount": 65, "price": 379, "mrp": 499, "discountPercent": 24, "isFeatured": false, "isBestSeller": true, "inStock": true, "stockQuantity": 510, "images": ["https://images.unsplash.com/photo-1514733670139-4d87a1941d55?auto=format&fit=crop&w=800&q=80"], "description": "Bio-activated sprouted moong and roasted chana with 32g protein per 100g."}, {"id": "prod_cold_pressed_black_seed_oil", "name": "Nutrolix Cold-Pressed Black Seed (Kalonji) Elixir", "tagline": "Virgin Nigella Sativa Oil • High Thymoquinone Active", "category": "Wellness Nutrition", "rating": 4.9, "reviewCount": 110, "price": 449, "mrp": 599, "discountPercent": 25, "isFeatured": false, "isBestSeller": false, "inStock": true, "stockQuantity": 320, "images": ["https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&w=800&q=80"], "description": "Virgin cold-pressed black seed oil standardized with high Thymoquinone."}, {"id": "prod_raw_forest_honey_shilajit", "name": "Nutrolix Raw Forest Honey with Shilajit & Ashwagandha", "tagline": "Pure Wild Honey Infused with Himalayan Shilajit & Adaptogens", "category": "Wellness Nutrition", "rating": 4.9, "reviewCount": 88, "price": 499, "mrp": 650, "discountPercent": 23, "isFeatured": true, "isBestSeller": true, "inStock": true, "stockQuantity": 410, "images": ["https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=800&q=80"], "description": "Raw unpasteurized forest honey with Himalayan Shilajit and KSM-66 Ashwagandha."}, {"id": "prod_chia_flax_omega_blend", "name": "Nutrolix Organic Chia & Flaxseed Omega Blend", "tagline": "Cold-Milled Raw Seeds • 4500mg Omega-3 ALA Per Serving", "category": "Superfood Blends", "rating": 4.8, "reviewCount": 52, "price": 199, "mrp": 260, "discountPercent": 23, "isFeatured": false, "isBestSeller": false, "inStock": true, "stockQuantity": 490, "images": ["https://images.unsplash.com/photo-1514733670139-4d87a1941d55?auto=format&fit=crop&w=800&q=80"], "description": "50:50 raw chia and cold-milled golden flaxseed rich in Omega-3 ALA."}];
     
-    window.allProducts = [...window.nutroProducts];
+    function normalizeProduct(p) {
+      if (!p) return null;
+      const title = p.name || p.title || 'Nutrolix Product';
+      const imgList = (p.images && p.images.length) ? p.images.filter(Boolean) : (p.image ? [p.image] : ['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80']);
+      return {
+        ...p,
+        id: p.id || ('prod_' + Math.random().toString(36).substring(2, 8)),
+        name: title,
+        title: title,
+        images: imgList,
+        image: imgList[0],
+        price: Number(p.price || 349),
+        mrp: Number(p.mrp || (p.price ? Math.round(p.price * 1.25) : 449)),
+        discountPercent: Number(p.discountPercent || (p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 22)),
+        rating: Number(p.rating || 4.9),
+        reviewCount: Number(p.reviewCount || 100),
+        tagline: p.tagline || p.heroClaim || 'Clinical Nutrition That Works',
+        category: p.category || 'High Protein Foods',
+        inStock: p.stockStatus ? (p.stockStatus !== 'Out of Stock') : (p.inStock !== false)
+      };
+    }
+
+    window.allProducts = (window.nutroProducts || []).map(normalizeProduct).filter(Boolean);
     window.activeCategory = 'All';
+
+    function loadLiveProducts() {
+      try {
+        const local = JSON.parse(localStorage.getItem('nutrolix_products') || 'null');
+        if (Array.isArray(local) && local.length > 0) {
+          window.nutroProducts = local.map(normalizeProduct).filter(Boolean);
+          window.allProducts = [...window.nutroProducts];
+          applyFilters();
+        }
+      } catch (_) {}
+
+      if (window.location.protocol !== 'file:') {
+        fetch('/api/nutrition-products')
+          .then(res => res.ok ? res.json() : null)
+          .then(srv => {
+            if (srv && Array.isArray(srv) && srv.length) {
+              window.nutroProducts = srv.map(normalizeProduct).filter(Boolean);
+              window.allProducts = [...window.nutroProducts];
+              try { localStorage.setItem('nutrolix_products', JSON.stringify(window.nutroProducts)); } catch (_) {}
+              applyFilters();
+            }
+          })
+          .catch(() => {});
+      }
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       const urlParams = new URLSearchParams(window.location.search);
       const catParam = urlParams.get('cat');
       if (catParam) window.activeCategory = catParam;
 
-      // Render instantly from in-memory cache in 0ms
-      applyFilters();
-
-      // Only attempt remote sync if online and not file:///
-      if (window.location.protocol !== 'file:') {
-        fetch('/api/nutrition-products')
-          .then(res => res.ok ? res.json() : null)
-          .then(srv => {
-            if (srv && Array.isArray(srv) && srv.length) {
-              window.nutroProducts = srv;
-              window.allProducts = srv;
-              applyFilters();
-            }
-          })
-          .catch(() => {});
-      }
-
+      loadLiveProducts();
       updateShopCartBadge();
+
+      // Cross-tab live sync with Admin Panel
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'nutrolix_products') {
+          loadLiveProducts();
+        }
+      });
     });
 
     window.selectCategory = function(cat, btn) {
