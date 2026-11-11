@@ -39,6 +39,7 @@
   </style>
   <script src="assets/nutrolix-data.js"></script>
   <script src="assets/nutrolix-drawer.js"></script>
+  <script src="assets/cloudinary-uploader.js"></script>
 </head>
 <body class="text-slate-800 antialiased min-h-screen flex flex-col bg-slate-50">
 
@@ -603,6 +604,43 @@
                 <label class="block text-[11px] font-bold text-slate-600 mb-1">GST Tax Rate (%)</label>
                 <input type="number" step="0.1" id="settingTaxPercent" value="5.0" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-bold">
               </div>
+            </div>
+          </div>
+
+          <!-- Section 5: Cloudinary Media CDN Integration (Direct Image Uploads) -->
+          <div class="bg-gradient-to-r from-sky-50 to-blue-50 border border-sky-200 rounded-3xl p-5 shadow-sm space-y-4">
+            <div class="flex items-center justify-between pb-3 border-b border-sky-200/60">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 rounded-xl bg-sky-600 text-white flex items-center justify-center font-black text-sm shadow">
+                  <i class="fa-solid fa-cloud-arrow-up"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-black text-slate-900">Cloudinary Media CDN (Direct Image Uploads)</h3>
+                  <p class="text-[11px] text-slate-500">Upload photos directly to Cloudinary global CDN. Zero local disk dependency on Vercel.</p>
+                </div>
+              </div>
+              <span class="text-xs bg-sky-100 text-sky-800 font-bold px-2.5 py-0.5 rounded-full">Permanent Cloud CDN</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Cloudinary Cloud Name *</label>
+                <input type="text" id="settingCloudinaryName" placeholder="e.g. dm7q0f9xk" class="w-full px-3 py-2 text-xs rounded-xl border border-sky-300 font-mono text-slate-900 focus:outline-none focus:border-sky-500">
+                <span class="text-[10px] text-slate-500 mt-0.5 block">Found on Cloudinary dashboard homepage.</span>
+              </div>
+              <div>
+                <label class="block text-[11px] font-bold text-slate-700 mb-1">Unsigned Upload Preset *</label>
+                <input type="text" id="settingCloudinaryPreset" placeholder="e.g. nutrolix_preset or ml_default" class="w-full px-3 py-2 text-xs rounded-xl border border-sky-300 font-mono text-slate-900 focus:outline-none focus:border-sky-500">
+                <span class="text-[10px] text-slate-500 mt-0.5 block">Create under Cloudinary > Settings > Upload > Upload Presets (Mode: Unsigned).</span>
+              </div>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-1 text-xs">
+              <span id="cloudinaryTestStatus" class="text-[11px] text-sky-900 font-semibold">💡 Direct browser uploads active. Photos save permanently and load worldwide in milliseconds.</span>
+              <button type="button" onclick="window.testCloudinaryPicker()" class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow transition">
+                <i class="fa-solid fa-upload text-[11px]"></i>
+                <span>Test Upload Photo</span>
+              </button>
             </div>
           </div>
 
@@ -1351,8 +1389,15 @@
           </div>
         </div>
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Image URL</label>
-          <input type="url" id="bannerImageUrl" required placeholder="https://images.unsplash.com/..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300">
+          <label class="block text-xs font-bold text-slate-700 mb-1">Banner Image URL *</label>
+          <div class="flex space-x-2">
+            <input type="url" id="bannerImageUrl" required placeholder="https://..." class="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300">
+            <label class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-300 cursor-pointer flex items-center space-x-1 shadow-sm flex-shrink-0">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span>Upload</span>
+              <input type="file" accept="image/*" class="hidden" onchange="window.uploadBannerImageFile(this.files[0])">
+            </label>
+          </div>
         </div>
         <div class="flex justify-end space-x-2 pt-3">
           <button type="button" onclick="window.closeModal('bannerModal')" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Cancel</button>
@@ -1707,6 +1752,11 @@
           <label class="block text-xs font-bold text-slate-700 mb-1">Cover Image URL *</label>
           <div class="flex space-x-2">
             <input type="url" id="blogImage" required placeholder="https://..." class="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300">
+            <label class="px-2.5 py-1 text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg font-bold border border-emerald-300 cursor-pointer flex items-center space-x-1 whitespace-nowrap">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+              <span>Upload</span>
+              <input type="file" accept="image/*" class="hidden" onchange="window.uploadBlogCover(this.files[0])">
+            </label>
             <button type="button" onclick="document.getElementById('blogImage').value='assets/nutrolix_lab_facility.jpg'" class="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold whitespace-nowrap">Lab Preset</button>
             <button type="button" onclick="document.getElementById('blogImage').value='assets/nutrolix_cleanroom_factory.jpg'" class="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold whitespace-nowrap">Factory Preset</button>
           </div>
@@ -2485,9 +2535,6 @@
         console.error('Error updating status on server:', err);
       }
     };
-        console.error('Error updating status:', err);
-      }
-    };
 
     // WhatsApp Order Update
     window.sendWhatsAppUpdate = function(orderId) {
@@ -2610,26 +2657,47 @@
     // -------------------------------------------------------------
     window.handleImageSlotUpload = async function(slotIndex, file) {
       if (!file) return;
+      const input = document.getElementById(`pkgImg${slotIndex}`);
+      if (input) input.placeholder = "⏳ Uploading to Cloudinary CDN...";
+
+      // 1. Try direct Cloudinary upload first (zero server load, permanent CDN)
+      if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
+        try {
+          const cdnUrl = await window.CloudinaryService.uploadImage(file);
+          if (input) {
+            input.value = cdnUrl;
+            input.placeholder = `Image ${slotIndex} - https://...`;
+          }
+          alert(`✓ Image slot ${slotIndex} uploaded directly to Cloudinary CDN!\n\n${cdnUrl}`);
+          return;
+        } catch (cErr) {
+          console.warn("Cloudinary upload notice, using fallback:", cErr.message);
+        }
+      }
+
+      // 2. Server & Local dataURL fallback
       try {
         const reader = new FileReader();
         reader.onload = async (e) => {
           const base64 = e.target.result;
-          const res = await fetch('/api/upload-image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageData: base64,
-              filename: `pkg_slot_${slotIndex}_${Date.now()}`
-            })
-          });
-          const data = await res.json();
-          if (data.success && data.imageUrl) {
-            const input = document.getElementById(`pkgImg${slotIndex}`);
-            if (input) input.value = data.imageUrl;
-            alert(`✓ Image slot ${slotIndex} uploaded successfully!`);
-          } else {
-            alert('Upload error: ' + (data.error || 'Failed'));
-          }
+          try {
+            const res = await fetch('/api/upload-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                imageData: base64,
+                filename: `pkg_slot_${slotIndex}_${Date.now()}`
+              })
+            });
+            const data = await res.json();
+            if (data.success && (data.imageUrl || data.url)) {
+              if (input) input.value = data.imageUrl || data.url;
+              alert(`✓ Image slot ${slotIndex} uploaded successfully!`);
+              return;
+            }
+          } catch (_) {}
+          if (input) input.value = base64;
+          alert(`✓ Image slot ${slotIndex} attached successfully!`);
         };
         reader.readAsDataURL(file);
       } catch (err) {
@@ -2928,29 +2996,49 @@
       document.getElementById('addMealModalSingle').classList.remove('hidden');
     };
 
-    window.uploadSingleMealFile = function(file) {
+    window.uploadSingleMealFile = async function(file) {
       if (!file) return;
+      const input = document.getElementById('singleMealImageUrl');
+      const preview = document.getElementById('singleMealPreview');
+      const wrapper = document.getElementById('singleMealImagePreviewWrapper');
+
+      // 1. Direct Cloudinary upload
+      if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
+        try {
+          if (input) input.placeholder = "⏳ Uploading photo to Cloudinary CDN...";
+          const cdnUrl = await window.CloudinaryService.uploadImage(file);
+          if (input) input.value = cdnUrl;
+          if (preview) preview.src = cdnUrl;
+          if (wrapper) wrapper.classList.remove('hidden');
+          alert(`✓ Meal photo uploaded directly to Cloudinary CDN!\n\n${cdnUrl}`);
+          return;
+        } catch (cErr) {
+          console.warn("Cloudinary upload notice, using fallback:", cErr.message);
+        }
+      }
+
+      // 2. Server & Local dataURL fallback
       const reader = new FileReader();
       reader.onload = async (e) => {
         const base64 = e.target.result;
-        const res = await fetch('/api/upload-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            imageData: base64,
-            filename: `meal_${Date.now()}`
-          })
-        });
-        const data = await res.json();
-        if (data.success && data.imageUrl) {
-          document.getElementById('singleMealImageUrl').value = data.imageUrl;
-          const preview = document.getElementById('singleMealPreview');
-          if (preview) {
-            preview.src = data.imageUrl;
-            document.getElementById('singleMealImagePreviewWrapper').classList.remove('hidden');
-          }
-        } else {
-          alert('Upload failed: ' + (data.error || 'Server error'));
+        try {
+          const res = await fetch('/api/upload-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              imageData: base64,
+              filename: `meal_${Date.now()}`
+            })
+          });
+          const data = await res.json();
+          const finalUrl = (data.success && (data.imageUrl || data.url)) ? (data.imageUrl || data.url) : base64;
+          if (input) input.value = finalUrl;
+          if (preview) preview.src = finalUrl;
+          if (wrapper) wrapper.classList.remove('hidden');
+        } catch (_) {
+          if (input) input.value = base64;
+          if (preview) preview.src = base64;
+          if (wrapper) wrapper.classList.remove('hidden');
         }
       };
       reader.readAsDataURL(file);
@@ -3833,6 +3921,164 @@
       }).join("");
     };
 
+    window.simulateUserRegistration = function() {
+      const names = ["Aditi Rao", "Rahul Deshmukh", "Priya Nair", "Siddharth Jain", "Kavita Mehra"];
+      const cities = ["Mumbai", "Navi Mumbai", "Pune", "Bengaluru", "Delhi"];
+      const randomName = names[Math.floor(Math.random() * names.length)];
+      const randomCity = cities[Math.floor(Math.random() * cities.length)];
+      const randomPhone = "+91 98" + Math.floor(10000000 + Math.random() * 90000000);
+      const newUser = {
+        id: "user_" + Date.now(),
+        name: randomName,
+        phone: randomPhone,
+        email: randomName.toLowerCase().replace(/\s+/g, ".") + "@gmail.com",
+        lastAddress: "Flat " + Math.floor(100 + Math.random() * 900) + ", Palm Heights, " + randomCity,
+        totalOrders: Math.floor(1 + Math.random() * 5),
+        totalSpend: Math.floor(349 + Math.random() * 2500),
+        lastActive: new Date().toISOString()
+      };
+      window.usersList = [newUser, ...(window.usersList || [])];
+      try {
+        localStorage.setItem("nutrolix_admin_users", JSON.stringify(window.usersList));
+      } catch(_) {}
+      window.renderUsers();
+      alert("✓ Test Customer " + randomName + " (" + randomPhone + ") added successfully!");
+    };
+
+    // Modal & Action Handlers: Cancel Order
+    window.confirmCancelOrder = async function() {
+      const orderId = document.getElementById("cancelOrderId")?.value;
+      const reason = document.getElementById("cancelReasonSelect")?.value || "Cancelled by admin";
+      const custom = document.getElementById("cancelReasonCustom")?.value || "";
+      const fullReason = custom ? (reason + " - " + custom) : reason;
+
+      if (!orderId) {
+        window.closeModal("cancelOrderModal");
+        return;
+      }
+
+      const order = (window.packagedOrders || []).find(o => (o.id === orderId || o.orderId === orderId));
+      if (order) {
+        order.status = "Cancelled";
+        order.cancelReason = fullReason;
+      }
+
+      try {
+        const localOrders = JSON.parse(localStorage.getItem("nutrolix_orders") || "[]");
+        const idx = localOrders.findIndex(o => (o.id === orderId || o.orderId === orderId));
+        if (idx !== -1) {
+          localOrders[idx].status = "Cancelled";
+          localOrders[idx].cancelReason = fullReason;
+          localStorage.setItem("nutrolix_orders", JSON.stringify(localOrders));
+        }
+      } catch(_) {}
+
+      try {
+        await fetch("/api/nutrition-orders/status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderId, status: "Cancelled", reason: fullReason })
+        });
+      } catch(_) {}
+
+      window.closeModal("cancelOrderModal");
+      window.renderPackagedOrdersTable();
+      alert("✓ Order #" + orderId + " has been cancelled.");
+    };
+
+    // Top Banners Modal Handlers
+    window.openAddBannerModal = function() {
+      const titleEl = document.getElementById("bannerModalTitle");
+      if (titleEl) titleEl.innerText = "Add Promo Banner";
+      const form = document.getElementById("bannerForm");
+      if (form) form.reset();
+      const editId = document.getElementById("bannerEditId");
+      if (editId) editId.value = "";
+      document.getElementById("bannerModal")?.classList.remove("hidden");
+    };
+
+    window.saveBanner = function(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const title = document.getElementById("bannerTitle")?.value || "";
+      const subtitle = document.getElementById("bannerSubtitle")?.value || "";
+      const badge = document.getElementById("bannerBadge")?.value || "";
+      const code = document.getElementById("bannerCode")?.value || "";
+      const imageUrl = document.getElementById("bannerImageUrl")?.value || "";
+      const editId = document.getElementById("bannerEditId")?.value;
+
+      let banners = [];
+      try {
+        banners = JSON.parse(localStorage.getItem("nutrolix_top_banners") || "[]");
+      } catch(_) {}
+
+      if (editId) {
+        const idx = banners.findIndex(b => b.id === editId);
+        if (idx !== -1) {
+          banners[idx] = { ...banners[idx], title, subtitle, badge, code, imageUrl };
+        }
+      } else {
+        banners.push({
+          id: "banner_" + Date.now(),
+          title, subtitle, badge, code, imageUrl,
+          active: true
+        });
+      }
+      localStorage.setItem("nutrolix_top_banners", JSON.stringify(banners));
+      window.closeModal("bannerModal");
+      window.renderBannersList();
+      alert("✓ Promo Banner saved successfully!");
+    };
+
+    window.renderBannersList = function() {
+      const c = document.getElementById("bannersList");
+      if (!c) return;
+      let banners = [];
+      try {
+        banners = JSON.parse(localStorage.getItem("nutrolix_top_banners") || "[]");
+      } catch(_) {}
+      if (!banners.length) {
+        c.innerHTML = '<div class="col-span-2 text-center py-8 text-slate-400 text-xs">No banners added yet. Click "+ Add Banner" above.</div>';
+        return;
+      }
+      c.innerHTML = banners.map(b => `
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm p-3 flex gap-3 items-center">
+          <img src="${b.imageUrl}" class="w-20 h-20 object-cover rounded-xl bg-slate-50 border border-slate-100 shrink-0">
+          <div class="flex-1 min-w-0">
+            <span class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">${b.badge || 'PROMO'}</span>
+            <h4 class="font-black text-xs text-slate-900 mt-1 truncate">${b.title}</h4>
+            <p class="text-[11px] text-slate-500 truncate">${b.subtitle}</p>
+            <div class="text-[10px] text-purple-700 font-mono font-bold mt-1">Code: ${b.code || 'None'}</div>
+          </div>
+        </div>
+      `).join('');
+    };
+
+    // Coupons Modal Handlers
+    window.openAddCouponModal = function() {
+      const titleEl = document.getElementById("couponModalTitle");
+      if (titleEl) titleEl.innerText = "Create Coupon Code";
+      const form = document.getElementById("couponForm");
+      if (form) form.reset();
+      document.getElementById("couponModal")?.classList.remove("hidden");
+    };
+
+    window.saveCoupon = function(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const code = (document.getElementById("couponCode")?.value || "").trim().toUpperCase();
+      const title = document.getElementById("couponTitle")?.value || "";
+      const type = document.getElementById("couponType")?.value === "FIXED_AMOUNT" ? "flat" : "percentage";
+      const value = parseFloat(document.getElementById("couponValue")?.value || "10");
+      const minOrder = parseFloat(document.getElementById("couponMinOrder")?.value || "0");
+
+      if (!code) return alert("Please enter coupon code");
+      window.storeCoupons = (window.storeCoupons || []).filter(c => c.code !== code);
+      window.storeCoupons.push({ code, title, type, value, minOrder, active: true });
+      localStorage.setItem("nutrolix_coupons", JSON.stringify(window.storeCoupons));
+      window.closeModal("couponModal");
+      window.renderCouponsList();
+      alert("✓ Coupon " + code + " created and active!");
+    };
+
     // -------------------------------------------------------------
     // STORE SETTINGS CONTROLLER (LIVE SYNCED)
     // -------------------------------------------------------------
@@ -3950,6 +4196,14 @@
       const disp = document.getElementById("announcementDisplay");
       if (disp) disp.innerText = window.storeSettings.announcement || defaultAnn;
 
+      if (window.CloudinaryService) {
+        const cSettings = window.CloudinaryService.getSettings();
+        const cNameEl = document.getElementById("settingCloudinaryName");
+        if (cNameEl) cNameEl.value = cSettings.cloudName || "";
+        const cPresetEl = document.getElementById("settingCloudinaryPreset");
+        if (cPresetEl) cPresetEl.value = cSettings.uploadPreset || "";
+      }
+
       const btn = document.getElementById("storeStatusToggle");
       const text = document.getElementById("storeStatusText");
       if (btn && text) {
@@ -4042,6 +4296,89 @@
       if (!silent) alert("✓ All Store Settings saved & published successfully!\n\n• Announcement Ticker: Active\n• Delivery Fee: ₹" + deliveryFee + "\n• Free Shipping Threshold: ₹" + freeDeliveryAbove + "\n• Live Synced across Customer Web App & Admin.");
     };
     window.saveStoreSettings = window.saveAllStoreSettings;
+
+    // Cloudinary Test Picker
+    window.testCloudinaryPicker = function() {
+      const cName = (document.getElementById("settingCloudinaryName")?.value || "").trim();
+      const cPreset = (document.getElementById("settingCloudinaryPreset")?.value || "").trim();
+      if (cName && window.CloudinaryService) {
+        window.CloudinaryService.saveSettings(cName, cPreset || "nutrolix_preset");
+      }
+      const testInput = document.createElement("input");
+      testInput.type = "file";
+      testInput.accept = "image/*";
+      testInput.onchange = async () => {
+        const file = testInput.files && testInput.files[0];
+        if (!file) return;
+        const statusEl = document.getElementById("cloudinaryTestStatus");
+        if (statusEl) {
+          statusEl.innerText = "⏳ Uploading photo directly to Cloudinary CDN...";
+          statusEl.className = "text-[11px] text-amber-600 font-bold animate-pulse";
+        }
+        try {
+          const url = await window.CloudinaryService.uploadImage(file, pct => {
+            if (statusEl) statusEl.innerText = `⏳ Uploading to Cloudinary (${pct}%)...`;
+          });
+          if (statusEl) {
+            statusEl.innerText = "✓ Success! Test photo live on Cloudinary CDN: " + url;
+            statusEl.className = "text-[11px] text-emerald-700 font-bold";
+          }
+          alert(`✓ Cloudinary Connection Working 100%!\n\nImage successfully uploaded to CDN:\n${url}`);
+        } catch (err) {
+          if (statusEl) {
+            statusEl.innerText = "❌ Upload failed: " + err.message;
+            statusEl.className = "text-[11px] text-rose-600 font-bold";
+          }
+          alert("Cloudinary Upload Error: " + err.message);
+        } finally {
+          testInput.remove();
+        }
+      };
+      document.body.appendChild(testInput);
+      testInput.click();
+    };
+
+    window.uploadBlogCover = async function(file) {
+      if (!file) return;
+      const input = document.getElementById('blogImage');
+      if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
+        try {
+          if (input) input.placeholder = "⏳ Uploading cover to Cloudinary CDN...";
+          const cdnUrl = await window.CloudinaryService.uploadImage(file);
+          if (input) input.value = cdnUrl;
+          alert(`✓ Blog cover image uploaded to Cloudinary CDN!\n\n${cdnUrl}`);
+          return;
+        } catch (e) {
+          console.warn("Cloudinary fallback:", e.message);
+        }
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (input) input.value = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
+
+    window.uploadBannerImageFile = async function(file) {
+      if (!file) return;
+      const input = document.getElementById('bannerImageUrl');
+      if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
+        try {
+          if (input) input.placeholder = "⏳ Uploading banner to Cloudinary CDN...";
+          const cdnUrl = await window.CloudinaryService.uploadImage(file);
+          if (input) input.value = cdnUrl;
+          alert(`✓ Banner image uploaded to Cloudinary CDN!\n\n${cdnUrl}`);
+          return;
+        } catch (e) {
+          console.warn("Cloudinary fallback:", e.message);
+        }
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (input) input.value = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    };
 
     // Attach real-time input listener for Announcement Preview
     document.addEventListener("DOMContentLoaded", () => {
