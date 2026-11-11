@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>My Profile & Orders | Nutrolix – Nutrition That Works</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'nutro-dark': '#064E3B',
+            'nutro-forest': '#0F3E2E',
+            'nutro-emerald': '#059669',
+            'nutro-light': '#10B981',
+            'nutro-orange': '#EA580C',
+            'nutro-amber': '#F59E0B'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
+    .mobile-safe-bottom { padding-bottom: 5.5rem; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+
+  <!-- Firebase Authentication SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+
+  <!-- Instant Data & Drawer -->
+  <script src="assets/nutrolix-data.js"></script>
+  <script src="assets/nutrolix-drawer.js"></script>
+  <script src="assets/nutrolix-notifications.js"></script>
+  <!-- Real 100% Google Authentication Bridge (Zero fake emails) -->
+  <script src="assets/nutrolix-auth.js"></script>
+  <script src="assets/nutrolix-reviews.js"></script>
+</head>
+<body class="mobile-safe-bottom flex flex-col min-h-screen">
+
+  <!-- ============================================================== -->
+  <!-- 1. STICKY HEADER WITH ORIGINAL NUTROLIX LOGO -->
+  <!-- ============================================================== -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        
+        <!-- Left: Burger Menu + Logo -->
+        <div class="flex items-center space-x-2 sm:space-x-3">
+          <button onclick="window.toggleLeftBurgerMenu()" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center text-base transition active:scale-95 focus:outline-none" aria-label="Open Navigation Menu">
+            <i class="fa-solid fa-bars text-emerald-800"></i>
+          </button>
+          <a href="index.html" class="flex items-center shrink-0 py-1">
+            <img src="assets/nutrolix-logo.png" alt="Nutrolix – Nutrition that works" class="h-10 sm:h-12 w-auto object-contain max-w-[170px] sm:max-w-[210px]">
+          </a>
+        </div>
+
+        <!-- Desktop Nav -->
+        <nav class="hidden lg:flex items-center space-x-7 text-sm font-bold text-slate-700">
+          <a href="index.html" class="hover:text-nutro-emerald transition">Home</a>
+          <a href="shop.html" class="hover:text-nutro-emerald transition">Shop</a>
+          <a href="food.html" class="hover:text-nutro-emerald transition">Healthy Food</a>
+          <a href="orders.html" class="hover:text-nutro-emerald transition flex items-center space-x-1.5 py-1 px-2.5 rounded-lg text-slate-700 hover:bg-slate-100 font-bold">
+            <i class="fa-solid fa-truck-fast text-xs text-emerald-600"></i>
+            <span>Track Orders</span>
+          </a>
+          <a href="about.html" class="hover:text-nutro-emerald transition">About Us</a>
+          <a href="contact.html" class="hover:text-nutro-emerald transition">Contact</a>
+        </nav>
+
+        <!-- Right Cart & Profile -->
+        <div class="flex items-center space-x-3 sm:space-x-4">
+          <a href="cart.html" class="relative flex items-center space-x-2 bg-nutro-forest hover:bg-nutro-dark text-white px-4 py-2.5 rounded-xl transition shadow-md group">
+            <i class="fa-solid fa-bag-shopping text-emerald-400 group-hover:scale-110 transition"></i>
+            <span class="text-xs font-extrabold hidden md:inline">Cart</span>
+            <span id="accountCartBadge" class="w-5 h-5 rounded-full bg-amber-400 text-slate-900 text-xs font-black flex items-center justify-center">0</span>
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Left Slide-out Drawer Backdrop -->
+  <div id="leftBurgerBackdrop" onclick="window.toggleLeftBurgerMenu()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden transition-opacity duration-300"></div>
+
+  <!-- Left Slide-out Drawer Panel -->
+  <div id="leftBurgerDrawer" class="fixed top-0 left-0 bottom-0 w-84 max-w-[85vw] bg-white z-50 shadow-2xl transform -translate-x-full transition-transform duration-300 flex flex-col">
+    <div class="p-4 bg-nutro-forest text-white flex items-center justify-between border-b border-emerald-900">
+      <div class="flex items-center space-x-2.5">
+        <img src="assets/nutrolix-logo.png" alt="Nutrolix" class="h-8 w-auto bg-white rounded-lg p-1">
+      </div>
+      <button onclick="window.toggleLeftBurgerMenu()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-3 space-y-1.5 text-xs custom-scrollbar">
+      <a href="food.html" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50 text-emerald-900 font-extrabold hover:bg-emerald-100 transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-utensils text-emerald-700 w-5"></i>
+          <span>Order Healthy Food</span>
+        </div>
+        <span class="text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">Kitchen Fresh</span>
+      </a>
+
+      <a href="shop.html" class="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-bag-shopping text-emerald-600 w-5"></i>
+          <span>Packaged Food Store</span>
+        </div>
+        <span class="text-[9px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">Store</span>
+      </a>
+
+      <a href="orders.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <i class="fa-solid fa-truck-fast text-emerald-600 w-5"></i>
+        <span>My Orders & Live Tracking</span>
+      </a>
+
+      <a href="account.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl bg-slate-100 text-emerald-800 font-extrabold transition">
+        <i class="fa-solid fa-user text-emerald-600 w-5"></i>
+        <span>My Profile & Addresses</span>
+      </a>
+
+      <div class="pt-2 pb-1 border-t border-slate-100 my-1">
+        <span class="text-[10px] uppercase font-black text-slate-400 px-3 tracking-wider">Direct WhatsApp & Support</span>
+      </div>
+
+      <a href="https://wa.me/919076254354?text=Hi%20Nutrolix%2C%20I%20need%20support%20with%20my%20order" target="_blank" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-green-50 text-green-900 hover:bg-green-100 font-extrabold transition border border-green-200">
+        <div class="flex items-center space-x-3">
+          <i class="fa-brands fa-whatsapp text-green-600 text-base w-5"></i>
+          <span>Direct WhatsApp (+91 90762 54354)</span>
+        </div>
+        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-green-600"></i>
+      </a>
+
+      <a href="https://wa.me/919076254354?text=Hi%20Nutrolix%2C%20I%20am%20interested%20in%20joining%20as%20a%20Nutrolix%20Partner%20or%20Distributor" target="_blank" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50 text-amber-900 hover:bg-amber-100 font-extrabold transition border border-amber-200">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-handshake text-amber-600 text-base w-5"></i>
+          <span>Join as Partner / Distributor</span>
+        </div>
+        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-amber-600"></i>
+      </a>
+
+      <a href="Nutrolix-Customer.apk" download class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-900 text-white font-extrabold hover:bg-slate-800 transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-brands fa-android text-emerald-400 text-base w-5"></i>
+          <span>Download Our Android App</span>
+        </div>
+        <i class="fa-solid fa-download text-xs text-emerald-400"></i>
+      </a>
+    </div>
+
+    <div class="p-3 bg-slate-50 border-t border-slate-200 text-center text-[10px] text-slate-400 space-y-0.5">
+      <div class="font-bold text-slate-700">FSSAI Central Lic. # 21526024003044</div>
+      <div>Nutrolix Wellness Pvt. Ltd. • ISO 9001:2015</div>
+    </div>
+  </div>
+
+  <!-- Page Banner -->
+  <div class="bg-gradient-to-r from-nutro-forest via-emerald-900 to-slate-900 text-white py-8 px-4">
+    <div class="max-w-7xl mx-auto flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl sm:text-3xl font-black">My Profile & Customer Dashboard</h1>
+        <p class="text-slate-300 text-xs sm:text-sm mt-1">Manage your Google account, saved delivery addresses, and personal order history</p>
+      </div>
+      <span class="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white/10 text-emerald-300 text-xs font-bold border border-white/15">
+        <i class="fa-solid fa-shield-halved"></i>
+        <span>100% Secure Account</span>
+      </span>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+    
+    <!-- ======================================================== -->
+    <!-- 1. UNAUTHENTICATED PROFILE GATE: 100% REAL GOOGLE SIGN-IN -->
+    <!-- (Shown ONLY when not signed in. Zero mock emails or default profiles) -->
+    <!-- ======================================================== -->
+    <div id="profileAuthGate" class="hidden py-10">
+      <div class="bg-white rounded-3xl p-8 sm:p-12 text-center max-w-lg mx-auto shadow-sm border border-slate-200 space-y-6">
+        <div class="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl shadow-sm border border-emerald-100">
+          <i class="fa-solid fa-user-lock"></i>
+        </div>
+        <div class="space-y-2">
+          <h2 class="text-2xl font-black text-slate-900">Sign in to Access Your Profile</h2>
+          <p class="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
+            Please sign in directly with your Google account to view your profile, manage multiple saved addresses, and track all your orders.
+          </p>
+        </div>
+
+        <!-- Direct Google Sign-In Button (NO typing, Direct Firebase Google Account) -->
+        <button onclick="window.startDirectGoogleAuth(this)" class="w-full py-4 px-6 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 bg-white hover:bg-slate-50 transition flex items-center justify-center space-x-3 shadow-md group active:scale-95">
+          <svg class="w-6 h-6 shrink-0" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+          </svg>
+          <span class="font-extrabold text-sm text-slate-800 group-hover:text-emerald-700">Continue with Google Account</span>
+        </button>
+
+        <div class="text-[11px] text-slate-400">
+          Fast & 100% verified sign-in with your personal Google account. Zero manual email typing.
+        </div>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- 2. AUTHENTICATED PROFILE & DASHBOARD (Only shown after real Google login) -->
+    <!-- ======================================================== -->
+    <div id="profileDashboardContent" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+      
+      <!-- Left Sidebar: Clean Profile Card & Saved Addresses -->
+      <div class="lg:col-span-5 space-y-6">
+        
+        <!-- Profile Card -->
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-5">
+          <!-- Header with Avatar -->
+          <div class="flex items-center space-x-4 pb-4 border-b border-slate-100">
+            <img id="profileAvatarImg" src="assets/nutrolix-logo.png" alt="Profile" class="w-16 h-16 rounded-2xl object-cover bg-emerald-50 border border-slate-200 shadow-md">
+            <div class="flex-1 min-w-0">
+              <h2 class="font-black text-lg text-slate-900 truncate" id="profileName">Customer</h2>
+              <p class="text-xs text-slate-500 font-semibold truncate" id="profileEmail">user@gmail.com</p>
+              <div class="mt-1 flex items-center space-x-1.5 text-xs text-emerald-700 font-bold">
+                <i class="fa-brands fa-whatsapp text-emerald-600 text-sm"></i>
+                <span id="profileWhatsapp">+91 90762 54354</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Edit Profile Details Form -->
+          <div class="space-y-3 text-xs">
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">Full Name</label>
+              <input type="text" id="inputProfileName" placeholder="Your Name" class="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none focus:border-emerald-600 bg-slate-50">
+            </div>
+            <div>
+              <label class="block font-bold text-slate-700 mb-1">WhatsApp Mobile Number</label>
+              <input type="tel" id="inputProfileWhatsapp" maxlength="10" placeholder="10-digit mobile number" class="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none focus:border-emerald-600 bg-slate-50">
+            </div>
+            <button onclick="window.saveProfileInfo()" class="w-full py-2.5 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-extrabold transition shadow-sm">
+              Update Profile Information
+            </button>
+          </div>
+
+          <!-- Google Account Status & Sign Out -->
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+            <div class="flex items-center space-x-2 text-xs font-bold text-emerald-700">
+              <i class="fa-solid fa-circle-check text-emerald-600"></i>
+              <span>Google Account Connected</span>
+            </div>
+            <button onclick="window.handleNutrolixSignOut()" class="text-xs text-rose-600 font-extrabold hover:underline flex items-center space-x-1 py-1 px-2 rounded-lg hover:bg-rose-50 transition">
+              <i class="fa-solid fa-arrow-right-from-bracket"></i>
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Saved Delivery Addresses Section (Requirements 10 & 3) -->
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div>
+              <h3 class="font-black text-sm text-slate-900 uppercase tracking-wider">Saved Delivery Addresses</h3>
+              <p class="text-[11px] text-slate-400">Used for 1-tap checkout in shopping bag</p>
+            </div>
+            <button onclick="window.openAddressModal()" class="text-xs font-black text-nutro-emerald hover:underline flex items-center space-x-1 bg-emerald-50 px-2.5 py-1.5 rounded-xl border border-emerald-200">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>Add New Address</span>
+            </button>
+          </div>
+
+          <div id="addressesList" class="space-y-2.5">
+            <!-- Dynamic addresses injected here -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Right Main Panel: Order Centralization Notice & Account Controls (Change 2) -->
+      <div class="lg:col-span-7 space-y-6">
+        
+        <!-- Centralized Orders Gateway Banner -->
+        <div class="bg-gradient-to-br from-emerald-50 via-teal-50 to-white rounded-3xl p-6 sm:p-7 border border-emerald-200 shadow-sm space-y-4">
+          <div class="flex items-start justify-between">
+            <div class="space-y-1.5">
+              <span class="inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-600 text-white shadow-sm">
+                <i class="fa-solid fa-truck-fast text-[9px]"></i>
+                <span>Orders Centralized in My Orders</span>
+              </span>
+              <h3 class="text-lg font-black text-slate-900">Order History & Real-Time Live Tracking</h3>
+              <p class="text-xs text-slate-600 leading-relaxed max-w-lg">
+                All customer orders for both Packaged Functional Nutrition and Fresh Healthy Kitchen meals are now organized exclusively in <strong>My Orders</strong> with real-time GPS tracking, order invoices, and direct WhatsApp support.
+              </p>
+            </div>
+          </div>
+
+          <div class="pt-2 flex flex-col sm:flex-row items-center gap-3">
+            <a href="orders.html" class="w-full sm:w-auto px-5 py-3 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-black text-xs transition shadow-md flex items-center justify-center space-x-2 active:scale-95">
+              <i class="fa-solid fa-truck-fast text-emerald-400"></i>
+              <span>Open My Orders & Live Tracking →</span>
+            </a>
+            <a href="food.html?promo=FIRST100" class="w-full sm:w-auto px-4 py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 font-black text-xs transition shadow-sm flex items-center justify-center space-x-1.5 active:scale-95">
+              <i class="fa-solid fa-tag"></i>
+              <span>Order Healthy Meal (₹100 OFF)</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Account Security & Preferences Card -->
+        <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+          <h3 class="font-black text-sm text-slate-900 uppercase tracking-wider pb-3 border-b border-slate-100 flex items-center space-x-2">
+            <i class="fa-solid fa-sliders text-emerald-600"></i>
+            <span>Account Preferences & Support</span>
+          </h3>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <a href="https://wa.me/919076254354?text=Hi%20Nutrolix%2C%20I%20need%20assistance%20with%20my%20account" target="_blank" class="p-3.5 rounded-2xl bg-green-50 hover:bg-green-100 text-green-900 font-extrabold border border-green-200 transition flex items-center justify-between">
+              <div class="flex items-center space-x-2.5">
+                <i class="fa-brands fa-whatsapp text-green-600 text-base"></i>
+                <span>Direct WhatsApp Support</span>
+              </div>
+              <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-green-600"></i>
+            </a>
+
+            <a href="faqs.html" class="p-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold border border-slate-200 transition flex items-center justify-between">
+              <div class="flex items-center space-x-2.5">
+                <i class="fa-solid fa-circle-question text-emerald-600 text-sm"></i>
+                <span>Frequently Asked Questions</span>
+              </div>
+              <i class="fa-solid fa-chevron-right text-[10px] text-slate-400"></i>
+            </a>
+
+            <a href="shipping.html" class="p-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold border border-slate-200 transition flex items-center justify-between">
+              <div class="flex items-center space-x-2.5">
+                <i class="fa-solid fa-box text-emerald-600 text-sm"></i>
+                <span>Shipping & Delivery Policy</span>
+              </div>
+              <i class="fa-solid fa-chevron-right text-[10px] text-slate-400"></i>
+            </a>
+
+            <a href="refund.html" class="p-3.5 rounded-2xl bg-slate-50 hover:bg-slate-100 text-slate-800 font-bold border border-slate-200 transition flex items-center justify-between">
+              <div class="flex items-center space-x-2.5">
+                <i class="fa-solid fa-arrow-rotate-left text-emerald-600 text-sm"></i>
+                <span>Return & Refund Policy</span>
+              </div>
+              <i class="fa-solid fa-chevron-right text-[10px] text-slate-400"></i>
+            </a>
+          </div>
+
+          <div class="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400">
+            <span>FSSAI Central Lic. # 21526024003044</span>
+            <span>Nutrolix Secure Customer Portal</span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ======================================================== -->
+  <!-- ADD ADDRESS MODAL (With 1000% GPS Location Auto-Detection) -->
+  <!-- ======================================================== -->
+  <div id="addressModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <div>
+          <h4 class="font-black text-base text-slate-900">Add Delivery Address</h4>
+          <p class="text-[11px] text-slate-400">Save to your profile for fast checkout</p>
+        </div>
+        <button onclick="window.closeAddressModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <!-- Quick GPS Auto-Detect Button in Modal -->
+      <button type="button" onclick="window.detectLocationForModal()" class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-xs shadow-sm flex items-center justify-center space-x-2 active:scale-95 transition">
+        <i class="fa-solid fa-location-crosshairs"></i>
+        <span id="modalGpsBtnText">📍 Auto-Detect GPS Location & PIN Code</span>
+      </button>
+
+      <form onsubmit="window.saveNewAddress(event)" class="space-y-3 text-xs">
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Address Label *</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button type="button" onclick="window.setModalTag('Home')" class="addr-tag-btn py-1.5 rounded-lg border font-bold text-center border-emerald-600 bg-emerald-50 text-emerald-800" data-tag="Home">Home</button>
+            <button type="button" onclick="window.setModalTag('Office')" class="addr-tag-btn py-1.5 rounded-lg border font-bold text-center border-slate-200 text-slate-600" data-tag="Office">Office</button>
+            <button type="button" onclick="window.setModalTag('Gym')" class="addr-tag-btn py-1.5 rounded-lg border font-bold text-center border-slate-200 text-slate-600" data-tag="Gym">Gym / Other</button>
+          </div>
+          <input type="hidden" id="newAddrTag" value="Home">
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Flat / House No. / Building / Floor *</label>
+          <input type="text" id="newAddrStreet" required placeholder="e.g. Flat 402, Green Heights, Sector 14" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+
+        <div>
+          <label class="block font-bold text-slate-700 mb-1">Area / Street / Colony</label>
+          <input type="text" id="newAddrArea" placeholder="e.g. Main Ring Road" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">City / District *</label>
+            <input type="text" id="newAddrCity" required placeholder="New Delhi" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">PIN Code (6 digits) *</label>
+            <input type="text" id="newAddrPincode" required maxlength="6" placeholder="110001" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <div class="pt-2">
+          <button type="submit" class="w-full py-3 rounded-xl bg-nutro-forest text-white font-extrabold text-xs hover:bg-nutro-dark transition shadow">
+            Save Address to Profile
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Product Review Modal -->
+  <div id="reviewModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h4 class="font-black text-base text-slate-900">Write Product Review</h4>
+        <button onclick="window.closeReviewModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div>
+        <div class="text-xs font-bold text-slate-500 mb-1" id="reviewProductName">Nutrolix Product</div>
+        <div class="flex items-center space-x-2 text-amber-400 text-xl cursor-pointer my-2" id="starRatingRow">
+          <i class="fa-solid fa-star" onclick="window.setRating(1)"></i>
+          <i class="fa-solid fa-star" onclick="window.setRating(2)"></i>
+          <i class="fa-solid fa-star" onclick="window.setRating(3)"></i>
+          <i class="fa-solid fa-star" onclick="window.setRating(4)"></i>
+          <i class="fa-solid fa-star" onclick="window.setRating(5)"></i>
+        </div>
+      </div>
+      <div>
+        <label class="block font-bold text-slate-700 text-xs mb-1">Your Review Feedback</label>
+        <textarea id="reviewText" rows="3" placeholder="Share your experience with taste, results, energy feel, and quality..." class="w-full p-3 rounded-xl border border-slate-200 text-xs focus:outline-none focus:border-emerald-600"></textarea>
+      </div>
+      <button onclick="window.submitReview()" class="w-full py-3 rounded-xl bg-nutro-forest text-white font-extrabold text-xs hover:bg-nutro-dark transition shadow">
+        Submit Verified Review
+      </button>
+    </div>
+  </div>
+
+  <!-- Comprehensive Footer with Original Logo -->
+  <footer class="text-slate-300 pt-16 pb-12 border-t border-emerald-950 mt-12" style="background-color: #0F3E2E !important; color: #cbd5e1 !important;">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 mb-12">
+        <!-- Col 1: Brand Info -->
+        <div class="lg:col-span-2 space-y-4">
+          <a href="index.html" class="flex items-center space-x-3">
+            <img src="assets/nutrolix-logo.png" alt="Nutrolix" class="h-10 w-auto object-contain bg-white rounded-xl p-1.5 shadow-md">
+          </a>
+          <p class="text-xs text-slate-400 leading-relaxed max-w-sm">
+            Nutrolix Wellness Pvt. Ltd. is an Indian functional nutrition company pioneering research-backed packaged foods, high protein staples, and healthy dining.
+          </p>
+          <div class="pt-2">
+            <div class="text-xs font-bold text-slate-200 mb-2">Connect on Official Social Media:</div>
+            <div class="flex items-center space-x-3">
+              <a href="https://www.facebook.com/people/Nutrolix/61593206843289/" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-blue-600 text-white flex items-center justify-center text-sm transition" title="Facebook">
+                <i class="fa-brands fa-facebook-f"></i>
+              </a>
+              <a href="https://www.instagram.com/nutrolix.wellness/" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-gradient-to-tr hover:from-amber-500 hover:to-rose-600 text-white flex items-center justify-center text-sm transition" title="Instagram">
+                <i class="fa-brands fa-instagram"></i>
+              </a>
+              <a href="https://www.youtube.com/@Nutrolix" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-red-600 text-white flex items-center justify-center text-sm transition" title="YouTube">
+                <i class="fa-brands fa-youtube"></i>
+              </a>
+              <a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-amber-500 text-white flex items-center justify-center text-sm transition" title="Google Business Profile">
+                <i class="fa-brands fa-google"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col 2: Nutrition Store -->
+        <div>
+          <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrition Store</h4>
+          <ul class="space-y-2.5 text-xs text-slate-400">
+            <li><a href="shop.html" class="hover:text-white transition">All Products</a></li>
+            <li><a href="shop.html?cat=High+Protein+Foods" class="hover:text-white transition">High Protein Atta</a></li>
+            <li><a href="shop.html?cat=Superfood+Blends" class="hover:text-white transition">Complete Nutri Meal</a></li>
+            <li><a href="shop.html?cat=Healthy+Breakfast" class="hover:text-white transition">Talbeenah Porridge</a></li>
+            <li><a href="shop.html?cat=Wellness+Nutrition" class="hover:text-white transition">Black Seed Oil</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 3: Company & Information -->
+        <div>
+          <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrolix Brand</h4>
+          <ul class="space-y-2.5 text-xs text-slate-400">
+            <li><a href="about.html" class="hover:text-white transition">About Us</a></li>
+            <li><a href="orders.html" class="text-emerald-400 font-bold hover:text-emerald-300 transition flex items-center space-x-1">
+              <span><i class="fa-solid fa-truck-fast mr-1"></i> Track Orders</span>
+            </a></li>
+            <li><a href="blogs.html" class="hover:text-white transition">Nutrition Blogs</a></li>
+            <li><a href="contact.html" class="hover:text-white transition">Contact Us</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 4: Trust & Policies -->
+        <div>
+          <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Customer Care</h4>
+          <ul class="space-y-2.5 text-xs text-slate-400">
+            <li><a href="shipping.html" class="hover:text-white transition">Shipping Policy</a></li>
+            <li><a href="refund.html" class="hover:text-white transition">Return & Refund Policy</a></li>
+            <li><a href="cancellation.html" class="hover:text-white transition">Cancellation Policy</a></li>
+            <li><a href="privacy.html" class="hover:text-white transition">Privacy Policy</a></li>
+            <li><a href="terms.html" class="hover:text-white transition">Terms & Conditions</a></li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Bottom Bar -->
+      <div class="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
+        <div>© 2026 Nutrolix Wellness Pvt. Ltd. All rights reserved.</div>
+        <div class="flex items-center space-x-4">
+          <span class="text-slate-400"><i class="fa-solid fa-shield-halved text-emerald-400 mr-1"></i> FSSAI Central Lic. # 21526024003044</span>
+          <span>•</span>
+          <span class="text-slate-400">ISO 9001:2015</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Fixed Mobile Bottom Navigation (Change 6: Unselected = Black, Selected = Nutrolix Green) -->
+  <div class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-2 flex items-center justify-around shadow-2xl">
+    <a href="index.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-house text-lg mb-0.5"></i>
+      <span class="text-[10px]">Home</span>
+    </a>
+    <a href="shop.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-bag-shopping text-lg mb-0.5"></i>
+      <span class="text-[10px]">Shop</span>
+    </a>
+    <a href="food.html" class="relative flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <span class="absolute -top-1.5 right-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-sm leading-tight border border-amber-300 pointer-events-none">
+        ₹100 OFF
+      </span>
+      <i class="fa-solid fa-utensils text-lg mb-0.5"></i>
+      <span class="text-[10px]">Healthy Food</span>
+    </a>
+    <a href="orders.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-truck-fast text-lg mb-0.5"></i>
+      <span class="text-[10px]">My Orders</span>
+    </a>
+    <a href="account.html" class="flex flex-col items-center justify-center py-1 px-2 text-emerald-700 font-extrabold active:scale-95 transition">
+      <i class="fa-solid fa-user text-lg mb-0.5"></i>
+      <span class="text-[10px]">Profile</span>
+    </a>
+  </div>
+
+  <script>
+    let currentRating = 5;
+    let selectedOrderForReview = null;
+
+    // Listen to Google Auth changes from nutrolix-auth.js
+    window.addEventListener('nutrolix:auth-changed', () => {
+      renderUserProfile();
+    });
+
+    window.onAuthSuccessCallback = function() {
+      renderUserProfile();
+    };
+
+    window.onAuthSignOutCallback = function() {
+      renderUserProfile();
+    };
+
+    window.saveProfileInfo = function() {
+      const name = document.getElementById('inputProfileName').value.trim();
+      const whatsapp = document.getElementById('inputProfileWhatsapp').value.trim();
+
+      let profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+      if (name) profile.name = name;
+      if (whatsapp) profile.whatsapp = whatsapp;
+      localStorage.setItem('nutrolix_user_profile', JSON.stringify(profile));
+      renderUserProfile();
+      alert('✓ Profile information updated successfully!');
+    };
+
+    function renderUserProfile() {
+      try {
+        const profile = window.getNutrolixUser ? window.getNutrolixUser() : JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+        const authGate = document.getElementById('profileAuthGate');
+        const dashContent = document.getElementById('profileDashboardContent');
+
+        const isLoggedIn = profile && (profile.email || profile.phone) && (profile.authProvider === 'google' || profile.verified);
+
+        if (!isLoggedIn) {
+          if (authGate) authGate.classList.remove('hidden');
+          if (dashContent) dashContent.classList.add('hidden');
+          return;
+        }
+
+        if (authGate) authGate.classList.add('hidden');
+        if (dashContent) dashContent.classList.remove('hidden');
+
+        const nameEl = document.getElementById('profileName');
+        const emailEl = document.getElementById('profileEmail');
+        const whatsappEl = document.getElementById('profileWhatsapp');
+        const avatarEl = document.getElementById('profileAvatarImg');
+
+        const inputName = document.getElementById('inputProfileName');
+        const inputWhatsapp = document.getElementById('inputProfileWhatsapp');
+
+        const currentName = profile.name || 'Nutrolix Member';
+        const currentEmail = profile.email || '';
+        const currentWhatsapp = profile.whatsapp || '9076254354';
+        const avatarUrl = profile.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentName)}&background=047857&color=fff&bold=true`;
+
+        if (nameEl) nameEl.textContent = currentName;
+        if (emailEl) emailEl.textContent = currentEmail;
+        if (whatsappEl) whatsappEl.textContent = '+91 ' + currentWhatsapp;
+        if (avatarEl) avatarEl.src = avatarUrl;
+
+        if (inputName) inputName.value = currentName;
+        if (inputWhatsapp) inputWhatsapp.value = currentWhatsapp;
+
+        renderAddresses();
+      } catch (_) {}
+    }
+
+    window.switchOrderTab = function(tab) {
+      const btnStore = document.getElementById('tabBtn-store');
+      const btnFood = document.getElementById('tabBtn-food');
+      const panelStore = document.getElementById('panel-store');
+      const panelFood = document.getElementById('panel-food');
+
+      if (tab === 'store') {
+        btnStore.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center justify-center space-x-2 bg-nutro-forest text-white shadow-sm';
+        btnFood.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center justify-center space-x-2 text-slate-600 hover:bg-slate-100';
+        panelStore.classList.remove('hidden');
+        panelFood.classList.add('hidden');
+      } else {
+        btnFood.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center justify-center space-x-2 bg-nutro-forest text-white shadow-sm';
+        btnStore.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center justify-center space-x-2 text-slate-600 hover:bg-slate-100';
+        panelFood.classList.remove('hidden');
+        panelStore.classList.add('hidden');
+      }
+    };
+
+    function renderOrders() {
+      // 1. Packaged Store Orders
+      let storeOrders = [
+        {
+          id: 'NTX-782194',
+          date: 'Yesterday, 4:30 PM',
+          status: 'Delivered',
+          courier: 'Bluedart Express',
+          trackingNumber: 'BLU-9841203',
+          total: 698,
+          items: [
+            { name: 'Nutrolix High Protein Atta', variant: '1 Kg', qty: 2, price: 349 }
+          ]
+        },
+        {
+          id: 'NTX-904512',
+          date: 'Today, 10:15 AM',
+          status: 'In Transit',
+          courier: 'Delhivery Surface',
+          trackingNumber: 'DEL-4412098',
+          total: 699,
+          items: [
+            { name: 'Nutrolix Complete Nutri Meal', variant: '500g', qty: 1, price: 699 }
+          ]
+        }
+      ];
+
+      try {
+        const stored = JSON.parse(localStorage.getItem('nutrolix_store_orders') || '[]');
+        if (stored.length) {
+          storeOrders = [...stored, ...storeOrders];
+        }
+      } catch (_) {}
+
+      document.getElementById('storeOrdersBadge').textContent = storeOrders.length;
+      const storeContainer = document.getElementById('storeOrdersContainer');
+      if (storeContainer) {
+        storeContainer.innerHTML = storeOrders.map(order => {
+          const isDelivered = (order.status || '').toLowerCase().includes('delivered');
+          const itemsHtml = (order.items || []).map(i => `
+            <div class="flex items-center justify-between text-xs py-1 text-slate-700">
+              <span class="font-bold">${i.name} (${i.variant || 'Pack'}) × ${i.qty || 1}</span>
+              <span class="font-extrabold text-slate-900">₹${(i.price || 0) * (i.qty || 1)}</span>
+            </div>
+          `).join('');
+
+          return `
+            <div class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+                <div>
+                  <div class="flex items-center space-x-2">
+                    <span class="text-xs font-black text-slate-900">Order #${order.id}</span>
+                    <span class="text-[11px] text-slate-400">• ${order.date}</span>
+                  </div>
+                  <div class="text-[11px] text-emerald-700 font-bold mt-0.5">
+                    ${order.courier ? order.courier + ' • Tracking: ' + order.trackingNumber : 'Express Dispatch'}
+                  </div>
+                </div>
+                <span class="px-3 py-1 rounded-full text-xs font-bold ${isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'} self-start sm:self-auto">
+                  ● ${order.status}
+                </span>
+              </div>
+
+              <div class="space-y-1 bg-slate-50 p-3 rounded-2xl">
+                ${itemsHtml}
+              </div>
+
+              <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div>Total: <strong class="text-sm font-black text-slate-900">₹${order.total}</strong></div>
+                <div class="flex items-center space-x-2">
+                  <a href="orders.html?orderId=${order.id}" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition flex items-center space-x-1">
+                    <i class="fa-solid fa-satellite-dish text-emerald-600"></i>
+                    <span>Track Status</span>
+                  </a>
+                  ${isDelivered ? `
+                    <button onclick="window.openReviewModal('${order.items[0]?.name || 'Nutrolix Product'}')" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold transition shadow-sm flex items-center space-x-1">
+                      <i class="fa-solid fa-star text-xs"></i>
+                      <span>Write Review</span>
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      }
+
+      // 2. Healthy Food Orders
+      const foodContainer = document.getElementById('foodOrdersContainer');
+      if (foodContainer) {
+        foodContainer.innerHTML = `
+          <div class="bg-white rounded-3xl p-8 text-center border border-slate-200 shadow-sm space-y-3">
+            <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-2xl">
+              <i class="fa-solid fa-bowl-food"></i>
+            </div>
+            <h4 class="font-black text-base text-slate-900">No Fresh Kitchen Orders</h4>
+            <p class="text-xs text-slate-500 max-w-sm mx-auto">You have no active hot food deliveries. All packaged functional nutrition orders are managed under Packaged Store Orders.</p>
+            <a href="shop.html" class="inline-block px-5 py-2.5 rounded-xl bg-nutro-forest text-white font-bold text-xs hover:bg-nutro-dark transition shadow">
+              Explore Nutrition Store
+            </a>
+          </div>
+        `;
+      }
+    }
+
+    function renderAddresses() {
+      const container = document.getElementById('addressesList');
+      let saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
+      if (!saved.length) {
+        // Check profile
+        const p = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+        if (p.address) {
+          saved.push({
+            tag: 'Home',
+            street: p.address,
+            city: p.city || 'New Delhi',
+            pincode: p.pincode || '110001',
+            isDefault: true
+          });
+        } else {
+          saved.push({
+            tag: 'Home',
+            street: 'Flat 402, Green Heights, Sector 14',
+            city: 'New Delhi',
+            pincode: '110001',
+            isDefault: true
+          });
+        }
+        localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
+      }
+
+      if (container) {
+        container.innerHTML = saved.map((addr, idx) => `
+          <div class="p-3.5 bg-slate-50 border ${addr.isDefault ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-200'} rounded-2xl flex items-center justify-between text-xs">
+            <div class="space-y-0.5">
+              <div class="flex items-center space-x-2">
+                <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-black text-[10px]">${addr.tag || 'Address'}</span>
+                ${addr.isDefault ? '<span class="text-[9px] font-black text-emerald-700 uppercase">Default</span>' : ''}
+              </div>
+              <p class="font-bold text-slate-900 mt-1">${addr.street}${addr.area ? ', ' + addr.area : ''}</p>
+              <p class="text-slate-500 text-[11px]">${addr.city} • PIN: ${addr.pincode}</p>
+            </div>
+            <div class="flex items-center space-x-2">
+              ${!addr.isDefault ? `
+                <button onclick="window.setDefaultAddress(${idx})" class="text-[10px] text-emerald-700 hover:underline font-bold" title="Set Default">Set Default</button>
+              ` : ''}
+              <button onclick="window.deleteAddress(${idx})" class="text-slate-400 hover:text-rose-600 p-1" title="Delete">
+                <i class="fa-solid fa-trash text-xs"></i>
+              </button>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    window.setDefaultAddress = function(idx) {
+      let saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
+      saved.forEach((a, i) => a.isDefault = (i === idx));
+      localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
+      renderAddresses();
+    };
+
+    window.deleteAddress = function(idx) {
+      let saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
+      saved.splice(idx, 1);
+      if (saved.length && !saved.some(a => a.isDefault)) {
+        saved[0].isDefault = true;
+      }
+      localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
+      renderAddresses();
+    };
+
+    window.openAddressModal = function() { 
+      document.getElementById('addressModal').classList.remove('hidden'); 
+    };
+    window.closeAddressModal = function() { 
+      document.getElementById('addressModal').classList.add('hidden'); 
+    };
+
+    window.setModalTag = function(tag) {
+      document.getElementById('newAddrTag').value = tag;
+      document.querySelectorAll('.addr-tag-btn').forEach(btn => {
+        if (btn.dataset.tag === tag) {
+          btn.className = 'addr-tag-btn py-1.5 rounded-lg border font-bold text-center border-emerald-600 bg-emerald-50 text-emerald-800';
+        } else {
+          btn.className = 'addr-tag-btn py-1.5 rounded-lg border font-bold text-center border-slate-200 text-slate-600';
+        }
+      });
+    };
+
+    window.detectLocationForModal = async function() {
+      const btn = document.getElementById('modalGpsBtnText');
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Detecting Exact Location...';
+
+      async function applyCoords(lat, lon) {
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`);
+          if (res.ok) {
+            const data = await res.json();
+            const a = data.address || {};
+            const city = a.city || a.town || a.suburb || a.city_district || 'New Delhi';
+            const state = a.state || '';
+            const pincode = a.postcode || '';
+            const road = a.road || a.suburb || a.neighbourhood || '';
+
+            if (city) document.getElementById('newAddrCity').value = city;
+            if (pincode && pincode.length === 6) document.getElementById('newAddrPincode').value = pincode;
+            if (road) document.getElementById('newAddrArea').value = road;
+            if (btn) btn.innerHTML = '✓ GPS Coordinates Detected!';
+            return true;
+          }
+        } catch (_) {}
+        return false;
+      }
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          async (pos) => {
+            const ok = await applyCoords(pos.coords.latitude, pos.coords.longitude);
+            if (!ok && btn) btn.innerHTML = '✓ GPS Coordinates Captured';
+          },
+          async () => {
+            // Fallback to IP reverse geocode
+            try {
+              const r = await fetch('https://ipapi.co/json/');
+              if (r.ok) {
+                const d = await r.json();
+                if (d.city) document.getElementById('newAddrCity').value = d.city;
+                if (d.postal) document.getElementById('newAddrPincode').value = d.postal;
+                if (btn) btn.innerHTML = '✓ City & PIN Detected';
+                return;
+              }
+            } catch (_) {}
+            if (btn) btn.innerHTML = '📍 Try Entering Manually';
+          },
+          { enableHighAccuracy: true, timeout: 6000 }
+        );
+      } else {
+        if (btn) btn.innerHTML = '📍 Auto-Detect Not Supported';
+      }
+    };
+
+    window.saveNewAddress = function(e) {
+      e.preventDefault();
+      const newAddr = {
+        tag: document.getElementById('newAddrTag').value.trim() || 'Home',
+        street: document.getElementById('newAddrStreet').value.trim(),
+        area: document.getElementById('newAddrArea').value.trim(),
+        city: document.getElementById('newAddrCity').value.trim(),
+        pincode: document.getElementById('newAddrPincode').value.trim(),
+        isDefault: false
+      };
+      let saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
+      if (!saved.length) newAddr.isDefault = true;
+      saved.push(newAddr);
+      localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
+      closeAddressModal();
+      renderAddresses();
+      alert('✓ New address saved to your profile!');
+    };
+
+    // Review Modal Functions
+    window.openReviewModal = function(prodName) {
+      selectedOrderForReview = prodName;
+      document.getElementById('reviewProductName').textContent = 'Review for: ' + prodName;
+      document.getElementById('reviewModal').classList.remove('hidden');
+    };
+    window.closeReviewModal = function() {
+      document.getElementById('reviewModal').classList.add('hidden');
+    };
+    window.setRating = function(r) {
+      currentRating = r;
+      const stars = document.getElementById('starRatingRow').children;
+      for (let i = 0; i < 5; i++) {
+        if (i < r) {
+          stars[i].className = 'fa-solid fa-star text-amber-400';
+        } else {
+          stars[i].className = 'fa-regular fa-star text-slate-300';
+        }
+      }
+    };
+    window.submitReview = function() {
+      const text = document.getElementById('reviewText').value.trim();
+      if (!text) {
+        alert('Please write a brief review feedback.');
+        return;
+      }
+      alert(`🎉 Thank you! Your ${currentRating}-Star review for "${selectedOrderForReview}" has been submitted.`);
+      closeReviewModal();
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderUserProfile();
+      renderOrders();
+      renderAddresses();
+
+      const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+      const count = cart.reduce((sum, i) => sum + i.quantity, 0);
+      const b1 = document.getElementById('accountCartBadge');
+      if (b1) b1.textContent = count;
+    });
+  </script>
+
+  <!-- Universal Pull to Refresh with Circular Progress Indicator -->
+  <script src="assets/pull-to-refresh.js"></script>
+</body>
+</html>

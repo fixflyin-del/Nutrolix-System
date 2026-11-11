@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  <!-- Dynamic Primary SEO Tags -->
+  <title id="metaTitle">Nutrolix Clinical Nutrition & Functional Food Insights</title>
+  <meta id="metaDesc" name="description" content="Read clinical nutrition science and metabolic wellness articles by Nutrolix research biochemists.">
+  <meta id="metaKeywords" name="keywords" content="nutrolix, clinical nutrition, high protein atta, glycemic health, metabolic nutrition">
+  <meta name="author" content="Nutrolix Wellness Research Team">
+  <link id="metaCanonical" rel="canonical" href="https://nutrolix.in/">
+
+  <!-- Open Graph / Facebook / WhatsApp -->
+  <meta property="og:type" content="article">
+  <meta id="ogTitle" property="og:title" content="Nutrolix Wellness Research Insights">
+  <meta id="ogDesc" property="og:description" content="Evidence-based nutrition science for cellular bioavailability and metabolic vitality.">
+  <meta id="ogImage" property="og:image" content="https://nutrolix.in/assets/nutrolix_lab_facility.jpg">
+  <meta id="ogUrl" property="og:url" content="https://nutrolix.in/">
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta id="twTitle" name="twitter:title" content="Nutrolix Wellness Research Insights">
+  <meta id="twDesc" name="twitter:description" content="Evidence-based nutrition science by Nutrolix.">
+  <meta id="twImage" name="twitter:image" content="https://nutrolix.in/assets/nutrolix_lab_facility.jpg">
+
+  <!-- Schema.org Article Structured Data (Google Rich Snippets) -->
+  <script type="application/ld+json" id="schemaArticle">
+  {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "headline": "Nutrolix Clinical Nutrition Science",
+    "publisher": {
+      "@type": "Organization",
+      "name": "Nutrolix Wellness Pvt. Ltd.",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://nutrolix.in/assets/nutrolix-logo.png"
+      }
+    }
+  }
+  </script>
+
+  <!-- Tailwind CSS & Font Awesome -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #FAFAFA; }
+    .nutro-forest { background-color: #072E20; }
+    .text-nutro-emerald { color: #00875A; }
+    .bg-nutro-emerald { background-color: #00875A; }
+    .reading-progress-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 4px;
+      background: linear-gradient(90deg, #10B981, #14B8A6, #F59E0B);
+      width: 0%;
+      z-index: 100;
+      transition: width 0.1s;
+    }
+    .article-body p {
+      margin-bottom: 1.5rem;
+      line-height: 1.85;
+      color: #334155;
+      font-size: 1.05rem;
+    }
+    .article-body h2 {
+      font-size: 1.6rem;
+      font-weight: 900;
+      color: #0F172A;
+      margin-top: 2.25rem;
+      margin-bottom: 1rem;
+      letter-spacing: -0.02em;
+    }
+    .article-body h3 {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #064E3B;
+      margin-top: 1.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .article-body blockquote {
+      border-left: 4px solid #10B981;
+      padding-left: 1.25rem;
+      margin: 1.75rem 0;
+      font-style: italic;
+      color: #065F46;
+      background-color: #ECFDF5;
+      padding: 1rem 1.25rem;
+      border-radius: 0 1rem 1rem 0;
+    }
+  </style>
+
+  <script src="assets/nutrolix-data.js"></script>
+  <script src="assets/nutrolix-drawer.js"></script>
+</head>
+<body class="text-slate-800 antialiased min-h-screen flex flex-col pb-24 sm:pb-0">
+
+  <!-- Top Reading Progress Indicator -->
+  <div id="readingProgress" class="reading-progress-bar"></div>
+
+  <!-- STICKY HEADER WITH REQUIREMENT 2 COMPLIANCE -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-sm transition-all duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      
+      <!-- Brand Logo -->
+      <a href="index.html" class="flex items-center shrink-0 py-1">
+        <img src="assets/nutrolix-logo.png" alt="Nutrolix – Nutrition that works" class="h-10 sm:h-12 w-auto object-contain max-w-[170px] sm:max-w-[210px]">
+      </a>
+
+      <!-- Requirement 2: Desktop Header with Home, Store, Healthy Food, My Order & More Dropdown -->
+      <nav class="hidden lg:flex items-center space-x-7 text-sm font-bold text-slate-700">
+        <a href="index.html" class="hover:text-emerald-700 transition">Home</a>
+        <a href="shop.html" class="hover:text-emerald-700 transition">Store</a>
+        <a href="food.html" class="hover:text-emerald-700 transition">Healthy Food</a>
+        <a href="orders.html" class="hover:text-emerald-700 transition flex items-center space-x-1.5 py-1 px-2.5 rounded-lg text-slate-700 hover:bg-slate-100">
+          <i class="fa-solid fa-truck-fast text-xs text-emerald-600"></i>
+          <span>My Order</span>
+        </a>
+
+        <!-- More Dropdown on Hover -->
+        <div class="relative group py-2">
+          <button class="flex items-center space-x-1 text-slate-700 hover:text-emerald-700 transition font-bold py-1">
+            <span>More</span>
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:rotate-180 transition"></i>
+          </button>
+          
+          <div class="absolute left-0 mt-1 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2.5 hidden group-hover:block transition z-50">
+            <a href="about.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-emerald-50 text-slate-800 text-xs font-semibold">
+              <i class="fa-solid fa-circle-info text-emerald-600 w-4"></i>
+              <span>About Us</span>
+            </a>
+            <a href="about.html#story" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-emerald-50 text-slate-800 text-xs font-semibold">
+              <i class="fa-solid fa-seedling text-teal-600 w-4"></i>
+              <span>Our Story</span>
+            </a>
+            <a href="blogs.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-emerald-50 text-emerald-800 text-xs font-bold bg-emerald-50/50">
+              <i class="fa-solid fa-newspaper text-emerald-600 w-4"></i>
+              <span>Blogs & Articles</span>
+            </a>
+            <a href="contact.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-emerald-50 text-slate-800 text-xs font-semibold">
+              <i class="fa-solid fa-envelope text-blue-600 w-4"></i>
+              <span>Contact Us</span>
+            </a>
+            <div class="border-t border-slate-100 my-1"></div>
+            <a href="terms.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-slate-50 text-slate-600 text-xs font-medium">
+              <i class="fa-solid fa-scale-balanced text-slate-400 w-4"></i>
+              <span>Terms & Conditions</span>
+            </a>
+            <a href="privacy.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-slate-50 text-slate-600 text-xs font-medium">
+              <i class="fa-solid fa-shield-halved text-slate-400 w-4"></i>
+              <span>Privacy Policy</span>
+            </a>
+            <a href="refund.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-slate-50 text-slate-600 text-xs font-medium">
+              <i class="fa-solid fa-rotate-left text-slate-400 w-4"></i>
+              <span>Refund & Return</span>
+            </a>
+            <a href="shipping.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-slate-50 text-slate-600 text-xs font-medium">
+              <i class="fa-solid fa-box text-slate-400 w-4"></i>
+              <span>Shipping Policy</span>
+            </a>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Right Header Actions -->
+      <div class="flex items-center space-x-3">
+        <a href="cart.html" class="relative p-2.5 text-slate-700 hover:text-emerald-700 transition rounded-xl hover:bg-slate-100" title="Cart">
+          <i class="fa-solid fa-cart-shopping text-lg"></i>
+          <span id="headerCartCount" class="absolute -top-1 -right-1 bg-amber-500 text-slate-950 text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow">0</span>
+        </a>
+        <a href="shop.html" class="hidden sm:flex px-4 py-2.5 rounded-xl bg-nutro-forest text-white text-xs font-black hover:bg-slate-900 transition shadow-sm">
+          <span>Shop Store</span>
+        </a>
+        <button onclick="window.NutrolixDrawer ? window.NutrolixDrawer.openDrawer() : (window.location.href='index.html')" class="lg:hidden p-2 text-slate-700 hover:text-emerald-700">
+          <i class="fa-solid fa-bars text-xl"></i>
+        </button>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MAIN ARTICLE CONTAINER -->
+  <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 flex-1 w-full">
+    
+    <!-- Breadcrumb Navigation -->
+    <nav class="flex items-center space-x-2 text-xs font-bold text-slate-400 mb-6 flex-wrap">
+      <a href="index.html" class="hover:text-emerald-700 transition">Home</a>
+      <span>/</span>
+      <a href="blogs.html" class="hover:text-emerald-700 transition">Blogs</a>
+      <span>/</span>
+      <span id="breadcrumbCategory" class="text-emerald-700">Nutrition Science</span>
+      <span>/</span>
+      <span id="breadcrumbTitle" class="text-slate-600 truncate max-w-xs">Article</span>
+    </nav>
+
+    <!-- Article Header -->
+    <header class="space-y-4 mb-8">
+      <div class="flex items-center gap-2 flex-wrap">
+        <span id="articleCategoryBadge" class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-200">
+          <i class="fa-solid fa-microscope text-emerald-600"></i>
+          <span id="articleCategoryText">Clinical Nutrition</span>
+        </span>
+        <span class="inline-flex items-center space-x-1 text-[11px] font-bold text-slate-400 bg-slate-100 px-2.5 py-1 rounded-full">
+          <i class="fa-solid fa-clock"></i>
+          <span id="articleReadTime">4 min read</span>
+        </span>
+        <span class="inline-flex items-center space-x-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60">
+          <i class="fa-solid fa-certificate"></i>
+          <span>NABL Verified Research</span>
+        </span>
+      </div>
+
+      <h1 id="articleHeading" class="text-3xl sm:text-4xl md:text-5xl font-black text-slate-900 leading-tight tracking-tight">
+        Loading Article...
+      </h1>
+
+      <p id="articleExcerpt" class="text-base sm:text-lg text-slate-600 leading-relaxed font-medium">
+      </p>
+
+      <!-- Author Bio & Published Date Bar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-4 pb-4 border-y border-slate-200 text-xs">
+        <div class="flex items-center space-x-3">
+          <div class="w-12 h-12 rounded-2xl bg-emerald-900 text-white flex items-center justify-center font-black text-lg shadow-sm">
+            <i class="fa-solid fa-user-doctor"></i>
+          </div>
+          <div>
+            <div id="articleAuthor" class="font-extrabold text-slate-900 text-sm">Nutrolix Clinical Research Team</div>
+            <div class="text-slate-400 text-[11px]">Published on <span id="articleDate">October 2026</span> • Peer-Reviewed Content</div>
+          </div>
+        </div>
+
+        <!-- Social Share Buttons -->
+        <div class="flex items-center space-x-2">
+          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider mr-1">Share:</span>
+          <button onclick="window.shareArticle('whatsapp')" class="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 flex items-center justify-center text-sm transition" title="Share on WhatsApp">
+            <i class="fa-brands fa-whatsapp"></i>
+          </button>
+          <button onclick="window.shareArticle('twitter')" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-sm transition" title="Share on Twitter / X">
+            <i class="fa-brands fa-x-twitter"></i>
+          </button>
+          <button onclick="window.shareArticle('linkedin')" class="w-8 h-8 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 flex items-center justify-center text-sm transition" title="Share on LinkedIn">
+            <i class="fa-brands fa-linkedin-in"></i>
+          </button>
+          <button onclick="window.shareArticle('copy')" class="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center text-sm transition" title="Copy Link">
+            <i class="fa-solid fa-link"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Featured Hero Image -->
+    <div class="mb-10 rounded-3xl overflow-hidden shadow-lg border border-slate-200 bg-slate-100 aspect-[16/9] relative">
+      <img id="articleFeaturedImg" src="assets/nutrolix_lab_facility.jpg" alt="Nutrolix Article Feature" class="w-full h-full object-cover">
+      <div class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
+        Nutrolix Formulation Labs
+      </div>
+    </div>
+
+    <!-- Article Content -->
+    <article id="articleContent" class="article-body bg-white p-6 sm:p-10 rounded-3xl border border-slate-200 shadow-sm leading-relaxed text-slate-700">
+      <p>Loading full evidence-based article content...</p>
+    </article>
+
+    <!-- Recommendation Box: Featured Clinical Products -->
+    <div class="mt-12 bg-gradient-to-r from-emerald-950 via-nutro-forest to-slate-900 rounded-3xl p-8 sm:p-10 text-white shadow-xl relative overflow-hidden">
+      <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+        <div class="space-y-2 max-w-xl">
+          <span class="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-400 text-slate-950 uppercase tracking-wider">
+            <i class="fa-solid fa-dna"></i>
+            <span>Put Science Into Practice</span>
+          </span>
+          <h3 class="text-2xl sm:text-3xl font-black text-white">Experience Clinically Formulated Staples</h3>
+          <p class="text-slate-300 text-xs sm:text-sm leading-relaxed">
+            Nutrolix High Protein Atta (46g Bioactive Protein) and Complete Nutri Meal (25+ Superfoods) transform everyday staples into powerful metabolic nourishment.
+          </p>
+        </div>
+        <div class="shrink-0">
+          <a href="shop.html" class="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-emerald-400 to-teal-400 text-slate-950 font-black text-xs sm:text-sm hover:from-emerald-300 hover:to-teal-300 shadow-lg shadow-emerald-500/20 transition flex items-center space-x-2">
+            <span>Explore All Products</span>
+            <i class="fa-solid fa-arrow-right"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Related Articles Section -->
+    <div class="mt-14 space-y-6">
+      <div class="flex items-center justify-between">
+        <h3 class="text-xl font-black text-slate-900">Explore More Clinical Insights</h3>
+        <a href="blogs.html" class="text-xs font-bold text-emerald-700 hover:underline">View All Articles →</a>
+      </div>
+      <div id="relatedArticlesGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Rendered by JS -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Comprehensive Footer -->
+  <footer class="bg-nutro-forest text-slate-300 pt-12 pb-8 border-t border-emerald-950 text-xs">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
+      <img src="assets/nutrolix-logo.png" alt="Nutrolix" class="h-9 w-auto mx-auto object-contain bg-white rounded-xl p-1.5 shadow">
+      <p class="text-slate-400 max-w-md mx-auto">
+        Nutrolix Wellness Pvt. Ltd. is an Indian functional nutrition company pioneering research-backed packaged foods and healthy dining.
+      </p>
+      <div class="text-slate-500 text-[11px] pt-4 border-t border-white/10">
+        © 2026 Nutrolix Wellness Pvt. Ltd. All rights reserved.
+      </div>
+    </div>
+  </footer>
+
+  <!-- Fixed Mobile Bottom Navigation -->
+  <nav class="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2 flex items-center justify-around shadow-lg">
+    <a href="index.html" class="flex flex-col items-center text-slate-600 hover:text-emerald-700 py-1">
+      <i class="fa-solid fa-house text-lg"></i>
+      <span class="text-[10px] font-bold mt-0.5">Home</span>
+    </a>
+    <a href="shop.html" class="flex flex-col items-center text-slate-600 hover:text-emerald-700 py-1">
+      <i class="fa-solid fa-store text-lg"></i>
+      <span class="text-[10px] font-bold mt-0.5">Store</span>
+    </a>
+    <a href="food.html" class="flex flex-col items-center text-slate-600 hover:text-emerald-700 py-1">
+      <i class="fa-solid fa-bowl-food text-lg"></i>
+      <span class="text-[10px] font-bold mt-0.5">Healthy Food</span>
+    </a>
+    <a href="cart.html" class="flex flex-col items-center text-slate-600 hover:text-emerald-700 py-1 relative">
+      <i class="fa-solid fa-cart-shopping text-lg"></i>
+      <span class="text-[10px] font-bold mt-0.5">Cart</span>
+    </a>
+    <a href="orders.html" class="flex flex-col items-center text-slate-600 hover:text-emerald-700 py-1">
+      <i class="fa-solid fa-truck-fast text-lg"></i>
+      <span class="text-[10px] font-bold mt-0.5">My Order</span>
+    </a>
+  </nav>
+
+  <!-- Article Loading & Dynamic SEO Injection Script -->
+  <script>
+    (function() {
+      // Reading progress bar
+      window.addEventListener('scroll', () => {
+        const winScroll = document.body.scrollTop || document.documentElement.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        const scrolled = (winScroll / height) * 100;
+        const bar = document.getElementById('readingProgress');
+        if (bar) bar.style.width = scrolled + '%';
+      });
+
+      // Cart count badge
+      try {
+        const c1 = JSON.parse(localStorage.getItem('nutrolix_cart') || '[]');
+        const c2 = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+        const total = (Array.isArray(c1) ? c1.length : 0) + (Array.isArray(c2) ? c2.length : 0);
+        const b = document.getElementById('headerCartCount');
+        if (b) b.textContent = total;
+      } catch (_) {}
+
+      // Identify requested article slug or ID from URL
+      function getTargetSlug() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const querySlug = urlParams.get('slug') || urlParams.get('id');
+        if (querySlug) return querySlug.toLowerCase().trim();
+
+        // Check path like /best-nutrition-meal or /blog/best-nutrition-meal
+        const path = window.location.pathname.replace(/^\/+/g, '').replace(/\.html$/i, '');
+        const segments = path.split('/');
+        const lastSegment = segments[segments.length - 1] || '';
+        if (lastSegment && lastSegment !== 'article' && lastSegment !== 'blog') {
+          return lastSegment.toLowerCase().trim();
+        }
+        return '';
+      }
+
+      async function loadArticle() {
+        let allBlogs = [];
+        try {
+          const res = await fetch('/api/blogs');
+          if (res.ok) allBlogs = await res.json();
+        } catch (_) {}
+
+        if (!allBlogs || !allBlogs.length) {
+          allBlogs = window.nutroFallbackBlogs || [];
+        }
+
+        const target = getTargetSlug();
+        let article = allBlogs.find(b => (b.slug && b.slug.toLowerCase() === target) || (b.id && b.id.toLowerCase() === target));
+
+        // If target was empty or not matched, fall back to first article
+        if (!article && allBlogs.length > 0) {
+          article = allBlogs[0];
+        }
+
+        if (!article) {
+          document.getElementById('articleHeading').textContent = "Article Not Found";
+          document.getElementById('articleContent').innerHTML = "<p>The requested article could not be loaded. <a href='blogs.html' class='text-emerald-700 font-bold underline'>Browse all nutrition articles →</a></p>";
+          return;
+        }
+
+        // Set Dynamic SEO Metadata
+        const seoTitle = (article.seoTitle || article.title) + " – Nutrolix Clinical Nutrition";
+        const seoDesc = article.seoDescription || article.excerpt || "Evidence-based clinical nutrition insights by Nutrolix.";
+        const seoKeywords = article.seoKeywords || (article.category + ", nutrolix nutrition, healthy food, clinical diet");
+        const pageUrl = window.location.origin + '/' + (article.slug || article.id);
+        const imgUrl = article.image || "https://nutrolix.in/assets/nutrolix_lab_facility.jpg";
+
+        document.title = seoTitle;
+        const setMeta = (id, attr, val) => { const el = document.getElementById(id); if (el) el.setAttribute(attr, val); };
+        setMeta('metaTitle', 'content', seoTitle);
+        setMeta('metaDesc', 'content', seoDesc);
+        setMeta('metaKeywords', 'content', seoKeywords);
+        setMeta('metaCanonical', 'href', pageUrl);
+        setMeta('ogTitle', 'content', seoTitle);
+        setMeta('ogDesc', 'content', seoDesc);
+        setMeta('ogImage', 'content', imgUrl);
+        setMeta('ogUrl', 'content', pageUrl);
+        setMeta('twTitle', 'content', seoTitle);
+        setMeta('twDesc', 'content', seoDesc);
+        setMeta('twImage', 'content', imgUrl);
+
+        // Inject Schema.org JSON-LD
+        try {
+          const schemaEl = document.getElementById('schemaArticle');
+          if (schemaEl) {
+            schemaEl.textContent = JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "NewsArticle",
+              "headline": article.title,
+              "description": seoDesc,
+              "image": [imgUrl],
+              "datePublished": article.date || "2026-10-24",
+              "dateModified": article.date || "2026-10-24",
+              "author": {
+                "@type": "Person",
+                "name": article.author || "Nutrolix Research Team"
+              },
+              "publisher": {
+                "@type": "Organization",
+                "name": "Nutrolix Wellness Pvt. Ltd.",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": window.location.origin + "/assets/nutrolix-logo.png"
+                }
+              },
+              "mainEntityOfPage": {
+                "@type": "WebPage",
+                "@id": pageUrl
+              }
+            });
+          }
+        } catch (_) {}
+
+        // Populate Article UI Elements
+        document.getElementById('breadcrumbCategory').textContent = article.category || 'Nutrition Science';
+        document.getElementById('breadcrumbTitle').textContent = article.title;
+        document.getElementById('articleCategoryText').textContent = article.category || 'Clinical Nutrition';
+        document.getElementById('articleReadTime').textContent = article.readTime || '4 min read';
+        document.getElementById('articleHeading').textContent = article.title;
+        document.getElementById('articleExcerpt').textContent = article.excerpt || '';
+        document.getElementById('articleAuthor').textContent = article.author || 'Nutrolix Research Team';
+        document.getElementById('articleDate').textContent = article.date || 'October 2026';
+        
+        const featuredImg = document.getElementById('articleFeaturedImg');
+        if (featuredImg) {
+          featuredImg.src = imgUrl;
+          featuredImg.alt = article.title;
+        }
+
+        // Render Paragraphs / Content
+        const contentBox = document.getElementById('articleContent');
+        const paragraphs = (article.content || '').split('\n\n').filter(p => p.trim());
+        if (paragraphs.length > 0) {
+          contentBox.innerHTML = paragraphs.map(p => {
+            if (p.startsWith('## ')) return `<h2>${p.replace('## ', '')}</h2>`;
+            if (p.startsWith('### ')) return `<h3>${p.replace('### ', '')}</h3>`;
+            if (p.startsWith('> ')) return `<blockquote>${p.replace('> ', '')}</blockquote>`;
+            return `<p>${p}</p>`;
+          }).join('');
+        } else {
+          contentBox.innerHTML = `<p>${article.excerpt || ''}</p>`;
+        }
+
+        // Render Related Articles
+        const related = allBlogs.filter(b => b.id !== article.id).slice(0, 3);
+        const relGrid = document.getElementById('relatedArticlesGrid');
+        if (relGrid) {
+          relGrid.innerHTML = related.map(rel => `
+            <a href="${rel.slug ? rel.slug : 'article.html?slug=' + rel.id}" class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500 hover:shadow-lg transition flex flex-col group">
+              <div class="aspect-video bg-slate-100 overflow-hidden relative">
+                <img src="${rel.image || 'assets/nutrolix_lab_facility.jpg'}" alt="${rel.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                <span class="absolute top-2 left-2 bg-emerald-800 text-white text-[9px] font-black px-2 py-0.5 rounded-md">
+                  ${rel.category || 'Science'}
+                </span>
+              </div>
+              <div class="p-4 flex-1 flex flex-col justify-between">
+                <div>
+                  <h4 class="font-extrabold text-xs text-slate-900 group-hover:text-emerald-700 transition line-clamp-2 leading-snug">
+                    ${rel.title}
+                  </h4>
+                  <p class="text-[11px] text-slate-500 line-clamp-2 mt-1.5 leading-relaxed">${rel.excerpt || ''}</p>
+                </div>
+                <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-bold">
+                  <span>${rel.readTime || '3 min'}</span>
+                  <span class="text-emerald-700 font-black">Read More →</span>
+                </div>
+              </div>
+            </a>
+          `).join('');
+        }
+      }
+
+      window.shareArticle = function(platform) {
+        const url = encodeURIComponent(window.location.href);
+        const title = encodeURIComponent(document.title);
+        if (platform === 'whatsapp') {
+          window.open(`https://api.whatsapp.com/send?text=${title}%20${url}`, '_blank');
+        } else if (platform === 'twitter') {
+          window.open(`https://twitter.com/intent/tweet?text=${title}&url=${url}`, '_blank');
+        } else if (platform === 'linkedin') {
+          window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}`, '_blank');
+        } else if (platform === 'copy') {
+          navigator.clipboard.writeText(window.location.href).then(() => {
+            alert('✓ Article link copied to clipboard!');
+          });
+        }
+      };
+
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadArticle);
+      } else {
+        loadArticle();
+      }
+    })();
+  </script>
+
+</body>
+</html>

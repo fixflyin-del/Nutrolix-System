@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shop All Nutrition Products | Nutrolix – Nutrition That Works</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'nutro-dark': '#064E3B',
+            'nutro-forest': '#0F3E2E',
+            'nutro-emerald': '#059669',
+            'nutro-light': '#10B981',
+            'nutro-orange': '#EA580C',
+            'nutro-amber': '#F59E0B'
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
+    .mobile-safe-bottom { padding-bottom: 5.5rem; }
+    .custom-scrollbar::-webkit-scrollbar { height: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+  </style>
+
+  <!-- Instant 0ms Nutrition Data Cache -->
+  <script src="assets/nutrolix-data.js"></script>
+  <script src="assets/nutrolix-drawer.js"></script>
+  <script src="assets/nutrolix-reviews.js"></script>
+</head>
+<body class="mobile-safe-bottom flex flex-col min-h-screen">
+
+  <!-- Header with Nutrolix Original Logo -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-20">
+        
+        <!-- Left side: Burger Button + Nutrolix Logo (Requirement 5) -->
+        <div class="flex items-center space-x-2 sm:space-x-3">
+          <button onclick="window.toggleLeftBurgerMenu()" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center text-base transition active:scale-95 focus:outline-none" aria-label="Open Navigation Menu">
+            <i class="fa-solid fa-bars text-emerald-800"></i>
+          </button>
+          <a href="index.html" class="flex items-center shrink-0 py-1">
+            <img src="assets/nutrolix-logo.png" alt="Nutrolix – Nutrition that works" class="h-10 sm:h-12 w-auto object-contain max-w-[170px] sm:max-w-[210px]">
+          </a>
+        </div>
+
+        <!-- Desktop Navigation Bar (Requirement 2) -->
+        <nav class="hidden lg:flex items-center space-x-7 text-sm font-bold text-slate-700">
+          <a href="index.html" class="hover:text-nutro-emerald transition">Home</a>
+          <a href="shop.html" class="text-nutro-emerald border-b-2 border-nutro-emerald pb-1 transition">Store</a>
+          <a href="food.html" class="hover:text-nutro-emerald transition">Healthy Food</a>
+          <a href="orders.html" class="hover:text-nutro-emerald transition flex items-center space-x-1.5 py-1 px-2.5 rounded-lg text-slate-700 hover:bg-slate-100 font-bold">
+            <i class="fa-solid fa-truck-fast text-xs text-emerald-600"></i>
+            <span>My Order</span>
+          </a>
+          <!-- More Dropdown (About Us, Contact Us, Blogs, Our Story, T&C, Policies) -->
+          <div class="relative group py-2">
+            <button class="hover:text-nutro-emerald transition flex items-center space-x-1 py-1 focus:outline-none">
+              <span>More</span>
+              <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:text-nutro-emerald group-hover:rotate-180 transition-transform"></i>
+            </button>
+            <div class="absolute left-0 top-full pt-2 w-56 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 text-xs font-bold text-slate-700 divide-y divide-slate-100">
+                <div class="py-1">
+                  <a href="about.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">About Us</a>
+                  <a href="our-story.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Our Story</a>
+                  <a href="blogs.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Blogs & Articles</a>
+                  <a href="contact.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Contact Us</a>
+                </div>
+                <div class="py-1">
+                  <a href="terms.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Terms & Conditions</a>
+                  <a href="privacy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Privacy Policy</a>
+                  <a href="refund-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Refund & Return Policy</a>
+                  <a href="shipping-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Shipping Policy</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        <!-- Right Header Icons -->
+        <div class="flex items-center space-x-3 sm:space-x-4">
+          <a href="account.html" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition" title="My Account">
+            <i class="fa-regular fa-user text-sm"></i>
+          </a>
+          <a href="cart.html" class="relative flex items-center space-x-2 bg-nutro-forest hover:bg-nutro-dark text-white px-4 py-2.5 rounded-xl transition shadow-md group">
+            <i class="fa-solid fa-bag-shopping text-emerald-400 group-hover:scale-110 transition"></i>
+            <span class="text-xs font-extrabold hidden md:inline">Cart</span>
+            <span id="shopCartCount" class="w-5 h-5 rounded-full bg-amber-400 text-slate-900 text-xs font-black flex items-center justify-center">0</span>
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </header>
+
+  <!-- Left Slide-out Drawer Backdrop (Requirement 5) -->
+  <div id="leftBurgerBackdrop" onclick="window.toggleLeftBurgerMenu()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden transition-opacity duration-300"></div>
+
+  <!-- Left Slide-out Drawer Panel (Requirement 5: Short links, WhatsApp, Partner) -->
+  <div id="leftBurgerDrawer" class="fixed top-0 left-0 bottom-0 w-84 max-w-[85vw] bg-white z-50 shadow-2xl transform -translate-x-full transition-transform duration-300 flex flex-col">
+    <div class="p-4 bg-nutro-forest text-white flex items-center justify-between border-b border-emerald-900">
+      <div class="flex items-center space-x-2.5">
+        <img src="assets/nutrolix-logo.png" alt="Nutrolix" class="h-8 w-auto bg-white rounded-lg p-1">
+      </div>
+      <button onclick="window.toggleLeftBurgerMenu()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-3 space-y-1.5 text-xs custom-scrollbar">
+      <a href="food.html" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-emerald-50 text-emerald-900 font-extrabold hover:bg-emerald-100 transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-utensils text-emerald-700 w-5"></i>
+          <span>Order Healthy Food</span>
+        </div>
+        <span class="text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">Kitchen Fresh</span>
+      </a>
+
+      <a href="shop.html" class="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-bag-shopping text-emerald-600 w-5"></i>
+          <span>Packaged Food Store</span>
+        </div>
+        <span class="text-[9px] bg-amber-500 text-white px-2 py-0.5 rounded-full font-bold">Store</span>
+      </a>
+
+      <a href="orders.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <i class="fa-solid fa-truck-fast text-emerald-600 w-5"></i>
+        <span>My Orders & Live Tracking</span>
+      </a>
+
+      <a href="account.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <i class="fa-solid fa-user text-emerald-600 w-5"></i>
+        <span>My Profile & Addresses</span>
+      </a>
+
+      <div class="pt-2 pb-1 border-t border-slate-100 my-1">
+        <span class="text-[10px] uppercase font-black text-slate-400 px-3 tracking-wider">Direct WhatsApp & Quick Support</span>
+      </div>
+
+      <a href="https://wa.me/919076254354?text=Hi%20Nutrolix%2C%20I%20need%20support%20with%20my%20order" target="_blank" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-green-50 text-green-900 hover:bg-green-100 font-extrabold transition border border-green-200">
+        <div class="flex items-center space-x-3">
+          <i class="fa-brands fa-whatsapp text-green-600 text-base w-5"></i>
+          <span>Direct WhatsApp (+91 90762 54354)</span>
+        </div>
+        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-green-600"></i>
+      </a>
+
+      <a href="https://wa.me/919076254354?text=Hi%20Nutrolix%2C%20I%20am%20interested%20in%20joining%20as%20a%20Nutrolix%20Partner%20or%20Distributor" target="_blank" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-amber-50 text-amber-900 hover:bg-amber-100 font-extrabold transition border border-amber-200">
+        <div class="flex items-center space-x-3">
+          <i class="fa-solid fa-handshake text-amber-600 text-base w-5"></i>
+          <span>Join as Partner / Distributor</span>
+        </div>
+        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-amber-600"></i>
+      </a>
+
+      <a href="Nutrolix-Customer.apk" download class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-900 text-white font-extrabold hover:bg-slate-800 transition">
+        <div class="flex items-center space-x-3">
+          <i class="fa-brands fa-android text-emerald-400 text-base w-5"></i>
+          <span>Download Our Android App</span>
+        </div>
+        <i class="fa-solid fa-download text-xs text-emerald-400"></i>
+      </a>
+
+      <a href="contact.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
+        <i class="fa-solid fa-headset text-emerald-600 w-5"></i>
+        <span>Customer Support & FAQs</span>
+      </a>
+
+      <div class="pt-2 border-t border-slate-100">
+        <div class="text-[10px] uppercase font-black text-slate-400 px-3 tracking-wider mb-1">Brand Policies</div>
+        <div class="grid grid-cols-2 gap-1 px-1">
+          <a href="shipping.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Shipping Policy</a>
+          <a href="refund.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Return & Refund</a>
+          <a href="cancellation.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Cancellation</a>
+          <a href="privacy.html" class="px-2 py-1.5 rounded-lg hover:bg-slate-100 text-slate-600 text-[11px] font-semibold">Privacy Policy</a>
+        </div>
+      </div>
+    </div>
+
+    <div class="p-3 bg-slate-50 border-t border-slate-200 text-center text-[10px] text-slate-400 space-y-0.5">
+      <div class="font-bold text-slate-700">FSSAI Central Lic. # 21526024003044</div>
+      <div>Nutrolix Wellness Pvt. Ltd. • ISO 9001:2015</div>
+    </div>
+  </div>
+
+
+  <!-- Page Banner -->
+  <div class="bg-gradient-to-r from-nutro-forest via-emerald-900 to-slate-900 text-white py-10 px-4">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div>
+        <div class="inline-flex items-center space-x-2 text-xs font-bold text-emerald-300 bg-white/10 px-3 py-1 rounded-full border border-white/15 mb-2">
+          <i class="fa-solid fa-certificate text-amber-400"></i>
+          <span>100% CLINICAL GRADE PACKAGED NUTRITION</span>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-black">Nutrition Store Catalog</h1>
+        <p class="text-slate-300 text-xs sm:text-sm mt-1 max-w-xl">
+          All packaged functional foods, high protein flours, seed matrices, and wellness elixirs. 100% lab certified.
+        </p>
+      </div>
+      <div class="flex items-center space-x-3 text-xs text-slate-300">
+        <span class="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-extrabold flex items-center space-x-1.5">
+          <i class="fa-solid fa-shield-halved"></i>
+          <span>FSSAI Lic. 21526024003044</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Catalog Viewport Full-Width Products Grid -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+    
+    <!-- Clean Store Header Status (Category removed as per Requirement 3) -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 mb-6 flex items-center justify-between text-xs shadow-sm">
+      <div class="text-slate-700 font-bold">
+        Showing <span id="productsCount" class="text-slate-900 font-black text-sm">8</span> Lab-Tested Nutrition Products
+      </div>
+      <div class="text-xs text-emerald-700 font-bold flex items-center space-x-1.5">
+        <i class="fa-solid fa-shield-check text-emerald-600"></i>
+        <span>100% Direct Factory Dispatch</span>
+      </div>
+    </div>
+
+    <!-- Product Cards Grid Full Width (2 columns on mobile, 4 on desktop) -->
+    <div id="shopProductsGrid" class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
+      <!-- Injected by JS -->
+    </div>
+
+    <!-- Single Bottom Promotional Banner for Healthy Food Store (Part C) -->
+    <div id="shopHealthyMealPromoBanner" class="mt-10 mb-4 hidden">
+      <!-- Injected dynamically based on backend customer eligibility -->
+    </div>
+
+  </main>
+
+  <!-- Comprehensive Premium Footer with Original Logo -->
+  <footer class="bg-nutro-forest text-slate-300 pt-16 pb-12 border-t border-emerald-950 mt-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 mb-12">
+        
+        <!-- Col 1: Brand Info -->
+        <div class="lg:col-span-2 space-y-4">
+          <a href="index.html" class="flex items-center space-x-3">
+            <img src="assets/nutrolix-logo.png" alt="Nutrolix" class="h-10 w-auto object-contain bg-white rounded-xl p-1.5 shadow-md">
+          </a>
+          <p class="text-xs text-slate-400 leading-relaxed max-w-sm">
+            Nutrolix Wellness Pvt. Ltd. is an Indian functional nutrition company pioneering research-backed packaged foods, high protein staples, and healthy dining.
+          </p>
+          <div class="pt-2">
+            <div class="text-xs font-bold text-slate-200 mb-2">Connect on Official Social Media:</div>
+            <div class="flex items-center space-x-3">
+              <a href="https://www.facebook.com/people/Nutrolix/61593206843289/" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-blue-600 text-white flex items-center justify-center text-sm transition" title="Facebook">
+                <i class="fa-brands fa-facebook-f"></i>
+              </a>
+              <a href="https://www.instagram.com/nutrolix.wellness/" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-gradient-to-tr hover:from-amber-500 hover:to-rose-600 text-white flex items-center justify-center text-sm transition" title="Instagram">
+                <i class="fa-brands fa-instagram"></i>
+              </a>
+              <a href="https://www.youtube.com/@Nutrolix" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-red-600 text-white flex items-center justify-center text-sm transition" title="YouTube">
+                <i class="fa-brands fa-youtube"></i>
+              </a>
+              <a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-amber-500 text-white flex items-center justify-center text-sm transition" title="Google Business Profile">
+                <i class="fa-brands fa-google"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Col 2: Nutrition Store -->
+        <div>
+          <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrition Store</h4>
+          <ul class="space-y-2.5 text-xs text-slate-400">
+            <li><a href="shop.html" class="hover:text-white transition">All Products</a></li>
+            <li><a href="shop.html?cat=High+Protein+Foods" class="hover:text-white transition">High Protein Atta</a></li>
+            <li><a href="shop.html?cat=Superfood+Blends" class="hover:text-white transition">Complete Nutri Meal</a></li>
+            <li><a href="shop.html?cat=Healthy+Breakfast" class="hover:text-white transition">Talbeenah Porridge</a></li>
+            <li><a href="shop.html?cat=Millet+Products" class="hover:text-white transition">Multi-Millet Flakes</a></li>
+            <li><a href="shop.html?cat=Wellness+Nutrition" class="hover:text-white transition">Black Seed Oil</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 3: Company & Information -->
+        <div>
+          <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrolix Brand</h4>
+          <ul class="space-y-2.5 text-xs text-slate-400">
+            <li><a href="about.html" class="hover:text-white transition">About Us</a></li>
+            <li><a href="orders.html" class="text-emerald-400 font-bold hover:text-emerald-300 transition flex items-center space-x-1">
+              <span><i class="fa-solid fa-truck-fast mr-1"></i> Track Orders</span>
+              <span class="text-[9px] bg-emerald-800 text-white px-1.5 py-0.2 rounded">Live</span>
+            </a></li>
+            <li><a href="blogs.html" class="hover:text-white transition">Nutrition Blogs</a></li>
+            <li><a href="contact.html" class="hover:text-white transition">Contact Us</a></li>
+            <li><a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="hover:text-white transition">Google Customer Reviews</a></li>
+          </ul>
+        </div>
+
+        <!-- Col 4: Trust & Policies -->
+        <div>
+          <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Customer Care</h4>
+          <ul class="space-y-2.5 text-xs text-slate-400">
+            <li><a href="faqs.html" class="hover:text-white transition">FAQs</a></li>
+            <li><a href="shipping.html" class="hover:text-white transition">Shipping Policy</a></li>
+            <li><a href="refund.html" class="hover:text-white transition">Return & Refund Policy</a></li>
+            <li><a href="cancellation.html" class="hover:text-white transition">Cancellation Policy</a></li>
+            <li><a href="privacy.html" class="hover:text-white transition">Privacy Policy</a></li>
+            <li><a href="terms.html" class="hover:text-white transition">Terms & Conditions</a></li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- Bottom Bar -->
+      <div class="pt-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-4">
+        <div>
+          © 2026 Nutrolix Wellness Pvt. Ltd. All rights reserved.
+        </div>
+        <div class="flex items-center space-x-4">
+          <span class="text-slate-400"><i class="fa-solid fa-shield-halved text-emerald-400 mr-1"></i> FSSAI Central Lic. # 21526024003044</span>
+          <span>•</span>
+          <span class="text-slate-400">ISO 9001:2015</span>
+        </div>
+      </div>
+
+    </div>
+  </footer>
+
+  <!-- Mobile Bottom Nav (Home, Shop, Cart, My Orders, More) -->
+  <!-- Fixed Mobile Bottom Navigation (Change 6: Unselected = Black, Selected = Nutrolix Green) -->
+  <div class="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-2 py-2 flex items-center justify-around shadow-2xl">
+    <a href="index.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-house text-lg mb-0.5"></i>
+      <span class="text-[10px]">Home</span>
+    </a>
+    <a href="shop.html" class="flex flex-col items-center justify-center py-1 px-2 text-emerald-700 font-extrabold active:scale-95 transition">
+      <i class="fa-solid fa-bag-shopping text-lg mb-0.5"></i>
+      <span class="text-[10px]">Shop</span>
+    </a>
+    <a href="food.html" class="relative flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <span class="absolute -top-1.5 right-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-sm leading-tight border border-amber-300 pointer-events-none">
+        ₹100 OFF
+      </span>
+      <i class="fa-solid fa-utensils text-lg mb-0.5"></i>
+      <span class="text-[10px]">Healthy Food</span>
+    </a>
+    <a href="orders.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-truck-fast text-lg mb-0.5"></i>
+      <span class="text-[10px]">My Orders</span>
+    </a>
+    <a href="account.html" class="flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
+      <i class="fa-solid fa-user text-lg mb-0.5"></i>
+      <span class="text-[10px]">Profile</span>
+    </a>
+  </div>
+  <script>
+    window.nutroProducts = [{"id": "prod_high_protein_atta", "name": "Nutrolix High Protein Atta", "tagline": "46g Plant Protein Per 100g • 100% Whole Grain", "category": "High Protein Foods", "rating": 4.9, "reviewCount": 184, "price": 349, "mrp": 449, "discountPercent": 22, "isFeatured": true, "isBestSeller": true, "inStock": true, "stockQuantity": 850, "images": ["https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80", "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80"], "description": "46g plant protein per 100g with zero bloat and low glycemic index."}, {"id": "prod_complete_nutri_meal", "name": "Nutrolix Complete Nutri Meal", "tagline": "25+ Superfoods Daily Wellness & Clean Protein Shake", "category": "Superfood Blends", "rating": 4.8, "reviewCount": 142, "price": 699, "mrp": 899, "discountPercent": 22, "isFeatured": true, "isBestSeller": true, "inStock": true, "stockQuantity": 620, "images": ["https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?auto=format&fit=crop&w=800&q=80", "https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=800&q=80"], "description": "All-in-one nutrition with 26g clean protein and 25+ organic superfoods."}, {"id": "prod_premium_talbeenah", "name": "Nutrolix Premium Talbeenah", "tagline": "Ancient Roasted Barley, Almond & Date Superfood Porridge", "category": "Healthy Breakfast", "rating": 4.9, "reviewCount": 96, "price": 299, "mrp": 399, "discountPercent": 25, "isFeatured": true, "isBestSeller": false, "inStock": true, "stockQuantity": 480, "images": ["https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80"], "description": "Roasted pearl barley with Arabian dates and California almonds."}, {"id": "prod_multi_millet_flakes", "name": "Nutrolix Multi-Millet Energy Flakes", "tagline": "Ancient Grains Breakfast Crisp: Ragi, Jowar, Bajra & Quinoa", "category": "Millet Products", "rating": 4.7, "reviewCount": 78, "price": 249, "mrp": 329, "discountPercent": 24, "isFeatured": false, "isBestSeller": false, "inStock": true, "stockQuantity": 390, "images": ["https://images.unsplash.com/photo-1525385133512-2f3bdd039054?auto=format&fit=crop&w=800&q=80"], "description": "Crispy multigrain flakes with 3x calcium and zero palm oil."}, {"id": "prod_sprouted_moong_protein", "name": "Nutrolix Sprouted Moong & Chana Protein Powder", "tagline": "100% Natural Sprouted Legume Super Protein • 32g Protein", "category": "High Protein Foods", "rating": 4.8, "reviewCount": 65, "price": 379, "mrp": 499, "discountPercent": 24, "isFeatured": false, "isBestSeller": true, "inStock": true, "stockQuantity": 510, "images": ["https://images.unsplash.com/photo-1514733670139-4d87a1941d55?auto=format&fit=crop&w=800&q=80"], "description": "Bio-activated sprouted moong and roasted chana with 32g protein per 100g."}, {"id": "prod_cold_pressed_black_seed_oil", "name": "Nutrolix Cold-Pressed Black Seed (Kalonji) Elixir", "tagline": "Virgin Nigella Sativa Oil • High Thymoquinone Active", "category": "Wellness Nutrition", "rating": 4.9, "reviewCount": 110, "price": 449, "mrp": 599, "discountPercent": 25, "isFeatured": false, "isBestSeller": false, "inStock": true, "stockQuantity": 320, "images": ["https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&w=800&q=80"], "description": "Virgin cold-pressed black seed oil standardized with high Thymoquinone."}, {"id": "prod_raw_forest_honey_shilajit", "name": "Nutrolix Raw Forest Honey with Shilajit & Ashwagandha", "tagline": "Pure Wild Honey Infused with Himalayan Shilajit & Adaptogens", "category": "Wellness Nutrition", "rating": 4.9, "reviewCount": 88, "price": 499, "mrp": 650, "discountPercent": 23, "isFeatured": true, "isBestSeller": true, "inStock": true, "stockQuantity": 410, "images": ["https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=800&q=80"], "description": "Raw unpasteurized forest honey with Himalayan Shilajit and KSM-66 Ashwagandha."}, {"id": "prod_chia_flax_omega_blend", "name": "Nutrolix Organic Chia & Flaxseed Omega Blend", "tagline": "Cold-Milled Raw Seeds • 4500mg Omega-3 ALA Per Serving", "category": "Superfood Blends", "rating": 4.8, "reviewCount": 52, "price": 199, "mrp": 260, "discountPercent": 23, "isFeatured": false, "isBestSeller": false, "inStock": true, "stockQuantity": 490, "images": ["https://images.unsplash.com/photo-1514733670139-4d87a1941d55?auto=format&fit=crop&w=800&q=80"], "description": "50:50 raw chia and cold-milled golden flaxseed rich in Omega-3 ALA."}];
+    
+    function normalizeProduct(p) {
+      if (!p) return null;
+      const title = p.name || p.title || 'Nutrolix Product';
+      const imgList = (p.images && p.images.length) ? p.images.filter(Boolean) : (p.image ? [p.image] : ['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80']);
+      return {
+        ...p,
+        id: p.id || ('prod_' + Math.random().toString(36).substring(2, 8)),
+        name: title,
+        title: title,
+        images: imgList,
+        image: imgList[0],
+        price: Number(p.price || 349),
+        mrp: Number(p.mrp || (p.price ? Math.round(p.price * 1.25) : 449)),
+        discountPercent: Number(p.discountPercent || (p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 22)),
+        rating: Number(p.rating || 4.9),
+        reviewCount: Number(p.reviewCount || 100),
+        tagline: p.tagline || p.heroClaim || 'Clinical Nutrition That Works',
+        category: p.category || 'High Protein Foods',
+        inStock: p.stockStatus ? (p.stockStatus !== 'Out of Stock') : (p.inStock !== false)
+      };
+    }
+
+    window.allProducts = (window.nutroProducts || []).map(normalizeProduct).filter(Boolean);
+    window.activeCategory = 'All';
+
+    function loadLiveProducts() {
+      try {
+        const local = JSON.parse(localStorage.getItem('nutrolix_products') || 'null');
+        if (Array.isArray(local) && local.length > 0) {
+          window.nutroProducts = local.map(normalizeProduct).filter(Boolean);
+          window.allProducts = [...window.nutroProducts];
+          applyFilters();
+        }
+      } catch (_) {}
+
+      if (window.location.protocol !== 'file:') {
+        fetch('/api/nutrition-products')
+          .then(res => res.ok ? res.json() : null)
+          .then(srv => {
+            if (srv && Array.isArray(srv) && srv.length) {
+              window.nutroProducts = srv.map(normalizeProduct).filter(Boolean);
+              window.allProducts = [...window.nutroProducts];
+              try { localStorage.setItem('nutrolix_products', JSON.stringify(window.nutroProducts)); } catch (_) {}
+              applyFilters();
+            }
+          })
+          .catch(() => {});
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const catParam = urlParams.get('cat');
+      if (catParam) window.activeCategory = catParam;
+
+      loadLiveProducts();
+      updateShopCartBadge();
+
+      // Cross-tab live sync with Admin Panel
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'nutrolix_products') {
+          loadLiveProducts();
+        }
+      });
+    });
+
+    window.selectCategory = function(cat, btn) {
+      window.activeCategory = cat;
+      document.querySelectorAll('.shop-cat-btn').forEach(b => {
+        b.className = 'shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0';
+      });
+      if (btn) {
+        btn.className = 'shop-cat-btn px-4 py-2 rounded-full bg-nutro-forest text-white transition shadow-sm shrink-0';
+      }
+      applyFilters();
+    };
+
+    window.applyFilters = function() {
+      let filtered = [...window.allProducts];
+      const sort = (document.getElementById('sortSelect') || {}).value || 'featured';
+
+      if (window.activeCategory && window.activeCategory !== 'All') {
+        filtered = filtered.filter(p => p.category === window.activeCategory);
+      }
+
+      if (sort === 'rating') {
+        filtered.sort((a,b) => b.rating - a.rating);
+      } else if (sort === 'bestseller') {
+        filtered.sort((a,b) => (b.isBestSeller ? 1 : 0) - (a.isBestSeller ? 1 : 0));
+      } else if (sort === 'lowtohigh') {
+        filtered.sort((a,b) => a.price - b.price);
+      } else if (sort === 'hightolow') {
+        filtered.sort((a,b) => b.price - a.price);
+      } else {
+        filtered.sort((a,b) => (b.isFeatured ? 1 : 0) - (a.isFeatured ? 1 : 0));
+      }
+
+      const countEl = document.getElementById('productsCount');
+      if (countEl) countEl.textContent = filtered.length;
+      renderGrid(filtered);
+    };
+
+    function renderGrid(products) {
+      const container = document.getElementById('shopProductsGrid');
+      if (!container) return;
+      if (!products.length) {
+        container.innerHTML = `
+          <div class="col-span-full text-center py-16 text-slate-400">
+            <i class="fa-solid fa-box-open text-4xl text-slate-300 mb-3"></i>
+            <p class="font-bold text-sm">No products found in this category.</p>
+            <button onclick="window.selectCategory('All')" class="mt-3 text-xs font-bold text-nutro-emerald hover:underline">View All Categories</button>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = products.map(p => {
+        const img = (p.images && p.images[0]) || 'https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80';
+        return `
+          <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition flex flex-col group">
+            <div class="relative aspect-square overflow-hidden bg-slate-100">
+              <a href="product.html?id=${p.id}" class="block w-full h-full cursor-pointer">
+                <img src="${img}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              </a>
+              <span class="absolute top-2 sm:top-3 left-2 sm:left-3 bg-nutro-orange text-white text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm">
+                ${p.discountPercent || 20}% OFF
+              </span>
+            </div>
+
+            <div class="p-2.5 sm:p-4 flex-1 flex flex-col justify-between">
+              <div>
+                <span class="text-[9px] sm:text-[10px] font-bold text-nutro-emerald uppercase line-clamp-1">${p.category}</span>
+                <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 mt-0.5 line-clamp-2 group-hover:text-nutro-emerald transition leading-snug">
+                  <a href="product.html?id=${p.id}">${p.name}</a>
+                </h3>
+
+                <!-- REAL RATING -->
+                <div class="flex items-center space-x-1 mt-1 text-[10px] sm:text-xs">
+                  <div class="flex text-amber-400 text-[9px] sm:text-[11px]">
+                    <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                  </div>
+                  <span class="font-black text-slate-900 text-[10px] sm:text-xs ml-0.5">${p.rating || 4.9}</span>
+                  <span class="text-slate-400 text-[9px] sm:text-[11px]">(${p.reviewCount || 100})</span>
+                </div>
+
+                <p class="hidden sm:block text-[11px] text-slate-500 mt-1.5 line-clamp-2">${p.tagline || ''}</p>
+              </div>
+
+              <div class="mt-2.5 sm:mt-4 pt-2 sm:pt-3 border-t border-slate-100 flex items-center justify-between gap-1">
+                <div>
+                  <div class="text-sm sm:text-base font-black text-slate-900">₹${p.price}</div>
+                  <div class="text-[9px] sm:text-[10px] text-slate-400 line-through">₹${p.mrp || (p.price + 100)}</div>
+                </div>
+
+                <div class="flex items-center space-x-1">
+                  <button onclick="window.shopAddToCart('${p.id}', ${p.price}, '${p.name.replace(/'/g, "\\'")}', '${img}')" class="bg-nutro-forest hover:bg-nutro-dark text-white text-[11px] sm:text-xs font-black px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-sm active:scale-95" title="Add to Bag">
+                    + Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    window.shopAddToCart = function(id, price, name, image) {
+      const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+      const existing = cart.find(i => i.id === id);
+      if (existing) {
+        existing.quantity += 1;
+      } else {
+        cart.push({ id, price, name, image, quantity: 1 });
+      }
+      localStorage.setItem('nutrolix_store_cart', JSON.stringify(cart));
+      updateShopCartBadge();
+      alert(`🎉 Added ${name} to your cart!`);
+    };
+
+    function updateShopCartBadge() {
+      const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+      const count = cart.reduce((sum, item) => sum + item.quantity, 0);
+      const badge1 = document.getElementById('shopCartCount');
+      if (badge1) badge1.textContent = count;
+      const badge2 = document.getElementById('mobileBottomCartBadge');
+      if (badge2) badge2.textContent = count;
+    }
+
+    // Dynamic Healthy Food Promo Banner (Part C)
+    async function initShopPromoBanner() {
+      const bannerEl = document.getElementById('shopHealthyMealPromoBanner');
+      if (!bannerEl) return;
+
+      let user = null;
+      try {
+        if (typeof window.getNutrolixUser === 'function') user = window.getNutrolixUser();
+        if (!user) user = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+      } catch (_) {}
+
+      const phone = user ? (user.phone || '') : '';
+      const email = user ? (user.email || '') : '';
+
+      try {
+        const res = await fetch(`/api/discounts/healthy-food-eligibility?phone=${encodeURIComponent(phone)}&email=${encodeURIComponent(email)}`);
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (!data || !data.eligible) {
+          bannerEl.classList.add('hidden');
+          return;
+        }
+
+        const is100 = (data.offerType === 'FIRST100');
+        const badgeText = is100 ? '₹100 OFF' : '₹50 OFF';
+        const promoCode = is100 ? 'FIRST100' : 'HEALTHY50';
+        const titleText = is100 
+          ? 'First-Time Special: Get ₹100 OFF on Your First Healthy Meal Order!' 
+          : 'Healthy Nutrition Special: Enjoy ₹50 OFF on Your Next Meal!';
+        const subText = is100 
+          ? 'Freshly crafted clinical macro bowls, high-protein platters & detox salads. Valid on orders ₹349 & above.' 
+          : 'Keep your health streak going with doctor-designed healthy food meals. Valid on orders ₹249 & above.';
+
+        bannerEl.innerHTML = `
+          <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950 via-nutro-forest to-emerald-900 border border-emerald-500/30 p-6 sm:p-8 shadow-xl text-white">
+            <div class="absolute -right-12 -top-12 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div class="space-y-2 max-w-2xl">
+                <div class="inline-flex items-center space-x-2 bg-amber-400 text-slate-950 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow">
+                  <i class="fa-solid fa-utensils text-xs"></i>
+                  <span>${badgeText} • Cloud Kitchen Offer</span>
+                </div>
+                <h3 class="text-xl sm:text-2xl font-black text-white tracking-tight leading-snug">${titleText}</h3>
+                <p class="text-xs sm:text-sm text-emerald-100/90 font-medium leading-relaxed">${subText}</p>
+              </div>
+
+              <div class="shrink-0 flex items-center space-x-3">
+                <a href="food.html?promo=${promoCode}" class="inline-flex items-center space-x-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm px-6 py-3.5 rounded-2xl shadow-lg shadow-amber-400/20 transition-all transform active:scale-95 group">
+                  <span>Explore Healthy Food</span>
+                  <i class="fa-solid fa-arrow-right text-xs group-hover:translate-x-1 transition-transform"></i>
+                </a>
+              </div>
+            </div>
+          </div>
+        `;
+        bannerEl.classList.remove('hidden');
+      } catch (e) {
+        console.warn('Failed to load healthy food promo banner:', e);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initShopPromoBanner();
+    });
+  </script>
+
+  <!-- Universal Pull to Refresh with Circular Progress Indicator -->
+  <script src="assets/pull-to-refresh.js"></script>
+</body>
+</html>

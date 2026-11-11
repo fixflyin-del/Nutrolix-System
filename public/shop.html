@@ -27,18 +27,28 @@
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #F8FAFC;
+      color: #1E293B;
+    }
     .mobile-safe-bottom { padding-bottom: 5.5rem; }
     .custom-scrollbar::-webkit-scrollbar { height: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .scrollbar-none::-webkit-scrollbar { display: none; }
+    .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 
   <!-- Instant 0ms Nutrition Data Cache -->
   <script src="assets/nutrolix-data.js"></script>
   <script src="assets/nutrolix-drawer.js"></script>
   <script src="assets/nutrolix-reviews.js"></script>
+  <script src="assets/nutrolix-splash.js"></script>
+  <script src="assets/nutrolix-back-handler.js"></script>
 </head>
-<body class="mobile-safe-bottom flex flex-col min-h-screen">
+<body class="mobile-safe-bottom flex flex-col min-h-screen overflow-x-hidden">
 
   <!-- Header with Nutrolix Original Logo -->
   <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-200">
@@ -222,7 +232,34 @@
   <!-- Catalog Viewport Full-Width Products Grid -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
     
-    <!-- Clean Store Header Status (Category removed as per Requirement 3) -->
+    <!-- 6 Authorized Packaged Categories Filter Bar (Requirement 6) -->
+    <div class="mb-6 overflow-x-auto pb-2 scrollbar-none">
+      <div class="flex items-center space-x-2 min-w-max" id="packagedCategoryTabs">
+        <button onclick="window.selectCategory('All', this)" class="shop-cat-btn active px-4 py-2 rounded-xl text-xs font-black bg-nutro-forest text-white shadow-sm transition shrink-0">
+          All Products
+        </button>
+        <button onclick="window.selectCategory('Protein Atta', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
+          🌾 Protein Atta
+        </button>
+        <button onclick="window.selectCategory('Protein Snacks', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
+          🥜 Protein Snacks
+        </button>
+        <button onclick="window.selectCategory('Nutrition Meal', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
+          🥣 Nutrition Meal
+        </button>
+        <button onclick="window.selectCategory('Nutrition Drink', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
+          🥤 Nutrition Drink
+        </button>
+        <button onclick="window.selectCategory('Healthy Flakes', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
+          🥣 Healthy Flakes
+        </button>
+        <button onclick="window.selectCategory('Body Building & Strength', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
+          💪 Body Building & Strength
+        </button>
+      </div>
+    </div>
+
+    <!-- Store Status Bar -->
     <div class="bg-white p-4 rounded-2xl border border-slate-200 mb-6 flex items-center justify-between text-xs shadow-sm">
       <div class="text-slate-700 font-bold">
         Showing <span id="productsCount" class="text-slate-900 font-black text-sm">8</span> Lab-Tested Nutrition Products
@@ -278,16 +315,17 @@
           </div>
         </div>
 
-        <!-- Col 2: Nutrition Store -->
+        <!-- Col 2: Nutrition Store (6 Authorized Categories) -->
         <div>
           <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrition Store</h4>
           <ul class="space-y-2.5 text-xs text-slate-400">
             <li><a href="shop.html" class="hover:text-white transition">All Products</a></li>
-            <li><a href="shop.html?cat=High+Protein+Foods" class="hover:text-white transition">High Protein Atta</a></li>
-            <li><a href="shop.html?cat=Superfood+Blends" class="hover:text-white transition">Complete Nutri Meal</a></li>
-            <li><a href="shop.html?cat=Healthy+Breakfast" class="hover:text-white transition">Talbeenah Porridge</a></li>
-            <li><a href="shop.html?cat=Millet+Products" class="hover:text-white transition">Multi-Millet Flakes</a></li>
-            <li><a href="shop.html?cat=Wellness+Nutrition" class="hover:text-white transition">Black Seed Oil</a></li>
+            <li><a href="shop.html?cat=Protein+Atta" class="hover:text-white transition">Protein Atta</a></li>
+            <li><a href="shop.html?cat=Protein+Snacks" class="hover:text-white transition">Protein Snacks</a></li>
+            <li><a href="shop.html?cat=Nutrition+Meal" class="hover:text-white transition">Nutrition Meal</a></li>
+            <li><a href="shop.html?cat=Nutrition+Drink" class="hover:text-white transition">Nutrition Drink</a></li>
+            <li><a href="shop.html?cat=Healthy+Flakes" class="hover:text-white transition">Healthy Flakes</a></li>
+            <li><a href="shop.html?cat=Body+Building+%26+Strength" class="hover:text-white transition">Body Building & Strength</a></li>
           </ul>
         </div>
 
@@ -383,10 +421,37 @@
         rating: Number(p.rating || 4.9),
         reviewCount: Number(p.reviewCount || 100),
         tagline: p.tagline || p.heroClaim || 'Clinical Nutrition That Works',
-        category: p.category || 'High Protein Foods',
+        category: window.mapToPackagedCategory(p),
         inStock: p.stockStatus ? (p.stockStatus !== 'Out of Stock') : (p.inStock !== false)
       };
     }
+
+    window.mapToPackagedCategory = function(p) {
+      if (!p) return 'Protein Atta';
+      const cat = (p.category || '').toLowerCase();
+      const title = (p.name || p.title || '').toLowerCase();
+      const combined = cat + ' ' + title;
+
+      if (combined.includes('atta') || combined.includes('flour') || combined.includes('wheat') || (cat.includes('high protein') && title.includes('atta'))) {
+        return 'Protein Atta';
+      }
+      if (combined.includes('snack') || combined.includes('chia') || combined.includes('flax') || combined.includes('omega') || combined.includes('seed')) {
+        return 'Protein Snacks';
+      }
+      if (combined.includes('drink') || combined.includes('oil') || combined.includes('black seed') || combined.includes('kalonji') || combined.includes('elixir') || combined.includes('shake') || combined.includes('liquid')) {
+        return 'Nutrition Drink';
+      }
+      if (combined.includes('flake') || combined.includes('cereal') || combined.includes('millet flakes') || combined.includes('crisp')) {
+        return 'Healthy Flakes';
+      }
+      if (combined.includes('strength') || combined.includes('body building') || combined.includes('shilajit') || combined.includes('protein powder') || combined.includes('sprouted moong') || combined.includes('muscle')) {
+        return 'Body Building & Strength';
+      }
+      if (combined.includes('meal') || combined.includes('talbeenah') || combined.includes('porridge') || combined.includes('superfood')) {
+        return 'Nutrition Meal';
+      }
+      return 'Protein Atta';
+    };
 
     window.allProducts = (window.nutroProducts || []).map(normalizeProduct).filter(Boolean);
     window.activeCategory = 'All';
@@ -419,7 +484,17 @@
     document.addEventListener('DOMContentLoaded', () => {
       const urlParams = new URLSearchParams(window.location.search);
       const catParam = urlParams.get('cat');
-      if (catParam) window.activeCategory = catParam;
+      if (catParam) {
+        window.activeCategory = catParam;
+        // Highlight active pill if matched
+        document.querySelectorAll('.shop-cat-btn').forEach(b => {
+          if (b.textContent.trim().includes(catParam)) {
+            b.className = 'shop-cat-btn active px-4 py-2 rounded-xl text-xs font-black bg-nutro-forest text-white shadow-sm transition shrink-0';
+          } else {
+            b.className = 'shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0';
+          }
+        });
+      }
 
       loadLiveProducts();
       updateShopCartBadge();
@@ -435,10 +510,10 @@
     window.selectCategory = function(cat, btn) {
       window.activeCategory = cat;
       document.querySelectorAll('.shop-cat-btn').forEach(b => {
-        b.className = 'shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0';
+        b.className = 'shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0';
       });
       if (btn) {
-        btn.className = 'shop-cat-btn px-4 py-2 rounded-full bg-nutro-forest text-white transition shadow-sm shrink-0';
+        btn.className = 'shop-cat-btn active px-4 py-2 rounded-xl text-xs font-black bg-nutro-forest text-white shadow-sm transition shrink-0';
       }
       applyFilters();
     };
