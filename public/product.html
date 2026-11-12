@@ -27,6 +27,7 @@
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
+    html, body { max-width: 100%; overflow-x: hidden; }
     body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
     @media (max-width: 768px) {
       .product-mobile-bottom-space { padding-bottom: 6rem; }
@@ -36,8 +37,12 @@
   <!-- Instant 0ms Nutrition Data Cache -->
   <script src="assets/nutrolix-data.js"></script>
   <script src="assets/nutrolix-drawer.js"></script>
+  <!-- Animated Splash Screen (Requirement 4) -->
+  <script src="assets/nutrolix-splash.js"></script>
+  <!-- Android Mobile Browser Back Navigation Handler (Requirement 3) -->
+  <script src="assets/nutrolix-back-handler.js"></script>
 </head>
-<body class="product-mobile-bottom-space flex flex-col min-h-screen">
+<body class="product-mobile-bottom-space flex flex-col min-h-screen overflow-x-hidden">
 
   <!-- Header with Nutrolix Original Logo -->
   <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-200">
@@ -405,16 +410,17 @@
           </div>
         </div>
 
-        <!-- Col 2: Nutrition Store -->
+        <!-- Col 2: Nutrition Store (Requirement 6: Six Authorized Categories) -->
         <div>
           <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrition Store</h4>
-          <ul class="space-y-2.5 text-xs text-slate-400">
+          <ul class="space-y-2.5 text-xs text-slate-400 font-semibold">
             <li><a href="shop.html" class="hover:text-white transition">All Products</a></li>
-            <li><a href="shop.html?cat=High+Protein+Foods" class="hover:text-white transition">High Protein Atta</a></li>
-            <li><a href="shop.html?cat=Superfood+Blends" class="hover:text-white transition">Complete Nutri Meal</a></li>
-            <li><a href="shop.html?cat=Healthy+Breakfast" class="hover:text-white transition">Talbeenah Porridge</a></li>
-            <li><a href="shop.html?cat=Millet+Products" class="hover:text-white transition">Multi-Millet Flakes</a></li>
-            <li><a href="shop.html?cat=Wellness+Nutrition" class="hover:text-white transition">Black Seed Oil</a></li>
+            <li><a href="shop.html?cat=Protein+Atta" class="hover:text-white transition">Protein Atta</a></li>
+            <li><a href="shop.html?cat=Protein+Snacks" class="hover:text-white transition">Protein Snacks</a></li>
+            <li><a href="shop.html?cat=Nutrition+Meal" class="hover:text-white transition">Nutrition Meal</a></li>
+            <li><a href="shop.html?cat=Nutrition+Drink" class="hover:text-white transition">Nutrition Drink</a></li>
+            <li><a href="shop.html?cat=Healthy+Flakes" class="hover:text-white transition">Healthy Flakes</a></li>
+            <li><a href="shop.html?cat=Body+Building+%26+Strength" class="hover:text-white transition">Body Building & Strength</a></li>
           </ul>
         </div>
 

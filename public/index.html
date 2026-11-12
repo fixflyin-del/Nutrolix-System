@@ -47,6 +47,11 @@
     .hide-scrollbar::-webkit-scrollbar { display: none; }
     .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    
     @media (max-width: 768px) {
       .mobile-safe-bottom { padding-bottom: 5.5rem; }
     }
@@ -57,8 +62,13 @@
   <script src="assets/nutrolix-drawer.js"></script>
   <script src="assets/nutrolix-notifications.js"></script>
   <script src="assets/nutrolix-reviews.js"></script>
+
+  <!-- Animated Splash Screen (Requirement 4) -->
+  <script src="assets/nutrolix-splash.js"></script>
+  <!-- Android Mobile Browser Back Navigation Handler (Requirement 3) -->
+  <script src="assets/nutrolix-back-handler.js"></script>
 </head>
-<body class="mobile-safe-bottom flex flex-col min-h-screen">
+<body class="mobile-safe-bottom flex flex-col min-h-screen overflow-x-hidden">
 
   <!-- ============================================================== -->
   <!-- 1. STICKY DESKTOP & MOBILE HEADER WITH ORIGINAL NUTROLIX LOGO -->
@@ -145,29 +155,24 @@
           </div>
         </nav>
 
-        <!-- Right Header Icons: Search, Wishlist, Account, Cart -->
-        <div class="flex items-center space-x-3 sm:space-x-4">
-          <!-- Search trigger -->
-          <button onclick="window.openSearchModal()" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition" title="Search products">
-            <i class="fa-solid fa-magnifying-glass text-sm"></i>
-          </button>
-
+        <!-- Right Header Icons: Wishlist, Account, Cart (Search removed on global header per Requirement 5) -->
+        <div class="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
           <!-- Wishlist (Accessible on both Mobile and Desktop) -->
-          <button onclick="window.openWishlistDrawer()" class="relative flex w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 items-center justify-center transition active:scale-95" title="My Saved Wishlist">
-            <i class="fa-regular fa-heart text-sm"></i>
+          <button onclick="window.openWishlistDrawer()" class="relative flex w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 items-center justify-center transition active:scale-95 shadow-sm" title="My Saved Wishlist" aria-label="Wishlist">
+            <i class="fa-regular fa-heart text-sm text-rose-600"></i>
             <span id="wishlistCountBadge" class="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center hidden">0</span>
           </button>
 
           <!-- Account -->
-          <a href="/account" class="relative w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition" title="My Account">
-            <i class="fa-regular fa-user text-sm"></i>
+          <a href="account.html" class="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 flex items-center justify-center transition active:scale-95 shadow-sm" title="My Account" aria-label="My Account">
+            <i class="fa-regular fa-user text-sm text-emerald-800"></i>
           </a>
 
           <!-- Cart Drawer Button -->
-          <button onclick="window.toggleCartDrawer()" class="relative flex items-center space-x-2 bg-nutro-dark hover:bg-nutro-forest text-white px-4 py-2.5 rounded-xl transition shadow-md group">
-            <i class="fa-solid fa-bag-shopping text-emerald-400 group-hover:scale-110 transition"></i>
-            <span class="text-xs font-extrabold hidden md:inline">Cart</span>
-            <span id="cartCountBadge" class="w-5 h-5 rounded-full bg-amber-400 text-slate-900 text-xs font-black flex items-center justify-center">0</span>
+          <button onclick="window.toggleCartDrawer()" class="relative flex items-center space-x-1.5 bg-nutro-dark hover:bg-nutro-forest text-white px-2.5 sm:px-3.5 py-2 rounded-xl transition shadow-md group active:scale-95" aria-label="Cart">
+            <i class="fa-solid fa-bag-shopping text-emerald-400 group-hover:scale-110 transition text-sm"></i>
+            <span class="text-xs font-black hidden md:inline">Cart</span>
+            <span id="cartCountBadge" class="w-4 h-4 sm:w-5 sm:h-5 rounded-full bg-amber-400 text-slate-900 text-[10px] sm:text-xs font-black flex items-center justify-center">0</span>
           </button>
         </div>
 
@@ -1455,16 +1460,17 @@
           </div>
         </div>
 
-        <!-- Col 2: Nutrition Store -->
+        <!-- Col 2: Nutrition Store (Requirement 6: Six Authorized Categories) -->
         <div>
           <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrition Store</h4>
-          <ul class="space-y-2.5 text-xs text-slate-400">
-            <li><a href="/shop" class="hover:text-white transition">All Products</a></li>
-            <li><a href="/shop?cat=High+Protein+Foods" class="hover:text-white transition">High Protein Atta</a></li>
-            <li><a href="/shop?cat=Superfood+Blends" class="hover:text-white transition">Complete Nutri Meal</a></li>
-            <li><a href="/shop?cat=Healthy+Breakfast" class="hover:text-white transition">Talbeenah Porridge</a></li>
-            <li><a href="/shop?cat=Millet+Products" class="hover:text-white transition">Multi-Millet Flakes</a></li>
-            <li><a href="/shop?cat=Wellness+Nutrition" class="hover:text-white transition">Black Seed Oil</a></li>
+          <ul class="space-y-2.5 text-xs text-slate-400 font-semibold">
+            <li><a href="shop.html" class="hover:text-white transition">All Products</a></li>
+            <li><a href="shop.html?cat=Protein+Atta" class="hover:text-white transition">Protein Atta</a></li>
+            <li><a href="shop.html?cat=Protein+Snacks" class="hover:text-white transition">Protein Snacks</a></li>
+            <li><a href="shop.html?cat=Nutrition+Meal" class="hover:text-white transition">Nutrition Meal</a></li>
+            <li><a href="shop.html?cat=Nutrition+Drink" class="hover:text-white transition">Nutrition Drink</a></li>
+            <li><a href="shop.html?cat=Healthy+Flakes" class="hover:text-white transition">Healthy Flakes</a></li>
+            <li><a href="shop.html?cat=Body+Building+%26+Strength" class="hover:text-white transition">Body Building & Strength</a></li>
           </ul>
         </div>
 
@@ -2657,7 +2663,7 @@
               <div class="flex items-center justify-between mt-1.5">
                 <span class="font-black text-sm text-emerald-800">₹${item.price}</span>
                 <div class="flex items-center space-x-1.5">
-                  <button onclick="window.quickAddToCart('${item.id}', ${item.price}, '${item.name.replace(/'/g, "\\'")}', '${img}')" class="text-[11px] font-black bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg flex items-center space-x-1 shadow-sm transition">
+                  <button onclick="window.addWishlistItemToCart('${item.id}')" class="text-[11px] font-black bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 rounded-lg flex items-center space-x-1 shadow-sm transition active:scale-95" title="Add to Cart">
                     <i class="fa-solid fa-cart-plus text-[10px]"></i>
                     <span>Add</span>
                   </button>
@@ -2670,6 +2676,51 @@
           </div>
         `;
       }).join('');
+    };
+
+    // Wishlist Add to Cart Implementation (Requirement 2)
+    window.addWishlistItemToCart = function(id) {
+      const allItems = window.nutroProducts || window.nutroFallbackProducts || [];
+      let item = allItems.find(p => p.id === id);
+      if (!item) {
+        try {
+          const stored = JSON.parse(localStorage.getItem('nutrolix_products') || '[]');
+          item = stored.find(p => p.id === id);
+        } catch (_) {}
+      }
+      if (!item) return;
+
+      const price = Number(item.price) || 0;
+      const name = item.name || item.title || 'Nutrolix Product';
+      const img = (item.images && item.images[0]) || item.image || 'assets/nutrolix-logo.png';
+
+      let cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+      const existing = cart.find(i => i.id === id);
+      if (existing) {
+        existing.quantity = (existing.quantity || 1) + 1;
+      } else {
+        cart.push({
+          id: item.id,
+          name: name,
+          title: name,
+          price: price,
+          image: img,
+          quantity: 1,
+          variant: item.packSize || item.category || 'Standard Pack'
+        });
+      }
+
+      window.nutroCart = cart;
+      localStorage.setItem('nutrolix_store_cart', JSON.stringify(cart));
+      updateCartBadge();
+      if (typeof renderCartDrawer === 'function') renderCartDrawer();
+
+      // Show toast confirmation
+      const toast = document.createElement('div');
+      toast.className = 'fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-nutro-forest text-white px-4 py-2.5 rounded-2xl shadow-2xl text-xs font-black flex items-center space-x-2 border border-emerald-400';
+      toast.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i><span>${name} added to Cart!</span>`;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 2200);
     };
 
     window.toggleWishlist = function(id) {
