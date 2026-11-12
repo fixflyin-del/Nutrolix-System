@@ -390,7 +390,9 @@
         <!-- Right Hero Visual Product Showcase -->
         <div class="lg:col-span-5 relative">
           <div class="relative bg-white/90 backdrop-blur-xl border border-emerald-200/80 rounded-3xl p-5 sm:p-6 shadow-xl">
-            <img id="heroShowcaseImg" src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80" onerror="this.onerror=null; this.src='assets/nutrolix-logo.png'" alt="Nutrolix High Protein Atta" class="w-full h-64 sm:h-72 object-cover rounded-2xl shadow-sm mb-4">
+            <a href="product.html?id=prod_high_protein_atta" id="heroShowcaseLinkImg" class="block group cursor-pointer" title="View Product Details">
+              <img id="heroShowcaseImg" src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80" onerror="this.onerror=null; this.src='assets/nutrolix-logo.png'" alt="Nutrolix High Protein Atta" class="w-full h-64 sm:h-72 object-cover rounded-2xl shadow-sm mb-4 group-hover:scale-[1.01] transition duration-300">
+            </a>
             
             <div class="flex items-center justify-between">
               <div>
@@ -399,7 +401,9 @@
                   <span class="text-xs font-extrabold text-slate-900 ml-1.5">4.9 / 5.0</span>
                   <span class="text-xs text-slate-500">(184 Reviews)</span>
                 </div>
-                <h4 id="heroShowcaseTitle" class="text-lg font-black text-slate-950 mt-1">Nutrolix High Protein Atta</h4>
+                <h4 class="text-lg font-black text-slate-950 mt-1 hover:text-emerald-700 transition">
+                  <a id="heroShowcaseTitle" href="product.html?id=prod_high_protein_atta" class="hover:underline cursor-pointer" title="Click to view product details">Nutrolix High Protein Atta</a>
+                </h4>
               </div>
               <div class="text-right">
                 <div id="heroShowcasePrice" class="text-xl font-black text-emerald-800">₹349</div>
@@ -1961,8 +1965,15 @@
         if (custom.showcase) {
           const img = document.getElementById('heroShowcaseImg');
           if (img && custom.showcase.image) img.src = custom.showcase.image;
+          const productId = custom.showcase.id || 'prod_high_protein_atta';
           const t = document.getElementById('heroShowcaseTitle');
-          if (t && custom.showcase.title) { t.innerText = custom.showcase.title; window.heroShowcaseState.title = custom.showcase.title; }
+          if (t && custom.showcase.title) {
+            t.innerText = custom.showcase.title;
+            t.href = 'product.html?id=' + productId;
+            window.heroShowcaseState.title = custom.showcase.title;
+          }
+          const linkImg = document.getElementById('heroShowcaseLinkImg');
+          if (linkImg) linkImg.href = 'product.html?id=' + productId;
           const p = document.getElementById('heroShowcasePrice');
           if (p && custom.showcase.price) {
             const newPrice = Number(custom.showcase.price);

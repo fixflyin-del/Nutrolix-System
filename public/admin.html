@@ -1235,7 +1235,7 @@
 
         <div class="flex justify-end space-x-2 pt-3">
           <button type="button" onclick="window.closeModal('addMealModalSingle')" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Cancel</button>
-          <button type="submit" class="px-5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow">Save Meal</button>
+          <button type="submit" id="saveMealSubmitBtn" class="px-5 py-2 text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white rounded-xl shadow">Save Meal</button>
         </div>
       </form>
     </div>
@@ -2003,24 +2003,56 @@
       const modal = document.getElementById('packagedProductModal');
       if (!modal) return;
       document.getElementById('pkgModalTitle').innerText = 'Add Packaged Nutrition Product';
+      const saveBtn = document.getElementById('savePkgBtn');
+      if (saveBtn) saveBtn.innerText = 'Save Product';
       document.getElementById('pkgProductForm').reset();
       document.getElementById('pkgId').value = '';
       modal.classList.remove('hidden');
     };
 
     window.editPackagedProduct = function(id) {
-      const p = (window.packagedProducts || []).find(item => item.id === id);
-      if (!p) return;
-      document.getElementById('pkgModalTitle').innerText = 'Edit Product: ' + p.title;
+      let p = (window.packagedProducts || []).find(item => String(item.id) === String(id));
+      if (!p) {
+        try {
+          const cached = JSON.parse(localStorage.getItem('nutrolix_packaged_products') || '[]');
+          p = cached.find(item => String(item.id) === String(id));
+        } catch (_) {}
+      }
+      if (!p && window.nutroProducts) {
+        p = window.nutroProducts.find(item => String(item.id) === String(id));
+      }
+      if (!p) {
+        alert('Could not find product details for ID: ' + id);
+        return;
+      }
+
+      const prodName = p.name || p.title || 'Nutrolix Product';
+      document.getElementById('pkgModalTitle').innerText = 'Edit Product: ' + prodName;
+      const saveBtn = document.getElementById('savePkgBtn');
+      if (saveBtn) saveBtn.innerText = 'Update Product';
+
       document.getElementById('pkgId').value = p.id;
-      document.getElementById('pkgTitle').value = p.title || '';
-      document.getElementById('pkgCategory').value = p.category || 'High-Protein Flours';
+      document.getElementById('pkgTitle').value = prodName;
+
+      // Ensure category exists in dropdown
+      const catSelect = document.getElementById('pkgCategory');
+      if (catSelect && p.category) {
+        const exists = Array.from(catSelect.options).some(o => o.value === p.category);
+        if (!exists) {
+          const opt = document.createElement('option');
+          opt.value = p.category;
+          opt.innerText = p.category;
+          catSelect.appendChild(opt);
+        }
+        catSelect.value = p.category;
+      }
+
       document.getElementById('pkgSubcategory').value = p.subcategory || '';
-      document.getElementById('pkgPrice').value = p.price || 0;
-      document.getElementById('pkgMrp').value = p.mrp || 0;
+      document.getElementById('pkgPrice').value = p.price !== undefined ? p.price : 0;
+      document.getElementById('pkgMrp').value = p.mrp || p.originalPrice || p.price || 0;
       document.getElementById('pkgStockStatus').value = p.stockStatus || 'In Stock';
       
-      const imgs = p.images || [];
+      const imgs = (p.images && p.images.length) ? p.images : (p.image ? [p.image] : []);
       document.getElementById('pkgImg1').value = imgs[0] || '';
       document.getElementById('pkgImg2').value = imgs[1] || '';
       document.getElementById('pkgImg3').value = imgs[2] || '';
@@ -2028,14 +2060,21 @@
       document.getElementById('pkgImg5').value = imgs[4] || '';
 
       const per100g = p.nutritionFacts?.per100g || {};
-      document.getElementById('pkgCalories').value = parseFloat(per100g.calories) || 368;
-      document.getElementById('pkgProtein').value = parseFloat(per100g.protein) || 30;
-      document.getElementById('pkgCarbs').value = parseFloat(per100g.carbs) || 42;
-      document.getElementById('pkgFat').value = parseFloat(per100g.fat) || 4.5;
-      document.getElementById('pkgFiber').value = parseFloat(per100g.dietaryFiber) || 12;
-      document.getElementById('pkgSugar').value = parseFloat(per100g.addedSugar) || 0;
+      const calVal = per100g.calories || p.calories || '368';
+      const protVal = per100g.protein || p.protein || '30';
+      const carbVal = per100g.carbs || p.carbs || '42';
+      const fatVal = per100g.fat || p.fat || '4.5';
+      const fibVal = per100g.dietaryFiber || p.fiber || '12';
+      const sugVal = per100g.addedSugar || p.sugar || '0';
 
-      document.getElementById('pkgHeroClaim').value = p.heroClaim || '';
+      document.getElementById('pkgCalories').value = parseFloat(calVal) || 368;
+      document.getElementById('pkgProtein').value = parseFloat(protVal) || 30;
+      document.getElementById('pkgCarbs').value = parseFloat(carbVal) || 42;
+      document.getElementById('pkgFat').value = parseFloat(fatVal) || 4.5;
+      document.getElementById('pkgFiber').value = parseFloat(fibVal) || 12;
+      document.getElementById('pkgSugar').value = parseFloat(sugVal) || 0;
+
+      document.getElementById('pkgHeroClaim').value = p.heroClaim || p.tagline || '';
       document.getElementById('pkgIngredients').value = Array.isArray(p.ingredients) ? p.ingredients.join(', ') : (p.ingredients || '');
       document.getElementById('pkgBenefits').value = Array.isArray(p.benefits) ? p.benefits.join('; ') : (p.benefits || '');
       document.getElementById('pkgUsage').value = p.howToUse || p.usage || '';
@@ -2149,31 +2188,118 @@
     };
 
     // -------------------------------------------------------------
-    // AUDIO CHIME & NEW ORDER ALARM CONTROLLER
+    // AUDIO CHIME & NEW ORDER ALARM CONTROLLER (Web & Android App)
     // -------------------------------------------------------------
     let soundAlertEnabled = true;
     let audioCtx = null;
     let ringInterval = null;
-    let acknowledgedOrderIds = new Set();
+    window.acknowledgedOrderIds = window.acknowledgedOrderIds || new Set();
+    window.knownAdminOrderIds = window.knownAdminOrderIds || new Set();
+
+    function playUrgentTone() {
+      try {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) audioCtx = new AudioContextClass();
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        if (!audioCtx) return;
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        // Urgent two-stage siren tone
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(850, now);
+        osc.frequency.linearRampToValueAtTime(1300, now + 0.25);
+        osc.frequency.linearRampToValueAtTime(850, now + 0.5);
+
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.7);
+      } catch (e) {
+        console.warn('Audio tone error:', e);
+      }
+    }
 
     function playChime() {
       if (!soundAlertEnabled) return;
-      try {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-        osc.frequency.exponentialRampToValueAtTime(1320, audioCtx.currentTime + 0.15);
-        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
-        gain.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.35);
-      } catch (e) {
-        console.warn('Audio chime notice:', e);
-      }
+      playUrgentTone();
     }
+
+    window.playNativeOrderAlarm = function(order) {
+      // 1. Android Native Bridge for wake lock and system ringer
+      if (window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.playAlarm === "function") {
+        try { window.NutrolixAdminNativeBridge.playAlarm(); } catch (_) {}
+      }
+
+      // 2. Show persistent alert banner
+      const banner = document.getElementById('newOrderAlertBanner');
+      if (banner) {
+        if (order) {
+          const orderNum = order.orderId || order.id || 'LIVE';
+          const cust = (order.customer && order.customer.name) ? order.customer.name : 'Customer';
+          const amt = order.grandTotal || order.total || '';
+          const titleEl = document.getElementById('alertBannerTitle');
+          const subEl = document.getElementById('alertBannerSubtitle');
+          if (titleEl) titleEl.innerText = `🚨 NEW ORDER RECEIVED! #${orderNum}`;
+          if (subEl) subEl.innerText = `${cust} placed order for ₹${amt} • Review and accept now!`;
+        }
+        banner.classList.remove('hidden');
+      }
+
+      // 3. Browser notification if allowed
+      if (window.Notification && Notification.permission === 'granted' && order) {
+        try {
+          const nTitle = `🚨 New Nutrolix Order #${order.orderId || order.id}`;
+          const nBody = `${order.customer?.name || 'Customer'} ordered for ₹${order.grandTotal || order.total}!`;
+          new Notification(nTitle, { body: nBody, icon: 'assets/nutrolix-logo.png' });
+        } catch (_) {}
+      }
+
+      if (!soundAlertEnabled) return;
+
+      // 4. Play first chime immediately
+      playUrgentTone();
+      if (navigator.vibrate) {
+        try { navigator.vibrate([500, 200, 500, 200, 800]); } catch (_) {}
+      }
+
+      // 5. Continuous ringer loop every 1.8 seconds until acknowledged
+      if (ringInterval) clearInterval(ringInterval);
+      ringInterval = setInterval(() => {
+        if (!soundAlertEnabled) {
+          clearInterval(ringInterval);
+          ringInterval = null;
+          return;
+        }
+        playUrgentTone();
+        if (navigator.vibrate) {
+          try { navigator.vibrate([500, 200, 500, 200, 800]); } catch (_) {}
+        }
+      }, 1800);
+    };
+
+    window.acknowledgeActiveAlarm = function() {
+      if (ringInterval) {
+        clearInterval(ringInterval);
+        ringInterval = null;
+      }
+      if (window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.stopAlarm === "function") {
+        try { window.NutrolixAdminNativeBridge.stopAlarm(); } catch (_) {}
+      }
+      (window.packagedOrders || []).forEach(o => window.acknowledgedOrderIds.add(o.id));
+      const banner = document.getElementById('newOrderAlertBanner');
+      if (banner) banner.classList.add('hidden');
+    };
 
     window.toggleSoundAlert = function() {
       soundAlertEnabled = !soundAlertEnabled;
@@ -2184,17 +2310,10 @@
       if (!soundAlertEnabled && ringInterval) {
         clearInterval(ringInterval);
         ringInterval = null;
+        if (window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.stopAlarm === "function") {
+          try { window.NutrolixAdminNativeBridge.stopAlarm(); } catch (_) {}
+        }
       }
-    };
-
-    window.acknowledgeActiveAlarm = function() {
-      if (ringInterval) {
-        clearInterval(ringInterval);
-        ringInterval = null;
-      }
-      (window.packagedOrders || []).forEach(o => acknowledgedOrderIds.add(o.id));
-      const banner = document.getElementById('newOrderAlertBanner');
-      if (banner) banner.classList.add('hidden');
     };
 
     // -------------------------------------------------------------
@@ -2287,22 +2406,52 @@
       window.updateOrderFilterCounts();
       window.renderPackagedOrdersTable();
 
-      // 2. Background Sync
+      // 2. Real-Time Server Poll
       try {
         const res = await fetch('/api/nutrition-orders');
         if (res && res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length) {
+            const isInitial = !window.hasCompletedInitialOrderCheck;
+            let newlyArrivedOrder = null;
+
+            if (isInitial) {
+              data.forEach(o => window.knownAdminOrderIds.add(o.id));
+              window.hasCompletedInitialOrderCheck = true;
+            } else {
+              data.forEach(o => {
+                if (!window.knownAdminOrderIds.has(o.id)) {
+                  window.knownAdminOrderIds.add(o.id);
+                  const st = (o.status || '').toLowerCase();
+                  if (!['cancelled', 'rejected', 'delivered'].includes(st)) {
+                    newlyArrivedOrder = o;
+                  }
+                }
+              });
+            }
+
             window.packagedOrders = data;
             localStorage.setItem('nutrolix_orders', JSON.stringify(data));
             if (badge) badge.innerText = data.length;
             window.updateKPIs();
             window.updateOrderFilterCounts();
             window.renderPackagedOrdersTable();
+
+            if (newlyArrivedOrder) {
+              console.log('🚨 NEW ORDER DETECTED VIA LIVE POLL:', newlyArrivedOrder);
+              window.playNativeOrderAlarm(newlyArrivedOrder);
+            }
           }
         }
       } catch (err) {
         console.warn('Orders sync error:', err.message);
+      }
+
+      // Ensure 4-second live background polling is active
+      if (!window.orderPollingTimer) {
+        window.orderPollingTimer = setInterval(() => {
+          window.loadPackagedOrders();
+        }, 4000);
       }
     };
 
@@ -3013,6 +3162,8 @@
       document.getElementById('singleMealDescription').value = '';
       document.getElementById('singleMealInStock').checked = true;
       document.getElementById('foodMealModalTitle').innerText = 'Add Healthy Food Meal (1 Photo Only)';
+      const submitBtn = document.getElementById('saveMealSubmitBtn');
+      if (submitBtn) submitBtn.innerText = 'Save Meal';
       document.getElementById('singleMealImagePreviewWrapper').classList.add('hidden');
       document.getElementById('addMealModalSingle').classList.remove('hidden');
     };
@@ -3110,25 +3261,57 @@
     };
 
     window.editHealthyMeal = function(id) {
-      const meal = (window.healthyMeals || []).find(m => m.id === id);
-      if (!meal) return;
+      let meal = (window.healthyMeals || []).find(m => String(m.id) === String(id));
+      if (!meal) {
+        try {
+          const local = JSON.parse(localStorage.getItem('nutrolix_healthy_food_menu') || localStorage.getItem('nutrolix_healthy_food') || '[]');
+          meal = local.find(m => String(m.id) === String(id));
+        } catch (_) {}
+      }
+      if (!meal) {
+        alert('Could not find meal details for ID: ' + id);
+        return;
+      }
+
+      const mealName = meal.name || meal.title || 'Healthy Food Meal';
       document.getElementById('singleMealId').value = meal.id;
-      document.getElementById('singleMealTitle').value = meal.title;
-      document.getElementById('singleMealCategory').value = meal.category;
-      document.getElementById('singleMealPrice').value = meal.price;
-      document.getElementById('singleMealCalories').value = meal.calories;
-      document.getElementById('singleMealProtein').value = meal.protein;
-      document.getElementById('singleMealPrep').value = (meal.prepTime || '20').replace(/[^0-9]/g, '');
-      document.getElementById('singleMealImageUrl').value = meal.image;
+      document.getElementById('singleMealTitle').value = mealName;
+      document.getElementById('foodMealModalTitle').innerText = 'Edit Healthy Meal: ' + mealName;
+
+      const submitBtn = document.getElementById('saveMealSubmitBtn');
+      if (submitBtn) submitBtn.innerText = 'Update Meal';
+
+      const catSelect = document.getElementById('singleMealCategory');
+      if (catSelect && meal.category) {
+        const exists = Array.from(catSelect.options).some(o => o.value === meal.category);
+        if (!exists) {
+          const opt = document.createElement('option');
+          opt.value = meal.category;
+          opt.innerText = meal.category;
+          catSelect.appendChild(opt);
+        }
+        catSelect.value = meal.category;
+      }
+
+      document.getElementById('singleMealPrice').value = meal.price !== undefined ? meal.price : 199;
+      document.getElementById('singleMealCalories').value = parseInt(meal.calories) || 400;
+      document.getElementById('singleMealProtein').value = parseFloat(meal.protein) || 25;
+      document.getElementById('singleMealPrep').value = String(meal.prepTime || '20').replace(/[^0-9]/g, '');
+      
+      const mealImg = meal.image || (Array.isArray(meal.images) ? meal.images[0] : '') || '';
+      document.getElementById('singleMealImageUrl').value = mealImg;
       document.getElementById('singleMealDescription').value = meal.description || '';
       document.getElementById('singleMealInStock').checked = meal.inStock !== false;
-      document.getElementById('foodMealModalTitle').innerText = 'Edit Healthy Meal';
       
       const preview = document.getElementById('singleMealPreview');
-      if (preview && meal.image) {
-        preview.src = meal.image;
-        document.getElementById('singleMealImagePreviewWrapper').classList.remove('hidden');
+      const wrapper = document.getElementById('singleMealImagePreviewWrapper');
+      if (preview && mealImg) {
+        preview.src = mealImg;
+        if (wrapper) wrapper.classList.remove('hidden');
+      } else if (wrapper) {
+        wrapper.classList.add('hidden');
       }
+
       document.getElementById('addMealModalSingle').classList.remove('hidden');
     };
 

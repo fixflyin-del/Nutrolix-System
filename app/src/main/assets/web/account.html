@@ -27,6 +27,7 @@
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
+    html, body { max-width: 100%; overflow-x: hidden; }
     body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
     .mobile-safe-bottom { padding-bottom: 5.5rem; }
     .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -41,11 +42,15 @@
   <script src="assets/nutrolix-data.js"></script>
   <script src="assets/nutrolix-drawer.js"></script>
   <script src="assets/nutrolix-notifications.js"></script>
+  <!-- Animated Splash Screen (Requirement 4) -->
+  <script src="assets/nutrolix-splash.js"></script>
+  <!-- Android Mobile Browser Back Navigation Handler (Requirement 3) -->
+  <script src="assets/nutrolix-back-handler.js"></script>
   <!-- Real 100% Google Authentication Bridge (Zero fake emails) -->
   <script src="assets/nutrolix-auth.js"></script>
   <script src="assets/nutrolix-reviews.js"></script>
 </head>
-<body class="mobile-safe-bottom flex flex-col min-h-screen">
+<body class="mobile-safe-bottom flex flex-col min-h-screen overflow-x-hidden">
 
   <!-- ============================================================== -->
   <!-- 1. STICKY HEADER WITH ORIGINAL NUTROLIX LOGO -->
@@ -199,7 +204,7 @@
           </p>
         </div>
 
-        <!-- 1-Tap Google Sign-In Button (NO typing, NO fake Nutrolix account) -->
+        <!-- Direct Google Sign-In Button (NO typing, Direct Firebase Google Account) -->
         <button onclick="window.startDirectGoogleAuth(this)" class="w-full py-4 px-6 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 bg-white hover:bg-slate-50 transition flex items-center justify-center space-x-3 shadow-md group active:scale-95">
           <svg class="w-6 h-6 shrink-0" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -211,7 +216,7 @@
         </button>
 
         <div class="text-[11px] text-slate-400">
-          Fast & 100% verified sign-in with your personal Gmail account.
+          Fast & 100% verified sign-in with your personal Google account. Zero manual email typing.
         </div>
       </div>
     </div>
@@ -489,15 +494,17 @@
           </div>
         </div>
 
-        <!-- Col 2: Nutrition Store -->
+        <!-- Col 2: Nutrition Store (Requirement 6: Six Authorized Categories) -->
         <div>
           <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrition Store</h4>
-          <ul class="space-y-2.5 text-xs text-slate-400">
+          <ul class="space-y-2.5 text-xs text-slate-400 font-semibold">
             <li><a href="shop.html" class="hover:text-white transition">All Products</a></li>
-            <li><a href="shop.html?cat=High+Protein+Foods" class="hover:text-white transition">High Protein Atta</a></li>
-            <li><a href="shop.html?cat=Superfood+Blends" class="hover:text-white transition">Complete Nutri Meal</a></li>
-            <li><a href="shop.html?cat=Healthy+Breakfast" class="hover:text-white transition">Talbeenah Porridge</a></li>
-            <li><a href="shop.html?cat=Wellness+Nutrition" class="hover:text-white transition">Black Seed Oil</a></li>
+            <li><a href="shop.html?cat=Protein+Atta" class="hover:text-white transition">Protein Atta</a></li>
+            <li><a href="shop.html?cat=Protein+Snacks" class="hover:text-white transition">Protein Snacks</a></li>
+            <li><a href="shop.html?cat=Nutrition+Meal" class="hover:text-white transition">Nutrition Meal</a></li>
+            <li><a href="shop.html?cat=Nutrition+Drink" class="hover:text-white transition">Nutrition Drink</a></li>
+            <li><a href="shop.html?cat=Healthy+Flakes" class="hover:text-white transition">Healthy Flakes</a></li>
+            <li><a href="shop.html?cat=Body+Building+%26+Strength" class="hover:text-white transition">Body Building & Strength</a></li>
           </ul>
         </div>
 
@@ -601,7 +608,7 @@
         const authGate = document.getElementById('profileAuthGate');
         const dashContent = document.getElementById('profileDashboardContent');
 
-        const isLoggedIn = profile && profile.email && profile.authProvider === 'google';
+        const isLoggedIn = profile && (profile.email || profile.phone) && (profile.authProvider === 'google' || profile.verified);
 
         if (!isLoggedIn) {
           if (authGate) authGate.classList.remove('hidden');

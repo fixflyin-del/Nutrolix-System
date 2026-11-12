@@ -165,54 +165,71 @@ class AdminOrderBackgroundService : Service() {
     }
   }
 
-  // Backup HTTP polling to ensure zero orders are ever missed
+  private val remoteOrderEndpoints = listOf(
+    "https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app/api/nutrition-orders",
+    "https://nutrolixweb.vercel.app/api/nutrition-orders",
+    "http://10.0.2.2:3000/api/nutrition-orders",
+    "http://127.0.0.1:3000/api/nutrition-orders"
+  )
+
+  // Fast background HTTP polling across cloud endpoints to ensure zero orders are ever missed
   private fun startBackupPolling() {
     serviceScope.launch {
       while (isActive) {
-        delay(12000L) // every 12 seconds
-        try {
-          val url = URL("http://127.0.0.1:3000/api/nutrition-orders")
-          val conn = url.openConnection() as HttpURLConnection
-          conn.connectTimeout = 4000
-          conn.readTimeout = 4000
-          if (conn.responseCode == 200) {
-            val text = conn.inputStream.bufferedReader().use { it.readText() }
-            val array = JSONArray(text)
-            val orders = mutableListOf<Order>()
-            for (i in 0 until array.length()) {
-              val obj = array.getJSONObject(i)
-              val id = obj.optString("id", "")
-              val statusStr = obj.optString("status", "Order Placed")
-              val status = if (statusStr.contains("Placed", ignoreCase = true)) OrderStatus.PLACED else OrderStatus.CONFIRMED
-              val cust = obj.optJSONObject("customer")
-              val custName = cust?.optString("name", "Customer") ?: "Customer"
-              val custPhone = cust?.optString("phone", "") ?: ""
-              val total = obj.optDouble("grandTotal", 0.0)
+        delay(8000L) // every 8 seconds for real-time responsiveness
+        for (endpoint in remoteOrderEndpoints) {
+          try {
+            val url = URL(endpoint)
+            val conn = url.openConnection() as HttpURLConnection
+            conn.connectTimeout = 5000
+            conn.readTimeout = 5000
+            conn.setRequestProperty("Accept", "application/json")
+            if (conn.responseCode == 200) {
+              val text = conn.inputStream.bufferedReader().use { it.readText() }
+              val array = JSONArray(text)
+              val orders = mutableListOf<Order>()
+              for (i in 0 until array.length()) {
+                val obj = array.getJSONObject(i)
+                val id = obj.optString("id", "")
+                val statusStr = obj.optString("status", "Order Placed")
+                val isPlaced = statusStr.contains("Placed", ignoreCase = true) ||
+                               statusStr.contains("New", ignoreCase = true) ||
+                               statusStr.contains("Pending", ignoreCase = true) ||
+                               statusStr.contains("Accepted", ignoreCase = true)
+                val status = if (isPlaced) OrderStatus.PLACED else OrderStatus.CONFIRMED
+                val cust = obj.optJSONObject("customer")
+                val custName = cust?.optString("name", "Customer") ?: "Customer"
+                val custPhone = cust?.optString("phone", "") ?: ""
+                val total = obj.optDouble("grandTotal", obj.optDouble("total", 0.0))
 
-              orders.add(
-                Order(
-                  id = id,
-                  orderNumber = id,
-                  customerPhone = custPhone,
-                  customerName = custName,
-                  items = emptyList(),
-                  subtotal = total,
-                  discount = 0.0,
-                  deliveryFee = 0.0,
-                  tax = 0.0,
-                  tip = 0.0,
-                  total = total,
-                  status = status,
-                  paymentMethod = "Online",
-                  paymentStatus = "PAID",
-                  orderTimeMillis = System.currentTimeMillis(),
-                  deliveryAddress = "Direct Customer Address"
+                orders.add(
+                  Order(
+                    id = id,
+                    orderNumber = id,
+                    customerPhone = custPhone,
+                    customerName = custName,
+                    items = emptyList(),
+                    subtotal = total,
+                    discount = 0.0,
+                    deliveryFee = 0.0,
+                    tax = 0.0,
+                    tip = 0.0,
+                    total = total,
+                    status = status,
+                    paymentMethod = obj.optString("paymentMethod", "Online"),
+                    paymentStatus = "PAID",
+                    orderTimeMillis = System.currentTimeMillis(),
+                    deliveryAddress = "Direct Customer Address"
+                  )
                 )
-              )
+              }
+              handleIncomingOrders(orders)
+              break // Successfully polled this cycle, move to next cycle
             }
-            handleIncomingOrders(orders)
+          } catch (_: Exception) {
+            // Try next fallback endpoint
           }
-        } catch (_: Exception) {}
+        }
       }
     }
   }
@@ -225,7 +242,7 @@ class AdminOrderBackgroundService : Service() {
       return
     }
 
-    orders.filter { it.status == OrderStatus.PLACED }.forEach { newOrder ->
+    orders.filter { it.status == OrderStatus.PLACED || it.status == OrderStatus.CONFIRMED }.forEach { newOrder ->
       if (!knownOrderIds.contains(newOrder.id)) {
         knownOrderIds.add(newOrder.id)
         Log.i(TAG, "🚨 NEW LIVE ORDER DETECTED: #${newOrder.id} - TRIGGERING LOUD CONTINUOUS RINGTONE ALARM")
