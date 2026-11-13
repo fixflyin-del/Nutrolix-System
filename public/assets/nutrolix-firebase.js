@@ -45,50 +45,85 @@
     // 1. ORDERS REAL-TIME SYNC
     saveOrder: async function(orderData) {
       const db = this.getDb();
-      if (!orderData.orderId) {
-        orderData.orderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+      const skipApi = Boolean(orderData && orderData._skipApi);
+      const cleanOrder = { ...(orderData || {}) };
+      delete cleanOrder._skipApi;
+
+      if (!cleanOrder.orderId) {
+        cleanOrder.orderId = cleanOrder.id || ('ORD-' + Math.floor(100000 + Math.random() * 900000));
       }
-      orderData.createdAt = new Date().toISOString();
-      orderData.timestamp = Date.now();
+      if (!cleanOrder.id) cleanOrder.id = cleanOrder.orderId;
+      if (!cleanOrder.createdAt) cleanOrder.createdAt = new Date().toISOString();
+      if (!cleanOrder.timestamp) cleanOrder.timestamp = Date.now();
+      if (!cleanOrder.orderTimeMillis) cleanOrder.orderTimeMillis = cleanOrder.timestamp;
 
       if (db) {
         try {
-          await db.collection('orders').doc(orderData.orderId).set(orderData, { merge: true });
-          console.log('✅ Order synced to Firestore:', orderData.orderId);
+          await db.collection('orders').doc(cleanOrder.orderId).set(cleanOrder, { merge: true });
+          console.log('✅ Order synced to Firestore:', cleanOrder.orderId);
         } catch (e) {
           console.warn('Firestore order save fallback:', e.message);
         }
       }
 
-      // Also dispatch to local server API if accessible
-      try {
-        const host = window.NUTROLIX_API_HOST || '';
-        await fetch(host + '/api/nutrition-orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderData)
-        });
-      } catch (_) {}
+      // Also save/upsert customer profile into users collection
+      if (cleanOrder.customer && (cleanOrder.customer.phone || cleanOrder.customer.email)) {
+        this.saveUser({
+          id: cleanOrder.customer.phone || cleanOrder.customer.email,
+          name: cleanOrder.customer.name || 'Customer',
+          phone: cleanOrder.customer.phone || '',
+          email: cleanOrder.customer.email || '',
+          lastAddress: cleanOrder.deliveryAddress
+            ? [cleanOrder.deliveryAddress.address1, cleanOrder.deliveryAddress.city, cleanOrder.deliveryAddress.pincode].filter(Boolean).join(', ')
+            : '',
+          lastOrderId: cleanOrder.orderId,
+          lastOrderAmount: Number(cleanOrder.grandTotal || cleanOrder.total || 0),
+          updatedAt: cleanOrder.createdAt
+        }).catch(() => {});
+      }
+
+      // Also dispatch to local/cloud server API if accessible and not already dispatched
+      if (!skipApi) {
+        try {
+          const host = window.NUTROLIX_API_HOST || '';
+          await fetch(host + '/api/nutrition-orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cleanOrder)
+          });
+        } catch (_) {}
+      }
 
       // Cache in localStorage for immediate offline customer tracking
       try {
-        const local = JSON.parse(localStorage.getItem('nutrolix_customer_orders') || '[]');
-        local.unshift(orderData);
+        const local = JSON.parse(localStorage.getItem('nutrolix_customer_orders') || '[]')
+          .filter(o => (o.id || o.orderId) !== cleanOrder.orderId);
+        local.unshift(cleanOrder);
         localStorage.setItem('nutrolix_customer_orders', JSON.stringify(local.slice(0, 50)));
       } catch (_) {}
 
-      return orderData;
+      return cleanOrder;
     },
 
     subscribeOrders: function(onData, onError) {
       const db = this.getDb();
       if (!db) return null;
       try {
-        return db.collection('orders').orderBy('timestamp', 'desc').limit(100).onSnapshot(
+        // Query whole collection without orderBy('timestamp') so Kotlin APK docs (which use orderTimeMillis) are never filtered out
+        return db.collection('orders').onSnapshot(
           snapshot => {
             const orders = [];
-            snapshot.forEach(doc => orders.push({ id: doc.id, ...doc.data() }));
-            onData(orders);
+            snapshot.forEach(doc => {
+              const data = doc.data() || {};
+              const oid = data.orderId || data.id || doc.id;
+              orders.push({ ...data, id: oid, orderId: oid });
+            });
+            orders.sort((a, b) => {
+              const ta = Number(a.timestamp || a.orderTimeMillis || Date.parse(a.createdAt || a.orderTime || 0) || 0);
+              const tb = Number(b.timestamp || b.orderTimeMillis || Date.parse(b.createdAt || b.orderTime || 0) || 0);
+              return tb - ta;
+            });
+            onData(orders.slice(0, 200));
           },
           err => {
             if (onError) onError(err);
@@ -100,11 +135,57 @@
       }
     },
 
+    saveUser: async function(userData) {
+      const db = this.getDb();
+      if (!db || !userData) return null;
+      const key = String(userData.uid || userData.phone || userData.email || userData.id || '').trim();
+      if (!key) return null;
+      const payload = {
+        ...userData,
+        id: key,
+        updatedAt: userData.updatedAt || new Date().toISOString(),
+        updatedAtMillis: Date.now()
+      };
+      try {
+        await db.collection('users').doc(key).set(payload, { merge: true });
+      } catch (e) {
+        console.warn('Firestore saveUser notice:', e.message);
+      }
+      return payload;
+    },
+
+    subscribeUsers: function(onData, onError) {
+      const db = this.getDb();
+      if (!db) return null;
+      try {
+        return db.collection('users').onSnapshot(
+          snapshot => {
+            const users = [];
+            snapshot.forEach(doc => users.push({ id: doc.id, ...doc.data() }));
+            users.sort((a, b) => {
+              const ta = Number(a.updatedAtMillis || Date.parse(a.updatedAt || a.lastLoginAt || 0) || 0);
+              const tb = Number(b.updatedAtMillis || Date.parse(b.updatedAt || b.lastLoginAt || 0) || 0);
+              return tb - ta;
+            });
+            onData(users);
+          },
+          err => {
+            if (onError) onError(err);
+          }
+        );
+      } catch (e) {
+        return null;
+      }
+    },
+
     updateOrderStatus: async function(orderId, statusData) {
       const db = this.getDb();
       if (db) {
         try {
-          await db.collection('orders').doc(orderId).set(statusData, { merge: true });
+          await db.collection('orders').doc(orderId).set({
+            ...statusData,
+            statusUpdatedAt: statusData.statusUpdatedAt || new Date().toISOString()
+          }, { merge: true });
         } catch (e) {
           console.warn('Firestore update order status fallback:', e.message);
         }

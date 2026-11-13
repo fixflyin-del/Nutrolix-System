@@ -1,0 +1,32 @@
+[
+  {
+    "id": "cat_high_protein",
+    "name": "High Protein Meals",
+    "icon": "💪",
+    "description": "Formulated with 35g+ bioavailable protein"
+  },
+  {
+    "id": "cat_diet_calorie",
+    "name": "Diet & Calorie Conscious",
+    "icon": "🥗",
+    "description": "Under 400 kcal nutrition-dense clean meals"
+  },
+  {
+    "id": "cat_detox_juices",
+    "name": "Detox Juices & Smoothies",
+    "icon": "🥤",
+    "description": "Cold-pressed, no added sugar, botanical blends"
+  },
+  {
+    "id": "cat_salads_bowls",
+    "name": "Salads & Bowls",
+    "icon": "🥑",
+    "description": "Sprouted ancient grains & superfood matrix"
+  },
+  {
+    "id": "cat_millet_khichdi",
+    "name": "Millet Innovations & Porridge",
+    "icon": "🌾",
+    "description": "Gut-healing ancient millets & A2 ghee"
+  }
+]

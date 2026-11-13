@@ -26,15 +26,23 @@
   </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #F8FAFC;
+      color: #1E293B;
+    }
     .custom-scrollbar::-webkit-scrollbar { height: 4px; width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
   </style>
   <script src="assets/nutrolix-drawer.js"></script>
   <script src="assets/nutrolix-notifications.js"></script>
   <script src="assets/nutrolix-reviews.js"></script>
+  <script src="assets/nutrolix-splash.js"></script>
+  <script src="assets/nutrolix-back-handler.js"></script>
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col pb-28">
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col pb-28 overflow-x-hidden">
 
   <!-- Header with Left Burger Menu (Point 5) & Original Nutrolix Logo -->
   <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-200">
@@ -52,23 +60,67 @@
         </a>
       </div>
 
-      <!-- Desktop Nav -->
-      <nav class="hidden md:flex items-center space-x-6 text-sm font-bold text-slate-700">
-        <a href="index.html" class="hover:text-nutro-emerald transition">Home</a>
-        <a href="shop.html" class="hover:text-nutro-emerald transition">Store</a>
-        <a href="food.html" class="text-nutro-emerald font-extrabold transition flex items-center space-x-1.5">
-          <i class="fa-solid fa-utensils text-xs"></i>
-          <span>Healthy Food</span>
-        </a>
-        <a href="orders.html" class="hover:text-nutro-emerald transition flex items-center space-x-1.5 text-slate-700 font-bold">
+      <!-- Desktop Nav (Requirement 2: Home, Store, Healthy Food, My Order & More Dropdown) -->
+      <nav class="hidden lg:flex items-center space-x-7 text-sm font-bold text-slate-700">
+        <a href="index.html" class="hover:text-emerald-700 transition">Home</a>
+        <a href="shop.html" class="hover:text-emerald-700 transition">Store</a>
+        <a href="food.html" class="text-emerald-700 border-b-2 border-emerald-700 pb-1 font-extrabold transition">Healthy Food</a>
+        <a href="orders.html" class="hover:text-emerald-700 transition flex items-center space-x-1.5 py-1 px-2.5 rounded-lg text-slate-700 hover:bg-slate-100 font-bold">
           <i class="fa-solid fa-truck-fast text-xs text-emerald-600"></i>
-          <span>Track Orders</span>
+          <span>My Order</span>
         </a>
-        <a href="account.html" class="hover:text-nutro-emerald transition">My Profile</a>
+
+        <!-- More Dropdown on Hover -->
+        <div class="relative group py-2">
+          <button class="flex items-center space-x-1 text-slate-700 hover:text-emerald-700 py-1 transition font-bold">
+            <span>More</span>
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:rotate-180 transition"></i>
+          </button>
+          <div class="absolute left-0 mt-1 w-56 bg-white rounded-2xl shadow-2xl border border-slate-100 py-2.5 hidden group-hover:block transition z-50">
+            <a href="about.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-emerald-50 text-slate-800 text-xs font-semibold">
+              <i class="fa-solid fa-circle-info text-emerald-600 w-4"></i>
+              <span>About Us</span>
+            </a>
+            <a href="about.html#story" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-emerald-50 text-slate-800 text-xs font-semibold">
+              <i class="fa-solid fa-seedling text-teal-600 w-4"></i>
+              <span>Our Story</span>
+            </a>
+            <a href="blogs.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-emerald-50 text-slate-800 text-xs font-semibold">
+              <i class="fa-solid fa-newspaper text-purple-600 w-4"></i>
+              <span>Blogs & Articles</span>
+            </a>
+            <a href="contact.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-emerald-50 text-slate-800 text-xs font-semibold">
+              <i class="fa-solid fa-envelope text-blue-600 w-4"></i>
+              <span>Contact Us</span>
+            </a>
+            <div class="border-t border-slate-100 my-1"></div>
+            <a href="terms.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-slate-50 text-slate-600 text-xs font-medium">
+              <i class="fa-solid fa-scale-balanced text-slate-400 w-4"></i>
+              <span>Terms & Conditions</span>
+            </a>
+            <a href="privacy.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-slate-50 text-slate-600 text-xs font-medium">
+              <i class="fa-solid fa-shield-halved text-slate-400 w-4"></i>
+              <span>Privacy Policy</span>
+            </a>
+            <a href="refund.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-slate-50 text-slate-600 text-xs font-medium">
+              <i class="fa-solid fa-rotate-left text-slate-400 w-4"></i>
+              <span>Refund & Return</span>
+            </a>
+            <a href="shipping.html" class="flex items-center space-x-2.5 px-4 py-2 hover:bg-slate-50 text-slate-600 text-xs font-medium">
+              <i class="fa-solid fa-box text-slate-400 w-4"></i>
+              <span>Shipping Policy</span>
+            </a>
+          </div>
+        </div>
       </nav>
 
-      <!-- Cart Icon & Live Counter in Header -->
-      <div class="flex items-center space-x-3">
+      <!-- Healthy Food Search & Cart Icons in Header (Requirement 5) -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        <!-- Search Trigger for Healthy Food Store -->
+        <button onclick="window.openFoodSearchModal()" class="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center text-sm transition active:scale-95 shadow-sm" title="Search Healthy Meals" aria-label="Search Healthy Meals">
+          <i class="fa-solid fa-magnifying-glass text-emerald-800"></i>
+        </button>
+
         <a href="cart.html" class="relative flex items-center space-x-2 bg-nutro-forest hover:bg-nutro-dark text-white px-3.5 py-2 rounded-xl text-xs font-black shadow-md transition active:scale-95">
           <i class="fa-solid fa-bag-shopping text-emerald-400"></i>
           <span>Cart</span>
@@ -368,6 +420,51 @@
     </div>
   </div>
 
+  <!-- Healthy Food Store Search Modal (Requirement 5) -->
+  <div id="foodSearchModalBackdrop" onclick="window.closeFoodSearchModal()" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 hidden transition-opacity duration-300"></div>
+  <div id="foodSearchModal" class="fixed top-0 left-0 right-0 sm:top-12 sm:max-w-xl sm:mx-auto bottom-0 sm:bottom-auto sm:max-h-[85vh] bg-white sm:rounded-3xl z-50 shadow-2xl flex flex-col hidden overflow-hidden">
+    <!-- Search Header -->
+    <div class="p-4 bg-nutro-forest text-white flex items-center justify-between border-b border-emerald-900 shrink-0">
+      <div class="flex items-center space-x-2.5">
+        <div class="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-emerald-300">
+          <i class="fa-solid fa-utensils"></i>
+        </div>
+        <div>
+          <h3 class="text-sm font-black text-white">Search Healthy Kitchen Meals</h3>
+          <p class="text-[10px] text-emerald-300">Healthy Food & Cloud Kitchen Menu Only</p>
+        </div>
+      </div>
+      <button onclick="window.closeFoodSearchModal()" class="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm transition">
+        <i class="fa-solid fa-xmark"></i>
+      </button>
+    </div>
+
+    <!-- Search Input Bar -->
+    <div class="p-3 bg-slate-50 border-b border-slate-200 shrink-0">
+      <div class="relative">
+        <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+        <input type="text" id="foodSearchInput" oninput="window.handleFoodSearch(this.value)" placeholder="Search meals, bowls, thali, juices, keto..." class="w-full pl-10 pr-9 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+        <button onclick="document.getElementById('foodSearchInput').value=''; window.handleFoodSearch('');" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs">
+          <i class="fa-solid fa-circle-xmark"></i>
+        </button>
+      </div>
+      <!-- Quick Filter Tags -->
+      <div class="flex items-center space-x-1.5 mt-2 overflow-x-auto pb-1 no-scrollbar text-[10px] font-bold">
+        <span class="text-slate-400 shrink-0">Popular:</span>
+        <button onclick="document.getElementById('foodSearchInput').value='Protein'; window.handleFoodSearch('Protein')" class="px-2.5 py-1 bg-white border border-slate-200 rounded-full text-slate-700 hover:border-emerald-500 hover:text-emerald-700 shrink-0">High Protein</button>
+        <button onclick="document.getElementById('foodSearchInput').value='Keto'; window.handleFoodSearch('Keto')" class="px-2.5 py-1 bg-white border border-slate-200 rounded-full text-slate-700 hover:border-emerald-500 hover:text-emerald-700 shrink-0">Keto</button>
+        <button onclick="document.getElementById('foodSearchInput').value='Salad'; window.handleFoodSearch('Salad')" class="px-2.5 py-1 bg-white border border-slate-200 rounded-full text-slate-700 hover:border-emerald-500 hover:text-emerald-700 shrink-0">Salad Bowl</button>
+        <button onclick="document.getElementById('foodSearchInput').value='Juice'; window.handleFoodSearch('Juice')" class="px-2.5 py-1 bg-white border border-slate-200 rounded-full text-slate-700 hover:border-emerald-500 hover:text-emerald-700 shrink-0">Detox Juice</button>
+        <button onclick="document.getElementById('foodSearchInput').value='Paneer'; window.handleFoodSearch('Paneer')" class="px-2.5 py-1 bg-white border border-slate-200 rounded-full text-slate-700 hover:border-emerald-500 hover:text-emerald-700 shrink-0">Paneer</button>
+      </div>
+    </div>
+
+    <!-- Search Results Container -->
+    <div id="foodSearchResults" class="flex-1 overflow-y-auto p-3 space-y-2.5 custom-scrollbar min-h-[240px] max-h-[60vh]">
+      <!-- Populated dynamically -->
+    </div>
+  </div>
+
   <!-- Sticky Floating Cart Pill on Mobile (Shows when items exist in cart) -->
   <div id="foodStickyCartBar" class="hidden fixed bottom-16 left-4 right-4 z-40 bg-nutro-forest text-white rounded-2xl p-3 shadow-2xl border border-emerald-500/40 flex items-center justify-between">
     <div class="flex items-center space-x-3">
@@ -415,7 +512,7 @@
 
   <script>
     // Authentic Nutrolix Healthy Food Kitchen Menu with Full Details
-    const healthyFoodMenu = [
+    const healthyFoodMenuDefaults = [
   {
     "id": "food_paneer_quinoa_bowl",
     "name": "Grilled Paneer & Quinoa Muscle Bowl",
@@ -870,6 +967,40 @@
     let currentSelectedModalDish = null;
     let modalSelectedQuantity = 1;
 
+    function normalizeMeal(m) {
+      if (!m) return null;
+      const name = m.name || m.title || 'Nutrolix Healthy Meal';
+      const img = m.image || (m.images && m.images[0]) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80';
+      return {
+        ...m,
+        id: m.id || ('meal_' + Math.random().toString(36).substring(2, 8)),
+        name,
+        title: name,
+        image: img,
+        category: m.category || 'High Protein Meals',
+        price: Number(m.price || 199),
+        protein: m.protein ? (String(m.protein).includes('g') ? m.protein : m.protein + 'g Protein') : '25g Protein',
+        calories: m.calories ? (String(m.calories).includes('kcal') ? m.calories : m.calories + ' kcal') : '350 kcal',
+        description: m.description || 'Clean, clinical-grade nutrition prepared fresh with zero palm oil.',
+        isVeg: m.isVeg !== undefined ? m.isVeg : (m.category !== 'Non-Veg Meals')
+      };
+    }
+
+    function getLiveHealthyFoodMenu() {
+      try {
+        const local = JSON.parse(localStorage.getItem('nutrolix_healthy_food') || 'null');
+        if (Array.isArray(local) && local.length > 0) {
+          return local.map(normalizeMeal).filter(Boolean);
+        }
+      } catch (_) {}
+      return healthyFoodMenuDefaults.map(normalizeMeal).filter(Boolean);
+    }
+    window.getLiveHealthyFoodMenu = getLiveHealthyFoodMenu;
+    Object.defineProperty(window, 'healthyFoodMenu', {
+      get() { return getLiveHealthyFoodMenu(); },
+      configurable: true
+    });
+
     // Toggle Left Slide-out Drawer (Point 5)
     window.toggleLeftBurgerMenu = function() {
       const drawer = document.getElementById('leftBurgerDrawer');
@@ -890,9 +1021,10 @@
       const container = document.getElementById('foodMenuGrid');
       if (!container) return;
 
+      const activeList = getLiveHealthyFoodMenu();
       const filtered = currentCategory === 'All' 
-        ? healthyFoodMenu 
-        : healthyFoodMenu.filter(item => item.category === currentCategory);
+        ? activeList 
+        : activeList.filter(item => item.category === currentCategory);
 
       const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
 
@@ -978,12 +1110,58 @@
       }
       renderFoodMenu();
     }
+    window.filterFoodCategory = filterFoodCategory;
+
+    async function loadDynamicCategories() {
+      let cats = [];
+      try {
+        const local = localStorage.getItem('nutrolix_food_categories');
+        if (local) cats = JSON.parse(local);
+      } catch(_) {}
+
+      if (!cats || !cats.length) {
+        try {
+          const res = await fetch('/api/food-categories');
+          if (res.ok) cats = await res.json();
+        } catch(_) {}
+      }
+
+      if (cats && cats.length) {
+        renderCategoryPills(cats);
+      }
+    }
+
+    function renderCategoryPills(categories) {
+      const container = document.getElementById('foodCategoriesContainer');
+      if (!container) return;
+      
+      const totalCount = getLiveHealthyFoodMenu().length;
+      let html = `
+        <button onclick="filterFoodCategory('All', this)" class="food-cat-btn ${currentCategory === 'All' ? 'active bg-nutro-forest text-white' : 'bg-slate-100 text-slate-700'} px-4 py-2 rounded-full shadow-sm shrink-0 flex items-center space-x-1.5 transition">
+          <i class="fa-solid fa-sparkles text-amber-400"></i>
+          <span>All Dishes</span>
+          <span class="ml-1 px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]" id="totalFoodCountBadge">${totalCount}</span>
+        </button>
+      `;
+
+      categories.forEach(cat => {
+        const catName = typeof cat === 'string' ? cat : (cat.name || cat.title);
+        const icon = typeof cat === 'object' && cat.icon ? cat.icon : '🥗';
+        const isActive = currentCategory === catName;
+        html += `
+          <button onclick="filterFoodCategory('${catName.replace(/'/g, "\\'")}', this)" class="food-cat-btn ${isActive ? 'active bg-nutro-forest text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} px-4 py-2 rounded-full shrink-0 transition">
+            ${icon} ${catName}
+          </button>
+        `;
+      });
+      container.innerHTML = html;
+    }
 
     // =========================================================================
     // Dish Detail Modal Functions (Requirement 1)
     // =========================================================================
     window.openFoodDetailModal = function(dishId) {
-      const dish = healthyFoodMenu.find(d => d.id === dishId);
+      const dish = getLiveHealthyFoodMenu().find(d => d.id === dishId);
       if (!dish) return;
 
       currentSelectedModalDish = dish;
@@ -1045,10 +1223,16 @@
 
       // Show Modal
       document.getElementById('foodDishDetailModal').classList.remove('hidden');
+      if (window.NutrolixBackHandler) {
+        window.NutrolixBackHandler.registerOpenModal('foodDishDetailModal', window.closeFoodDetailModal);
+      }
     };
 
     window.closeFoodDetailModal = function() {
       document.getElementById('foodDishDetailModal').classList.add('hidden');
+      if (window.NutrolixBackHandler) {
+        window.NutrolixBackHandler.unregisterModal('foodDishDetailModal');
+      }
     };
 
     window.stepModalQuantity = function(delta) {
@@ -1098,7 +1282,7 @@
     };
 
     function changeFoodQuantity(id, delta) {
-      const foodItem = healthyFoodMenu.find(i => i.id === id);
+      const foodItem = getLiveHealthyFoodMenu().find(i => i.id === id);
       if (!foodItem) return;
 
       let cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
@@ -1149,9 +1333,123 @@
       }
     }
 
+    // Healthy Food Search Modal Logic (Requirement 5)
+    window.openFoodSearchModal = function() {
+      const modal = document.getElementById('foodSearchModal');
+      const backdrop = document.getElementById('foodSearchModalBackdrop');
+      if (modal && backdrop) {
+        modal.classList.remove('hidden');
+        backdrop.classList.remove('hidden');
+        const input = document.getElementById('foodSearchInput');
+        if (input) {
+          input.value = '';
+          setTimeout(() => input.focus(), 80);
+        }
+        window.handleFoodSearch('');
+        if (window.NutrolixBackHandler) {
+          window.NutrolixBackHandler.registerOpenModal('foodSearchModal', window.closeFoodSearchModal);
+        }
+      }
+    };
+
+    window.closeFoodSearchModal = function() {
+      const modal = document.getElementById('foodSearchModal');
+      const backdrop = document.getElementById('foodSearchModalBackdrop');
+      if (modal) modal.classList.add('hidden');
+      if (backdrop) backdrop.classList.add('hidden');
+      if (window.NutrolixBackHandler) {
+        window.NutrolixBackHandler.unregisterModal('foodSearchModal');
+      }
+    };
+
+    window.handleFoodSearch = function(query) {
+      const container = document.getElementById('foodSearchResults');
+      if (!container) return;
+      const term = (query || '').trim().toLowerCase();
+      // Returns ONLY Healthy Food & Cloud Kitchen menu items, never packaged products (Requirement 5)
+      const allMeals = getLiveHealthyFoodMenu();
+      const results = term ? allMeals.filter(m => {
+        return (m.name && m.name.toLowerCase().includes(term)) ||
+               (m.category && m.category.toLowerCase().includes(term)) ||
+               (m.description && m.description.toLowerCase().includes(term)) ||
+               (m.highlights && m.highlights.some(h => h.toLowerCase().includes(term))) ||
+               (m.protein && m.protein.toLowerCase().includes(term)) ||
+               (m.calories && m.calories.toLowerCase().includes(term));
+      }) : allMeals;
+
+      if (results.length === 0) {
+        container.innerHTML = `
+          <div class="py-12 text-center text-slate-400">
+            <i class="fa-solid fa-utensils text-3xl mb-2 text-slate-300"></i>
+            <p class="text-xs font-bold text-slate-600">No healthy meals found matching "${query}"</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Try searching for protein, keto, bowl, thali or juice</p>
+          </div>
+        `;
+        return;
+      }
+
+      const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+
+      container.innerHTML = results.map(dish => {
+        const cartItem = cart.find(c => c.id === dish.id);
+        const qty = cartItem ? cartItem.quantity : 0;
+        return `
+          <div class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-emerald-50/50 rounded-2xl border border-slate-200 transition">
+            <div class="flex items-center space-x-3 cursor-pointer flex-1 min-w-0" onclick="window.closeFoodSearchModal(); window.openFoodDetailModal('${dish.id}')">
+              <img src="${dish.image}" alt="${dish.name}" class="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center space-x-1.5 mb-0.5">
+                  <span class="w-2.5 h-2.5 rounded-full ${dish.isVeg ? 'bg-emerald-600' : 'bg-red-600'} shrink-0"></span>
+                  <span class="text-[9px] font-bold text-emerald-800 uppercase tracking-wider truncate">${dish.category}</span>
+                </div>
+                <h4 class="text-xs font-black text-slate-900 truncate">${dish.name}</h4>
+                <div class="flex items-center space-x-2 text-[10px] font-bold text-slate-500 mt-0.5">
+                  <span class="text-emerald-700 bg-emerald-100/70 px-1.5 py-0.2 rounded">${dish.protein}</span>
+                  <span>${dish.calories}</span>
+                </div>
+              </div>
+            </div>
+            <div class="flex flex-col items-end shrink-0 ml-3">
+              <span class="text-xs font-black text-slate-900 mb-1">₹${dish.price}</span>
+              ${qty > 0 ? `
+                <div class="flex items-center space-x-1.5 bg-nutro-forest text-white rounded-lg p-0.5 px-1.5 text-xs font-black">
+                  <button onclick="window.changeFoodQuantity('${dish.id}', -1); window.handleFoodSearch(document.getElementById('foodSearchInput').value);" class="w-5 h-5 flex items-center justify-center hover:bg-white/20 rounded">-</button>
+                  <span class="w-4 text-center">${qty}</span>
+                  <button onclick="window.changeFoodQuantity('${dish.id}', 1); window.handleFoodSearch(document.getElementById('foodSearchInput').value);" class="w-5 h-5 flex items-center justify-center hover:bg-white/20 rounded">+</button>
+                </div>
+              ` : `
+                <button onclick="window.changeFoodQuantity('${dish.id}', 1); window.handleFoodSearch(document.getElementById('foodSearchInput').value);" class="px-3 py-1 bg-nutro-forest hover:bg-nutro-dark text-white rounded-lg text-xs font-black shadow-sm transition active:scale-95">
+                  + Add
+                </button>
+              `}
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
     document.addEventListener('DOMContentLoaded', () => {
       renderFoodMenu();
       updateCartBadges();
+      loadDynamicCategories();
+
+      // Background sync with server
+      fetch('/api/food-menu')
+        .then(r => r.ok ? r.json() : null)
+        .then(meals => {
+          if (Array.isArray(meals) && meals.length > 0) {
+            try { localStorage.setItem('nutrolix_healthy_food', JSON.stringify(meals)); } catch (_) {}
+            renderFoodMenu();
+          }
+        })
+        .catch(() => {});
+
+      // Cross-tab live sync with Admin Panel
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'nutrolix_healthy_food') {
+          renderFoodMenu();
+        }
+      });
     });
   </script>
 

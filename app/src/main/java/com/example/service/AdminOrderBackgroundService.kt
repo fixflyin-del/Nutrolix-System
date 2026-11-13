@@ -30,7 +30,10 @@ class AdminOrderBackgroundService : Service() {
   private var firestoreListener: ListenerRegistration? = null
   private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
   private val knownOrderIds = java.util.Collections.synchronizedSet(mutableSetOf<String>())
-  private var isInitialLoad = true
+  @Volatile
+  private var isFirestoreInitialLoad = true
+  @Volatile
+  private var isHttpInitialLoad = true
 
   companion object {
     fun start(context: Context) {
@@ -158,7 +161,7 @@ class AdminOrderBackgroundService : Service() {
           } catch (_: Exception) { null }
         }
 
-        handleIncomingOrders(orders)
+        handleIncomingOrders(orders, fromHttp = false)
       }
     } catch (e: Exception) {
       Log.e(TAG, "Error setting up Firestore listener", e)
@@ -223,7 +226,7 @@ class AdminOrderBackgroundService : Service() {
                   )
                 )
               }
-              handleIncomingOrders(orders)
+              handleIncomingOrders(orders, fromHttp = true)
               break // Successfully polled this cycle, move to next cycle
             }
           } catch (_: Exception) {
@@ -234,15 +237,23 @@ class AdminOrderBackgroundService : Service() {
     }
   }
 
-  private fun handleIncomingOrders(orders: List<Order>) {
-    if (isInitialLoad) {
-      // Record existing orders on initial boot so we don't ring for historical orders
-      orders.forEach { knownOrderIds.add(it.id) }
-      isInitialLoad = false
+  @Synchronized
+  private fun handleIncomingOrders(orders: List<Order>, fromHttp: Boolean) {
+    val isFirstForSource = if (fromHttp) isHttpInitialLoad else isFirestoreInitialLoad
+    if (isFirstForSource) {
+      // Record existing orders on initial boot for this source so we don't ring for historical orders
+      orders.forEach { if (it.id.isNotBlank()) knownOrderIds.add(it.id) }
+      if (fromHttp) {
+        isHttpInitialLoad = false
+      } else {
+        isFirestoreInitialLoad = false
+      }
       return
     }
 
-    orders.filter { it.status == OrderStatus.PLACED || it.status == OrderStatus.CONFIRMED }.forEach { newOrder ->
+    orders.filter {
+      it.id.isNotBlank() && (it.status == OrderStatus.PLACED || it.status == OrderStatus.CONFIRMED)
+    }.forEach { newOrder ->
       if (!knownOrderIds.contains(newOrder.id)) {
         knownOrderIds.add(newOrder.id)
         Log.i(TAG, "🚨 NEW LIVE ORDER DETECTED: #${newOrder.id} - TRIGGERING LOUD CONTINUOUS RINGTONE ALARM")

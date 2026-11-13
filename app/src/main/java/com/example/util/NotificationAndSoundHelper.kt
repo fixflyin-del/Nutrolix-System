@@ -206,11 +206,15 @@ object OrderAlarmPlayer {
   private var mediaPlayer: MediaPlayer? = null
   private var wakeLock: PowerManager.WakeLock? = null
   private var ringJob: Job? = null
+  private var vibrationJob: Job? = null
+  @Volatile
+  private var isAlarmActive: Boolean = false
   private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
   @Synchronized
   fun playOrderAlarm(context: Context) {
     stopOrderAlarm()
+    isAlarmActive = true
 
     // 1. Acquire WakeLock to turn on device screen even if locked
     try {
@@ -224,36 +228,67 @@ object OrderAlarmPlayer {
     } catch (_: Exception) {}
 
     // 2. Play continuous loud looping ringtone on STREAM_ALARM
-    try {
-      val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+    var startedMedia = false
+    val candidateUris = listOfNotNull(
+      RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
+      RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
+      RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+    )
 
-      mediaPlayer = MediaPlayer().apply {
-        setDataSource(context.applicationContext, ringtoneUri)
-        setAudioAttributes(
-          AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        )
-        isLooping = true
-        prepare()
-        start()
-      }
-    } catch (e: Exception) {
+    for (uri in candidateUris) {
+      var mp: MediaPlayer? = null
       try {
-        val ringtoneUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE)
-        activeRingtone = RingtoneManager.getRingtone(context.applicationContext, ringtoneUri)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-          activeRingtone?.audioAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_ALARM)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
+        mp = MediaPlayer().apply {
+          setAudioAttributes(
+            AudioAttributes.Builder()
+              .setUsage(AudioAttributes.USAGE_ALARM)
+              .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+              .build()
+          )
+          setOnErrorListener { failedPlayer, _, _ ->
+            try { failedPlayer.release() } catch (_: Exception) {}
+            if (mediaPlayer === failedPlayer) {
+              mediaPlayer = null
+            }
+            true
+          }
+          setDataSource(context.applicationContext, uri)
+          prepare()
+          isLooping = true
+          start()
         }
-        activeRingtone?.play()
+        mediaPlayer = mp
+        startedMedia = true
+        break
       } catch (_: Exception) {
-        startFallbackTone(context)
+        try { mp?.release() } catch (_: Exception) {}
+      }
+    }
+
+    if (!startedMedia) {
+      var ringtoneStarted = false
+      for (uri in candidateUris) {
+        try {
+          val rt = RingtoneManager.getRingtone(context.applicationContext, uri)
+          if (rt != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+              rt.audioAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ALARM)
+                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                .build()
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+              rt.isLooping = true
+            }
+            rt.play()
+            activeRingtone = rt
+            ringtoneStarted = true
+            break
+          }
+        } catch (_: Exception) {}
+      }
+      if (!ringtoneStarted) {
+        startFallbackTone()
       }
     }
 
@@ -261,14 +296,16 @@ object OrderAlarmPlayer {
     startVibrationLoop(context)
   }
 
-  private fun startFallbackTone(context: Context) {
+  private fun startFallbackTone() {
+    ringJob?.cancel()
     ringJob = scope.launch {
       var toneGen: ToneGenerator? = null
       try {
         toneGen = ToneGenerator(AudioManager.STREAM_ALARM, 100)
-        while (isActive) {
+        while (isActive && isAlarmActive) {
           toneGen.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 400)
           delay(650)
+          if (!isAlarmActive) break
           toneGen.startTone(ToneGenerator.TONE_PROP_BEEP2, 300)
           delay(800)
         }
@@ -280,7 +317,8 @@ object OrderAlarmPlayer {
   }
 
   private fun startVibrationLoop(context: Context) {
-    scope.launch {
+    vibrationJob?.cancel()
+    vibrationJob = scope.launch {
       val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
         vm?.defaultVibrator
@@ -307,20 +345,37 @@ object OrderAlarmPlayer {
 
   @Synchronized
   fun stopOrderAlarm() {
-    try {
-      activeRingtone?.stop()
-      activeRingtone = null
-    } catch (_: Exception) {}
+    isAlarmActive = false
 
-    try {
-      mediaPlayer?.stop()
-      mediaPlayer?.release()
-      mediaPlayer = null
-    } catch (_: Exception) {}
+    val rt = activeRingtone
+    activeRingtone = null
+    if (rt != null) {
+      try {
+        if (rt.isPlaying) rt.stop()
+      } catch (_: Exception) {}
+    }
+
+    val mp = mediaPlayer
+    mediaPlayer = null
+    if (mp != null) {
+      try {
+        if (mp.isPlaying) {
+          mp.stop()
+        }
+      } catch (_: Exception) {}
+      try {
+        mp.release()
+      } catch (_: Exception) {}
+    }
 
     try {
       ringJob?.cancel()
       ringJob = null
+    } catch (_: Exception) {}
+
+    try {
+      vibrationJob?.cancel()
+      vibrationJob = null
     } catch (_: Exception) {}
 
     try {
@@ -331,7 +386,8 @@ object OrderAlarmPlayer {
     } catch (_: Exception) {}
   }
 
-  fun isRinging(): Boolean = mediaPlayer?.isPlaying == true || ringJob?.isActive == true
+  @Synchronized
+  fun isRinging(): Boolean = isAlarmActive
 }
 
 /**

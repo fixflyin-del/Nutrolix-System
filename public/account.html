@@ -664,48 +664,46 @@
     };
 
     function renderOrders() {
-      // 1. Packaged Store Orders
-      let storeOrders = [
-        {
-          id: 'NTX-782194',
-          date: 'Yesterday, 4:30 PM',
-          status: 'Delivered',
-          courier: 'Bluedart Express',
-          trackingNumber: 'BLU-9841203',
-          total: 698,
-          items: [
-            { name: 'Nutrolix High Protein Atta', variant: '1 Kg', qty: 2, price: 349 }
-          ]
-        },
-        {
-          id: 'NTX-904512',
-          date: 'Today, 10:15 AM',
-          status: 'In Transit',
-          courier: 'Delhivery Surface',
-          trackingNumber: 'DEL-4412098',
-          total: 699,
-          items: [
-            { name: 'Nutrolix Complete Nutri Meal', variant: '500g', qty: 1, price: 699 }
-          ]
-        }
-      ];
+      // 1. Packaged Store Orders (Real orders only)
+      let storeOrders = [];
 
       try {
         const stored = JSON.parse(localStorage.getItem('nutrolix_store_orders') || '[]');
-        if (stored.length) {
-          storeOrders = [...stored, ...storeOrders];
-        }
+        const legacy = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
+        const combined = [...(Array.isArray(stored) ? stored : []), ...(Array.isArray(legacy) ? legacy : [])];
+        const dummyIds = new Set(['ORD-942810','ORD-831920','ORD-719402','NTX-782194','NTX-904512','ORD-123456','NUTRO-STORE-111581','NUTRO-STORE-281594','ORD-276332','ORD-956690']);
+        const seen = new Set();
+        storeOrders = combined.filter(o => {
+          const oid = o.id || o.orderId;
+          if (!oid || dummyIds.has(oid) || seen.has(oid)) return false;
+          seen.add(oid);
+          return true;
+        });
       } catch (_) {}
 
       document.getElementById('storeOrdersBadge').textContent = storeOrders.length;
       const storeContainer = document.getElementById('storeOrdersContainer');
       if (storeContainer) {
+        if (storeOrders.length === 0) {
+          storeContainer.innerHTML = `
+            <div class="bg-white rounded-3xl p-8 text-center border border-slate-200 shadow-sm space-y-3">
+              <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-2xl">
+                <i class="fa-solid fa-box-open"></i>
+              </div>
+              <h4 class="font-black text-base text-slate-900">No Store Orders Yet</h4>
+              <p class="text-xs text-slate-500 max-w-sm mx-auto">Your real packaged nutrition orders will appear here with live tracking updates.</p>
+              <a href="shop.html" class="inline-block px-5 py-2.5 rounded-xl bg-nutro-forest text-white font-bold text-xs hover:bg-nutro-dark transition shadow">
+                Explore Nutrition Store
+              </a>
+            </div>
+          `;
+        } else {
         storeContainer.innerHTML = storeOrders.map(order => {
           const isDelivered = (order.status || '').toLowerCase().includes('delivered');
           const itemsHtml = (order.items || []).map(i => `
             <div class="flex items-center justify-between text-xs py-1 text-slate-700">
-              <span class="font-bold">${i.name} (${i.variant || 'Pack'}) × ${i.qty || 1}</span>
-              <span class="font-extrabold text-slate-900">₹${(i.price || 0) * (i.qty || 1)}</span>
+              <span class="font-bold">${i.name || i.title || 'Nutrition Item'} (${i.variant || 'Pack'}) × ${i.qty || i.quantity || 1}</span>
+              <span class="font-extrabold text-slate-900">₹${(i.price || 0) * (i.qty || i.quantity || 1)}</span>
             </div>
           `).join('');
 
@@ -748,6 +746,7 @@
             </div>
           `;
         }).join('');
+        }
       }
 
       // 2. Healthy Food Orders

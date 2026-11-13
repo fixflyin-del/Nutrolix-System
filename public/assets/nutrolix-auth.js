@@ -43,9 +43,16 @@
     };
     localStorage.setItem('nutrolix_user_profile', JSON.stringify(updated));
 
-    // Also sync to server safe endpoint
+    // Also sync to Firebase Firestore & server endpoint
     try {
-      fetch('/api/users', {
+      if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveUser === 'function') {
+        window.NutrolixFirebase.saveUser(updated).catch(() => {});
+      }
+    } catch (_) {}
+
+    try {
+      const host = window.NUTROLIX_API_HOST || '';
+      fetch(host + '/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated)

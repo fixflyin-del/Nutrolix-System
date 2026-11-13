@@ -6,6 +6,13 @@
   <title>Shopping Cart & Checkout – Nutrolix | Nutrition That Works</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    (function() {
+      const LIVE_SERVER = 'https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app';
+      const isLocalFile = (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null');
+      window.NUTROLIX_API_HOST = isLocalFile ? LIVE_SERVER : '';
+    })();
+  </script>
   
   <script>
     tailwind.config = {
@@ -26,6 +33,7 @@
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
+    html, body { max-width: 100%; overflow-x: hidden; }
     body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
     .mobile-safe-bottom { padding-bottom: 6rem; }
     .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -35,6 +43,10 @@
   <!-- Universal Drawer Navigation -->
   <script src="assets/nutrolix-drawer.js"></script>
   <script src="assets/nutrolix-notifications.js"></script>
+  <!-- Animated Splash Screen (Requirement 4) -->
+  <script src="assets/nutrolix-splash.js"></script>
+  <!-- Android Mobile Browser Back Navigation Handler (Requirement 3) -->
+  <script src="assets/nutrolix-back-handler.js"></script>
   <!-- Firebase Authentication & Firestore SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -61,17 +73,38 @@
         </a>
       </div>
 
-      <!-- Desktop Nav -->
+      <!-- Desktop Nav (Requirement 2) -->
       <nav class="hidden md:flex items-center space-x-6 text-sm font-bold text-slate-700">
         <a href="index.html" class="hover:text-nutro-emerald transition">Home</a>
-        <a href="shop.html" class="hover:text-nutro-emerald transition">Shop All</a>
+        <a href="shop.html" class="hover:text-nutro-emerald transition">Store</a>
         <a href="food.html" class="hover:text-nutro-emerald transition">Healthy Food</a>
         <a href="orders.html" class="hover:text-nutro-emerald transition flex items-center space-x-1.5 py-1 px-2.5 rounded-lg text-slate-700 hover:bg-slate-100 font-bold">
           <i class="fa-solid fa-truck-fast text-xs text-emerald-600"></i>
-          <span>Track Orders</span>
+          <span>My Order</span>
         </a>
-        <a href="about.html" class="hover:text-nutro-emerald transition">About</a>
-        <a href="contact.html" class="hover:text-nutro-emerald transition">Contact</a>
+        <!-- More Dropdown -->
+        <div class="relative group py-2">
+          <button class="hover:text-nutro-emerald transition flex items-center space-x-1 py-1 focus:outline-none">
+            <span>More</span>
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:text-nutro-emerald group-hover:rotate-180 transition-transform"></i>
+          </button>
+          <div class="absolute left-0 top-full pt-2 w-56 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 text-xs font-bold text-slate-700 divide-y divide-slate-100">
+              <div class="py-1">
+                <a href="about.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">About Us</a>
+                <a href="our-story.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Our Story</a>
+                <a href="blogs.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Blogs & Articles</a>
+                <a href="contact.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Contact Us</a>
+              </div>
+              <div class="py-1">
+                <a href="terms.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Terms & Conditions</a>
+                <a href="privacy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Privacy Policy</a>
+                <a href="refund-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Refund & Return Policy</a>
+                <a href="shipping-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Shipping Policy</a>
+              </div>
+            </div>
+          </div>
+        </div>
       </nav>
 
       <!-- Right Header Actions -->
@@ -386,9 +419,8 @@
             <button onclick="applyCoupon()" class="px-4 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition">Apply</button>
           </div>
           <div id="couponMessage" class="mt-2 text-xs"></div>
-          <div class="mt-3 flex flex-wrap gap-2">
-            <span onclick="setCoupon('NUTRO10')" class="cursor-pointer text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition">🎟️ NUTRO10 (10% Off)</span>
-            <span onclick="setCoupon('NUTRO20')" class="cursor-pointer text-[11px] font-bold px-2.5 py-1 rounded-lg bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition">⚡ NUTRO20 (20% Off > ₹1499)</span>
+          <div id="couponSuggestionsContainer" class="mt-3 flex flex-wrap gap-2">
+            <!-- Dynamically populated from getStoreCoupons() -->
           </div>
         </div>
 
@@ -668,17 +700,48 @@
     function getStoreCoupons() {
       try {
         const defaultCoupons = [
-          { code: 'NUTRO10', discountPercent: 10, minOrder: 0, status: 'Active' },
-          { code: 'NUTRO20', discountPercent: 20, minOrder: 1499, status: 'Active' }
+          { code: 'NUTRO10', title: '10% OFF on All Products', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true },
+          { code: 'NUTRO20', title: '20% OFF on Orders > ₹1499', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true },
+          { code: 'APP10', title: 'Extra 10% OFF via App', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true }
         ];
         const saved = JSON.parse(localStorage.getItem('nutrolix_coupons') || 'null');
-        return (saved && Array.isArray(saved) && saved.length > 0) ? saved : defaultCoupons;
+        const list = (saved && Array.isArray(saved) && saved.length > 0) ? saved : defaultCoupons;
+        return list.map(c => ({
+          code: String(c.code || '').toUpperCase().trim(),
+          title: c.title || (c.type === 'flat' ? `Flat ₹${c.value} OFF` : `${c.value || c.discountPercent || 10}% OFF`),
+          type: (c.type === 'flat' || c.type === 'FIXED_AMOUNT') ? 'flat' : 'percentage',
+          value: Number(c.value !== undefined ? c.value : (c.discountPercent || 10)),
+          discountPercent: Number(c.discountPercent !== undefined ? c.discountPercent : (c.value || 10)),
+          minOrder: Number(c.minOrder || 0),
+          active: c.active !== false && c.status !== 'Inactive'
+        }));
       } catch (_) {
         return [
-          { code: 'NUTRO10', discountPercent: 10, minOrder: 0, status: 'Active' },
-          { code: 'NUTRO20', discountPercent: 20, minOrder: 1499, status: 'Active' }
+          { code: 'NUTRO10', title: '10% OFF', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true },
+          { code: 'NUTRO20', title: '20% OFF', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true }
         ];
       }
+    }
+
+    function renderAvailableCoupons() {
+      const container = document.getElementById('couponSuggestionsContainer');
+      if (!container) return;
+      const coupons = getStoreCoupons().filter(c => c.active);
+      if (coupons.length === 0) {
+        container.innerHTML = '<span class="text-[11px] text-slate-400">No promo codes active right now</span>';
+        return;
+      }
+      container.innerHTML = coupons.map(c => {
+        const discountLabel = c.type === 'flat' ? `₹${c.value} OFF` : `${c.value}% OFF`;
+        const minOrderLabel = c.minOrder > 0 ? ` > ₹${c.minOrder}` : '';
+        return `
+          <button type="button" onclick="setCoupon('${c.code}')" class="cursor-pointer text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition shadow-xs flex items-center space-x-1">
+            <span>🎟️</span>
+            <span class="font-extrabold">${c.code}</span>
+            <span class="text-[10px] text-emerald-600 font-semibold">(${discountLabel}${minOrderLabel})</span>
+          </button>
+        `;
+      }).join('');
     }
 
     function getCart() {
@@ -736,7 +799,7 @@
       }
 
       const allCoupons = getStoreCoupons();
-      const match = allCoupons.find(c => c.code.toUpperCase() === code && c.status !== 'Inactive');
+      const match = allCoupons.find(c => c.code === code && c.active);
 
       if (match) {
         const minOrder = Number(match.minOrder || 0);
@@ -744,8 +807,14 @@
           msgEl.innerHTML = `<span class="text-rose-600 font-bold">⚠️ ${match.code} requires minimum order value of ₹${minOrder}.</span>`;
           appliedCoupon = null;
         } else {
-          appliedCoupon = { code: match.code, discountPercent: Number(match.discountPercent) };
-          msgEl.innerHTML = `<span class="text-emerald-600 font-bold">🎉 Coupon ${match.code} applied! ${match.discountPercent}% OFF saved.</span>`;
+          appliedCoupon = { 
+            code: match.code, 
+            type: match.type, 
+            value: match.value,
+            discountPercent: match.type === 'percentage' ? match.value : 0 
+          };
+          const savedText = match.type === 'flat' ? `₹${match.value} FLAT OFF` : `${match.value}% OFF`;
+          msgEl.innerHTML = `<span class="text-emerald-600 font-bold">🎉 Coupon ${match.code} applied! ${savedText} saved.</span>`;
         }
       } else {
         appliedCoupon = null;
@@ -762,7 +831,11 @@
       
       let couponDiscount = 0;
       if (appliedCoupon) {
-        couponDiscount = Math.round((subtotal * appliedCoupon.discountPercent) / 100);
+        if (appliedCoupon.type === 'flat') {
+          couponDiscount = Math.min(subtotal, Math.round(appliedCoupon.value));
+        } else {
+          couponDiscount = Math.round((subtotal * appliedCoupon.value) / 100);
+        }
         document.getElementById('couponDiscountRow').classList.remove('hidden');
         document.getElementById('couponCodeLabel').innerText = appliedCoupon.code;
         document.getElementById('summaryCouponDiscount').innerText = `-₹${couponDiscount}`;
@@ -1368,8 +1441,17 @@
       const shipping = subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee;
       const grandTotal = Math.max(0, subtotal - couponDiscount - foodDiscount + shipping);
 
+      const generatedOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+      const nowIso = new Date().toISOString();
+      const nowMs = Date.now();
       const orderPayload = {
+        id: generatedOrderId,
+        orderId: generatedOrderId,
+        orderNumber: generatedOrderId,
         customer: { name, phone, email },
+        customerName: name,
+        customerPhone: phone,
+        customerEmail: email,
         deliveryAddress: { 
           address1, 
           city, 
@@ -1388,8 +1470,12 @@
         couponCode: appliedCoupon ? appliedCoupon.code : (foodDiscount > 0 ? (window.activeFoodOfferType || 'HEALTHY_PROMO') : null),
         shipping,
         grandTotal,
+        total: grandTotal,
         status: 'Order Placed',
-        createdAt: new Date().toISOString()
+        createdAt: nowIso,
+        orderTime: nowIso,
+        timestamp: nowMs,
+        orderTimeMillis: nowMs
       };
 
       const btn = document.getElementById('placeOrderBtn');
@@ -1398,11 +1484,11 @@
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-base mr-2"></i><span>Securing Order...</span>';
       }
 
-      // 1. Sync order to live Firebase Firestore in background (NON-BLOCKING)
+      // 1. Sync order to live Firebase Firestore immediately (with _skipApi to let block below handle API call with full response)
       if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveOrder === 'function') {
         try {
-          window.NutrolixFirebase.saveOrder(orderPayload).catch(fbErr => console.warn('Firebase order sync fallback:', fbErr));
-          console.log('✅ Order dispatched to Firebase Firestore.');
+          window.NutrolixFirebase.saveOrder({ ...orderPayload, _skipApi: true }).catch(fbErr => console.warn('Firebase order sync fallback:', fbErr));
+          console.log('✅ Order dispatched to Firebase Firestore:', generatedOrderId);
         } catch (fbErr) {
           console.warn('Firebase order sync fallback:', fbErr);
         }
@@ -1417,7 +1503,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              orderId: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+              orderId: generatedOrderId,
               totalAmount: grandTotal,
               customerName: name,
               customerEmail: email,
@@ -1477,36 +1563,43 @@
         });
         const data = await res.json();
         
-        if (data.success) {
-          let existingLocal = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
-          const prevCustomerOrders = existingLocal.filter(o => o.customer && (o.customer.phone === phone || o.customer.email === email)).length;
-          const orderSequenceNumber = prevCustomerOrders + 1;
-          data.order.orderSequence = orderSequenceNumber;
-
-          existingLocal.unshift(data.order);
-          localStorage.setItem('nutrolix_orders', JSON.stringify(existingLocal));
-          
-          localStorage.removeItem('nutrolix_packaged_cart');
-          localStorage.removeItem('nutrolix_store_cart');
-          cart = [];
-          renderCart();
-
-          const ordId = data.order.id || data.order.orderId;
-          document.getElementById('successOrderId').innerText = ordId;
-          const orderSeqText = orderSequenceNumber === 1 ? 'First Order 🎉' : `${orderSequenceNumber}th Order 🌟`;
-          document.getElementById('successCustomer').innerText = `${name} (${phone}) • ${orderSeqText}`;
-          document.getElementById('successPayment').innerText = paymentMethod;
-          document.getElementById('successAmount').innerText = `₹${grandTotal}`;
-          
-          const trackBtn = document.getElementById('btnModalTrackOrder');
-          if (trackBtn) {
-            trackBtn.href = `orders.html?orderId=${ordId}`;
-          }
-
-          document.getElementById('orderSuccessModal').classList.remove('hidden');
+        let confirmedOrder = null;
+        if (data && data.success && data.order) {
+          confirmedOrder = { ...orderPayload, ...data.order, id: generatedOrderId, orderId: generatedOrderId };
         } else {
-          alert('Could not place order: ' + (data.error || 'Server error'));
+          confirmedOrder = {
+            ...orderPayload,
+            status: 'Order Placed'
+          };
         }
+
+        let existingLocal = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
+        const prevCustomerOrders = existingLocal.filter(o => o.customer && (o.customer.phone === phone || o.customer.email === email)).length;
+        const orderSequenceNumber = prevCustomerOrders + 1;
+        confirmedOrder.orderSequence = orderSequenceNumber;
+
+        existingLocal = existingLocal.filter(o => (o.id || o.orderId) !== generatedOrderId);
+        existingLocal.unshift(confirmedOrder);
+        localStorage.setItem('nutrolix_orders', JSON.stringify(existingLocal));
+        
+        localStorage.removeItem('nutrolix_packaged_cart');
+        localStorage.removeItem('nutrolix_store_cart');
+        cart = [];
+        renderCart();
+
+        const ordId = confirmedOrder.id || confirmedOrder.orderId;
+        document.getElementById('successOrderId').innerText = ordId;
+        const orderSeqText = orderSequenceNumber === 1 ? 'First Order 🎉' : `${orderSequenceNumber}th Order 🌟`;
+        document.getElementById('successCustomer').innerText = `${name} (${phone}) • ${orderSeqText}`;
+        document.getElementById('successPayment').innerText = paymentMethod;
+        document.getElementById('successAmount').innerText = `₹${grandTotal}`;
+        
+        const trackBtn = document.getElementById('btnModalTrackOrder');
+        if (trackBtn) {
+          trackBtn.href = `orders.html?orderId=${ordId}`;
+        }
+
+        document.getElementById('orderSuccessModal').classList.remove('hidden');
       } catch (err) {
         // Offline / client fallback
         const ordId = 'NTX-' + Math.floor(100000 + Math.random() * 900000);
@@ -1514,7 +1607,9 @@
           ...orderPayload,
           id: ordId,
           orderId: ordId,
-          orderSequence: 1
+          status: 'Accepted',
+          orderSequence: 1,
+          createdAt: new Date().toISOString()
         };
         let existingLocal = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
         existingLocal.unshift(fallbackOrder);
@@ -1544,7 +1639,18 @@
       loadUserProfile();
       checkAndRenderSavedAddresses();
       renderCart();
+      renderAvailableCoupons();
       window.checkCartAuthStatus();
+
+      // Live Cross-Tab Sync with Admin Panel changes
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'nutrolix_coupons') {
+          renderAvailableCoupons();
+          renderSummary();
+        } else if (e.key === 'nutrolix_store_settings') {
+          renderSummary();
+        }
+      });
     });
   </script>
 </body>

@@ -25,6 +25,7 @@
   </script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
+    html, body { max-width: 100%; overflow-x: hidden; }
     body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
     .mobile-safe-bottom { padding-bottom: 6rem; }
     .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -34,6 +35,10 @@
   <!-- Universal Drawer Navigation -->
   <script src="assets/nutrolix-drawer.js"></script>
   <script src="assets/nutrolix-notifications.js"></script>
+  <!-- Animated Splash Screen (Requirement 4) -->
+  <script src="assets/nutrolix-splash.js"></script>
+  <!-- Android Mobile Browser Back Navigation Handler (Requirement 3) -->
+  <script src="assets/nutrolix-back-handler.js"></script>
   <!-- Firebase Authentication SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
@@ -41,7 +46,7 @@
   <script src="assets/nutrolix-auth.js"></script>
   <script src="assets/nutrolix-reviews.js"></script>
 </head>
-<body class="mobile-safe-bottom flex flex-col min-h-screen">
+<body class="mobile-safe-bottom flex flex-col min-h-screen overflow-x-hidden">
 
   <!-- Header with Left Burger Menu + Nutrolix Logo -->
   <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-200">
@@ -57,17 +62,38 @@
         </a>
       </div>
 
-      <!-- Desktop Nav -->
+      <!-- Desktop Nav (Requirement 2) -->
       <nav class="hidden md:flex items-center space-x-6 text-sm font-bold text-slate-700">
         <a href="index.html" class="hover:text-nutro-emerald transition">Home</a>
-        <a href="shop.html" class="hover:text-nutro-emerald transition">Shop All</a>
+        <a href="shop.html" class="hover:text-nutro-emerald transition">Store</a>
         <a href="food.html" class="hover:text-nutro-emerald transition">Healthy Food</a>
         <a href="orders.html" class="text-nutro-emerald font-extrabold flex items-center space-x-1.5 py-1 px-2.5 rounded-lg bg-emerald-50">
           <i class="fa-solid fa-truck-fast text-xs"></i>
-          <span>My Orders</span>
+          <span>My Order</span>
         </a>
-        <a href="about.html" class="hover:text-nutro-emerald transition">About</a>
-        <a href="contact.html" class="hover:text-nutro-emerald transition">Contact</a>
+        <!-- More Dropdown -->
+        <div class="relative group py-2">
+          <button class="hover:text-nutro-emerald transition flex items-center space-x-1 py-1 focus:outline-none">
+            <span>More</span>
+            <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:text-nutro-emerald group-hover:rotate-180 transition-transform"></i>
+          </button>
+          <div class="absolute left-0 top-full pt-2 w-56 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 text-xs font-bold text-slate-700 divide-y divide-slate-100">
+              <div class="py-1">
+                <a href="about.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">About Us</a>
+                <a href="our-story.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Our Story</a>
+                <a href="blogs.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Blogs & Articles</a>
+                <a href="contact.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Contact Us</a>
+              </div>
+              <div class="py-1">
+                <a href="terms.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Terms & Conditions</a>
+                <a href="privacy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Privacy Policy</a>
+                <a href="refund-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Refund & Return Policy</a>
+                <a href="shipping-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Shipping Policy</a>
+              </div>
+            </div>
+          </div>
+        </div>
       </nav>
 
       <!-- Right Header Actions -->
@@ -521,87 +547,69 @@
       }
 
       loadUserOrders();
+
+      // Listen for Admin Console order status updates in real time
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'nutrolix_orders' || e.key === 'nutrolix_store_orders' || e.key === 'nutrolix_food_orders') {
+          loadUserOrders(true);
+        }
+      });
+
+      // Background polling every 5 seconds so live updates sync across tabs and devices
+      setInterval(() => {
+        loadUserOrders(true);
+      }, 5000);
     }
 
-    // Load Orders from localStorage & API
-    async function loadUserOrders() {
+    // Load Orders from localStorage & API (Live 1000% Synced)
+    async function loadUserOrders(silent = false) {
       const user = window.getNutrolixUser();
       if (!user) return;
 
       const container = document.getElementById('orderHistoryContainer');
-      container.innerHTML = '<div class="text-center py-8 text-xs text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Loading centralized orders...</div>';
+      if (!silent && (!userOrders || userOrders.length === 0)) {
+        container.innerHTML = '<div class="text-center py-8 text-xs text-slate-400"><i class="fa-solid fa-circle-notch fa-spin mr-2"></i>Loading live orders...</div>';
+      }
 
       try {
-        let all = [];
-        try {
-          const o1 = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
-          if (Array.isArray(o1)) all = all.concat(o1);
-        } catch (_) {}
-        try {
-          const o2 = JSON.parse(localStorage.getItem('nutrolix_store_orders') || '[]');
-          if (Array.isArray(o2)) all = all.concat(o2);
-        } catch (_) {}
-        try {
-          const o3 = JSON.parse(localStorage.getItem('nutrolix_food_orders') || '[]');
-          if (Array.isArray(o3)) all = all.concat(o3);
-        } catch (_) {}
+        const orderMap = new Map();
 
-        // Try fetching latest from server
+        // 1. Gather all local orders (Admin updates write here first)
+        const localSources = ['nutrolix_orders', 'nutrolix_store_orders', 'nutrolix_food_orders'];
+        localSources.forEach(key => {
+          try {
+            const arr = JSON.parse(localStorage.getItem(key) || '[]');
+            if (Array.isArray(arr)) {
+              arr.forEach(o => {
+                const oid = o.id || o.orderId;
+                if (oid) orderMap.set(oid, { ...o });
+              });
+            }
+          } catch (_) {}
+        });
+
+        // 2. Fetch server-side orders
         try {
           const res = await fetch('/api/nutrition-orders');
           if (res.ok) {
             const serverOrders = await res.json();
-            if (Array.isArray(serverOrders) && serverOrders.length) {
-              all = [...serverOrders, ...all];
+            if (Array.isArray(serverOrders)) {
+              serverOrders.forEach(so => {
+                const oid = so.id || so.orderId;
+                if (!oid) return;
+                const existing = orderMap.get(oid);
+                if (existing) {
+                  // Prefer newer status
+                  orderMap.set(oid, { ...existing, ...so, status: so.status || existing.status });
+                } else {
+                  orderMap.set(oid, so);
+                }
+              });
             }
           }
         } catch (_) {}
 
-        // Deduplicate by ID
-        const seen = new Set();
-        const unique = [];
-        for (const ord of all) {
-          const oid = ord.id || ord.orderId;
-          if (oid && !seen.has(oid)) {
-            seen.add(oid);
-            unique.push(ord);
-          }
-        }
-
-        // Add sample orders if none stored
-        if (unique.length === 0) {
-          unique.push({
-            id: 'NTX-782194',
-            orderId: 'NTX-782194',
-            orderType: 'packaged',
-            createdAt: new Date(Date.now() - 86400000).toISOString(),
-            status: 'Delivered',
-            courier: 'Bluedart Express',
-            trackingNumber: 'BLU-9841203',
-            grandTotal: 698,
-            paymentMethod: 'Prepaid (UPI)',
-            customer: { name: user.name || 'Verified Customer', email: user.email },
-            items: [
-              { title: 'Nutrolix High Protein Atta', name: 'Nutrolix High Protein Atta', variant: '1 Kg', quantity: 2, price: 349, image: 'assets/nutrolix-logo.png' }
-            ]
-          });
-          unique.push({
-            id: 'NTX-904512',
-            orderId: 'NTX-904512',
-            orderType: 'packaged',
-            createdAt: new Date(Date.now() - 36000000).toISOString(),
-            status: 'Dispatched',
-            courier: 'Delhivery Surface',
-            trackingNumber: 'DEL-4412098',
-            grandTotal: 699,
-            paymentMethod: 'Cash on Delivery',
-            customer: { name: user.name || 'Verified Customer', email: user.email },
-            items: [
-              { title: 'Nutrolix Complete Nutri Meal', name: 'Nutrolix Complete Nutri Meal', variant: '500g', quantity: 1, price: 699, image: 'assets/nutrolix-logo.png' }
-            ]
-          });
-        }
-
+        const unique = Array.from(orderMap.values());
         userOrders = unique;
         renderOrdersList();
       } catch (err) {

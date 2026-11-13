@@ -610,41 +610,6 @@
         } catch (_) {}
 
         const unique = Array.from(orderMap.values());
-
-        // Add sample orders if none stored
-        if (unique.length === 0) {
-          unique.push({
-            id: 'NTX-782194',
-            orderId: 'NTX-782194',
-            orderType: 'packaged',
-            createdAt: new Date(Date.now() - 86400000).toISOString(),
-            status: 'Delivered',
-            courier: 'Bluedart Express',
-            trackingNumber: 'BLU-9841203',
-            grandTotal: 698,
-            paymentMethod: 'Prepaid (UPI)',
-            customer: { name: user.name || 'Verified Customer', email: user.email },
-            items: [
-              { title: 'Nutrolix High Protein Atta', name: 'Nutrolix High Protein Atta', variant: '1 Kg', quantity: 2, price: 349, image: 'assets/nutrolix-logo.png' }
-            ]
-          });
-          unique.push({
-            id: 'NTX-904512',
-            orderId: 'NTX-904512',
-            orderType: 'packaged',
-            createdAt: new Date(Date.now() - 36000000).toISOString(),
-            status: 'Dispatched',
-            courier: 'Delhivery Surface',
-            trackingNumber: 'DEL-4412098',
-            grandTotal: 699,
-            paymentMethod: 'Cash on Delivery',
-            customer: { name: user.name || 'Verified Customer', email: user.email },
-            items: [
-              { title: 'Nutrolix Complete Nutri Meal', name: 'Nutrolix Complete Nutri Meal', variant: '500g', quantity: 1, price: 699, image: 'assets/nutrolix-logo.png' }
-            ]
-          });
-        }
-
         userOrders = unique;
         renderOrdersList();
       } catch (err) {

@@ -1,6 +1,6 @@
 /**
- * Nutrolix Seamless Firebase & Native Google Sign-In Service
- * Zero manual email typing. 100% Direct Google Authentication.
+ * Nutrolix 100% Direct Firebase Google Authentication
+ * Zero manual email typing. Direct Google account popup sign-in.
  */
 (function() {
   const firebaseConfig = {
@@ -24,7 +24,7 @@
   window.getNutrolixUser = function() {
     try {
       const p = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-      if (p && p.email && p.authProvider === 'google') {
+      if (p && p.email && (p.authProvider === 'google' || p.verified)) {
         return p;
       }
     } catch (_) {}
@@ -43,9 +43,16 @@
     };
     localStorage.setItem('nutrolix_user_profile', JSON.stringify(updated));
 
-    // Also sync to server
+    // Also sync to Firebase Firestore & server endpoint
     try {
-      fetch('/api/users', {
+      if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveUser === 'function') {
+        window.NutrolixFirebase.saveUser(updated).catch(() => {});
+      }
+    } catch (_) {}
+
+    try {
+      const host = window.NUTROLIX_API_HOST || '';
+      fetch(host + '/api/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updated)
@@ -56,12 +63,12 @@
     return updated;
   };
 
-  // Main trigger: Direct Google Sign-In (ZERO manual typing)
+  // Main trigger: 100% DIRECT GOOGLE SIGN-IN VIA FIREBASE (ZERO manual typing)
   window.startDirectGoogleAuth = async function(btnEl) {
     if (btnEl) {
       btnEl.disabled = true;
       btnEl.dataset.origHtml = btnEl.innerHTML;
-      btnEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i><span>Connecting Google...</span>';
+      btnEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i><span>Opening Google Sign-In...</span>';
     }
 
     // 1. If running inside Android Native App with AndroidNative bridge
@@ -74,7 +81,7 @@
       }
     }
 
-    // 2. Browser Firebase Auth Google Sign-In
+    // 2. Direct Browser Firebase Auth Google Sign-In Popup (NO email input)
     try {
       if (typeof firebase !== 'undefined' && firebase.auth) {
         const provider = new firebase.auth.GoogleAuthProvider();
@@ -93,17 +100,21 @@
           }
           return;
         }
+      } else {
+        alert('Notice: Firebase Auth library is still loading. Please try again in a moment.');
       }
     } catch (popupErr) {
-      console.warn('Popup blocked or failed, trying redirect:', popupErr);
-      try {
-        if (typeof firebase !== 'undefined' && firebase.auth) {
+      console.warn('Google Sign-In popup error:', popupErr);
+      if (popupErr.code === 'auth/popup-blocked') {
+        try {
           const provider = new firebase.auth.GoogleAuthProvider();
           await firebase.auth().signInWithRedirect(provider);
           return;
-        }
-      } catch (redirectErr) {
-        console.warn('Redirect failed:', redirectErr);
+        } catch (_) {}
+      } else if (popupErr.code === 'auth/unauthorized-domain') {
+        alert('Notice: Please authorize this domain in Firebase Console -> Authentication -> Settings -> Authorized Domains. Domain: ' + window.location.hostname);
+      } else if (popupErr.code !== 'auth/popup-closed-by-user') {
+        alert('Google Sign-In: ' + (popupErr.message || 'Please try again.'));
       }
     } finally {
       if (btnEl && btnEl.dataset.origHtml) {
@@ -145,6 +156,7 @@
 
     let profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
     profile.authProvider = null;
+    profile.verified = false;
     localStorage.setItem('nutrolix_user_profile', JSON.stringify(profile));
 
     window.dispatchEvent(new CustomEvent('nutrolix:auth-changed', { detail: null }));

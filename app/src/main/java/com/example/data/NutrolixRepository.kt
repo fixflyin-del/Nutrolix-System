@@ -443,47 +443,8 @@ class NutrolixRepository(
   private val _activeTrackingOrder = MutableStateFlow<Order?>(null)
   val activeTrackingOrder: StateFlow<Order?> = _activeTrackingOrder.asStateFlow()
 
-  // Orders History & Live Queue (controlled by Admin)
-  private val _orders = MutableStateFlow(
-    listOf(
-      Order(
-        id = "ord_demo_101",
-        orderNumber = "NUTRO-8921",
-        customerPhone = "9876543210",
-        customerName = "Rahul Sharma",
-        items = listOf(
-          CartItem(
-            cartItemId = "ci_demo_1",
-            meal = _meals.value[0],
-            selectedPortion = _meals.value[0].portionSizes.first(),
-            selectedAddons = listOf(standardAddons[0]),
-            quantity = 1
-          )
-        ),
-        subtotal = 348.0,
-        discount = 50.0,
-        deliveryFee = 25.0,
-        tax = 17.4,
-        packagingFee = 0.0,
-        tip = 20.0,
-        total = 360.4,
-        status = OrderStatus.PREPARING,
-        paymentMethod = "UPI Online",
-        paymentStatus = "PAID",
-        orderTimeMillis = System.currentTimeMillis() - 900000,
-        estimatedDeliveryMinutes = 18,
-        deliveryAddress = "Flat 402, Green Palms, 12th Main, Indiranagar, Bengaluru",
-        deliveryOtp = "4812",
-        statusHistory = listOf(
-          OrderStatusHistoryItem(OrderStatus.PLACED, System.currentTimeMillis() - 1200000, "Order placed via UPI Online"),
-          OrderStatusHistoryItem(OrderStatus.CONFIRMED, System.currentTimeMillis() - 1000000, "Nutrolix kitchen accepted order"),
-          OrderStatusHistoryItem(OrderStatus.PREPARING, System.currentTimeMillis() - 900000, "Meal cooking fresh in kitchen")
-        ),
-        cancellationReason = null,
-        refundStatus = "Not Applicable"
-      )
-    )
-  )
+  // Orders History & Live Queue (controlled by Admin & Firestore)
+  private val _orders = MutableStateFlow<List<Order>>(emptyList())
   val orders: StateFlow<List<Order>> = _orders.asStateFlow()
 
   // Reviews State

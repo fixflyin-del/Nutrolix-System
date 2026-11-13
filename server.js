@@ -1833,8 +1833,10 @@ const server = http.createServer((req, res) => {
       req.on('end', async () => {
         try {
           const order = JSON.parse(body || '{}');
-          if (!order.id) order.id = 'NUTRO-STORE-' + Math.floor(100000 + Math.random() * 900000);
-          if (!order.orderTime) order.orderTime = new Date().toISOString();
+          const oid = order.id || order.orderId || ('NUTRO-STORE-' + Math.floor(100000 + Math.random() * 900000));
+          order.id = oid;
+          order.orderId = order.orderId || oid;
+          if (!order.orderTime) order.orderTime = order.createdAt || new Date().toISOString();
           let orders = safeReadJson(ordersFile, []);
 
           // If Healthy Food Discount was applied, record persistent redemption
@@ -1858,7 +1860,12 @@ const server = http.createServer((req, res) => {
             saveCustomerDiscountsStore(store);
           }
 
-          orders.unshift(order);
+          const existingIdx = orders.findIndex(o => (o.id === oid || o.orderId === oid));
+          if (existingIdx >= 0) {
+            orders[existingIdx] = { ...orders[existingIdx], ...order };
+          } else {
+            orders.unshift(order);
+          }
           safeWriteJson(ordersFile, orders);
 
           // Trigger Genuine Order Placed Customer Push Notification
@@ -2815,6 +2822,31 @@ const server = http.createServer((req, res) => {
       const userList = Object.values(usersMap);
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify(userList));
+      return;
+    } else if (req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const user = JSON.parse(body || '{}');
+          const usersFile = path.join(PUBLIC_DIR, 'data', 'users.json');
+          let savedUsers = safeReadJson(usersFile, []);
+          const key = user.phone || user.email || user.uid || user.id;
+          if (key) {
+            user.id = key;
+            user.updatedAt = new Date().toISOString();
+            const idx = savedUsers.findIndex(u => (u.phone || u.email || u.uid || u.id) === key);
+            if (idx >= 0) savedUsers[idx] = { ...savedUsers[idx], ...user };
+            else savedUsers.unshift(user);
+            safeWriteJson(usersFile, savedUsers);
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: true, user }));
+        } catch (err) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+      });
       return;
     }
   }

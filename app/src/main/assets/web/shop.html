@@ -27,18 +27,28 @@
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
-    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
+    html, body {
+      max-width: 100%;
+      overflow-x: hidden;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #F8FAFC;
+      color: #1E293B;
+    }
     .mobile-safe-bottom { padding-bottom: 5.5rem; }
     .custom-scrollbar::-webkit-scrollbar { height: 4px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .scrollbar-none::-webkit-scrollbar { display: none; }
+    .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 
   <!-- Instant 0ms Nutrition Data Cache -->
   <script src="assets/nutrolix-data.js"></script>
   <script src="assets/nutrolix-drawer.js"></script>
   <script src="assets/nutrolix-reviews.js"></script>
+  <script src="assets/nutrolix-splash.js"></script>
+  <script src="assets/nutrolix-back-handler.js"></script>
 </head>
-<body class="mobile-safe-bottom flex flex-col min-h-screen">
+<body class="mobile-safe-bottom flex flex-col min-h-screen overflow-x-hidden">
 
   <!-- Header with Nutrolix Original Logo -->
   <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-200">
@@ -55,17 +65,38 @@
           </a>
         </div>
 
-        <!-- Desktop Navigation Bar -->
+        <!-- Desktop Navigation Bar (Requirement 2) -->
         <nav class="hidden lg:flex items-center space-x-7 text-sm font-bold text-slate-700">
           <a href="index.html" class="hover:text-nutro-emerald transition">Home</a>
-          <a href="shop.html" class="text-nutro-emerald border-b-2 border-nutro-emerald pb-1 transition">Shop</a>
+          <a href="shop.html" class="text-nutro-emerald border-b-2 border-nutro-emerald pb-1 transition">Store</a>
+          <a href="food.html" class="hover:text-nutro-emerald transition">Healthy Food</a>
           <a href="orders.html" class="hover:text-nutro-emerald transition flex items-center space-x-1.5 py-1 px-2.5 rounded-lg text-slate-700 hover:bg-slate-100 font-bold">
             <i class="fa-solid fa-truck-fast text-xs text-emerald-600"></i>
-            <span>Track Orders</span>
+            <span>My Order</span>
           </a>
-          <a href="about.html" class="hover:text-nutro-emerald transition">About Us</a>
-          <a href="blogs.html" class="hover:text-nutro-emerald transition">Blogs</a>
-          <a href="contact.html" class="hover:text-nutro-emerald transition">Contact</a>
+          <!-- More Dropdown (About Us, Contact Us, Blogs, Our Story, T&C, Policies) -->
+          <div class="relative group py-2">
+            <button class="hover:text-nutro-emerald transition flex items-center space-x-1 py-1 focus:outline-none">
+              <span>More</span>
+              <i class="fa-solid fa-chevron-down text-[10px] text-slate-400 group-hover:text-nutro-emerald group-hover:rotate-180 transition-transform"></i>
+            </button>
+            <div class="absolute left-0 top-full pt-2 w-56 hidden group-hover:block z-50 animate-in fade-in slide-in-from-top-1 duration-150">
+              <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 text-xs font-bold text-slate-700 divide-y divide-slate-100">
+                <div class="py-1">
+                  <a href="about.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">About Us</a>
+                  <a href="our-story.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Our Story</a>
+                  <a href="blogs.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Blogs & Articles</a>
+                  <a href="contact.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Contact Us</a>
+                </div>
+                <div class="py-1">
+                  <a href="terms.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Terms & Conditions</a>
+                  <a href="privacy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Privacy Policy</a>
+                  <a href="refund-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Refund & Return Policy</a>
+                  <a href="shipping-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Shipping Policy</a>
+                </div>
+              </div>
+            </div>
+          </div>
         </nav>
 
         <!-- Right Header Icons -->
@@ -201,43 +232,41 @@
   <!-- Catalog Viewport Full-Width Products Grid -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
     
-    <!-- Modern Category Filter Tabs -->
-    <div class="flex items-center space-x-2 overflow-x-auto pb-4 mb-6 custom-scrollbar text-xs font-bold" id="shopCategoryTabs">
-      <button onclick="window.selectCategory('All', this)" class="shop-cat-btn px-4 py-2 rounded-full bg-nutro-forest text-white transition shadow-sm shrink-0">
-        All Products
-      </button>
-      <button onclick="window.selectCategory('High Protein Foods', this)" class="shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-        🌾 High Protein Atta
-      </button>
-      <button onclick="window.selectCategory('Superfood Blends', this)" class="shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-        🌱 Complete Nutri Meal
-      </button>
-      <button onclick="window.selectCategory('Healthy Breakfast', this)" class="shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-        🥣 Talbeenah Porridge
-      </button>
-      <button onclick="window.selectCategory('Millet Products', this)" class="shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-        🌾 Multi-Millet Flakes
-      </button>
-      <button onclick="window.selectCategory('Wellness Nutrition', this)" class="shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-        🍯 Pure Elixirs & Honey
-      </button>
+    <!-- 6 Authorized Packaged Categories Filter Bar (Requirement 6) -->
+    <div class="mb-6 overflow-x-auto pb-2 scrollbar-none">
+      <div class="flex items-center space-x-2 min-w-max" id="packagedCategoryTabs">
+        <button onclick="window.selectCategory('All', this)" class="shop-cat-btn active px-4 py-2 rounded-xl text-xs font-black bg-nutro-forest text-white shadow-sm transition shrink-0">
+          All Products
+        </button>
+        <button onclick="window.selectCategory('Protein Atta', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
+          🌾 Protein Atta
+        </button>
+        <button onclick="window.selectCategory('Protein Snacks', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
+          🥜 Protein Snacks
+        </button>
+        <button onclick="window.selectCategory('Nutrition Meal', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
+          🥣 Nutrition Meal
+        </button>
+        <button onclick="window.selectCategory('Nutrition Drink', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
+          🥤 Nutrition Drink
+        </button>
+        <button onclick="window.selectCategory('Healthy Flakes', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
+          🥣 Healthy Flakes
+        </button>
+        <button onclick="window.selectCategory('Body Building & Strength', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
+          💪 Body Building & Strength
+        </button>
+      </div>
     </div>
 
-    <!-- Sorting & Count Bar -->
-    <div class="bg-white p-4 rounded-2xl border border-slate-200 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
-      <div class="text-slate-600 font-bold">
+    <!-- Store Status Bar -->
+    <div class="bg-white p-4 rounded-2xl border border-slate-200 mb-6 flex items-center justify-between text-xs shadow-sm">
+      <div class="text-slate-700 font-bold">
         Showing <span id="productsCount" class="text-slate-900 font-black text-sm">8</span> Lab-Tested Nutrition Products
       </div>
-
-      <div class="flex items-center space-x-2">
-        <span class="text-slate-500 font-semibold">Sort By:</span>
-        <select id="sortSelect" onchange="window.applyFilters()" class="p-2 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:border-emerald-600 bg-slate-50">
-          <option value="featured">Featured First</option>
-          <option value="rating">Highest Rated ★</option>
-          <option value="bestseller">Best Selling 🔥</option>
-          <option value="lowtohigh">Price: Low to High</option>
-          <option value="hightolow">Price: High to Low</option>
-        </select>
+      <div class="text-xs text-emerald-700 font-bold flex items-center space-x-1.5">
+        <i class="fa-solid fa-shield-check text-emerald-600"></i>
+        <span>100% Direct Factory Dispatch</span>
       </div>
     </div>
 
@@ -286,16 +315,17 @@
           </div>
         </div>
 
-        <!-- Col 2: Nutrition Store -->
+        <!-- Col 2: Nutrition Store (6 Authorized Categories) -->
         <div>
           <h4 class="text-sm font-black text-white uppercase tracking-wider mb-4">Nutrition Store</h4>
           <ul class="space-y-2.5 text-xs text-slate-400">
             <li><a href="shop.html" class="hover:text-white transition">All Products</a></li>
-            <li><a href="shop.html?cat=High+Protein+Foods" class="hover:text-white transition">High Protein Atta</a></li>
-            <li><a href="shop.html?cat=Superfood+Blends" class="hover:text-white transition">Complete Nutri Meal</a></li>
-            <li><a href="shop.html?cat=Healthy+Breakfast" class="hover:text-white transition">Talbeenah Porridge</a></li>
-            <li><a href="shop.html?cat=Millet+Products" class="hover:text-white transition">Multi-Millet Flakes</a></li>
-            <li><a href="shop.html?cat=Wellness+Nutrition" class="hover:text-white transition">Black Seed Oil</a></li>
+            <li><a href="shop.html?cat=Protein+Atta" class="hover:text-white transition">Protein Atta</a></li>
+            <li><a href="shop.html?cat=Protein+Snacks" class="hover:text-white transition">Protein Snacks</a></li>
+            <li><a href="shop.html?cat=Nutrition+Meal" class="hover:text-white transition">Nutrition Meal</a></li>
+            <li><a href="shop.html?cat=Nutrition+Drink" class="hover:text-white transition">Nutrition Drink</a></li>
+            <li><a href="shop.html?cat=Healthy+Flakes" class="hover:text-white transition">Healthy Flakes</a></li>
+            <li><a href="shop.html?cat=Body+Building+%26+Strength" class="hover:text-white transition">Body Building & Strength</a></li>
           </ul>
         </div>
 
@@ -374,41 +404,116 @@
   <script>
     window.nutroProducts = [{"id": "prod_high_protein_atta", "name": "Nutrolix High Protein Atta", "tagline": "46g Plant Protein Per 100g • 100% Whole Grain", "category": "High Protein Foods", "rating": 4.9, "reviewCount": 184, "price": 349, "mrp": 449, "discountPercent": 22, "isFeatured": true, "isBestSeller": true, "inStock": true, "stockQuantity": 850, "images": ["https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80", "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80"], "description": "46g plant protein per 100g with zero bloat and low glycemic index."}, {"id": "prod_complete_nutri_meal", "name": "Nutrolix Complete Nutri Meal", "tagline": "25+ Superfoods Daily Wellness & Clean Protein Shake", "category": "Superfood Blends", "rating": 4.8, "reviewCount": 142, "price": 699, "mrp": 899, "discountPercent": 22, "isFeatured": true, "isBestSeller": true, "inStock": true, "stockQuantity": 620, "images": ["https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?auto=format&fit=crop&w=800&q=80", "https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=800&q=80"], "description": "All-in-one nutrition with 26g clean protein and 25+ organic superfoods."}, {"id": "prod_premium_talbeenah", "name": "Nutrolix Premium Talbeenah", "tagline": "Ancient Roasted Barley, Almond & Date Superfood Porridge", "category": "Healthy Breakfast", "rating": 4.9, "reviewCount": 96, "price": 299, "mrp": 399, "discountPercent": 25, "isFeatured": true, "isBestSeller": false, "inStock": true, "stockQuantity": 480, "images": ["https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80"], "description": "Roasted pearl barley with Arabian dates and California almonds."}, {"id": "prod_multi_millet_flakes", "name": "Nutrolix Multi-Millet Energy Flakes", "tagline": "Ancient Grains Breakfast Crisp: Ragi, Jowar, Bajra & Quinoa", "category": "Millet Products", "rating": 4.7, "reviewCount": 78, "price": 249, "mrp": 329, "discountPercent": 24, "isFeatured": false, "isBestSeller": false, "inStock": true, "stockQuantity": 390, "images": ["https://images.unsplash.com/photo-1525385133512-2f3bdd039054?auto=format&fit=crop&w=800&q=80"], "description": "Crispy multigrain flakes with 3x calcium and zero palm oil."}, {"id": "prod_sprouted_moong_protein", "name": "Nutrolix Sprouted Moong & Chana Protein Powder", "tagline": "100% Natural Sprouted Legume Super Protein • 32g Protein", "category": "High Protein Foods", "rating": 4.8, "reviewCount": 65, "price": 379, "mrp": 499, "discountPercent": 24, "isFeatured": false, "isBestSeller": true, "inStock": true, "stockQuantity": 510, "images": ["https://images.unsplash.com/photo-1514733670139-4d87a1941d55?auto=format&fit=crop&w=800&q=80"], "description": "Bio-activated sprouted moong and roasted chana with 32g protein per 100g."}, {"id": "prod_cold_pressed_black_seed_oil", "name": "Nutrolix Cold-Pressed Black Seed (Kalonji) Elixir", "tagline": "Virgin Nigella Sativa Oil • High Thymoquinone Active", "category": "Wellness Nutrition", "rating": 4.9, "reviewCount": 110, "price": 449, "mrp": 599, "discountPercent": 25, "isFeatured": false, "isBestSeller": false, "inStock": true, "stockQuantity": 320, "images": ["https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&w=800&q=80"], "description": "Virgin cold-pressed black seed oil standardized with high Thymoquinone."}, {"id": "prod_raw_forest_honey_shilajit", "name": "Nutrolix Raw Forest Honey with Shilajit & Ashwagandha", "tagline": "Pure Wild Honey Infused with Himalayan Shilajit & Adaptogens", "category": "Wellness Nutrition", "rating": 4.9, "reviewCount": 88, "price": 499, "mrp": 650, "discountPercent": 23, "isFeatured": true, "isBestSeller": true, "inStock": true, "stockQuantity": 410, "images": ["https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=800&q=80"], "description": "Raw unpasteurized forest honey with Himalayan Shilajit and KSM-66 Ashwagandha."}, {"id": "prod_chia_flax_omega_blend", "name": "Nutrolix Organic Chia & Flaxseed Omega Blend", "tagline": "Cold-Milled Raw Seeds • 4500mg Omega-3 ALA Per Serving", "category": "Superfood Blends", "rating": 4.8, "reviewCount": 52, "price": 199, "mrp": 260, "discountPercent": 23, "isFeatured": false, "isBestSeller": false, "inStock": true, "stockQuantity": 490, "images": ["https://images.unsplash.com/photo-1514733670139-4d87a1941d55?auto=format&fit=crop&w=800&q=80"], "description": "50:50 raw chia and cold-milled golden flaxseed rich in Omega-3 ALA."}];
     
-    window.allProducts = [...window.nutroProducts];
+    function normalizeProduct(p) {
+      if (!p) return null;
+      const title = p.name || p.title || 'Nutrolix Product';
+      const imgList = (p.images && p.images.length) ? p.images.filter(Boolean) : (p.image ? [p.image] : ['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80']);
+      return {
+        ...p,
+        id: p.id || ('prod_' + Math.random().toString(36).substring(2, 8)),
+        name: title,
+        title: title,
+        images: imgList,
+        image: imgList[0],
+        price: Number(p.price || 349),
+        mrp: Number(p.mrp || (p.price ? Math.round(p.price * 1.25) : 449)),
+        discountPercent: Number(p.discountPercent || (p.mrp > p.price ? Math.round(((p.mrp - p.price) / p.mrp) * 100) : 22)),
+        rating: Number(p.rating || 4.9),
+        reviewCount: Number(p.reviewCount || 100),
+        tagline: p.tagline || p.heroClaim || 'Clinical Nutrition That Works',
+        category: window.mapToPackagedCategory(p),
+        inStock: p.stockStatus ? (p.stockStatus !== 'Out of Stock') : (p.inStock !== false)
+      };
+    }
+
+    window.mapToPackagedCategory = function(p) {
+      if (!p) return 'Protein Atta';
+      const cat = (p.category || '').toLowerCase();
+      const title = (p.name || p.title || '').toLowerCase();
+      const combined = cat + ' ' + title;
+
+      if (combined.includes('atta') || combined.includes('flour') || combined.includes('wheat') || (cat.includes('high protein') && title.includes('atta'))) {
+        return 'Protein Atta';
+      }
+      if (combined.includes('snack') || combined.includes('chia') || combined.includes('flax') || combined.includes('omega') || combined.includes('seed')) {
+        return 'Protein Snacks';
+      }
+      if (combined.includes('drink') || combined.includes('oil') || combined.includes('black seed') || combined.includes('kalonji') || combined.includes('elixir') || combined.includes('shake') || combined.includes('liquid')) {
+        return 'Nutrition Drink';
+      }
+      if (combined.includes('flake') || combined.includes('cereal') || combined.includes('millet flakes') || combined.includes('crisp')) {
+        return 'Healthy Flakes';
+      }
+      if (combined.includes('strength') || combined.includes('body building') || combined.includes('shilajit') || combined.includes('protein powder') || combined.includes('sprouted moong') || combined.includes('muscle')) {
+        return 'Body Building & Strength';
+      }
+      if (combined.includes('meal') || combined.includes('talbeenah') || combined.includes('porridge') || combined.includes('superfood')) {
+        return 'Nutrition Meal';
+      }
+      return 'Protein Atta';
+    };
+
+    window.allProducts = (window.nutroProducts || []).map(normalizeProduct).filter(Boolean);
     window.activeCategory = 'All';
 
-    document.addEventListener('DOMContentLoaded', () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const catParam = urlParams.get('cat');
-      if (catParam) window.activeCategory = catParam;
+    function loadLiveProducts() {
+      try {
+        const local = JSON.parse(localStorage.getItem('nutrolix_products') || 'null');
+        if (Array.isArray(local) && local.length > 0) {
+          window.nutroProducts = local.map(normalizeProduct).filter(Boolean);
+          window.allProducts = [...window.nutroProducts];
+          applyFilters();
+        }
+      } catch (_) {}
 
-      // Render instantly from in-memory cache in 0ms
-      applyFilters();
-
-      // Only attempt remote sync if online and not file:///
       if (window.location.protocol !== 'file:') {
         fetch('/api/nutrition-products')
           .then(res => res.ok ? res.json() : null)
           .then(srv => {
             if (srv && Array.isArray(srv) && srv.length) {
-              window.nutroProducts = srv;
-              window.allProducts = srv;
+              window.nutroProducts = srv.map(normalizeProduct).filter(Boolean);
+              window.allProducts = [...window.nutroProducts];
+              try { localStorage.setItem('nutrolix_products', JSON.stringify(window.nutroProducts)); } catch (_) {}
               applyFilters();
             }
           })
           .catch(() => {});
       }
+    }
 
+    document.addEventListener('DOMContentLoaded', () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const catParam = urlParams.get('cat');
+      if (catParam) {
+        window.activeCategory = catParam;
+        // Highlight active pill if matched
+        document.querySelectorAll('.shop-cat-btn').forEach(b => {
+          if (b.textContent.trim().includes(catParam)) {
+            b.className = 'shop-cat-btn active px-4 py-2 rounded-xl text-xs font-black bg-nutro-forest text-white shadow-sm transition shrink-0';
+          } else {
+            b.className = 'shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0';
+          }
+        });
+      }
+
+      loadLiveProducts();
       updateShopCartBadge();
+
+      // Cross-tab live sync with Admin Panel
+      window.addEventListener('storage', (e) => {
+        if (e.key === 'nutrolix_products') {
+          loadLiveProducts();
+        }
+      });
     });
 
     window.selectCategory = function(cat, btn) {
       window.activeCategory = cat;
       document.querySelectorAll('.shop-cat-btn').forEach(b => {
-        b.className = 'shop-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0';
+        b.className = 'shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0';
       });
       if (btn) {
-        btn.className = 'shop-cat-btn px-4 py-2 rounded-full bg-nutro-forest text-white transition shadow-sm shrink-0';
+        btn.className = 'shop-cat-btn active px-4 py-2 rounded-xl text-xs font-black bg-nutro-forest text-white shadow-sm transition shrink-0';
       }
       applyFilters();
     };
@@ -457,7 +562,9 @@
         return `
           <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition flex flex-col group">
             <div class="relative aspect-square overflow-hidden bg-slate-100">
-              <img src="${img}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              <a href="product.html?id=${p.id}" class="block w-full h-full cursor-pointer">
+                <img src="${img}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              </a>
               <span class="absolute top-2 sm:top-3 left-2 sm:left-3 bg-nutro-orange text-white text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm">
                 ${p.discountPercent || 20}% OFF
               </span>

@@ -40,38 +40,42 @@
   <script src="assets/nutrolix-data.js"></script>
   <script src="assets/nutrolix-drawer.js"></script>
   <script src="assets/cloudinary-uploader.js"></script>
+  <!-- Firebase Compat SDK & Live Firestore Bridge -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="assets/nutrolix-firebase.js"></script>
 </head>
-<body class="text-slate-800 antialiased min-h-screen flex flex-col bg-slate-50">
+<body class="text-slate-800 antialiased min-h-screen flex flex-col bg-slate-50 overflow-x-hidden">
 
-  <!-- Top Navigation Header: Clean, only Logo, Store Status & Ring as requested -->
+  <!-- Top Navigation Header: Hamburger (Mobile) + Logo Only + Compact Open/Close & Ring -->
   <header class="nutrolix-green text-white shadow-md sticky top-0 z-40">
-    <div class="max-w-[1700px] mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
+    <div class="max-w-[1700px] mx-auto px-3 sm:px-6 lg:px-8">
+      <div class="flex items-center justify-between h-14 sm:h-16 gap-2">
         
-        <!-- Brand with Nutrolix Original Logo -->
-        <div class="flex items-center space-x-3">
-          <img src="assets/nutrolix-logo.png" alt="Nutrolix Logo" class="h-10 w-auto object-contain bg-white rounded-xl p-1 shadow-sm">
-          <div>
-            <div class="flex items-center space-x-2">
-              <span class="font-black text-lg tracking-tight text-white">NUTROLIX</span>
-              <span class="text-[11px] bg-emerald-500/25 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">ADMIN CONSOLE</span>
-            </div>
-          </div>
+        <!-- Left: Hamburger Menu Button (Mobile) + Brand Logo Only -->
+        <div class="flex items-center space-x-2.5 sm:space-x-3 shrink-0">
+          <button id="mobileMenuBtn" onclick="window.toggleAdminSidebar()" aria-label="Open Navigation Menu" class="md:hidden inline-flex items-center justify-center w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white active:scale-95 transition border border-white/10">
+            <i class="fa-solid fa-bars text-base"></i>
+          </button>
+          <a href="#" onclick="window.switchTab('packaged-orders'); return false;" class="flex items-center">
+            <img src="assets/nutrolix-logo.png" alt="Nutrolix Logo" class="h-9 sm:h-10 w-auto object-contain bg-white rounded-xl p-1 shadow-sm">
+          </a>
         </div>
 
-        <!-- Header Controls: Store Open/Closed & Sound Alert Ring ONLY -->
-        <div class="flex items-center space-x-3 sm:space-x-4">
-          <!-- Store Status Toggle -->
-          <div class="flex items-center space-x-2 bg-black/25 px-3 py-1.5 rounded-xl border border-white/10">
-            <span class="text-xs font-semibold text-slate-300 hidden sm:inline">Store Status:</span>
-            <button id="storeStatusToggle" onclick="window.toggleStoreOpen()" class="px-3 py-1 rounded-lg text-xs font-black transition flex items-center space-x-1.5 bg-emerald-500 text-white shadow-sm">
-              <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
-              <span id="storeStatusText">OPEN FOR ORDERS</span>
+        <!-- Header Controls: Compact Store Open/Closed & Sound Alert Ring -->
+        <div class="flex items-center space-x-1.5 sm:space-x-3 shrink-0">
+          <!-- Store Status Toggle (Compact on mobile) -->
+          <div class="flex items-center bg-black/25 px-1.5 py-0.5 sm:px-2.5 sm:py-1 rounded-lg sm:rounded-xl border border-white/10">
+            <span class="text-xs font-semibold text-slate-300 hidden lg:inline mr-1.5">Store Status:</span>
+            <button id="storeStatusToggle" onclick="window.toggleStoreOpen()" class="px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-black transition flex items-center space-x-1 sm:space-x-1.5 bg-emerald-500 text-white shadow-sm whitespace-nowrap">
+              <span class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-white animate-pulse"></span>
+              <span id="storeStatusText"><span class="sm:hidden">OPEN</span><span class="hidden sm:inline">OPEN FOR ORDERS</span></span>
             </button>
           </div>
 
           <!-- Order Alert Chime Toggle (Ring) -->
-          <button id="soundToggleBtn" onclick="window.toggleSoundAlert()" class="flex items-center space-x-2 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 transition text-xs font-bold border border-white/10 text-white shadow-xs">
+          <button id="soundToggleBtn" onclick="window.toggleSoundAlert()" aria-label="Toggle Order Sound Alert" class="flex items-center space-x-1.5 px-2.5 py-1.5 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl bg-white/10 hover:bg-white/20 transition text-xs font-bold border border-white/10 text-white shadow-xs">
             <i id="soundIcon" class="fa-solid fa-volume-high text-amber-400"></i>
             <span id="soundText" class="hidden sm:inline">Order Ring: Active</span>
           </button>
@@ -82,21 +86,32 @@
   </header>
 
   <!-- Live Customer Ticker Display (Synced with Customer App Top Banner) -->
-  <div class="bg-amber-100 border-b border-amber-200 px-4 py-2 text-xs text-amber-900 flex items-center justify-between">
-    <div class="flex items-center space-x-2 max-w-4xl truncate">
-      <i class="fa-solid fa-bullhorn text-amber-600"></i>
-      <span class="font-bold">Live Customer App Ticker:</span>
+  <div class="bg-amber-100 border-b border-amber-200 px-3 sm:px-4 py-1.5 sm:py-2 text-[11px] sm:text-xs text-amber-900 flex items-center justify-between">
+    <div class="flex items-center space-x-1.5 sm:space-x-2 max-w-4xl truncate">
+      <i class="fa-solid fa-bullhorn text-amber-600 shrink-0"></i>
+      <span class="font-bold hidden sm:inline">Live Customer App Ticker:</span>
       <span id="announcementDisplay" class="truncate font-semibold">⚡ 100% Fresh Healthy Meals • Delivered in 25 mins</span>
     </div>
-    <button onclick="window.switchTab('settings')" class="text-amber-800 hover:text-amber-950 font-bold underline text-xs ml-4 whitespace-nowrap">Edit Ticker</button>
+    <button onclick="window.switchTab('settings')" class="text-amber-800 hover:text-amber-950 font-bold underline text-[11px] sm:text-xs ml-2 sm:ml-4 whitespace-nowrap shrink-0">Edit Ticker</button>
   </div>
 
-  <!-- Main Workspace with Always-Visible Left Sidebar -->
-  <div class="flex-1 flex flex-col md:flex-row w-full max-w-[1700px] mx-auto">
+  <!-- Mobile Sidebar Backdrop -->
+  <div id="adminSidebarBackdrop" onclick="window.closeAdminSidebar()" class="fixed inset-0 bg-black/50 backdrop-blur-[1px] z-40 hidden md:hidden transition-opacity"></div>
 
-    <!-- Left-Side Always-Visible Sidebar (All Menus) -->
-    <aside class="w-full md:w-64 lg:w-72 bg-white border-r border-slate-200 shrink-0 p-4 flex flex-col justify-between md:min-h-[calc(100vh-105px)] md:sticky md:top-16 shadow-xs z-30">
+  <!-- Main Workspace with Slide-Over Hamburger Drawer (Mobile) & Sticky Sidebar (Desktop) -->
+  <div class="flex-1 flex flex-col md:flex-row w-full max-w-[1700px] mx-auto relative">
+
+    <!-- Left-Side Navigation Sidebar (Drawer on Mobile, Always-Visible on Desktop) -->
+    <aside id="adminSidebar" class="fixed inset-y-0 left-0 z-50 w-72 max-w-[82vw] transform -translate-x-full md:translate-x-0 md:static md:w-64 lg:w-72 transition-transform duration-300 ease-in-out bg-white border-r border-slate-200 shrink-0 p-4 flex flex-col justify-between overflow-y-auto md:min-h-[calc(100vh-105px)] md:sticky md:top-16 shadow-2xl md:shadow-xs md:z-30">
       <div class="space-y-4">
+        <!-- Mobile Drawer Top Bar -->
+        <div class="flex md:hidden items-center justify-between pb-3 border-b border-slate-100">
+          <img src="assets/nutrolix-logo.png" alt="Nutrolix Logo" class="h-8 w-auto object-contain">
+          <button onclick="window.closeAdminSidebar()" aria-label="Close Navigation Menu" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center text-sm">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+
         <div class="flex items-center justify-between px-2 text-[11px] font-black uppercase tracking-wider text-slate-400">
           <span>Main Navigation</span>
           <span class="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-bold">10 Modules</span>
@@ -192,13 +207,8 @@
         </nav>
       </div>
 
-      <!-- Bottom Utilities: Preserving All Background Tasks, APK Link, Simulator & Timers -->
+      <!-- Bottom Utilities: APK Link, Store Link & Live Sync Status -->
       <div class="pt-4 border-t border-slate-200 space-y-2 mt-4">
-        <button onclick="window.triggerSampleOrder()" title="Send Live Order to Customer App & Admin" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-black px-3 py-2.5 rounded-xl text-xs flex items-center justify-center space-x-2 shadow-xs transition active:scale-95">
-          <i class="fa-solid fa-plus-circle"></i>
-          <span>Simulate Live Order</span>
-        </button>
-
         <div class="grid grid-cols-2 gap-2">
           <a href="/Nutrolix-Customer.apk" download="Nutrolix-Customer.apk" title="Download Customer APK" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-2 py-2 rounded-xl text-[11px] flex items-center justify-center space-x-1 shadow-xs transition text-center truncate">
             <i class="fa-solid fa-mobile-screen"></i>
@@ -225,64 +235,64 @@
     </aside>
 
     <!-- Main Workspace (Right Side) -->
-    <main class="flex-1 p-4 sm:p-6 lg:p-8 min-w-0">
+    <main class="flex-1 p-3 sm:p-6 lg:p-8 min-w-0 w-full">
 
       <!-- KPI Metric Summary -->
-      <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 flex items-center justify-between">
-          <div>
-            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Sales</p>
-            <p id="kpiRevenue" class="text-2xl font-black text-slate-800 mt-1">₹0</p>
-            <span class="text-[11px] text-emerald-600 font-medium">All Time Verified</span>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 sm:gap-4 mb-4 sm:mb-6">
+        <div class="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80 flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">Total Sales</p>
+            <p id="kpiRevenue" class="text-lg sm:text-2xl font-black text-slate-800 mt-0.5 sm:mt-1 truncate">₹0</p>
+            <span class="text-[10px] sm:text-[11px] text-emerald-600 font-medium block truncate">All Time Verified</span>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
+          <div class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm sm:text-xl shrink-0">
             <i class="fa-solid fa-indian-rupee-sign"></i>
           </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 flex items-center justify-between">
-          <div>
-            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Live Orders</p>
-            <p id="kpiLiveOrders" class="text-2xl font-black text-amber-600 mt-1">0</p>
-            <span class="text-[11px] text-slate-500 font-medium">Pending Kitchen Action</span>
+        <div class="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80 flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">Live Orders</p>
+            <p id="kpiLiveOrders" class="text-lg sm:text-2xl font-black text-amber-600 mt-0.5 sm:mt-1">0</p>
+            <span class="text-[10px] sm:text-[11px] text-slate-500 font-medium block truncate">Pending Action</span>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-xl">
+          <div class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-sm sm:text-xl shrink-0">
             <i class="fa-solid fa-clock"></i>
           </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 flex items-center justify-between">
-          <div>
-            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Delivered Orders</p>
-            <p id="kpiDelivered" class="text-2xl font-black text-blue-600 mt-1">0</p>
-            <span class="text-[11px] text-blue-600 font-medium">Eligible for Review</span>
+        <div class="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80 flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">Delivered</p>
+            <p id="kpiDelivered" class="text-lg sm:text-2xl font-black text-blue-600 mt-0.5 sm:mt-1">0</p>
+            <span class="text-[10px] sm:text-[11px] text-blue-600 font-medium block truncate">Verified Done</span>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
+          <div class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm sm:text-xl shrink-0">
             <i class="fa-solid fa-circle-check"></i>
           </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 flex items-center justify-between">
-          <div>
-            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Registered Users</p>
-            <p id="kpiTotalUsers" class="text-2xl font-black text-indigo-600 mt-1">0</p>
-            <span class="text-[11px] text-indigo-600 font-medium">Live In Firestore</span>
+        <div class="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80 flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">Users</p>
+            <p id="kpiTotalUsers" class="text-lg sm:text-2xl font-black text-indigo-600 mt-0.5 sm:mt-1">0</p>
+            <span class="text-[10px] sm:text-[11px] text-indigo-600 font-medium block truncate">Live Firestore</span>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-xl">
+          <div class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm sm:text-xl shrink-0">
             <i class="fa-solid fa-users"></i>
           </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-200/80 flex items-center justify-between">
-          <div>
-            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Customer Rating</p>
-            <div class="flex items-center space-x-1 mt-1">
-              <p id="kpiAvgRating" class="text-2xl font-black text-slate-800">4.8</p>
-              <i class="fa-solid fa-star text-amber-400 text-sm"></i>
+        <div class="col-span-2 sm:col-span-1 bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80 flex items-center justify-between gap-2">
+          <div class="min-w-0">
+            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">Customer Rating</p>
+            <div class="flex items-center space-x-1 mt-0.5 sm:mt-1">
+              <p id="kpiAvgRating" class="text-lg sm:text-2xl font-black text-slate-800">4.9</p>
+              <i class="fa-solid fa-star text-amber-400 text-xs sm:text-sm"></i>
             </div>
-            <span id="kpiReviewCount" class="text-[11px] text-slate-500 font-medium">Based on 0 reviews</span>
+            <span id="kpiReviewCount" class="text-[10px] sm:text-[11px] text-slate-500 font-medium block truncate">Verified Google Reviews</span>
           </div>
-          <div class="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-xl">
+          <div class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-sm sm:text-xl shrink-0">
             <i class="fa-solid fa-comments"></i>
           </div>
         </div>
@@ -307,7 +317,7 @@
 
     <div>
       <!-- TAB 3: PROMO BANNERS & HOMEPAGE HERO PRODUCTS -->
-      <div id="tabContent-banners" class="p-6 hidden space-y-8">
+      <div id="tabContent-banners" class="p-3 sm:p-6 hidden space-y-6 sm:space-y-8">
         
         <!-- SECTION: HOMEPAGE HERO SECTION 3 PRODUCTS & IMAGES (Point 4) -->
         <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-6">
@@ -426,7 +436,7 @@
       </div>
 
       <!-- TAB 4: COUPONS -->
-      <div id="tabContent-coupons" class="p-6 hidden">
+      <div id="tabContent-coupons" class="p-3 sm:p-6 hidden">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 class="text-base font-extrabold text-slate-900">Discount Coupons & Offers</h2>
@@ -441,7 +451,7 @@
       </div>
 
       <!-- TAB 5: REVIEWS -->
-      <div id="tabContent-reviews" class="p-6 hidden">
+      <div id="tabContent-reviews" class="p-3 sm:p-6 hidden">
         <div class="mb-6">
           <h2 class="text-base font-extrabold text-slate-900">Verified Customer Feedback</h2>
           <p class="text-xs text-slate-500">Ratings and reviews submitted by customers upon verified order delivery.</p>
@@ -450,7 +460,7 @@
       </div>
 
       <!-- TAB 6: STORE SETTINGS -->
-            <div id="tabContent-settings" class="p-6 hidden">
+      <div id="tabContent-settings" class="p-3 sm:p-6 hidden">
         <div class="max-w-4xl space-y-6">
           
           <div>
@@ -672,39 +682,35 @@
       </div>
 
       <!-- TAB 7: REGISTERED USERS & CUSTOMERS (LIVE SYNCED WITH FIRESTORE 'users' COLLECTION) -->
-      <div id="tabContent-users" class="p-6 hidden">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div id="tabContent-users" class="p-3 sm:p-6 hidden">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
           <div>
-            <h2 class="text-base font-extrabold text-slate-900 flex items-center space-x-2">
+            <h2 class="text-base font-extrabold text-slate-900 flex flex-wrap items-center gap-2">
               <span>👥 Registered Customers & App Users</span>
-              <span class="text-[11px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">Firestore `users` Collection</span>
+              <span class="text-[11px] bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full font-bold">Live Synced</span>
             </h2>
-            <p class="text-xs text-slate-500 mt-0.5">Every customer who registers, logs in, or places an order on Customer Web App or Android App appears here automatically.</p>
+            <p class="text-xs text-slate-500 mt-0.5">Real customers who sign in or place orders on Customer Web App & Android App appear here automatically.</p>
           </div>
-          <div class="flex items-center space-x-2">
-            <input type="text" id="userSearchInput" onkeyup="window.renderUsers()" placeholder="Search name, phone, address..." class="px-3 py-1.5 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            <button onclick="window.simulateUserRegistration()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center space-x-1.5 shadow">
-              <i class="fa-solid fa-user-plus"></i>
-              <span>+ Add Test User</span>
-            </button>
+          <div class="flex items-center space-x-2 w-full sm:w-auto">
+            <input type="text" id="userSearchInput" onkeyup="window.renderUsers()" placeholder="Search name, phone, address..." class="w-full sm:w-64 px-3 py-2 text-xs rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
           </div>
         </div>
 
-        <div class="overflow-x-auto rounded-xl border border-slate-200">
-          <table class="w-full text-left border-collapse text-xs">
+        <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+          <table class="w-full min-w-[680px] text-left border-collapse text-xs">
             <thead>
               <tr class="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 uppercase tracking-wider">
                 <th class="p-3">Customer Profile</th>
-                <th class="p-3">Phone & Email</th>
-                <th class="p-3">Saved Delivery Address</th>
-                <th class="p-3">Orders & Total Spend</th>
-                <th class="p-3">Last Active Date</th>
-                <th class="p-3 text-right">Actions</th>
+                <th class="p-3">Phone</th>
+                <th class="p-3">Email</th>
+                <th class="p-3">Delivery Address</th>
+                <th class="p-3">Orders</th>
+                <th class="p-3">Total Spend</th>
               </tr>
             </thead>
             <tbody id="usersTableBody" class="divide-y divide-slate-100 bg-white">
               <tr>
-                <td colspan="6" class="p-6 text-center text-slate-400">Loading registered users from Firestore...</td>
+                <td colspan="6" class="p-6 text-center text-slate-400">Loading registered customers...</td>
               </tr>
             </tbody>
           </table>
@@ -712,7 +718,7 @@
       </div>
 
       <!-- TAB 1: PACKAGED NUTRITION PRODUCTS (PRIORITY 1) -->
-      <div id="tabContent-packaged-products" class="p-6 hidden">
+      <div id="tabContent-packaged-products" class="p-3 sm:p-6 hidden">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h3 class="text-lg font-black text-slate-900 flex items-center space-x-2">
@@ -750,56 +756,56 @@
       </div>
 
       <!-- TAB: PACKAGED STORE ORDERS -->
-      <div id="tabContent-packaged-orders" class="p-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div id="tabContent-packaged-orders" class="p-3 sm:p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
           <div>
-            <h3 class="text-lg font-black text-slate-900 flex items-center space-x-2">
+            <h3 class="text-base sm:text-lg font-black text-slate-900 flex items-center space-x-2">
               <i class="fa-solid fa-truck-ramp-box text-blue-600"></i>
-              <span>Packaged Store Orders (Pan-India Shipping)</span>
+              <span>All Orders &amp; Shipping</span>
             </h3>
-            <p class="text-xs text-slate-500">Customer orders placed on Nutrolix E-commerce Store via Web & Mobile App</p>
+            <p class="text-xs text-slate-500">Live customer orders placed across Nutrolix WebApp &amp; Android App</p>
           </div>
           <button onclick="window.loadPackagedOrders()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition flex items-center space-x-1.5 self-start sm:self-auto">
             <i class="fa-solid fa-arrows-rotate"></i>
-            <span>Refresh Orders</span>
+            <span>Refresh Live Orders</span>
           </button>
         </div>
         <!-- Status Filter Tabs (4 Standard Statuses: Accepted, Preparing, Dispatched, Delivered) -->
         <div class="flex items-center space-x-2 overflow-x-auto pb-2 border-b border-slate-200 mb-4 custom-scrollbar">
-          <button onclick="window.filterPackagedOrders('ALL')" id="orderFilterBtn-ALL" class="px-4 py-1.5 rounded-xl text-xs font-black bg-slate-900 text-white shadow-sm whitespace-nowrap">
+          <button onclick="window.filterPackagedOrders('ALL')" id="orderFilterBtn-ALL" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-black bg-slate-900 text-white shadow-sm whitespace-nowrap">
             All Orders (<span id="cntAll">0</span>)
           </button>
-          <button onclick="window.filterPackagedOrders('Accepted')" id="orderFilterBtn-Accepted" class="px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+          <button onclick="window.filterPackagedOrders('Accepted')" id="orderFilterBtn-Accepted" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
             Accepted (<span id="cntAccepted">0</span>)
           </button>
-          <button onclick="window.filterPackagedOrders('Preparing')" id="orderFilterBtn-Preparing" class="px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+          <button onclick="window.filterPackagedOrders('Preparing')" id="orderFilterBtn-Preparing" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
             Preparing (<span id="cntPreparing">0</span>)
           </button>
-          <button onclick="window.filterPackagedOrders('Dispatched')" id="orderFilterBtn-Dispatched" class="px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+          <button onclick="window.filterPackagedOrders('Dispatched')" id="orderFilterBtn-Dispatched" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
             Dispatched (<span id="cntDispatched">0</span>)
           </button>
-          <button onclick="window.filterPackagedOrders('Delivered')" id="orderFilterBtn-Delivered" class="px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+          <button onclick="window.filterPackagedOrders('Delivered')" id="orderFilterBtn-Delivered" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
             Delivered (<span id="cntDelivered">0</span>)
           </button>
         </div>
 
 
         <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
-          <table class="w-full text-left text-xs text-slate-700">
+          <table class="w-full min-w-[820px] text-left text-xs text-slate-700">
             <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 font-extrabold border-b border-slate-200">
               <tr>
-                <th class="p-3.5">Order ID & Date</th>
-                <th class="p-3.5">Customer & Contact</th>
-                <th class="p-3.5">Shipping Destination</th>
-                <th class="p-3.5">Items Ordered</th>
-                <th class="p-3.5">Total & Payment</th>
-                <th class="p-3.5">Fulfillment Status</th>
-                <th class="p-3.5 text-right">Actions</th>
+                <th class="p-3 sm:p-3.5">Order ID & Date</th>
+                <th class="p-3 sm:p-3.5">Customer & Contact</th>
+                <th class="p-3 sm:p-3.5">Shipping Destination</th>
+                <th class="p-3 sm:p-3.5">Items Ordered</th>
+                <th class="p-3 sm:p-3.5">Total & Payment</th>
+                <th class="p-3 sm:p-3.5">Fulfillment Status</th>
+                <th class="p-3 sm:p-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody id="packagedOrdersTableBody" class="divide-y divide-slate-100">
               <tr>
-                <td colspan="7" class="p-8 text-center text-slate-400">Loading store orders...</td>
+                <td colspan="7" class="p-8 text-center text-slate-400">Syncing live store orders...</td>
               </tr>
             </tbody>
           </table>
@@ -807,7 +813,7 @@
       </div>
 
       <!-- TAB: GOOGLE BUSINESS PROFILE & REVIEWS -->
-      <div id="tabContent-google-profile" class="p-6 hidden">
+      <div id="tabContent-google-profile" class="p-3 sm:p-6 hidden">
         <div class="max-w-4xl space-y-6">
           <div>
             <h3 class="text-lg font-black text-slate-900 flex items-center space-x-2">
@@ -875,7 +881,7 @@
       </div>
 
       <!-- TAB: YOUTUBE SHORTS VIDEO REVIEWS (Requirement 6) -->
-      <div id="tabContent-video-reviews" class="p-6 hidden">
+      <div id="tabContent-video-reviews" class="p-3 sm:p-6 hidden">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h3 class="text-lg font-black text-slate-900 flex items-center space-x-2">
@@ -898,7 +904,7 @@
 
 
       <!-- TAB: HEALTHY FOOD STORE (Cloud Kitchen - Strictly 1 Image per Meal) -->
-      <div id="tabContent-food-menu" class="p-6 hidden">
+      <div id="tabContent-food-menu" class="p-3 sm:p-6 hidden">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h3 class="text-lg font-black text-slate-900 flex items-center space-x-2">
@@ -907,7 +913,7 @@
             </h3>
             <p class="text-xs text-slate-500">Manage high-protein bowls, keto dishes, thalis, macros, and prices. Strictly single meal photo.</p>
           </div>
-          <div class="flex items-center space-x-2.5 self-start sm:self-auto">
+          <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
             <button onclick="window.openManageCategoriesModal()" class="px-3.5 py-2.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 font-extrabold text-xs border border-teal-300 shadow-xs transition flex items-center space-x-1.5">
               <i class="fa-solid fa-tags text-teal-600"></i>
               <span>Manage Categories</span>
@@ -938,7 +944,7 @@
         </div>
 
         <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
-          <table class="w-full text-left text-xs text-slate-700">
+          <table class="w-full min-w-[700px] text-left text-xs text-slate-700">
             <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 font-extrabold border-b border-slate-200">
               <tr>
                 <th class="p-3.5">Meal & Photo (1 Image)</th>
@@ -960,7 +966,7 @@
       </div>
 
       <!-- TAB: CUSTOMER PUSH NOTIFICATIONS & BROADCAST -->
-      <div id="tabContent-notifications" class="p-6 hidden">
+      <div id="tabContent-notifications" class="p-3 sm:p-6 hidden">
         <div class="max-w-4xl space-y-6">
           <div>
             <h3 class="text-lg font-black text-slate-900 flex items-center space-x-2">
@@ -1033,7 +1039,7 @@
       </div>
 
       <!-- TAB: BLOG ARTICLES MANAGER (Requirement 5) -->
-      <div id="tabContent-blogs" class="p-6 hidden">
+      <div id="tabContent-blogs" class="p-3 sm:p-6 hidden">
         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h3 class="text-lg font-black text-slate-900 flex items-center space-x-2">
@@ -1867,8 +1873,34 @@
 
   <!-- STANDALONE CORE JAVASCRIPT: GUARANTEED ZERO-FAILURE EXECUTION -->
   <script>
-    // Global Tab Switching - Works 100% Instantly on Page Load (Default: packaged-orders)
+    // Mobile Hamburger Sidebar Drawer Controls
+    window.openAdminSidebar = function() {
+      const aside = document.getElementById('adminSidebar');
+      const backdrop = document.getElementById('adminSidebarBackdrop');
+      if (aside) aside.classList.remove('-translate-x-full');
+      if (backdrop) backdrop.classList.remove('hidden');
+    };
+
+    window.closeAdminSidebar = function() {
+      const aside = document.getElementById('adminSidebar');
+      const backdrop = document.getElementById('adminSidebarBackdrop');
+      if (aside) aside.classList.add('-translate-x-full');
+      if (backdrop) backdrop.classList.add('hidden');
+    };
+
+    window.toggleAdminSidebar = function() {
+      const aside = document.getElementById('adminSidebar');
+      if (aside && aside.classList.contains('-translate-x-full')) {
+        window.openAdminSidebar();
+      } else {
+        window.closeAdminSidebar();
+      }
+    };
+
+    // Global Tab Switching - Works 100% Instantly on Page Load (Always Defaults to All Orders & Shipping)
     window.switchTab = function(tabId) {
+      if (!tabId || tabId === 'orders') tabId = 'packaged-orders';
+
       document.querySelectorAll('.tab-btn').forEach(b => {
         b.className = 'tab-btn w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-between transition';
       });
@@ -1881,6 +1913,9 @@
       const target = document.getElementById('tabContent-' + tabId);
       if (target) target.classList.remove('hidden');
 
+      // Close mobile drawer automatically after menu selection
+      window.closeAdminSidebar();
+
       if (tabId === 'packaged-orders') window.loadPackagedOrders();
       if (tabId === 'packaged-products') window.loadPackagedProducts();
       if (tabId === 'food-menu') {
@@ -1892,6 +1927,7 @@
       if (tabId === 'video-reviews') window.loadVideoReviewsAdmin();
       if (tabId === 'blogs') window.loadBlogsAdmin();
       if (tabId === 'users') window.loadUsers();
+      if (tabId === 'settings') window.loadStoreSettings();
     };
 
     window.closeModal = function(id) {
@@ -2317,10 +2353,176 @@
     };
 
     // -------------------------------------------------------------
-    // ALL STORE ORDERS CONTROLLER (Pan-India & Cloud Kitchen)
+    // ALL STORE ORDERS CONTROLLER (Live Merged Sync: Firestore + Cloud Run + Vercel)
     // -------------------------------------------------------------
     window.packagedOrders = [];
     window.currentOrderFilter = 'ALL';
+    window.liveOrderBuckets = { firestore: [], cloudRun: [], vercel: [] };
+    window.DUMMY_ORDER_IDS = new Set([
+      'ORD-942810', 'ORD-831920', 'ORD-719402', 'NTX-782194', 'NTX-904512',
+      'ORD-123456', 'NUTRO-STORE-111581', 'NUTRO-STORE-281594', 'ORD-276332',
+      'ORD-956690', 'ord_demo_101', 'NUTRO-8921'
+    ]);
+
+    window.purgeDummyCachedData = function() {
+      if (window.hasPurgedDummyCache) return;
+      window.hasPurgedDummyCache = true;
+      ['nutrolix_orders', 'nutrolix_customer_orders', 'nutrolix_store_orders'].forEach(storageKey => {
+        try {
+          const raw = JSON.parse(localStorage.getItem(storageKey) || '[]');
+          if (Array.isArray(raw)) {
+            const cleaned = raw.filter(o => {
+              const oid = String(o.orderId || o.id || '');
+              return oid && !window.DUMMY_ORDER_IDS.has(oid);
+            });
+            localStorage.setItem(storageKey, JSON.stringify(cleaned));
+          }
+        } catch (_) {}
+      });
+      try {
+        const rawUsers = JSON.parse(localStorage.getItem('nutrolix_admin_users') || '[]');
+        if (Array.isArray(rawUsers)) {
+          const cleanedUsers = rawUsers.filter(u => !String(u.id || '').startsWith('user_'));
+          localStorage.setItem('nutrolix_admin_users', JSON.stringify(cleanedUsers));
+        }
+      } catch (_) {}
+    };
+
+    window.normalizeOrderStatus = function(statusRaw) {
+      const s = String(statusRaw || '').trim();
+      const lower = s.toLowerCase();
+      if (!lower || lower === 'placed' || lower === 'order placed' || lower === 'pending' || lower === 'new') return 'Order Placed';
+      if (lower === 'confirmed' || lower === 'accepted') return 'Accepted';
+      if (lower === 'preparing' || lower === 'packed & ready' || lower === 'packed_ready') return 'Preparing';
+      if (lower === 'dispatched' || lower === 'in transit' || lower === 'in_transit' || lower === 'out_for_delivery' || lower === 'out for delivery') return 'Dispatched';
+      if (lower === 'delivered') return 'Delivered';
+      if (lower === 'cancelled' || lower === 'rejected') return lower === 'rejected' ? 'Rejected' : 'Cancelled';
+      return s;
+    };
+
+    window.normalizeNutrolixOrder = function(raw) {
+      if (!raw || typeof raw !== 'object') return null;
+      const oid = String(raw.orderId || raw.id || raw.orderNumber || '').trim();
+      if (!oid || window.DUMMY_ORDER_IDS.has(oid)) return null;
+
+      const custObj = (raw.customer && typeof raw.customer === 'object') ? raw.customer : {};
+      const customer = {
+        name: custObj.name || raw.customerName || raw.firstname || 'Customer',
+        phone: custObj.phone || raw.customerPhone || raw.phone || '',
+        email: custObj.email || raw.customerEmail || raw.email || ''
+      };
+
+      let deliveryAddress = raw.deliveryAddress;
+      if (!deliveryAddress || typeof deliveryAddress === 'string') {
+        deliveryAddress = {
+          address1: typeof deliveryAddress === 'string' ? deliveryAddress : (raw.address || ''),
+          city: raw.city || '',
+          state: raw.state || '',
+          pincode: raw.pincode || ''
+        };
+      }
+
+      const items = (Array.isArray(raw.items) ? raw.items : []).map(i => ({
+        ...i,
+        title: i.title || i.name || i.mealName || 'Nutrolix Product',
+        variant: i.variant || i.portion || 'Standard',
+        price: Number(i.price || 0),
+        quantity: Number(i.quantity || i.qty || 1)
+      }));
+
+      const ts = Number(raw.timestamp || raw.orderTimeMillis || Date.parse(raw.createdAt || raw.orderTime || 0) || 0);
+      const createdAt = raw.createdAt || raw.orderTime || (ts ? new Date(ts).toISOString() : new Date().toISOString());
+
+      return {
+        ...raw,
+        id: oid,
+        orderId: oid,
+        customer,
+        deliveryAddress,
+        items,
+        grandTotal: Number(raw.grandTotal ?? raw.total ?? raw.amount ?? 0),
+        paymentMethod: raw.paymentMethod || 'Online Payment',
+        status: window.normalizeOrderStatus(raw.status),
+        createdAt,
+        timestampMs: ts || Date.parse(createdAt) || Date.now()
+      };
+    };
+
+    window.mergeAndRenderAllOrders = function(triggerAlarmForNew = false) {
+      window.purgeDummyCachedData();
+
+      let localCached = [];
+      try {
+        const stored = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
+        if (Array.isArray(stored)) localCached = stored;
+      } catch (_) {}
+
+      const mergedMap = new Map();
+      // Merge oldest/lowest-priority first -> freshest real-time Firestore highest priority
+      const feedOrder = [
+        ...localCached,
+        ...(window.liveOrderBuckets.vercel || []),
+        ...(window.liveOrderBuckets.cloudRun || []),
+        ...(window.liveOrderBuckets.firestore || [])
+      ];
+
+      feedOrder.forEach(raw => {
+        const norm = window.normalizeNutrolixOrder(raw);
+        if (!norm) return;
+        const prev = mergedMap.get(norm.id);
+        if (!prev) {
+          mergedMap.set(norm.id, norm);
+        } else {
+          mergedMap.set(norm.id, {
+            ...prev,
+            ...norm,
+            customer: (norm.customer.phone || norm.customer.name !== 'Customer') ? norm.customer : prev.customer,
+            items: (norm.items && norm.items.length) ? norm.items : prev.items,
+            status: norm.status !== 'Order Placed' ? norm.status : prev.status,
+            grandTotal: norm.grandTotal || prev.grandTotal
+          });
+        }
+      });
+
+      const merged = Array.from(mergedMap.values()).sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0));
+
+      const isInitial = !window.hasCompletedInitialOrderCheck;
+      let newlyArrivedOrder = null;
+
+      if (isInitial) {
+        merged.forEach(o => window.knownAdminOrderIds.add(o.id));
+        if (merged.length > 0 || window.hasCompletedHttpInitialPoll || window.hasCompletedFirestoreInitialPoll) {
+          window.hasCompletedInitialOrderCheck = true;
+        }
+      } else if (triggerAlarmForNew) {
+        merged.forEach(o => {
+          if (!window.knownAdminOrderIds.has(o.id)) {
+            window.knownAdminOrderIds.add(o.id);
+            const st = (o.status || '').toLowerCase();
+            if (!['cancelled', 'rejected', 'delivered'].includes(st)) {
+              newlyArrivedOrder = o;
+            }
+          }
+        });
+      } else {
+        merged.forEach(o => window.knownAdminOrderIds.add(o.id));
+      }
+
+      window.packagedOrders = merged;
+      try { localStorage.setItem('nutrolix_orders', JSON.stringify(merged.slice(0, 150))); } catch (_) {}
+
+      const badge = document.getElementById('packagedOrderCountBadge');
+      if (badge) badge.innerText = merged.length;
+      window.updateKPIs();
+      window.updateOrderFilterCounts();
+      window.renderPackagedOrdersTable();
+      if (typeof window.loadUsers === 'function') window.loadUsers();
+
+      if (newlyArrivedOrder) {
+        console.log('🚨 NEW LIVE ORDER DETECTED:', newlyArrivedOrder.id);
+        window.playNativeOrderAlarm(newlyArrivedOrder);
+      }
+    };
 
     window.updateKPIs = function() {
       const orders = window.packagedOrders || [];
@@ -2349,109 +2551,44 @@
       const delEl = document.getElementById('kpiDelivered');
       if (delEl) delEl.innerText = deliveredOrders;
       const userEl = document.getElementById('kpiTotalUsers');
-      if (userEl) userEl.innerText = (window.usersList && window.usersList.length) ? window.usersList.length : (orders.length || 3);
+      if (userEl) userEl.innerText = (window.usersList && window.usersList.length) ? window.usersList.length : 0;
       const revCountEl = document.getElementById('kpiReviewCount');
-      if (revCountEl) revCountEl.innerText = `Based on 184 verified reviews`;
+      if (revCountEl) revCountEl.innerText = `Verified Google Reviews`;
     };
 
     window.loadPackagedOrders = async function() {
-      // 1. Instant 0ms Load from localStorage or pre-seeded realistic verified orders
-      if (!window.packagedOrders || window.packagedOrders.length === 0) {
-        let local = [];
-        try { local = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]'); } catch(_) {}
-        if (!local || local.length === 0) {
-          local = [
-            {
-              id: "ORD-942810",
-              orderId: "ORD-942810",
-              customer: { name: "Aarav Sharma", phone: "9820145672", email: "aarav@gmail.com" },
-              deliveryAddress: { address1: "Sector 14, Taloja Phase 1", city: "Navi Mumbai", state: "Maharashtra", pincode: "410208" },
-              items: [{ id: "prod_high_protein_atta", title: "Nutrolix High Protein Atta", variant: "1 Kg", price: 349, quantity: 2 }],
-              grandTotal: 698,
-              paymentMethod: "PayU UPI Online (PAID)",
-              status: "Order Placed",
-              createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString()
-            },
-            {
-              id: "ORD-831920",
-              orderId: "ORD-831920",
-              customer: { name: "Pooja Hegde", phone: "9930129841", email: "pooja.hegde@nutrolix.in" },
-              deliveryAddress: { address1: "Flat 402, Green Palms, Seawoods", city: "Navi Mumbai", state: "Maharashtra", pincode: "400706" },
-              items: [{ id: "prod_complete_nutri_meal", title: "Nutrolix Complete Nutri Meal", variant: "400g", price: 699, quantity: 1 }],
-              grandTotal: 699,
-              paymentMethod: "PayU Card Online (PAID)",
-              status: "Preparing",
-              createdAt: new Date(Date.now() - 1000 * 60 * 60).toISOString()
-            },
-            {
-              id: "ORD-719402",
-              orderId: "ORD-719402",
-              customer: { name: "Dr. Sameer Kulkarni", phone: "9819284710", email: "kulkarni.doc@gmail.com" },
-              deliveryAddress: { address1: "Apex Health Clinic, Vashi Sector 17", city: "Navi Mumbai", state: "Maharashtra", pincode: "400703" },
-              items: [{ id: "prod_premium_talbeenah", title: "Nutrolix Premium Talbeenah", variant: "500g", price: 299, quantity: 3 }],
-              grandTotal: 897,
-              paymentMethod: "Cash on Delivery",
-              status: "Delivered",
-              createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString()
-            }
-          ];
-          localStorage.setItem('nutrolix_orders', JSON.stringify(local));
-        }
-        window.packagedOrders = local;
-      }
+      window.purgeDummyCachedData();
+      window.mergeAndRenderAllOrders(false);
 
-      const badge = document.getElementById('packagedOrderCountBadge');
-      if (badge) badge.innerText = window.packagedOrders.length;
-      window.updateKPIs();
-      window.updateOrderFilterCounts();
-      window.renderPackagedOrdersTable();
+      // Fetch from Cloud Run / relative server API AND Vercel deployment so orders from WebApp & App always sync
+      const endpoints = [
+        { key: 'cloudRun', url: '/api/nutrition-orders' },
+        { key: 'vercel', url: 'https://nutrolixweb.vercel.app/api/nutrition-orders' }
+      ];
 
-      // 2. Real-Time Server Poll
-      try {
-        const res = await fetch('/api/nutrition-orders');
-        if (res && res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data) && data.length) {
-            const isInitial = !window.hasCompletedInitialOrderCheck;
-            let newlyArrivedOrder = null;
-
-            if (isInitial) {
-              data.forEach(o => window.knownAdminOrderIds.add(o.id));
-              window.hasCompletedInitialOrderCheck = true;
-            } else {
-              data.forEach(o => {
-                if (!window.knownAdminOrderIds.has(o.id)) {
-                  window.knownAdminOrderIds.add(o.id);
-                  const st = (o.status || '').toLowerCase();
-                  if (!['cancelled', 'rejected', 'delivered'].includes(st)) {
-                    newlyArrivedOrder = o;
-                  }
-                }
-              });
-            }
-
-            window.packagedOrders = data;
-            localStorage.setItem('nutrolix_orders', JSON.stringify(data));
-            if (badge) badge.innerText = data.length;
-            window.updateKPIs();
-            window.updateOrderFilterCounts();
-            window.renderPackagedOrdersTable();
-
-            if (newlyArrivedOrder) {
-              console.log('🚨 NEW ORDER DETECTED VIA LIVE POLL:', newlyArrivedOrder);
-              window.playNativeOrderAlarm(newlyArrivedOrder);
+      await Promise.all(endpoints.map(async ep => {
+        try {
+          const res = await fetch(ep.url, { cache: 'no-store' });
+          if (res && res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) {
+              window.liveOrderBuckets[ep.key] = data;
             }
           }
+        } catch (err) {
+          console.warn('Orders sync notice (' + ep.key + '):', err.message);
         }
-      } catch (err) {
-        console.warn('Orders sync error:', err.message);
-      }
+      }));
 
-      // Ensure 4-second live background polling is active
+      const allowAlarm = Boolean(window.hasCompletedHttpInitialPoll);
+      window.hasCompletedHttpInitialPoll = true;
+      window.mergeAndRenderAllOrders(allowAlarm);
+
+      // Ensure 5-second live background polling is active alongside Firestore listener
       if (!window.orderPollingTimer) {
         window.orderPollingTimer = setInterval(() => {
           window.loadPackagedOrders();
-        }, 4000);
+        }, 5000);
       }
     };
 
@@ -2477,9 +2614,9 @@
         const btn = document.getElementById('orderFilterBtn-' + key);
         if (btn) {
           if (key === statusKey) {
-            btn.className = 'px-4 py-1.5 rounded-xl text-xs font-black bg-slate-900 text-white shadow-sm whitespace-nowrap';
+            btn.className = 'px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-black bg-slate-900 text-white shadow-sm whitespace-nowrap';
           } else {
-            btn.className = 'px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap';
+            btn.className = 'px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap';
           }
         }
       });
@@ -2490,7 +2627,7 @@
       const tbody = document.getElementById('packagedOrdersTableBody');
       if (!tbody) return;
       if (!window.packagedOrders || window.packagedOrders.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400">No store orders placed yet.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-semibold">No real customer orders yet. New live orders from Website &amp; App will appear here instantly!</td></tr>';
         return;
       }
 
@@ -2515,7 +2652,7 @@
       }
 
       // Group orders chronologically to calculate customer repeat badges
-      const sortedAll = [...window.packagedOrders].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+      const sortedAll = [...window.packagedOrders].sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
       const customerOrderCounts = {};
       const orderCustomerSequence = {};
       sortedAll.forEach(o => {
@@ -2528,8 +2665,11 @@
         const d = new Date(order.createdAt || order.orderTime || Date.now()).toLocaleDateString('en-IN', {
           day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
         });
-        const items = (order.items || []).map(i => `${i.title} (${i.variant || 'Standard'}) × ${i.quantity}`).join('<br>');
-        const addr = order.deliveryAddress ? `${order.deliveryAddress.address1 || ''}, ${order.deliveryAddress.city || ''}, ${order.deliveryAddress.state || ''} - ${order.deliveryAddress.pincode || ''}` : 'Direct';
+        const items = (order.items || []).map(i => `${i.title || i.name || 'Item'} (${i.variant || 'Standard'}) × ${i.quantity || 1}`).join('<br>') || 'Order Items';
+        const addrObj = order.deliveryAddress;
+        const addr = addrObj
+          ? (typeof addrObj === 'string' ? addrObj : [addrObj.address1, addrObj.city, addrObj.state, addrObj.pincode].filter(Boolean).join(', ')) || 'Direct'
+          : 'Direct';
         
         const seq = orderCustomerSequence[order.id] || 1;
         let repeatBadge = '';
@@ -2672,15 +2812,26 @@
     };
 
     window.callOrderStatusEndpoint = async function(orderId, status, courierName = '', trackingNumber = '') {
-      // 1. Update in-memory orders
+      // 1. Update in-memory orders across buckets
       if (window.packagedOrders) {
         const ord = window.packagedOrders.find(o => o.id === orderId || o.orderId === orderId);
         if (ord) {
           ord.status = status;
-          if (courierName) ord.courier = courierName;
+          if (courierName) { ord.courier = courierName; ord.courierName = courierName; }
           if (trackingNumber) ord.trackingNumber = trackingNumber;
         }
       }
+      ['firestore', 'cloudRun', 'vercel'].forEach(k => {
+        const list = window.liveOrderBuckets && window.liveOrderBuckets[k];
+        if (Array.isArray(list)) {
+          const item = list.find(o => o.id === orderId || o.orderId === orderId);
+          if (item) {
+            item.status = status;
+            if (courierName) item.courier = courierName;
+            if (trackingNumber) item.trackingNumber = trackingNumber;
+          }
+        }
+      });
 
       // 2. Update localStorage nutrolix_orders
       try {
@@ -2694,7 +2845,15 @@
         localStorage.setItem('nutrolix_orders', JSON.stringify(localOrders));
       } catch (_) {}
 
-      // 3. Call backend API with push notification trigger
+      // 3. Sync to Firebase Firestore AND backend API
+      if (window.NutrolixFirebase && typeof window.NutrolixFirebase.updateOrderStatus === 'function') {
+        window.NutrolixFirebase.updateOrderStatus(orderId, {
+          status,
+          courier: courierName,
+          trackingNumber
+        }).catch(() => {});
+      }
+
       try {
         await fetch('/api/nutrition-orders/status', {
           method: 'POST',
@@ -4032,57 +4191,76 @@
       if (el) el.innerText = new Date().toLocaleTimeString('en-IN');
     }, 1000);
 
-    // Initial load right on page ready
-    window.addEventListener('DOMContentLoaded', () => {
-      window.loadPackagedProducts();
-      window.loadPackagedOrders();
-    });
-    // Trigger immediately in case DOM is already parsed
-    setTimeout(() => {
-      window.loadPackagedProducts();
-      window.loadPackagedOrders();
-    }, 50);
-  
     // -------------------------------------------------------------
-    // REGISTERED USERS MANAGEMENT
+    // REGISTERED USERS MANAGEMENT (REAL CUSTOMERS ONLY)
     // -------------------------------------------------------------
     window.usersList = [];
-    window.loadUsers = async function() {
-      try {
-        const host = window.NUTROLIX_API_HOST || "";
-        const res = await fetch(host + "/api/users");
-        if (res.ok) {
-          window.usersList = await res.json();
-        }
-      } catch (_) {}
+    window.liveUsersBucket = { firestore: [], api: [] };
 
-      // Fallback: derive users from orders & localStorage
-      if (!window.usersList || window.usersList.length === 0) {
-        const map = {};
-        (window.packagedOrders || []).forEach(o => {
-          const cust = o.customer || {};
-          const phone = cust.phone || o.customerPhone;
-          const email = cust.email || o.customerEmail || "customer@nutrolix.in";
-          const name = cust.name || o.customerName || "Registered Customer";
-          const key = phone || email;
-          if (key && !map[key]) {
-            map[key] = {
-              id: key,
-              name,
-              phone: phone || "",
-              email,
-              lastAddress: o.deliveryAddress ? (o.deliveryAddress.address1 + ", " + (o.deliveryAddress.city||"") + " - " + (o.deliveryAddress.pincode||"")) : (o.address || ""),
-              totalOrders: 1,
-              totalSpend: Number(o.grandTotal || o.total || 0),
-              updatedAt: o.createdAt || new Date().toISOString()
-            };
-          } else if (key && map[key]) {
-            map[key].totalOrders += 1;
-            map[key].totalSpend += Number(o.grandTotal || o.total || 0);
-          }
-        });
-        window.usersList = Object.values(map);
-      }
+    window.mergeAndRenderUsers = function() {
+      const map = {};
+      const upsertUser = (raw) => {
+        if (!raw) return;
+        const phone = String(raw.phone || raw.customerPhone || '').trim();
+        const email = String(raw.email || raw.customerEmail || '').trim();
+        const name = String(raw.name || raw.customerName || 'Customer').trim();
+        if (String(raw.id || '').startsWith('user_')) return;
+        const key = (phone || email || raw.uid || raw.id || '').trim().toLowerCase();
+        if (!key) return;
+        if (!map[key]) {
+          map[key] = {
+            id: raw.uid || raw.id || key,
+            name: name || 'Customer',
+            phone,
+            email: email || '—',
+            lastAddress: raw.lastAddress || raw.currentAddress || raw.address || '—',
+            totalOrders: Number(raw.totalOrders || 0),
+            totalSpend: Number(raw.totalSpend || 0),
+            updatedAt: raw.updatedAt || raw.lastLoginAt || new Date().toISOString()
+          };
+        } else {
+          if (name && name !== 'Customer') map[key].name = name;
+          if (phone) map[key].phone = phone;
+          if (email) map[key].email = email;
+          if (raw.lastAddress || raw.currentAddress) map[key].lastAddress = raw.lastAddress || raw.currentAddress;
+          if (raw.totalOrders > map[key].totalOrders) map[key].totalOrders = Number(raw.totalOrders);
+          if (raw.totalSpend > map[key].totalSpend) map[key].totalSpend = Number(raw.totalSpend);
+        }
+      };
+
+      (window.liveUsersBucket.api || []).forEach(upsertUser);
+      (window.liveUsersBucket.firestore || []).forEach(upsertUser);
+
+      // Recompute real order totals from live orders
+      const orderStats = {};
+      (window.packagedOrders || []).forEach(o => {
+        const cust = o.customer || {};
+        const phone = String(cust.phone || o.customerPhone || '').trim();
+        const email = String(cust.email || o.customerEmail || '').trim();
+        const name = String(cust.name || o.customerName || 'Customer').trim();
+        const key = (phone || email || '').trim().toLowerCase();
+        if (!key) return;
+        const addrObj = o.deliveryAddress;
+        const addr = addrObj
+          ? (typeof addrObj === 'string' ? addrObj : [addrObj.address1, addrObj.city, addrObj.pincode].filter(Boolean).join(', '))
+          : (o.address || '');
+        if (!orderStats[key]) {
+          orderStats[key] = { count: 0, spend: 0, name, phone, email, lastAddress: addr, updatedAt: o.createdAt };
+        }
+        orderStats[key].count += 1;
+        orderStats[key].spend += Number(o.grandTotal || o.total || 0);
+        if (addr) orderStats[key].lastAddress = addr;
+      });
+
+      Object.entries(orderStats).forEach(([key, st]) => {
+        upsertUser({ id: key, name: st.name, phone: st.phone, email: st.email, lastAddress: st.lastAddress, totalOrders: st.count, totalSpend: st.spend, updatedAt: st.updatedAt });
+        if (map[key]) {
+          map[key].totalOrders = st.count;
+          map[key].totalSpend = st.spend;
+        }
+      });
+
+      window.usersList = Object.values(map);
 
       const countBadge = document.getElementById("usersCountBadge");
       if (countBadge) countBadge.innerText = window.usersList.length;
@@ -4090,6 +4268,19 @@
       if (kpiUsers) kpiUsers.innerText = window.usersList.length;
 
       window.renderUsers();
+    };
+
+    window.loadUsers = async function() {
+      try {
+        const host = window.NUTROLIX_API_HOST || "";
+        const res = await fetch(host + "/api/users", { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) window.liveUsersBucket.api = data;
+        }
+      } catch (_) {}
+
+      window.mergeAndRenderUsers();
     };
 
     window.renderUsers = function() {
@@ -4105,7 +4296,7 @@
       });
 
       if (!list.length) {
-        tbody.innerHTML = "<tr><td colspan=\"6\" class=\"p-8 text-center text-slate-400\">No registered customers found yet. New customers who place orders appear here automatically.</td></tr>";
+        tbody.innerHTML = "<tr><td colspan=\"6\" class=\"p-8 text-center text-slate-400 font-semibold\">No registered customers yet. Real customers who sign in or place orders appear here automatically.</td></tr>";
         return;
       }
 
@@ -4114,7 +4305,7 @@
         return `
           <tr class="hover:bg-slate-50 transition border-b border-slate-100">
             <td class="p-3.5 flex items-center space-x-3">
-              <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs border border-indigo-200">
+              <div class="w-9 h-9 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs border border-indigo-200 shrink-0">
                 ${initials}
               </div>
               <div>
@@ -4122,38 +4313,14 @@
                 <p class="text-[10px] text-slate-400">ID: ${u.id || u.phone}</p>
               </div>
             </td>
-            <td class="p-3.5 text-xs text-slate-700 font-semibold">${u.phone || "N/A"}</td>
-            <td class="p-3.5 text-xs text-slate-500">${u.email || "customer@nutrolix.in"}</td>
-            <td class="p-3.5 text-xs text-slate-600 max-w-xs truncate">${u.lastAddress || "Panvel, Maharashtra - 400010"}</td>
-            <td class="p-3.5 text-xs font-black text-slate-900">${u.totalOrders || 1} Orders</td>
-            <td class="p-3.5 text-xs font-black text-emerald-700">₹${u.totalSpend || 0}</td>
+            <td class="p-3.5 text-xs text-slate-700 font-semibold">${u.phone || "—"}</td>
+            <td class="p-3.5 text-xs text-slate-500">${u.email || "—"}</td>
+            <td class="p-3.5 text-xs text-slate-600 max-w-xs truncate">${u.lastAddress || "—"}</td>
+            <td class="p-3.5 text-xs font-black text-slate-900">${u.totalOrders || 0} Orders</td>
+            <td class="p-3.5 text-xs font-black text-emerald-700">₹${(u.totalSpend || 0).toLocaleString('en-IN')}</td>
           </tr>
         `;
       }).join("");
-    };
-
-    window.simulateUserRegistration = function() {
-      const names = ["Aditi Rao", "Rahul Deshmukh", "Priya Nair", "Siddharth Jain", "Kavita Mehra"];
-      const cities = ["Mumbai", "Navi Mumbai", "Pune", "Bengaluru", "Delhi"];
-      const randomName = names[Math.floor(Math.random() * names.length)];
-      const randomCity = cities[Math.floor(Math.random() * cities.length)];
-      const randomPhone = "+91 98" + Math.floor(10000000 + Math.random() * 90000000);
-      const newUser = {
-        id: "user_" + Date.now(),
-        name: randomName,
-        phone: randomPhone,
-        email: randomName.toLowerCase().replace(/\s+/g, ".") + "@gmail.com",
-        lastAddress: "Flat " + Math.floor(100 + Math.random() * 900) + ", Palm Heights, " + randomCity,
-        totalOrders: Math.floor(1 + Math.random() * 5),
-        totalSpend: Math.floor(349 + Math.random() * 2500),
-        lastActive: new Date().toISOString()
-      };
-      window.usersList = [newUser, ...(window.usersList || [])];
-      try {
-        localStorage.setItem("nutrolix_admin_users", JSON.stringify(window.usersList));
-      } catch(_) {}
-      window.renderUsers();
-      alert("✓ Test Customer " + randomName + " (" + randomPhone + ") added successfully!");
     };
 
     // Modal & Action Handlers: Cancel Order
@@ -4444,11 +4611,11 @@
       const text = document.getElementById("storeStatusText");
       if (btn && text) {
         if (window.storeSettings.isOpen) {
-          btn.className = "px-3 py-1 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 bg-emerald-500 text-white shadow";
-          text.innerText = "OPEN FOR ORDERS";
+          btn.className = "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-black transition flex items-center space-x-1 sm:space-x-1.5 bg-emerald-500 text-white shadow-sm whitespace-nowrap";
+          text.innerHTML = '<span class="sm:hidden">OPEN</span><span class="hidden sm:inline">OPEN FOR ORDERS</span>';
         } else {
-          btn.className = "px-3 py-1 rounded-lg text-xs font-bold transition flex items-center space-x-1.5 bg-rose-600 text-white shadow";
-          text.innerText = "CLOSED FOR ORDERS";
+          btn.className = "px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-md sm:rounded-lg text-[10px] sm:text-xs font-black transition flex items-center space-x-1 sm:space-x-1.5 bg-rose-600 text-white shadow-sm whitespace-nowrap";
+          text.innerHTML = '<span class="sm:hidden">CLOSED</span><span class="hidden sm:inline">CLOSED FOR ORDERS</span>';
         }
       }
 
@@ -4638,57 +4805,15 @@
     });
 
     // -------------------------------------------------------------
-    // LIVE TEST ORDER SIMULATOR
+    // INITIALIZE ADMIN CONSOLE + REAL-TIME FIRESTORE SYNC
     // -------------------------------------------------------------
-    window.triggerSampleOrder = async function() {
-      const orderId = "ORD-" + Math.floor(100000 + Math.random() * 900000);
-      const names = ["Aakash Sharma", "Pooja Verma", "Vikram Patel", "Sneha Kulkarni"];
-      const customerName = names[Math.floor(Math.random() * names.length)];
-      const sampleOrder = {
-        orderId,
-        id: orderId,
-        customer: { name: customerName, phone: "98" + Math.floor(10000000 + Math.random() * 90000000), email: "customer@nutrolix.in" },
-        deliveryAddress: { address1: "Flat 304, Green Palms", city: "Mumbai", state: "Maharashtra", pincode: "400001" },
-        items: [
-          { id: "prod_high_protein_atta", name: "Nutrolix High Protein Atta (1 Kg)", price: 349, quantity: 1 }
-        ],
-        grandTotal: 349,
-        paymentMethod: "PayU UPI Online (PAID)",
-        status: "Order Placed",
-        createdAt: new Date().toISOString()
-      };
+    window.initNutrolixAdmin = function() {
+      if (window.__adminInitialized) return;
+      window.__adminInitialized = true;
 
-      try {
-        const host = window.NUTROLIX_API_HOST || "";
-        await fetch(host + "/api/nutrition-orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(sampleOrder)
-        });
-      } catch (_) {}
+      window.purgeDummyCachedData();
+      window.switchTab('packaged-orders');
 
-      if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveOrder === "function") {
-        window.NutrolixFirebase.saveOrder(sampleOrder).catch(() => {});
-      }
-
-      window.loadPackagedOrders();
-      window.loadUsers();
-      if (window.soundAlertEnabled && typeof window.playNativeOrderAlarm === "function") {
-        window.playNativeOrderAlarm();
-      }
-      alert("🔔 Test Live Order #" + orderId + " generated for " + customerName + "! Chime alert triggered.");
-    };
-
-    // Update switchTab to handle users
-    const oldSwitchTab = window.switchTab;
-    window.switchTab = function(tabId) {
-      if (typeof oldSwitchTab === "function") oldSwitchTab(tabId);
-      if (tabId === "users") window.loadUsers();
-      if (tabId === "settings") window.loadStoreSettings();
-    };
-
-    // Trigger initial load of all panels
-    window.addEventListener("DOMContentLoaded", () => {
       window.loadPackagedProducts();
       window.loadPackagedOrders();
       window.loadFoodMenuAdmin();
@@ -4698,27 +4823,31 @@
       window.loadStoreSettings();
       window.loadHeroProductsAdmin();
 
+      // Live Firebase Firestore real-time subscription for Orders
       if (window.NutrolixFirebase && typeof window.NutrolixFirebase.subscribeOrders === "function") {
         window.NutrolixFirebase.subscribeOrders(orders => {
-          if (orders && orders.length > 0) {
-            window.packagedOrders = orders;
-            window.renderPackagedOrdersTable();
-            window.loadUsers();
-          }
+          window.liveOrderBuckets.firestore = Array.isArray(orders) ? orders : [];
+          const triggerAlarm = Boolean(window.hasCompletedFirestoreInitialPoll);
+          window.hasCompletedFirestoreInitialPoll = true;
+          window.mergeAndRenderAllOrders(triggerAlarm);
+        }, err => {
+          console.warn("Firestore live order listener notice:", err?.message || err);
         });
       }
-    });
 
-    setTimeout(() => {
-      window.loadPackagedProducts();
-      window.loadPackagedOrders();
-      window.loadFoodMenuAdmin();
-      window.loadNotificationHistory();
-      window.loadBlogsAdmin();
-      window.loadUsers();
-      window.loadStoreSettings();
-      window.loadHeroProductsAdmin();
-    }, 150);
+      // Live Firebase Firestore real-time subscription for Registered Users
+      if (window.NutrolixFirebase && typeof window.NutrolixFirebase.subscribeUsers === "function") {
+        window.NutrolixFirebase.subscribeUsers(users => {
+          window.liveUsersBucket.firestore = Array.isArray(users) ? users : [];
+          window.mergeAndRenderUsers();
+        });
+      }
+    };
+
+    window.addEventListener("DOMContentLoaded", window.initNutrolixAdmin);
+    if (document.readyState === "interactive" || document.readyState === "complete") {
+      setTimeout(window.initNutrolixAdmin, 20);
+    }
   </script>
 </body>
 </html>

@@ -164,6 +164,8 @@ fun NutrolixAdminWebViewApp(
               allowFileAccess = true
               allowContentAccess = true
               allowFileAccessFromFileURLs = true
+              allowUniversalAccessFromFileURLs = true
+              mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
               useWideViewPort = false
               loadWithOverviewMode = false
               setSupportZoom(false)
@@ -253,15 +255,13 @@ fun NutrolixAdminWebViewApp(
                 super.onPageFinished(view, url)
                 isPageLoading = false
 
-                // Automatically switch to All Orders by default
+                // Automatically switch to All Orders & Shipping by default
                 view?.evaluateJavascript(
                   """
                   (function() {
                     try {
-                      if (typeof window.switchAdminTab === 'function') {
-                        window.switchAdminTab('orders');
-                      } else if (typeof window.switchTab === 'function') {
-                        window.switchTab('orders');
+                      if (typeof window.switchTab === 'function') {
+                        window.switchTab('packaged-orders');
                       }
                     } catch(e) {}
                   })();

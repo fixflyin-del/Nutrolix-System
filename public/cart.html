@@ -6,6 +6,13 @@
   <title>Shopping Cart & Checkout – Nutrolix | Nutrition That Works</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    (function() {
+      const LIVE_SERVER = 'https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app';
+      const isLocalFile = (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null');
+      window.NUTROLIX_API_HOST = isLocalFile ? LIVE_SERVER : '';
+    })();
+  </script>
   
   <script>
     tailwind.config = {
@@ -1434,8 +1441,17 @@
       const shipping = subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee;
       const grandTotal = Math.max(0, subtotal - couponDiscount - foodDiscount + shipping);
 
+      const generatedOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+      const nowIso = new Date().toISOString();
+      const nowMs = Date.now();
       const orderPayload = {
+        id: generatedOrderId,
+        orderId: generatedOrderId,
+        orderNumber: generatedOrderId,
         customer: { name, phone, email },
+        customerName: name,
+        customerPhone: phone,
+        customerEmail: email,
         deliveryAddress: { 
           address1, 
           city, 
@@ -1454,8 +1470,12 @@
         couponCode: appliedCoupon ? appliedCoupon.code : (foodDiscount > 0 ? (window.activeFoodOfferType || 'HEALTHY_PROMO') : null),
         shipping,
         grandTotal,
+        total: grandTotal,
         status: 'Order Placed',
-        createdAt: new Date().toISOString()
+        createdAt: nowIso,
+        orderTime: nowIso,
+        timestamp: nowMs,
+        orderTimeMillis: nowMs
       };
 
       const btn = document.getElementById('placeOrderBtn');
@@ -1464,11 +1484,11 @@
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-base mr-2"></i><span>Securing Order...</span>';
       }
 
-      // 1. Sync order to live Firebase Firestore in background (NON-BLOCKING)
+      // 1. Sync order to live Firebase Firestore immediately (with _skipApi to let block below handle API call with full response)
       if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveOrder === 'function') {
         try {
-          window.NutrolixFirebase.saveOrder(orderPayload).catch(fbErr => console.warn('Firebase order sync fallback:', fbErr));
-          console.log('✅ Order dispatched to Firebase Firestore.');
+          window.NutrolixFirebase.saveOrder({ ...orderPayload, _skipApi: true }).catch(fbErr => console.warn('Firebase order sync fallback:', fbErr));
+          console.log('✅ Order dispatched to Firebase Firestore:', generatedOrderId);
         } catch (fbErr) {
           console.warn('Firebase order sync fallback:', fbErr);
         }
@@ -1483,7 +1503,7 @@
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              orderId: 'ORD-' + Math.floor(100000 + Math.random() * 900000),
+              orderId: generatedOrderId,
               totalAmount: grandTotal,
               customerName: name,
               customerEmail: email,
@@ -1545,15 +1565,11 @@
         
         let confirmedOrder = null;
         if (data && data.success && data.order) {
-          confirmedOrder = data.order;
+          confirmedOrder = { ...orderPayload, ...data.order, id: generatedOrderId, orderId: generatedOrderId };
         } else {
-          const ordId = 'NTX-' + Math.floor(100000 + Math.random() * 900000);
           confirmedOrder = {
             ...orderPayload,
-            id: ordId,
-            orderId: ordId,
-            status: 'Accepted',
-            createdAt: new Date().toISOString()
+            status: 'Order Placed'
           };
         }
 
@@ -1562,6 +1578,7 @@
         const orderSequenceNumber = prevCustomerOrders + 1;
         confirmedOrder.orderSequence = orderSequenceNumber;
 
+        existingLocal = existingLocal.filter(o => (o.id || o.orderId) !== generatedOrderId);
         existingLocal.unshift(confirmedOrder);
         localStorage.setItem('nutrolix_orders', JSON.stringify(existingLocal));
         
