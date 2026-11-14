@@ -2711,7 +2711,8 @@ const server = http.createServer((req, res) => {
             }
             safeWriteJson(tokenFile, tokens);
 
-            if (uid && fcmToken) {
+            let firestorePersisted = false;
+            if (fcmToken) {
               const tokenDocId = crypto.createHash('sha1').update(String(fcmToken)).digest('hex').slice(0, 24);
               const firestoreTokenObj = {
                 uid,
@@ -2723,16 +2724,24 @@ const server = http.createServer((req, res) => {
                 updatedAt: new Date().toISOString()
               };
               try {
-                await Promise.all([
-                  nutrolixCore.firestorePatchDocument(`users/${uid}/fcmTokens/${tokenDocId}`, firestoreTokenObj, nutrolixCore.DEFAULT_DB_ID),
-                  nutrolixCore.firestorePatchDocument(`users/${uid}/fcmTokens/${tokenDocId}`, firestoreTokenObj, nutrolixCore.NAMED_DB_ID)
-                ]);
+                const writes = [
+                  nutrolixCore.firestorePatchDocument(`fcmTokens/${tokenDocId}`, firestoreTokenObj, nutrolixCore.DEFAULT_DB_ID),
+                  nutrolixCore.firestorePatchDocument(`fcmTokens/${tokenDocId}`, firestoreTokenObj, nutrolixCore.NAMED_DB_ID)
+                ];
+                if (uid) {
+                  writes.push(
+                    nutrolixCore.firestorePatchDocument(`users/${uid}/fcmTokens/${tokenDocId}`, firestoreTokenObj, nutrolixCore.DEFAULT_DB_ID),
+                    nutrolixCore.firestorePatchDocument(`users/${uid}/fcmTokens/${tokenDocId}`, firestoreTokenObj, nutrolixCore.NAMED_DB_ID)
+                  );
+                }
+                const results = await Promise.all(writes);
+                firestorePersisted = results.some(Boolean);
               } catch (_) {}
             }
           }
 
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: true, registered: Boolean(endpoint) }));
+          res.end(JSON.stringify({ success: true, registered: Boolean(endpoint), firestorePersisted: Boolean(firestorePersisted), storage: firestorePersisted ? 'firestore' : 'local_only' }));
         } catch (e) {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: e.message }));
@@ -2830,6 +2839,28 @@ const server = http.createServer((req, res) => {
         let logs = safeReadJson(logFile, []);
         let tokens = safeReadJson(tokenFile, []);
         if (!Array.isArray(tokens)) tokens = [];
+
+        // Vercel Functions have ephemeral local storage. Load durable device registrations
+        // from Firestore before broadcasting so notifications reach devices across instances.
+        try {
+          const [defaultTokens, namedTokens] = await Promise.all([
+            nutrolixCore.firestoreListDocuments('fcmTokens', nutrolixCore.DEFAULT_DB_ID),
+            nutrolixCore.firestoreListDocuments('fcmTokens', nutrolixCore.NAMED_DB_ID)
+          ]);
+          const durableTokens = [...defaultTokens, ...namedTokens]
+            .filter(doc => doc && (doc.fcmToken || doc.token))
+            .map(doc => ({
+              ...doc,
+              fcmToken: doc.fcmToken || doc.token,
+              token: doc.fcmToken || doc.token
+            }));
+          const byToken = new Map();
+          [...tokens, ...durableTokens].forEach(rec => {
+            const key = rec.fcmToken || rec.token || (rec.subscription && rec.subscription.endpoint);
+            if (key) byToken.set(key, { ...(byToken.get(key) || {}), ...rec });
+          });
+          tokens = Array.from(byToken.values());
+        } catch (_) {}
 
         const title = notif.title || 'Nutrolix Announcement';
         const message = notif.message || notif.body || '';

@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity() {
 
   companion object {
     const val PRIMARY_APP_URL = "file:///android_asset/web/index.html"
-    const val LIVE_SERVER_URL = "https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app/"
+    const val LIVE_SERVER_URL = "https://nutrolixweb.vercel.app/"
   }
 
   var filePathCallback: ValueCallback<Array<Uri>>? = null
