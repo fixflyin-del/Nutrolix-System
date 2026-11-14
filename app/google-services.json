@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "836516139018",
+    "project_id": "com-aistudio-nutrolix-fo-56ac8",
+    "storage_bucket": "com-aistudio-nutrolix-fo-56ac8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:836516139018:android:6ec9886f508ace4b1f4ff3",
+        "android_client_info": {
+          "package_name": "com.aistudio.nutrolix.fooddelivery"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "836516139018-jdrt7jt22g7moq8kpguqf054jlglj77n.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.aistudio.nutrolix.fooddelivery",
+            "certificate_hash": "9961e1add09ee0b1da38eb68a8aafea6a409242b"
+          }
+        },
+        {
+          "client_id": "836516139018-ramalocm8jf1cvp1sqiuvhlj5itfv170.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBuhfsAcQYge5kp71vHA4qgQhpA7ryur-A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "836516139018-ramalocm8jf1cvp1sqiuvhlj5itfv170.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
