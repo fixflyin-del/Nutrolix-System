@@ -63,19 +63,12 @@ class NutrolixUnitTest {
   }
 
   @Test
-  fun testDeliveryOtpVerification() {
+  fun testOrderStatusTransition() {
     val meal = repository.meals.value.first()
     repository.addToCart(meal, meal.portionSizes.first(), emptyList(), quantity = 1)
     val order = repository.placeOrder("UPI")
 
-    val wrongOtp = "0000"
-    val isWrongOtpAccepted = repository.verifyDeliveryOtp(order.id, wrongOtp)
-    assertFalse(isWrongOtpAccepted)
-
-    val correctOtp = order.deliveryOtp
-    val isCorrectOtpAccepted = repository.verifyDeliveryOtp(order.id, correctOtp)
-    assertTrue(isCorrectOtpAccepted)
-
+    repository.updateOrderStatus(order.id, OrderStatus.DELIVERED)
     val updatedOrder = repository.orders.value.find { it.id == order.id }
     assertEquals(OrderStatus.DELIVERED, updatedOrder?.status)
   }

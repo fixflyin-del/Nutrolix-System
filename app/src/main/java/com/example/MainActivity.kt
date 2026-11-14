@@ -3,11 +3,17 @@ package com.example
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.location.Geocoder
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Looper
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.*
@@ -18,42 +24,51 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import kotlinx.coroutines.launch
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Chat
-import androidx.compose.material.icons.filled.*
-import androidx.compose.material3.*
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import com.example.auth.GoogleSignInResult
+import com.example.auth.GoogleSignInService
+import com.example.auth.PhoneAuthService
+import com.example.auth.PhoneOtpStartResult
+import com.example.auth.PhoneOtpVerifyResult
+import com.example.data.FirestoreService
+import com.example.service.NutrolixFirebaseMessagingService
 import com.example.ui.theme.MyApplicationTheme
+import com.example.util.OrderNotificationHelper
+import com.google.android.gms.location.LocationCallback
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationResult
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.Priority
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.messaging.FirebaseMessaging
+import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import org.json.JSONArray
+import org.json.JSONObject
+import kotlin.coroutines.resume
 
 class MainActivity : ComponentActivity() {
 
-  // Primary offline-first URL to prevent any Google AI Studio auth redirect or login demands
   companion object {
     const val PRIMARY_APP_URL = "file:///android_asset/web/index.html"
     const val LIVE_SERVER_URL = "https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app/"
   }
 
-  // File upload callback handler for WebChromeClient
   var filePathCallback: ValueCallback<Array<Uri>>? = null
+  private val pendingDeepLinkState = mutableStateOf<String?>(null)
 
   private val fileChooserLauncher = registerForActivityResult(
     ActivityResultContracts.StartActivityForResult()
@@ -71,17 +86,22 @@ class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+    OrderNotificationHelper.initChannel(this)
+    extractDeepLinkTarget(intent)?.let { pendingDeepLinkState.value = it }
 
     setContent {
       MyApplicationTheme {
+        val deepLinkUrl by pendingDeepLinkState
         NutrolixSupplementBrandApp(
+          deepLinkUrl = deepLinkUrl,
+          onDeepLinkConsumed = { pendingDeepLinkState.value = null },
           onOpenFileChooser = { callback, params ->
             filePathCallback = callback
             try {
               val intent = params.createIntent()
               fileChooserLauncher.launch(intent)
               true
-            } catch (e: Exception) {
+            } catch (_: Exception) {
               filePathCallback?.onReceiveValue(null)
               filePathCallback = null
               false
@@ -91,45 +111,193 @@ class MainActivity : ComponentActivity() {
       }
     }
   }
+
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
+    extractDeepLinkTarget(intent)?.let { pendingDeepLinkState.value = it }
+  }
+
+  private fun extractDeepLinkTarget(intent: Intent?): String? {
+    if (intent == null) return null
+    val orderId = intent.getStringExtra("order_id") ?: ""
+    val navigateTo = intent.getStringExtra("navigate_to") ?: ""
+    val openUrl = intent.getStringExtra("open_url") ?: ""
+
+    return when {
+      orderId.isNotBlank() -> "file:///android_asset/web/orders.html?orderId=${Uri.encode(orderId)}"
+      openUrl.contains("orders.html") -> {
+        val q = openUrl.substringAfter("?", "")
+        "file:///android_asset/web/orders.html" + if (q.isNotBlank()) "?$q" else ""
+      }
+      navigateTo == "orders" || navigateTo == "review_dialog" -> "file:///android_asset/web/orders.html"
+      else -> null
+    }
+  }
 }
 
-@SuppressLint("SetJavaScriptEnabled")
+private fun firebaseUserToJson(
+  user: FirebaseUser,
+  linked: Boolean = false,
+  previousUid: String? = null,
+  collisionWarning: String? = null
+): JSONObject {
+  val providers = JSONArray()
+  user.providerData.forEach { info ->
+    if (info.providerId != "firebase") {
+      providers.put(info.providerId)
+    }
+  }
+  return JSONObject().apply {
+    put("uid", user.uid)
+    put("email", user.email ?: "")
+    put("name", user.displayName ?: user.email?.substringBefore("@") ?: "Nutrolix Customer")
+    put("phone", user.phoneNumber ?: "")
+    put("verifiedPhone", user.phoneNumber ?: "")
+    put("photo", user.photoUrl?.toString() ?: "")
+    put("providers", providers)
+    put("linked", linked)
+    put("previousUid", previousUid ?: "")
+    put("collisionWarning", collisionWarning ?: "")
+  }
+}
+
+@SuppressLint("SetJavaScriptEnabled", "MissingPermission")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NutrolixSupplementBrandApp(
+  deepLinkUrl: String? = null,
+  onDeepLinkConsumed: () -> Unit = {},
   onOpenFileChooser: (ValueCallback<Array<Uri>>, WebChromeClient.FileChooserParams) -> Boolean
 ) {
   val context = LocalContext.current
+  val activity = context as? Activity
   var webViewInstance by remember { mutableStateOf<WebView?>(null) }
-  var loadingProgress by remember { mutableIntStateOf(0) }
-  var isPageLoading by remember { mutableStateOf(true) }
-  var canGoBack by remember { mutableStateOf(false) }
-  var currentUrl by remember { mutableStateOf(MainActivity.LIVE_SERVER_URL) }
-  var isOfflineMode by remember { mutableStateOf(false) }
   var lastBackPressTime by remember { mutableLongStateOf(0L) }
 
-  val googleSignInService = remember { com.example.auth.GoogleSignInService(context) }
+  val googleSignInService = remember { GoogleSignInService(context) }
+  val phoneAuthService = remember { PhoneAuthService() }
+  val firestoreService = remember { FirestoreService(context) }
   val coroutineScope = rememberCoroutineScope()
 
-  // Runtime Notification Permission launcher for Android 13+
+  // Pending permission continuations (explicit consent before OS permission prompt)
+  var pendingLocationCallback by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
+  var pendingWebGeolocationRequest by remember { mutableStateOf<Pair<String?, GeolocationPermissions.Callback?>?>(null) }
+
   val notificationPermissionLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.RequestPermission()
-  ) { /* notification access */ }
+  ) { /* handled */ }
+
+  val locationPermissionLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.RequestMultiplePermissions()
+  ) { permissions ->
+    val granted = (permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true) ||
+      (permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true)
+
+    pendingLocationCallback?.invoke(granted)
+    pendingLocationCallback = null
+
+    pendingWebGeolocationRequest?.let { (origin, callback) ->
+      callback?.invoke(origin, granted, false)
+      pendingWebGeolocationRequest = null
+    }
+  }
+
+  fun hasLocationPermission(): Boolean {
+    val fine = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    val coarse = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    return fine || coarse
+  }
+
+  fun fetchAndSyncFcmToken(user: FirebaseUser?) {
+    if (user == null) return
+    try {
+      FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+        val token = if (task.isSuccessful) task.result else {
+          context.getSharedPreferences(NutrolixFirebaseMessagingService.PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(NutrolixFirebaseMessagingService.KEY_FCM_TOKEN, null)
+        }
+        if (!token.isNullOrBlank()) {
+          context.getSharedPreferences(NutrolixFirebaseMessagingService.PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putString(NutrolixFirebaseMessagingService.KEY_FCM_TOKEN, token).apply()
+
+          coroutineScope.launch(Dispatchers.IO) {
+            firestoreService.saveFcmToken(
+              uid = user.uid,
+              token = token,
+              phone = user.phoneNumber ?: "",
+              email = user.email ?: ""
+            )
+          }
+          activity?.runOnUiThread {
+            val escaped = JSONObject.quote(token)
+            webViewInstance?.evaluateJavascript(
+              "if (typeof window.onNativeFcmToken === 'function') { window.onNativeFcmToken($escaped); }",
+              null
+            )
+          }
+        }
+      }
+    } catch (_: Throwable) {}
+  }
 
   LaunchedEffect(Unit) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
+    try {
+      FirebaseAuth.getInstance().currentUser?.let { fetchAndSyncFcmToken(it) }
+    } catch (_: Throwable) {}
   }
 
-  // Back button handling
+  // Deep-link handling when Customer taps an FCM notification
+  LaunchedEffect(deepLinkUrl, webViewInstance) {
+    if (!deepLinkUrl.isNullOrBlank() && webViewInstance != null) {
+      webViewInstance?.loadUrl(deepLinkUrl)
+      onDeepLinkConsumed()
+    }
+  }
+
+  // Foreground FCM push receiver -> sends in-app clickable notification toast to JS
+  DisposableEffect(context) {
+    val receiver = object : BroadcastReceiver() {
+      override fun onReceive(ctx: Context?, intent: Intent?) {
+        if (intent?.action != NutrolixFirebaseMessagingService.ACTION_ORDER_PUSH_RECEIVED) return
+        val payload = JSONObject().apply {
+          put("title", intent.getStringExtra("title") ?: "Nutrolix Order Update")
+          put("body", intent.getStringExtra("body") ?: "")
+          put("orderId", intent.getStringExtra("order_id") ?: "")
+          put("status", intent.getStringExtra("status") ?: "")
+          put("url", intent.getStringExtra("open_url") ?: "/orders.html")
+        }.toString()
+        val quoted = JSONObject.quote(payload)
+        activity?.runOnUiThread {
+          webViewInstance?.evaluateJavascript(
+            "if (typeof window.onNativeOrderPushReceived === 'function') { window.onNativeOrderPushReceived(JSON.parse($quoted)); }",
+            null
+          )
+        }
+      }
+    }
+    val filter = IntentFilter(NutrolixFirebaseMessagingService.ACTION_ORDER_PUSH_RECEIVED)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+    } else {
+      @Suppress("DEPRECATION")
+      context.registerReceiver(receiver, filter)
+    }
+    onDispose {
+      try { context.unregisterReceiver(receiver) } catch (_: Exception) {}
+    }
+  }
+
   BackHandler(enabled = true) {
     if (webViewInstance?.canGoBack() == true) {
       webViewInstance?.goBack()
     } else {
       val currentTime = System.currentTimeMillis()
       if (currentTime - lastBackPressTime < 2000) {
-        (context as? Activity)?.finish()
+        activity?.finish()
       } else {
         lastBackPressTime = currentTime
         Toast.makeText(context, "Press back again to exit Nutrolix", Toast.LENGTH_SHORT).show()
@@ -157,7 +325,6 @@ fun NutrolixSupplementBrandApp(
 
             setLayerType(View.LAYER_TYPE_NONE, null)
 
-            // High-Performance Web Settings Configuration
             settings.apply {
               javaScriptEnabled = true
               domStorageEnabled = true
@@ -173,41 +340,135 @@ fun NutrolixSupplementBrandApp(
               displayZoomControls = false
               cacheMode = WebSettings.LOAD_DEFAULT
               mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-              userAgentString = settings.userAgentString + " NutrolixApp/1.0.0"
+              userAgentString = settings.userAgentString + " NutrolixApp/2.0.0"
             }
 
             addJavascriptInterface(object {
               @JavascriptInterface
-              fun getAppVersion(): String = "1.0.0"
+              fun getAppVersion(): String = "2.0.0"
+
+              @JavascriptInterface
+              fun getAuthUserJson(): String {
+                val u = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
+                return u?.let { firebaseUserToJson(it).toString() } ?: ""
+              }
+
+              @JavascriptInterface
+              fun startPhoneOtp(rawPhone: String, isResend: Boolean) {
+                val act = activity ?: return
+                act.runOnUiThread {
+                  phoneAuthService.startPhoneOtp(act, rawPhone, isResend) { res ->
+                    when (res) {
+                      is PhoneOtpStartResult.CodeSent -> {
+                        val payload = JSONObject().apply {
+                          put("verificationId", res.verificationId)
+                          put("phoneE164", res.phoneE164)
+                        }.toString()
+                        val quoted = JSONObject.quote(payload)
+                        act.runOnUiThread {
+                          webViewInstance?.evaluateJavascript(
+                            "if (typeof window.onNativePhoneOtpSent === 'function') { window.onNativePhoneOtpSent(JSON.parse($quoted)); }",
+                            null
+                          )
+                        }
+                      }
+                      is PhoneOtpStartResult.InstantVerified -> {
+                        fetchAndSyncFcmToken(res.user)
+                        val payload = firebaseUserToJson(res.user, res.linked, res.previousUid).toString()
+                        val quoted = JSONObject.quote(payload)
+                        act.runOnUiThread {
+                          webViewInstance?.evaluateJavascript(
+                            "if (typeof window.onNativePhoneAuthSuccess === 'function') { window.onNativePhoneAuthSuccess(JSON.parse($quoted)); }",
+                            null
+                          )
+                        }
+                      }
+                      is PhoneOtpStartResult.Failure -> {
+                        val payload = JSONObject().apply {
+                          put("code", res.code)
+                          put("message", res.message)
+                        }.toString()
+                        val quoted = JSONObject.quote(payload)
+                        act.runOnUiThread {
+                          webViewInstance?.evaluateJavascript(
+                            "if (typeof window.onNativePhoneAuthError === 'function') { window.onNativePhoneAuthError(JSON.parse($quoted)); }",
+                            null
+                          )
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+
+              @JavascriptInterface
+              fun verifyPhoneOtp(verificationId: String, otpCode: String) {
+                coroutineScope.launch {
+                  when (val res = phoneAuthService.verifyOtp(verificationId, otpCode)) {
+                    is PhoneOtpVerifyResult.Success -> {
+                      fetchAndSyncFcmToken(res.user)
+                      val payload = firebaseUserToJson(res.user, res.linked, res.previousUid, res.collisionWarning).toString()
+                      val quoted = JSONObject.quote(payload)
+                      activity?.runOnUiThread {
+                        webViewInstance?.evaluateJavascript(
+                          "if (typeof window.onNativePhoneAuthSuccess === 'function') { window.onNativePhoneAuthSuccess(JSON.parse($quoted)); }",
+                          null
+                        )
+                      }
+                    }
+                    is PhoneOtpVerifyResult.Failure -> {
+                      val payload = JSONObject().apply {
+                        put("code", res.code)
+                        put("message", res.message)
+                      }.toString()
+                      val quoted = JSONObject.quote(payload)
+                      activity?.runOnUiThread {
+                        webViewInstance?.evaluateJavascript(
+                          "if (typeof window.onNativePhoneAuthError === 'function') { window.onNativePhoneAuthError(JSON.parse($quoted)); }",
+                          null
+                        )
+                      }
+                    }
+                  }
+                }
+              }
 
               @JavascriptInterface
               fun startGoogleSignIn() {
                 coroutineScope.launch {
-                  val result = googleSignInService.signIn(context)
-                  when (result) {
-                    is com.example.auth.GoogleSignInResult.Success -> {
+                  when (val result = googleSignInService.signIn(context)) {
+                    is GoogleSignInResult.Success -> {
                       val user = result.user
+                      fetchAndSyncFcmToken(user)
                       val email = user.email ?: ""
                       val name = user.displayName ?: email.substringBefore("@")
                       val photo = user.photoUrl?.toString() ?: ""
                       val uid = user.uid
-                      (context as? Activity)?.runOnUiThread {
+                      val richPayload = firebaseUserToJson(user, result.linked, result.previousUid, result.collisionWarning).toString()
+                      val quotedRich = JSONObject.quote(richPayload)
+                      val quotedEmail = JSONObject.quote(email)
+                      val quotedName = JSONObject.quote(name)
+                      val quotedPhoto = JSONObject.quote(photo)
+                      val quotedUid = JSONObject.quote(uid)
+                      activity?.runOnUiThread {
                         webViewInstance?.evaluateJavascript(
-                          "if (typeof window.onNativeGoogleSignInSuccess === 'function') { window.onNativeGoogleSignInSuccess('$email', '$name', '$photo', '$uid'); }",
+                          "if (typeof window.onNativeUnifiedAuthSuccess === 'function') { window.onNativeUnifiedAuthSuccess(JSON.parse($quotedRich)); } " +
+                            "else if (typeof window.onNativeGoogleSignInSuccess === 'function') { window.onNativeGoogleSignInSuccess($quotedEmail, $quotedName, $quotedPhoto, $quotedUid); }",
                           null
                         )
                       }
                     }
-                    is com.example.auth.GoogleSignInResult.Failure -> {
-                      (context as? Activity)?.runOnUiThread {
+                    is GoogleSignInResult.Failure -> {
+                      val quotedMsg = JSONObject.quote(result.message)
+                      activity?.runOnUiThread {
                         webViewInstance?.evaluateJavascript(
-                          "if (typeof window.onNativeGoogleSignInFailure === 'function') { window.onNativeGoogleSignInFailure('${result.message.replace("'", "\\'")}'); }",
+                          "if (typeof window.onNativeGoogleSignInFailure === 'function') { window.onNativeGoogleSignInFailure($quotedMsg); }",
                           null
                         )
                       }
                     }
-                    com.example.auth.GoogleSignInResult.Cancelled -> {
-                      (context as? Activity)?.runOnUiThread {
+                    GoogleSignInResult.Cancelled -> {
+                      activity?.runOnUiThread {
                         webViewInstance?.evaluateJavascript(
                           "if (typeof window.onNativeGoogleSignInCancelled === 'function') { window.onNativeGoogleSignInCancelled(); }",
                           null
@@ -217,14 +478,166 @@ fun NutrolixSupplementBrandApp(
                   }
                 }
               }
+
+              @JavascriptInterface
+              fun getFcmToken() {
+                try {
+                  FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+                    val token = if (task.isSuccessful) task.result else {
+                      context.getSharedPreferences(NutrolixFirebaseMessagingService.PREFS_NAME, Context.MODE_PRIVATE)
+                        .getString(NutrolixFirebaseMessagingService.KEY_FCM_TOKEN, "") ?: ""
+                    }
+                    if (!token.isNullOrBlank()) {
+                      val user = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
+                      if (user != null) {
+                        coroutineScope.launch(Dispatchers.IO) {
+                          firestoreService.saveFcmToken(user.uid, token, user.phoneNumber ?: "", user.email ?: "")
+                        }
+                      }
+                      val quoted = JSONObject.quote(token)
+                      activity?.runOnUiThread {
+                        webViewInstance?.evaluateJavascript(
+                          "if (typeof window.onNativeFcmToken === 'function') { window.onNativeFcmToken($quoted); }",
+                          null
+                        )
+                      }
+                    }
+                  }
+                } catch (_: Throwable) {}
+              }
+
+              @JavascriptInterface
+              fun requestCurrentLocation() {
+                val dispatchLocationError: (String, String) -> Unit = { code, message ->
+                  val payload = JSONObject().apply {
+                    put("code", code)
+                    put("message", message)
+                  }.toString()
+                  val quoted = JSONObject.quote(payload)
+                  activity?.runOnUiThread {
+                    webViewInstance?.evaluateJavascript(
+                      "if (typeof window.onNativeLocationError === 'function') { window.onNativeLocationError(JSON.parse($quoted)); }",
+                      null
+                    )
+                  }
+                }
+
+                val performLocationFetch: () -> Unit = {
+                  coroutineScope.launch {
+                    try {
+                      val fusedClient = LocationServices.getFusedLocationProviderClient(context)
+                      val coords = suspendCancellableCoroutine<Pair<Double, Double>?> { cont ->
+                        try {
+                          fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
+                            .addOnSuccessListener { loc ->
+                              if (loc != null) {
+                                if (cont.isActive) cont.resume(loc.latitude to loc.longitude)
+                              } else {
+                                fusedClient.lastLocation
+                                  .addOnSuccessListener { lastLoc ->
+                                    if (lastLoc != null) {
+                                      if (cont.isActive) cont.resume(lastLoc.latitude to lastLoc.longitude)
+                                    } else {
+                                      val req = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1500L)
+                                        .setMaxUpdates(1)
+                                        .build()
+                                      val cb = object : LocationCallback() {
+                                        override fun onLocationResult(res: LocationResult) {
+                                          fusedClient.removeLocationUpdates(this)
+                                          val l = res.lastLocation
+                                          if (cont.isActive) cont.resume(l?.let { it.latitude to it.longitude })
+                                        }
+                                      }
+                                      fusedClient.requestLocationUpdates(req, cb, Looper.getMainLooper())
+                                    }
+                                  }
+                                  .addOnFailureListener {
+                                    if (cont.isActive) cont.resume(null)
+                                  }
+                              }
+                            }
+                            .addOnFailureListener {
+                              if (cont.isActive) cont.resume(null)
+                            }
+                        } catch (_: Exception) {
+                          if (cont.isActive) cont.resume(null)
+                        }
+                      }
+
+                      if (coords == null) {
+                        dispatchLocationError("GPS_UNAVAILABLE", "GPS is off or signal unavailable. Please enable location or enter address manually.")
+                        return@launch
+                      }
+
+                      val (lat, lon) = coords
+                      val fallbackGeo = withContext(Dispatchers.IO) {
+                        val out = JSONObject()
+                        try {
+                          @Suppress("DEPRECATION")
+                          val addresses = Geocoder(context, Locale.getDefault()).getFromLocation(lat, lon, 1)
+                          val addr = addresses?.firstOrNull()
+                          if (addr != null) {
+                            out.put("pincode", addr.postalCode ?: "")
+                            val locality = listOfNotNull(addr.subLocality, addr.locality ?: addr.subAdminArea)
+                              .filter { it.isNotBlank() }
+                              .distinct()
+                              .joinToString(", ")
+                            out.put("city", locality)
+                            out.put("state", addr.adminArea ?: "")
+                            out.put("formattedAddress", addr.getAddressLine(0) ?: "")
+                          }
+                        } catch (_: Exception) {}
+                        out
+                      }
+
+                      val payload = JSONObject().apply {
+                        put("lat", lat)
+                        put("lon", lon)
+                        put("nativeGeocoder", fallbackGeo)
+                      }.toString()
+                      val quoted = JSONObject.quote(payload)
+                      activity?.runOnUiThread {
+                        webViewInstance?.evaluateJavascript(
+                          "if (typeof window.onNativeLocationSuccess === 'function') { window.onNativeLocationSuccess(JSON.parse($quoted)); }",
+                          null
+                        )
+                      }
+                    } catch (e: Exception) {
+                      dispatchLocationError("LOCATION_ERROR", e.localizedMessage ?: "Failed to read device location.")
+                    }
+                  }
+                }
+
+                activity?.runOnUiThread {
+                  if (hasLocationPermission()) {
+                    performLocationFetch()
+                  } else {
+                    pendingLocationCallback = { granted ->
+                      if (granted) {
+                        performLocationFetch()
+                      } else {
+                        dispatchLocationError("PERMISSION_DENIED", "Location permission was denied. Please enter PIN code and address manually.")
+                      }
+                    }
+                    locationPermissionLauncher.launch(
+                      arrayOf(
+                        Manifest.permission.ACCESS_FINE_LOCATION,
+                        Manifest.permission.ACCESS_COARSE_LOCATION
+                      )
+                    )
+                  }
+                }
+              }
+
+              @JavascriptInterface
+              fun signOut() {
+                coroutineScope.launch {
+                  googleSignInService.signOut()
+                }
+              }
             }, "AndroidNative")
 
             webChromeClient = object : WebChromeClient() {
-              override fun onProgressChanged(view: WebView?, newProgress: Int) {
-                loadingProgress = newProgress
-                isPageLoading = newProgress < 100
-              }
-
               override fun onShowFileChooser(
                 webView: WebView?,
                 filePathCallback: ValueCallback<Array<Uri>>?,
@@ -239,7 +652,17 @@ fun NutrolixSupplementBrandApp(
                 origin: String?,
                 callback: GeolocationPermissions.Callback?
               ) {
-                callback?.invoke(origin, true, false)
+                if (hasLocationPermission()) {
+                  callback?.invoke(origin, true, false)
+                } else {
+                  pendingWebGeolocationRequest = origin to callback
+                  locationPermissionLauncher.launch(
+                    arrayOf(
+                      Manifest.permission.ACCESS_FINE_LOCATION,
+                      Manifest.permission.ACCESS_COARSE_LOCATION
+                    )
+                  )
+                }
               }
             }
 
@@ -248,7 +671,6 @@ fun NutrolixSupplementBrandApp(
                 view: WebView?,
                 detail: RenderProcessGoneDetail?
               ): Boolean {
-                // Prevents app crash if the underlying GPU/Chromium process fails or restarts
                 try {
                   view?.let {
                     (it.parent as? ViewGroup)?.removeView(it)
@@ -258,29 +680,17 @@ fun NutrolixSupplementBrandApp(
                 return true
               }
 
-              override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
-                isPageLoading = true
-                canGoBack = canGoBack()
-                currentUrl = url ?: ""
-              }
-
-              override fun onPageFinished(view: WebView?, url: String?) {
-                isPageLoading = false
-                canGoBack = canGoBack()
-                currentUrl = url ?: ""
-              }
-
               override fun shouldOverrideUrlLoading(
                 view: WebView?,
                 request: WebResourceRequest?
               ): Boolean {
                 val url = request?.url?.toString() ?: return false
 
-                // Handle external communication apps (WhatsApp, phone, mailto, Google Maps, Instagram, Facebook, YouTube)
-                if (url.startsWith("tel:") || url.startsWith("mailto:") || 
-                    url.startsWith("whatsapp:") || url.contains("wa.me") || 
-                    url.contains("share.google") || url.contains("instagram.com") ||
-                    url.contains("facebook.com") || url.contains("youtube.com")) {
+                if (url.startsWith("tel:") || url.startsWith("mailto:") ||
+                  url.startsWith("whatsapp:") || url.contains("wa.me") ||
+                  url.contains("share.google") || url.contains("instagram.com") ||
+                  url.contains("facebook.com") || url.contains("youtube.com")
+                ) {
                   try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
                       flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -292,7 +702,6 @@ fun NutrolixSupplementBrandApp(
                   }
                 }
 
-                // Internal asset navigation routing for seamless offline operation
                 if (url == "file:///" || url == "file:///android_asset/web/" || url.endsWith("/index.html") || url.endsWith("/") || url.endsWith("/#")) {
                   view?.loadUrl(MainActivity.PRIMARY_APP_URL)
                   return true
@@ -366,7 +775,6 @@ fun NutrolixSupplementBrandApp(
                   return true
                 }
 
-                // Handle external PDF or APK downloads
                 if (url.endsWith(".apk") || url.endsWith(".pdf")) {
                   try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
@@ -379,7 +787,7 @@ fun NutrolixSupplementBrandApp(
                   }
                 }
 
-                return false // Stay inside WebView for Nutrolix pages
+                return false
               }
 
               override fun onReceivedError(
@@ -387,15 +795,13 @@ fun NutrolixSupplementBrandApp(
                 request: WebResourceRequest?,
                 error: WebResourceError?
               ) {
-                // If any error occurs, stay on primary asset
                 if (request?.isForMainFrame == true) {
                   view?.loadUrl(MainActivity.PRIMARY_APP_URL)
                 }
               }
             }
 
-            // Initial URL load: Immediately load local offline-first asset bundle so ZERO email ID, ZERO registration, and ZERO auth redirects ever happen!
-            loadUrl(MainActivity.PRIMARY_APP_URL)
+            loadUrl(deepLinkUrl ?: MainActivity.PRIMARY_APP_URL)
             webViewInstance = this
           }
         },

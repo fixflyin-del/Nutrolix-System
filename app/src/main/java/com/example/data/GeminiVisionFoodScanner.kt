@@ -3,7 +3,6 @@ package com.example.data
 import android.graphics.Bitmap
 import android.util.Base64
 import android.util.Log
-import com.example.BuildConfig
 import com.example.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -84,8 +83,7 @@ object GeminiVisionFoodScanner {
       val backBase64 = bitmapToBase64(backBitmap)
       val frontBase64 = frontBitmap?.let { bitmapToBase64(it) }
 
-      val resolvedKey = customApiKey?.trim()?.takeIf { it.isNotBlank() }
-        ?: BuildConfig.GEMINI_API_KEY.trim().takeIf { it.isNotBlank() && it != "YOUR_GEMINI_KEY" }
+      val resolvedKey = customApiKey?.trim()?.takeIf { it.isNotBlank() && it != "YOUR_GEMINI_KEY" }
 
       // Strategy 1: If Gemini API Key is available, call Gemini directly for instantaneous OCR
       if (!resolvedKey.isNullOrBlank()) {

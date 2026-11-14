@@ -34,19 +34,22 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
   </style>
 
-  <!-- Firebase Authentication SDKs -->
+  <!-- Firebase SDKs (App, Auth, Firestore, Messaging) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
 
-  <!-- Instant Data & Drawer -->
+  <!-- Instant Data, Firebase Bridge & Drawer -->
   <script src="assets/nutrolix-data.js"></script>
+  <script src="assets/nutrolix-firebase.js"></script>
   <script src="assets/nutrolix-drawer.js"></script>
   <script src="assets/nutrolix-notifications.js"></script>
-  <!-- Animated Splash Screen (Requirement 4) -->
+  <!-- Animated Splash Screen -->
   <script src="assets/nutrolix-splash.js"></script>
-  <!-- Android Mobile Browser Back Navigation Handler (Requirement 3) -->
+  <!-- Android Mobile Browser Back Navigation Handler -->
   <script src="assets/nutrolix-back-handler.js"></script>
-  <!-- Real 100% Google Authentication Bridge (Zero fake emails) -->
+  <!-- Unified Customer Auth (Mobile OTP + Google + Linking) -->
   <script src="assets/nutrolix-auth.js"></script>
   <script src="assets/nutrolix-reviews.js"></script>
 </head>
@@ -189,24 +192,59 @@
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
     
     <!-- ======================================================== -->
-    <!-- 1. UNAUTHENTICATED PROFILE GATE: 100% REAL GOOGLE SIGN-IN -->
-    <!-- (Shown ONLY when not signed in. Zero mock emails or default profiles) -->
+    <!-- 1. UNAUTHENTICATED PROFILE GATE: UNIFIED MOBILE OTP + GOOGLE -->
     <!-- ======================================================== -->
-    <div id="profileAuthGate" class="hidden py-10">
-      <div class="bg-white rounded-3xl p-8 sm:p-12 text-center max-w-lg mx-auto shadow-sm border border-slate-200 space-y-6">
+    <div id="profileAuthGate" class="hidden py-8">
+      <div class="bg-white rounded-3xl p-6 sm:p-10 text-center max-w-lg mx-auto shadow-sm border border-slate-200 space-y-5">
         <div class="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl shadow-sm border border-emerald-100">
-          <i class="fa-solid fa-user-lock"></i>
+          <i class="fa-solid fa-user-shield"></i>
         </div>
-        <div class="space-y-2">
-          <h2 class="text-2xl font-black text-slate-900">Sign in to Access Your Profile</h2>
+        <div class="space-y-1.5">
+          <h2 class="text-2xl font-black text-slate-900">Sign in to Your Nutrolix Account</h2>
           <p class="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
-            Please sign in directly with your Google account to view your profile, manage multiple saved addresses, and track all your orders.
+            Verify with Mobile Number + OTP or Google Account. Saved addresses &amp; order history sync automatically across Web &amp; App.
           </p>
         </div>
 
-        <!-- Direct Google Sign-In Button (NO typing, Direct Firebase Google Account) -->
-        <button onclick="window.startDirectGoogleAuth(this)" class="w-full py-4 px-6 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 bg-white hover:bg-slate-50 transition flex items-center justify-center space-x-3 shadow-md group active:scale-95">
-          <svg class="w-6 h-6 shrink-0" viewBox="0 0 24 24">
+        <!-- Mobile Number + OTP Login Form -->
+        <div class="text-left space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          <label class="block text-[11px] font-black uppercase text-slate-600">Mobile Number (OTP Verification)</label>
+          <div class="flex items-center bg-white border border-slate-300 rounded-xl overflow-hidden focus-within:border-emerald-600">
+            <span class="px-3 py-2.5 text-sm font-black text-slate-700 bg-slate-100 border-r border-slate-300">+91</span>
+            <input type="tel" id="gatePhoneInput" maxlength="10" inputmode="numeric" placeholder="Enter 10-digit mobile number" class="w-full px-3 py-2.5 text-sm font-bold text-slate-900 outline-none">
+          </div>
+
+          <div id="gateOtpSection" class="hidden space-y-2">
+            <label class="block text-[11px] font-black uppercase text-slate-600">Enter 6-Digit OTP</label>
+            <input type="tel" id="gateOtpInput" maxlength="6" inputmode="numeric" placeholder="••••••" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-center tracking-[0.4em] text-base font-black text-slate-900 outline-none focus:border-emerald-600">
+            <div class="flex items-center justify-between text-[11px]">
+              <button type="button" onclick="window.handleGateSendOtp(true)" class="text-emerald-700 font-bold hover:underline">Resend OTP</button>
+              <span id="gateOtpHint" class="text-slate-500"></span>
+            </div>
+          </div>
+
+          <p id="gateAuthError" class="hidden text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2"></p>
+
+          <button type="button" id="gateSendOtpBtn" onclick="window.handleGateSendOtp(false)" class="w-full py-3 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-black text-sm shadow transition flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+            <span>Continue with Mobile Number + OTP</span>
+          </button>
+
+          <button type="button" id="gateVerifyOtpBtn" onclick="window.handleGateVerifyOtp()" class="hidden w-full py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-sm shadow transition flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Verify OTP &amp; Sign In</span>
+          </button>
+        </div>
+
+        <div class="flex items-center">
+          <div class="flex-1 h-px bg-slate-200"></div>
+          <span class="px-3 text-[11px] font-bold text-slate-400 uppercase">or</span>
+          <div class="flex-1 h-px bg-slate-200"></div>
+        </div>
+
+        <!-- Continue with Google Account Button -->
+        <button onclick="window.startDirectGoogleAuth(this)" class="w-full py-3.5 px-6 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 bg-white hover:bg-slate-50 transition flex items-center justify-center space-x-3 shadow-sm group active:scale-95">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
@@ -216,17 +254,17 @@
         </button>
 
         <div class="text-[11px] text-slate-400">
-          Fast & 100% verified sign-in with your personal Google account. Zero manual email typing.
+          Powered by Firebase Authentication. Link Mobile &amp; Google onto a single Nutrolix profile anytime.
         </div>
       </div>
     </div>
 
     <!-- ======================================================== -->
-    <!-- 2. AUTHENTICATED PROFILE & DASHBOARD (Only shown after real Google login) -->
+    <!-- 2. AUTHENTICATED PROFILE & DASHBOARD -->
     <!-- ======================================================== -->
     <div id="profileDashboardContent" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
       
-      <!-- Left Sidebar: Clean Profile Card & Saved Addresses -->
+      <!-- Left Sidebar: Profile Card, Unified Account Linking & Saved Addresses -->
       <div class="lg:col-span-5 space-y-6">
         
         <!-- Profile Card -->
@@ -236,11 +274,12 @@
             <img id="profileAvatarImg" src="assets/nutrolix-logo.png" alt="Profile" class="w-16 h-16 rounded-2xl object-cover bg-emerald-50 border border-slate-200 shadow-md">
             <div class="flex-1 min-w-0">
               <h2 class="font-black text-lg text-slate-900 truncate" id="profileName">Customer</h2>
-              <p class="text-xs text-slate-500 font-semibold truncate" id="profileEmail">user@gmail.com</p>
+              <p class="text-xs text-slate-500 font-semibold truncate" id="profileEmail"></p>
               <div class="mt-1 flex items-center space-x-1.5 text-xs text-emerald-700 font-bold">
                 <i class="fa-brands fa-whatsapp text-emerald-600 text-sm"></i>
-                <span id="profileWhatsapp">+91 90762 54354</span>
+                <span id="profileWhatsapp">Not set</span>
               </div>
+              <div id="profileBadgesRow" class="mt-1.5 flex flex-wrap gap-1"></div>
             </div>
           </div>
 
@@ -248,27 +287,58 @@
           <div class="space-y-3 text-xs">
             <div>
               <label class="block font-bold text-slate-700 mb-1">Full Name</label>
-              <input type="text" id="inputProfileName" placeholder="Your Name" class="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none focus:border-emerald-600 bg-slate-50">
+              <input type="text" id="inputProfileName" placeholder="Your Full Name" class="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none focus:border-emerald-600 bg-slate-50">
             </div>
             <div>
               <label class="block font-bold text-slate-700 mb-1">WhatsApp Mobile Number</label>
-              <input type="tel" id="inputProfileWhatsapp" maxlength="10" placeholder="10-digit mobile number" class="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-bold focus:outline-none focus:border-emerald-600 bg-slate-50">
+              <div class="flex items-center border border-slate-200 rounded-xl overflow-hidden bg-slate-50 focus-within:border-emerald-600">
+                <span class="px-2.5 py-2.5 text-xs font-black text-slate-600 bg-slate-100 border-r border-slate-200">+91</span>
+                <input type="tel" id="inputProfileWhatsapp" maxlength="10" inputmode="numeric" placeholder="10-digit WhatsApp number" class="w-full p-2.5 text-xs font-bold bg-transparent focus:outline-none">
+              </div>
             </div>
             <button onclick="window.saveProfileInfo()" class="w-full py-2.5 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-extrabold transition shadow-sm">
               Update Profile Information
             </button>
           </div>
 
-          <!-- Google Account Status & Sign Out -->
-          <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
-            <div class="flex items-center space-x-2 text-xs font-bold text-emerald-700">
-              <i class="fa-solid fa-circle-check text-emerald-600"></i>
-              <span>Google Account Connected</span>
+          <!-- Account Linking & Security Status -->
+          <div class="pt-3 border-t border-slate-100 space-y-2.5">
+            <div class="text-[11px] font-black uppercase tracking-wider text-slate-400">Unified Account Linking</div>
+            <div class="flex items-center justify-between text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+              <span class="font-bold text-slate-700 flex items-center space-x-2">
+                <i class="fa-solid fa-mobile-screen-button text-emerald-600"></i>
+                <span>Mobile OTP</span>
+              </span>
+              <span id="linkStatusPhone"></span>
             </div>
-            <button onclick="window.handleNutrolixSignOut()" class="text-xs text-rose-600 font-extrabold hover:underline flex items-center space-x-1 py-1 px-2 rounded-lg hover:bg-rose-50 transition">
-              <i class="fa-solid fa-arrow-right-from-bracket"></i>
-              <span>Sign Out</span>
-            </button>
+            <div class="flex items-center justify-between text-xs p-2.5 rounded-xl bg-slate-50 border border-slate-200">
+              <span class="font-bold text-slate-700 flex items-center space-x-2">
+                <i class="fa-brands fa-google text-emerald-600"></i>
+                <span>Google Account</span>
+              </span>
+              <span id="linkStatusGoogle"></span>
+            </div>
+            <div id="linkPhoneInlineBox" class="hidden p-3 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2 text-xs">
+              <div class="font-bold text-emerald-900">Link Mobile Number to this Account</div>
+              <div class="flex items-center space-x-2">
+                <input type="tel" id="linkPhoneInput" maxlength="10" inputmode="numeric" placeholder="10-digit mobile" class="flex-1 p-2 rounded-lg border border-emerald-300 bg-white text-xs font-bold outline-none">
+                <button type="button" onclick="window.handleInlineLinkPhoneSend()" class="px-3 py-2 rounded-lg bg-emerald-700 text-white font-bold">Send OTP</button>
+              </div>
+              <div id="linkOtpInlineRow" class="hidden flex items-center space-x-2">
+                <input type="tel" id="linkOtpInput" maxlength="6" inputmode="numeric" placeholder="6-digit OTP" class="flex-1 p-2 rounded-lg border border-emerald-300 bg-white text-xs font-bold outline-none">
+                <button type="button" onclick="window.handleInlineLinkPhoneVerify()" class="px-3 py-2 rounded-lg bg-slate-900 text-white font-bold">Verify</button>
+              </div>
+            </div>
+            <div class="pt-1 flex items-center justify-between">
+              <button type="button" onclick="window.NutrolixNotifications && window.NutrolixNotifications.requestPermission()" class="text-xs font-bold text-emerald-700 hover:underline flex items-center space-x-1">
+                <i class="fa-solid fa-bell"></i>
+                <span>Enable Order Push Alerts</span>
+              </button>
+              <button onclick="window.handleNutrolixSignOut()" class="text-xs text-rose-600 font-extrabold hover:underline flex items-center space-x-1 py-1 px-2 rounded-lg hover:bg-rose-50 transition">
+                <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                <span>Sign Out</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -376,23 +446,31 @@
   </main>
 
   <!-- ======================================================== -->
-  <!-- ADD ADDRESS MODAL (With 1000% GPS Location Auto-Detection) -->
+  <!-- ADD ADDRESS MODAL (With Consent + Google Maps Geocode) -->
   <!-- ======================================================== -->
   <div id="addressModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
       <div class="flex items-center justify-between pb-3 border-b border-slate-100">
         <div>
           <h4 class="font-black text-base text-slate-900">Add Delivery Address</h4>
-          <p class="text-[11px] text-slate-400">Save to your profile for fast checkout</p>
+          <p class="text-[11px] text-slate-400">Syncs across Android App &amp; Web via your account</p>
         </div>
         <button onclick="window.closeAddressModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
       </div>
 
-      <!-- Quick GPS Auto-Detect Button in Modal -->
-      <button type="button" onclick="window.detectLocationForModal()" class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-extrabold text-xs shadow-sm flex items-center justify-center space-x-2 active:scale-95 transition">
+      <!-- Use My Current Location Button (asks explicit permission first) -->
+      <button type="button" onclick="window.requestAddressModalLocation()" class="w-full py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold text-xs shadow-sm flex items-center justify-center space-x-2 active:scale-95 transition">
         <i class="fa-solid fa-location-crosshairs"></i>
-        <span id="modalGpsBtnText">📍 Auto-Detect GPS Location & PIN Code</span>
+        <span id="modalGpsBtnText">Use My Current Location</span>
       </button>
+
+      <div id="modalConsentBox" class="hidden p-3 rounded-xl bg-emerald-50 border border-emerald-200 space-y-2 text-[11px] text-slate-700">
+        <p class="font-bold text-slate-900">Allow Nutrolix to access your current GPS location once to auto-fill PIN Code, City &amp; Address?</p>
+        <div class="flex items-center space-x-2">
+          <button type="button" onclick="window.confirmModalLocationDetect()" class="px-3 py-1.5 rounded-lg bg-emerald-700 text-white font-bold">Allow &amp; Detect</button>
+          <button type="button" onclick="document.getElementById('modalConsentBox').classList.add('hidden')" class="px-3 py-1.5 rounded-lg bg-white border border-slate-200 text-slate-600 font-bold">Enter Manually</button>
+        </div>
+      </div>
 
       <form onsubmit="window.saveNewAddress(event)" class="space-y-3 text-xs">
         <div>
@@ -406,27 +484,27 @@
         </div>
 
         <div>
-          <label class="block font-bold text-slate-700 mb-1">Flat / House No. / Building / Floor *</label>
-          <input type="text" id="newAddrStreet" required placeholder="e.g. Flat 402, Green Heights, Sector 14" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
-        </div>
-
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">Area / Street / Colony</label>
-          <input type="text" id="newAddrArea" placeholder="e.g. Main Ring Road" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          <label class="block font-bold text-slate-700 mb-1">Full Address (Single Line) *</label>
+          <input type="text" id="newAddrStreet" required placeholder="House/Flat No., Building, Street, Area" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
         </div>
 
         <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="block font-bold text-slate-700 mb-1">City / District *</label>
-            <input type="text" id="newAddrCity" required placeholder="New Delhi" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <label class="block font-bold text-slate-700 mb-1">PIN Code (6 digits) *</label>
+            <input type="text" id="newAddrPincode" required maxlength="6" inputmode="numeric" placeholder="e.g. 400001" oninput="window.handleModalPincodeInput(this.value)" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
           <div>
-            <label class="block font-bold text-slate-700 mb-1">PIN Code (6 digits) *</label>
-            <input type="text" id="newAddrPincode" required maxlength="6" placeholder="110001" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+            <label class="block font-bold text-slate-700 mb-1">City *</label>
+            <input type="text" id="newAddrCity" required placeholder="e.g. Mumbai" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
         </div>
 
-        <div class="pt-2">
+        <label class="flex items-start space-x-2 text-[11px] text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+          <input type="checkbox" id="chkModalStoreCoords" class="mt-0.5 rounded text-emerald-600">
+          <span>Save detected GPS delivery coordinates with this address (optional).</span>
+        </label>
+
+        <div class="pt-1">
           <button type="submit" class="w-full py-3 rounded-xl bg-nutro-forest text-white font-extrabold text-xs hover:bg-nutro-dark transition shadow">
             Save Address to Profile
           </button>
@@ -576,8 +654,8 @@
   <script>
     let currentRating = 5;
     let selectedOrderForReview = null;
+    let modalDetectedCoords = null;
 
-    // Listen to Google Auth changes from nutrolix-auth.js
     window.addEventListener('nutrolix:auth-changed', () => {
       renderUserProfile();
     });
@@ -590,27 +668,106 @@
       renderUserProfile();
     };
 
-    window.saveProfileInfo = function() {
-      const name = document.getElementById('inputProfileName').value.trim();
-      const whatsapp = document.getElementById('inputProfileWhatsapp').value.trim();
-
-      let profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-      if (name) profile.name = name;
-      if (whatsapp) profile.whatsapp = whatsapp;
-      localStorage.setItem('nutrolix_user_profile', JSON.stringify(profile));
-      renderUserProfile();
-      alert('✓ Profile information updated successfully!');
+    window.handleGateSendOtp = async function(isResend) {
+      const phone = document.getElementById('gatePhoneInput').value;
+      const errEl = document.getElementById('gateAuthError');
+      const sendBtn = document.getElementById('gateSendOtpBtn');
+      const verifyBtn = document.getElementById('gateVerifyOtpBtn');
+      const otpSec = document.getElementById('gateOtpSection');
+      errEl.classList.add('hidden');
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i><span>Sending OTP...</span>';
+      try {
+        const res = await window.startNutrolixPhoneOtp(phone, { isResend });
+        if (res.mode === 'instant') {
+          renderUserProfile();
+          return;
+        }
+        otpSec.classList.remove('hidden');
+        document.getElementById('gateOtpHint').textContent = 'Sent to ' + res.phoneE164;
+        sendBtn.classList.add('hidden');
+        verifyBtn.classList.remove('hidden');
+        document.getElementById('gateOtpInput').focus();
+      } catch (e) {
+        errEl.textContent = e.message || 'Unable to send OTP.';
+        errEl.classList.remove('hidden');
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fa-solid fa-mobile-screen-button"></i><span>Continue with Mobile Number + OTP</span>';
+      }
     };
 
-    function renderUserProfile() {
+    window.handleGateVerifyOtp = async function() {
+      const otp = document.getElementById('gateOtpInput').value;
+      const errEl = document.getElementById('gateAuthError');
+      const verifyBtn = document.getElementById('gateVerifyOtpBtn');
+      errEl.classList.add('hidden');
+      verifyBtn.disabled = true;
+      verifyBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i><span>Verifying...</span>';
       try {
-        const profile = window.getNutrolixUser ? window.getNutrolixUser() : JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+        await window.verifyNutrolixPhoneOtp(otp);
+        renderUserProfile();
+      } catch (e) {
+        errEl.textContent = e.message || 'Invalid OTP.';
+        errEl.classList.remove('hidden');
+      } finally {
+        verifyBtn.disabled = false;
+        verifyBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Verify OTP &amp; Sign In</span>';
+      }
+    };
+
+    window.handleInlineLinkPhoneSend = async function() {
+      const p = document.getElementById('linkPhoneInput').value;
+      try {
+        const res = await window.startNutrolixPhoneOtp(p);
+        if (res.mode === 'instant') {
+          renderUserProfile();
+          alert('✓ Mobile number linked to your account!');
+          return;
+        }
+        document.getElementById('linkOtpInlineRow').classList.remove('hidden');
+      } catch (e) {
+        alert(e.message || 'Unable to send OTP');
+      }
+    };
+
+    window.handleInlineLinkPhoneVerify = async function() {
+      const otp = document.getElementById('linkOtpInput').value;
+      try {
+        await window.verifyNutrolixPhoneOtp(otp);
+        document.getElementById('linkPhoneInlineBox').classList.add('hidden');
+        renderUserProfile();
+        alert('✓ Mobile number linked to your unified Nutrolix account!');
+      } catch (e) {
+        alert(e.message || 'Invalid OTP');
+      }
+    };
+
+    window.saveProfileInfo = async function() {
+      const name = document.getElementById('inputProfileName').value.trim();
+      const whatsappRaw = document.getElementById('inputProfileWhatsapp').value.replace(/\D/g, '').slice(-10);
+      if (!name) return alert('Please enter your full name.');
+      if (whatsappRaw && whatsappRaw.length !== 10) return alert('Please enter a valid 10-digit WhatsApp number.');
+
+      const existing = window.getNutrolixUser ? window.getNutrolixUser() : {};
+      const updated = window.saveNutrolixUser({
+        ...existing,
+        name,
+        whatsappNumber: whatsappRaw || existing.whatsappNumber || '',
+        phone: existing.phone || whatsappRaw || ''
+      });
+      renderUserProfile();
+      alert('✓ Profile information updated & synced!');
+      return updated;
+    };
+
+    async function renderUserProfile() {
+      try {
+        const profile = window.getNutrolixUser ? window.getNutrolixUser() : null;
         const authGate = document.getElementById('profileAuthGate');
         const dashContent = document.getElementById('profileDashboardContent');
 
-        const isLoggedIn = profile && (profile.email || profile.phone) && (profile.authProvider === 'google' || profile.verified);
-
-        if (!isLoggedIn) {
+        if (!profile) {
           if (authGate) authGate.classList.remove('hidden');
           if (dashContent) dashContent.classList.add('hidden');
           return;
@@ -619,308 +776,249 @@
         if (authGate) authGate.classList.add('hidden');
         if (dashContent) dashContent.classList.remove('hidden');
 
-        const nameEl = document.getElementById('profileName');
-        const emailEl = document.getElementById('profileEmail');
-        const whatsappEl = document.getElementById('profileWhatsapp');
-        const avatarEl = document.getElementById('profileAvatarImg');
-
-        const inputName = document.getElementById('inputProfileName');
-        const inputWhatsapp = document.getElementById('inputProfileWhatsapp');
-
         const currentName = profile.name || 'Nutrolix Member';
         const currentEmail = profile.email || '';
-        const currentWhatsapp = profile.whatsapp || '9076254354';
+        const currentWhatsapp = profile.whatsappNumber || profile.phone || '';
         const avatarUrl = profile.photo || `https://ui-avatars.com/api/?name=${encodeURIComponent(currentName)}&background=047857&color=fff&bold=true`;
 
-        if (nameEl) nameEl.textContent = currentName;
-        if (emailEl) emailEl.textContent = currentEmail;
-        if (whatsappEl) whatsappEl.textContent = '+91 ' + currentWhatsapp;
-        if (avatarEl) avatarEl.src = avatarUrl;
+        document.getElementById('profileName').textContent = currentName;
+        document.getElementById('profileEmail').textContent = currentEmail || (profile.verifiedPhone ? `+91 ${profile.verifiedPhone}` : 'Nutrolix Account');
+        document.getElementById('profileWhatsapp').textContent = currentWhatsapp ? ('+91 ' + currentWhatsapp) : 'Add WhatsApp number below';
+        document.getElementById('profileAvatarImg').src = avatarUrl;
+        document.getElementById('inputProfileName').value = currentName === 'Nutrolix Member' ? '' : currentName;
+        document.getElementById('inputProfileWhatsapp').value = currentWhatsapp;
 
-        if (inputName) inputName.value = currentName;
-        if (inputWhatsapp) inputWhatsapp.value = currentWhatsapp;
+        const hasPhone = Boolean(profile.phoneVerified || profile.verifiedPhone);
+        const hasGoogle = Boolean(profile.googleLinked || profile.email);
+        const badges = [];
+        if (hasPhone) badges.push('<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800">📱 Phone Verified</span>');
+        if (hasGoogle) badges.push('<span class="px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800">G Google Linked</span>');
+        document.getElementById('profileBadgesRow').innerHTML = badges.join('');
 
+        document.getElementById('linkStatusPhone').innerHTML = hasPhone
+          ? `<span class="text-emerald-700 font-black">+91 ${profile.verifiedPhone || profile.phone} ✓</span>`
+          : `<button type="button" onclick="document.getElementById('linkPhoneInlineBox').classList.toggle('hidden')" class="px-2.5 py-1 rounded-lg bg-emerald-700 text-white font-bold">Link Mobile</button>`;
+
+        document.getElementById('linkStatusGoogle').innerHTML = hasGoogle
+          ? `<span class="text-emerald-700 font-black">${profile.email} ✓</span>`
+          : `<button type="button" onclick="window.linkGoogleAccount(this)" class="px-2.5 py-1 rounded-lg bg-slate-900 text-white font-bold">Link Google</button>`;
+
+        if (profile.uid && window.NutrolixFirebase && typeof window.NutrolixFirebase.fetchUserAddresses === 'function') {
+          const remote = await window.NutrolixFirebase.fetchUserAddresses(profile.uid);
+          if (Array.isArray(remote) && remote.length > 0) {
+            localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(remote));
+          }
+        }
         renderAddresses();
       } catch (_) {}
     }
 
-    window.switchOrderTab = function(tab) {
-      const btnStore = document.getElementById('tabBtn-store');
-      const btnFood = document.getElementById('tabBtn-food');
-      const panelStore = document.getElementById('panel-store');
-      const panelFood = document.getElementById('panel-food');
-
-      if (tab === 'store') {
-        btnStore.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center justify-center space-x-2 bg-nutro-forest text-white shadow-sm';
-        btnFood.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center justify-center space-x-2 text-slate-600 hover:bg-slate-100';
-        panelStore.classList.remove('hidden');
-        panelFood.classList.add('hidden');
-      } else {
-        btnFood.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center justify-center space-x-2 bg-nutro-forest text-white shadow-sm';
-        btnStore.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-extrabold transition flex items-center justify-center space-x-2 text-slate-600 hover:bg-slate-100';
-        panelFood.classList.remove('hidden');
-        panelStore.classList.add('hidden');
-      }
-    };
-
-    function renderOrders() {
-      // 1. Packaged Store Orders (Real orders only)
-      let storeOrders = [];
-
-      try {
-        const stored = JSON.parse(localStorage.getItem('nutrolix_store_orders') || '[]');
-        const legacy = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
-        const combined = [...(Array.isArray(stored) ? stored : []), ...(Array.isArray(legacy) ? legacy : [])];
-        const dummyIds = new Set(['ORD-942810','ORD-831920','ORD-719402','NTX-782194','NTX-904512','ORD-123456','NUTRO-STORE-111581','NUTRO-STORE-281594','ORD-276332','ORD-956690']);
-        const seen = new Set();
-        storeOrders = combined.filter(o => {
-          const oid = o.id || o.orderId;
-          if (!oid || dummyIds.has(oid) || seen.has(oid)) return false;
-          seen.add(oid);
-          return true;
-        });
-      } catch (_) {}
-
-      document.getElementById('storeOrdersBadge').textContent = storeOrders.length;
-      const storeContainer = document.getElementById('storeOrdersContainer');
-      if (storeContainer) {
-        if (storeOrders.length === 0) {
-          storeContainer.innerHTML = `
-            <div class="bg-white rounded-3xl p-8 text-center border border-slate-200 shadow-sm space-y-3">
-              <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-2xl">
-                <i class="fa-solid fa-box-open"></i>
-              </div>
-              <h4 class="font-black text-base text-slate-900">No Store Orders Yet</h4>
-              <p class="text-xs text-slate-500 max-w-sm mx-auto">Your real packaged nutrition orders will appear here with live tracking updates.</p>
-              <a href="shop.html" class="inline-block px-5 py-2.5 rounded-xl bg-nutro-forest text-white font-bold text-xs hover:bg-nutro-dark transition shadow">
-                Explore Nutrition Store
-              </a>
-            </div>
-          `;
-        } else {
-        storeContainer.innerHTML = storeOrders.map(order => {
-          const isDelivered = (order.status || '').toLowerCase().includes('delivered');
-          const itemsHtml = (order.items || []).map(i => `
-            <div class="flex items-center justify-between text-xs py-1 text-slate-700">
-              <span class="font-bold">${i.name || i.title || 'Nutrition Item'} (${i.variant || 'Pack'}) × ${i.qty || i.quantity || 1}</span>
-              <span class="font-extrabold text-slate-900">₹${(i.price || 0) * (i.qty || i.quantity || 1)}</span>
-            </div>
-          `).join('');
-
-          return `
-            <div class="bg-white rounded-3xl p-5 sm:p-6 border border-slate-200 shadow-sm space-y-4">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
-                <div>
-                  <div class="flex items-center space-x-2">
-                    <span class="text-xs font-black text-slate-900">Order #${order.id}</span>
-                    <span class="text-[11px] text-slate-400">• ${order.date}</span>
-                  </div>
-                  <div class="text-[11px] text-emerald-700 font-bold mt-0.5">
-                    ${order.courier ? order.courier + ' • Tracking: ' + order.trackingNumber : 'Express Dispatch'}
-                  </div>
-                </div>
-                <span class="px-3 py-1 rounded-full text-xs font-bold ${isDelivered ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'} self-start sm:self-auto">
-                  ● ${order.status}
-                </span>
-              </div>
-
-              <div class="space-y-1 bg-slate-50 p-3 rounded-2xl">
-                ${itemsHtml}
-              </div>
-
-              <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                <div>Total: <strong class="text-sm font-black text-slate-900">₹${order.total}</strong></div>
-                <div class="flex items-center space-x-2">
-                  <a href="orders.html?orderId=${order.id}" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold transition flex items-center space-x-1">
-                    <i class="fa-solid fa-satellite-dish text-emerald-600"></i>
-                    <span>Track Status</span>
-                  </a>
-                  ${isDelivered ? `
-                    <button onclick="window.openReviewModal('${order.items[0]?.name || 'Nutrolix Product'}')" class="px-3.5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-extrabold transition shadow-sm flex items-center space-x-1">
-                      <i class="fa-solid fa-star text-xs"></i>
-                      <span>Write Review</span>
-                    </button>
-                  ` : ''}
-                </div>
-              </div>
-            </div>
-          `;
-        }).join('');
-        }
-      }
-
-      // 2. Healthy Food Orders
-      const foodContainer = document.getElementById('foodOrdersContainer');
-      if (foodContainer) {
-        foodContainer.innerHTML = `
-          <div class="bg-white rounded-3xl p-8 text-center border border-slate-200 shadow-sm space-y-3">
-            <div class="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-2xl">
-              <i class="fa-solid fa-bowl-food"></i>
-            </div>
-            <h4 class="font-black text-base text-slate-900">No Fresh Kitchen Orders</h4>
-            <p class="text-xs text-slate-500 max-w-sm mx-auto">You have no active hot food deliveries. All packaged functional nutrition orders are managed under Packaged Store Orders.</p>
-            <a href="shop.html" class="inline-block px-5 py-2.5 rounded-xl bg-nutro-forest text-white font-bold text-xs hover:bg-nutro-dark transition shadow">
-              Explore Nutrition Store
-            </a>
-          </div>
-        `;
-      }
-    }
-
     function renderAddresses() {
       const container = document.getElementById('addressesList');
-      let saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
-      if (!saved.length) {
-        // Check profile
-        const p = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-        if (p.address) {
-          saved.push({
-            tag: 'Home',
-            street: p.address,
-            city: p.city || 'New Delhi',
-            pincode: p.pincode || '110001',
-            isDefault: true
-          });
-        } else {
-          saved.push({
-            tag: 'Home',
-            street: 'Flat 402, Green Heights, Sector 14',
-            city: 'New Delhi',
-            pincode: '110001',
-            isDefault: true
-          });
-        }
-        localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
+      let saved = [];
+      try {
+        saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
+      } catch (_) {}
+
+      if (!container) return;
+      if (!Array.isArray(saved) || saved.length === 0) {
+        container.innerHTML = `
+          <div class="p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-300 text-center text-xs text-slate-500 space-y-2">
+            <p class="font-bold text-slate-700">No saved delivery addresses yet</p>
+            <p class="text-[11px]">Add your delivery address or detect it cleanly from checkout.</p>
+          </div>
+        `;
+        return;
       }
 
-      if (container) {
-        container.innerHTML = saved.map((addr, idx) => `
-          <div class="p-3.5 bg-slate-50 border ${addr.isDefault ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-200'} rounded-2xl flex items-center justify-between text-xs">
-            <div class="space-y-0.5">
-              <div class="flex items-center space-x-2">
-                <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-black text-[10px]">${addr.tag || 'Address'}</span>
-                ${addr.isDefault ? '<span class="text-[9px] font-black text-emerald-700 uppercase">Default</span>' : ''}
-              </div>
-              <p class="font-bold text-slate-900 mt-1">${addr.street}${addr.area ? ', ' + addr.area : ''}</p>
-              <p class="text-slate-500 text-[11px]">${addr.city} • PIN: ${addr.pincode}</p>
-            </div>
+      container.innerHTML = saved.map((addr, idx) => `
+        <div class="p-3.5 bg-slate-50 border ${addr.isDefault ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-200'} rounded-2xl flex items-center justify-between text-xs gap-2">
+          <div class="space-y-0.5 min-w-0">
             <div class="flex items-center space-x-2">
-              ${!addr.isDefault ? `
-                <button onclick="window.setDefaultAddress(${idx})" class="text-[10px] text-emerald-700 hover:underline font-bold" title="Set Default">Set Default</button>
-              ` : ''}
-              <button onclick="window.deleteAddress(${idx})" class="text-slate-400 hover:text-rose-600 p-1" title="Delete">
-                <i class="fa-solid fa-trash text-xs"></i>
-              </button>
+              <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-black text-[10px]">${addr.tag || 'Address'}</span>
+              ${addr.isDefault ? '<span class="text-[9px] font-black text-emerald-700 uppercase">Default</span>' : ''}
             </div>
+            <p class="font-bold text-slate-900 mt-1 break-words">${addr.street || addr.address1 || ''}</p>
+            <p class="text-slate-500 text-[11px]">${addr.city || ''} • PIN: ${addr.pincode || ''}</p>
           </div>
-        `).join('');
-      }
+          <div class="flex items-center space-x-2 shrink-0">
+            ${!addr.isDefault ? `<button onclick="window.setDefaultAddress(${idx})" class="text-[10px] text-emerald-700 hover:underline font-bold">Set Default</button>` : ''}
+            <button onclick="window.deleteAddress(${idx})" class="text-slate-400 hover:text-rose-600 p-1" title="Delete">
+              <i class="fa-solid fa-trash text-xs"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
     }
 
-    window.setDefaultAddress = function(idx) {
+    window.setDefaultAddress = async function(idx) {
       let saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
+      const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
       saved.forEach((a, i) => a.isDefault = (i === idx));
       localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
-      renderAddresses();
-    };
-
-    window.deleteAddress = function(idx) {
-      let saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
-      saved.splice(idx, 1);
-      if (saved.length && !saved.some(a => a.isDefault)) {
-        saved[0].isDefault = true;
+      if (user && user.uid && window.NutrolixFirebase && saved[idx]) {
+        await window.NutrolixFirebase.saveUserAddress(user.uid, saved[idx]);
       }
-      localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
       renderAddresses();
     };
 
-    window.openAddressModal = function() { 
-      document.getElementById('addressModal').classList.remove('hidden'); 
+    window.deleteAddress = async function(idx) {
+      let saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
+      const removed = saved[idx];
+      saved.splice(idx, 1);
+      if (saved.length && !saved.some(a => a.isDefault)) saved[0].isDefault = true;
+      localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
+      const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
+      if (user && user.uid && removed && removed.id && window.NutrolixFirebase) {
+        await window.NutrolixFirebase.deleteUserAddress(user.uid, removed.id);
+      }
+      renderAddresses();
     };
-    window.closeAddressModal = function() { 
-      document.getElementById('addressModal').classList.add('hidden'); 
+
+    window.openAddressModal = function() {
+      modalDetectedCoords = null;
+      document.getElementById('modalConsentBox').classList.add('hidden');
+      document.getElementById('addressModal').classList.remove('hidden');
+    };
+    window.closeAddressModal = function() {
+      document.getElementById('addressModal').classList.add('hidden');
     };
 
     window.setModalTag = function(tag) {
       document.getElementById('newAddrTag').value = tag;
       document.querySelectorAll('.addr-tag-btn').forEach(btn => {
-        if (btn.dataset.tag === tag) {
-          btn.className = 'addr-tag-btn py-1.5 rounded-lg border font-bold text-center border-emerald-600 bg-emerald-50 text-emerald-800';
-        } else {
-          btn.className = 'addr-tag-btn py-1.5 rounded-lg border font-bold text-center border-slate-200 text-slate-600';
-        }
+        btn.className = btn.dataset.tag === tag
+          ? 'addr-tag-btn py-1.5 rounded-lg border font-bold text-center border-emerald-600 bg-emerald-50 text-emerald-800'
+          : 'addr-tag-btn py-1.5 rounded-lg border font-bold text-center border-slate-200 text-slate-600';
       });
     };
 
-    window.detectLocationForModal = async function() {
-      const btn = document.getElementById('modalGpsBtnText');
-      if (btn) btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Detecting Exact Location...';
+    window.requestAddressModalLocation = function() {
+      document.getElementById('modalConsentBox').classList.remove('hidden');
+    };
 
-      async function applyCoords(lat, lon) {
+    window.handleModalPincodeInput = async function(rawPin) {
+      const pin = String(rawPin || '').replace(/\D/g, '').slice(0, 6);
+      const pinEl = document.getElementById('newAddrPincode');
+      if (pinEl && pinEl.value !== pin) pinEl.value = pin;
+      if (pin.length !== 6) return;
+      try {
+        const res = await fetch(`https://api.zippopotam.us/in/${pin}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && Array.isArray(data.places) && data.places.length > 0) {
+            const place = data.places[0];
+            const cityVal = place['place name'] || place.state || '';
+            const cityEl = document.getElementById('newAddrCity');
+            if (cityVal && cityEl && !cityEl.value.trim()) {
+              cityEl.value = cityVal;
+            }
+          }
+        }
+      } catch (_) {}
+    };
+
+    window.confirmModalLocationDetect = async function() {
+      document.getElementById('modalConsentBox').classList.add('hidden');
+      const btn = document.getElementById('modalGpsBtnText');
+      if (btn) btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Detecting GPS Location...';
+
+      const applyReverseGeocode = async (lat, lon, fallbackObj = null) => {
+        modalDetectedCoords = { lat, lon, lng: lon };
         try {
-          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=18&addressdetails=1`);
+          const host = window.NUTROLIX_API_HOST || '';
+          const res = await fetch(host + '/api/location/reverse-geocode', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ lat, lon })
+          });
           if (res.ok) {
             const data = await res.json();
-            const a = data.address || {};
-            const city = a.city || a.town || a.suburb || a.city_district || 'New Delhi';
-            const state = a.state || '';
-            const pincode = a.postcode || '';
-            const road = a.road || a.suburb || a.neighbourhood || '';
-
-            if (city) document.getElementById('newAddrCity').value = city;
-            if (pincode && pincode.length === 6) document.getElementById('newAddrPincode').value = pincode;
-            if (road) document.getElementById('newAddrArea').value = road;
-            if (btn) btn.innerHTML = '✓ GPS Coordinates Detected!';
-            return true;
+            if (data && data.success) {
+              const fallbackLine = [data.city, data.state, data.pincode].filter(Boolean).join(', ');
+              if (data.formattedAddress || fallbackLine) {
+                document.getElementById('newAddrStreet').value = data.formattedAddress || fallbackLine;
+              }
+              if (data.city) document.getElementById('newAddrCity').value = data.city;
+              if (data.pincode) document.getElementById('newAddrPincode').value = data.pincode;
+              if (btn) btn.textContent = '✓ Location Filled — Review Below';
+              return;
+            }
           }
         } catch (_) {}
-        return false;
+
+        const geo = (fallbackObj && fallbackObj.nativeGeocoder) ? fallbackObj.nativeGeocoder : fallbackObj;
+        const geoAddress = geo ? (geo.formattedAddress || geo.address || '') : '';
+        if (geo && (geoAddress || geo.city || geo.pincode)) {
+          if (geoAddress) document.getElementById('newAddrStreet').value = geoAddress;
+          if (geo.city) document.getElementById('newAddrCity').value = geo.city;
+          if (geo.pincode) document.getElementById('newAddrPincode').value = geo.pincode;
+          if (btn) btn.textContent = '✓ Location Filled — Review Below';
+          return;
+        }
+        if (btn) btn.textContent = 'GPS unavailable — Please type City & PIN manually';
+      };
+
+      if (window.AndroidNative && typeof window.AndroidNative.requestCurrentLocation === 'function') {
+        window.onNativeLocationSuccess = (payload) => {
+          const lon = payload ? (payload.lon ?? payload.lng) : undefined;
+          if (payload && payload.lat !== undefined && lon !== undefined) {
+            applyReverseGeocode(payload.lat, lon, payload.nativeGeocoder || payload);
+          } else if (btn) {
+            btn.textContent = 'GPS unavailable — Please type City & PIN manually';
+          }
+        };
+        window.onNativeLocationError = (err) => {
+          if (btn) btn.textContent = (err && err.message) ? err.message : 'Enter City & PIN manually';
+        };
+        window.AndroidNative.requestCurrentLocation();
+        return;
       }
 
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
-          async (pos) => {
-            const ok = await applyCoords(pos.coords.latitude, pos.coords.longitude);
-            if (!ok && btn) btn.innerHTML = '✓ GPS Coordinates Captured';
-          },
-          async () => {
-            // Fallback to IP reverse geocode
-            try {
-              const r = await fetch('https://ipapi.co/json/');
-              if (r.ok) {
-                const d = await r.json();
-                if (d.city) document.getElementById('newAddrCity').value = d.city;
-                if (d.postal) document.getElementById('newAddrPincode').value = d.postal;
-                if (btn) btn.innerHTML = '✓ City & PIN Detected';
-                return;
-              }
-            } catch (_) {}
-            if (btn) btn.innerHTML = '📍 Try Entering Manually';
-          },
-          { enableHighAccuracy: true, timeout: 6000 }
+          (pos) => applyReverseGeocode(pos.coords.latitude, pos.coords.longitude),
+          () => { if (btn) btn.textContent = 'Permission denied — Enter Address manually'; },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         );
       } else {
-        if (btn) btn.innerHTML = '📍 Auto-Detect Not Supported';
+        if (btn) btn.textContent = 'Enter City & PIN manually';
       }
     };
 
-    window.saveNewAddress = function(e) {
+    window.saveNewAddress = async function(e) {
       e.preventDefault();
+      const storeCoords = Boolean(document.getElementById('chkModalStoreCoords')?.checked);
+      const street = document.getElementById('newAddrStreet').value.trim();
+      const city = document.getElementById('newAddrCity').value.trim();
+      const pincode = document.getElementById('newAddrPincode').value.replace(/\D/g, '').slice(0, 6);
+      if (pincode.length !== 6) return alert('Please enter a valid 6-digit PIN code.');
+
       const newAddr = {
+        id: 'addr_' + Date.now().toString(36),
         tag: document.getElementById('newAddrTag').value.trim() || 'Home',
-        street: document.getElementById('newAddrStreet').value.trim(),
-        area: document.getElementById('newAddrArea').value.trim(),
-        city: document.getElementById('newAddrCity').value.trim(),
-        pincode: document.getElementById('newAddrPincode').value.trim(),
-        isDefault: false
+        street,
+        address1: street,
+        city,
+        pincode,
+        isDefault: false,
+        deliveryCoordinates: (storeCoords && modalDetectedCoords)
+          ? { lat: modalDetectedCoords.lat, lng: modalDetectedCoords.lng, consentGranted: true }
+          : null
       };
+
       let saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
       if (!saved.length) newAddr.isDefault = true;
       saved.push(newAddr);
       localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
+
+      const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
+      if (user && user.uid && window.NutrolixFirebase) {
+        await window.NutrolixFirebase.saveUserAddress(user.uid, newAddr);
+      }
       closeAddressModal();
       renderAddresses();
-      alert('✓ New address saved to your profile!');
+      alert('✓ Address saved to your account!');
     };
 
     // Review Modal Functions
@@ -936,30 +1034,20 @@
       currentRating = r;
       const stars = document.getElementById('starRatingRow').children;
       for (let i = 0; i < 5; i++) {
-        if (i < r) {
-          stars[i].className = 'fa-solid fa-star text-amber-400';
-        } else {
-          stars[i].className = 'fa-regular fa-star text-slate-300';
-        }
+        stars[i].className = i < r ? 'fa-solid fa-star text-amber-400' : 'fa-regular fa-star text-slate-300';
       }
     };
     window.submitReview = function() {
       const text = document.getElementById('reviewText').value.trim();
-      if (!text) {
-        alert('Please write a brief review feedback.');
-        return;
-      }
+      if (!text) return alert('Please write a brief review feedback.');
       alert(`🎉 Thank you! Your ${currentRating}-Star review for "${selectedOrderForReview}" has been submitted.`);
       closeReviewModal();
     };
 
     document.addEventListener('DOMContentLoaded', () => {
       renderUserProfile();
-      renderOrders();
-      renderAddresses();
-
       const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
-      const count = cart.reduce((sum, i) => sum + i.quantity, 0);
+      const count = cart.reduce((sum, i) => sum + (i.quantity || 1), 0);
       const b1 = document.getElementById('accountCartBadge');
       if (b1) b1.textContent = count;
     });

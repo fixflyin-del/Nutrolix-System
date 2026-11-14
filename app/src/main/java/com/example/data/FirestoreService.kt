@@ -12,9 +12,10 @@ import kotlinx.coroutines.tasks.await
 private const val TAG = "FirestoreService"
 
 class FirestoreService(
-  private val context: Context
+  private val context: Context,
+  overrideDb: FirebaseFirestore? = null
 ) {
-  val db: FirebaseFirestore? = try {
+  val db: FirebaseFirestore? = overrideDb ?: try {
     if (com.google.firebase.FirebaseApp.getApps(context).isEmpty()) {
       com.google.firebase.FirebaseApp.initializeApp(context)
     }
@@ -105,6 +106,80 @@ class FirestoreService(
     } catch (e: Exception) {
       Log.e(TAG, "Error fetching user profile for $cleanEmail", e)
       null
+    }
+  }
+
+  suspend fun saveFcmToken(
+    uid: String,
+    token: String,
+    phone: String = "",
+    email: String = "",
+    platform: String = "android-apk"
+  ) {
+    val firestore = db ?: return
+    if (uid.isBlank() || token.isBlank()) return
+    try {
+      val tokenDocId = token.takeLast(24).replace(Regex("[^A-Za-z0-9_-]"), "_")
+      val data = mapOf(
+        "uid" to uid,
+        "token" to token,
+        "fcmToken" to token,
+        "platform" to platform,
+        "customerPhone" to phone,
+        "customerEmail" to email.trim().lowercase(),
+        "updatedAtMillis" to System.currentTimeMillis()
+      )
+      firestore.collection("users").document(uid)
+        .collection("fcmTokens").document(tokenDocId)
+        .set(data, SetOptions.merge()).await()
+    } catch (e: Exception) {
+      Log.e(TAG, "Error saving FCM token to Firestore", e)
+    }
+  }
+
+  suspend fun syncMergedProfile(
+    uid: String,
+    name: String,
+    email: String,
+    verifiedPhone: String,
+    whatsappNumber: String,
+    providers: List<String>
+  ) {
+    val firestore = db ?: return
+    if (uid.isBlank()) return
+    try {
+      val data = mutableMapOf<String, Any>(
+        "uid" to uid,
+        "name" to name,
+        "email" to email.trim().lowercase(),
+        "verifiedPhone" to verifiedPhone,
+        "whatsappNumber" to whatsappNumber,
+        "phone" to (verifiedPhone.ifBlank { whatsappNumber }),
+        "authProviders" to providers,
+        "phoneVerified" to verifiedPhone.isNotBlank(),
+        "googleLinked" to providers.any { it.contains("google") },
+        "updatedAtMillis" to System.currentTimeMillis()
+      )
+      firestore.collection("users").document(uid).set(data, SetOptions.merge()).await()
+    } catch (e: Exception) {
+      Log.e(TAG, "Error syncing merged profile to Firestore", e)
+    }
+  }
+
+  suspend fun syncAddress(uid: String, addressId: String, addressData: Map<String, Any>) {
+    val firestore = db ?: return
+    if (uid.isBlank() || addressId.isBlank()) return
+    try {
+      val payload = addressData.toMutableMap().apply {
+        put("uid", uid)
+        put("id", addressId)
+        put("updatedAtMillis", System.currentTimeMillis())
+      }
+      firestore.collection("users").document(uid)
+        .collection("addresses").document(addressId)
+        .set(payload, SetOptions.merge()).await()
+    } catch (e: Exception) {
+      Log.e(TAG, "Error syncing address to Firestore", e)
     }
   }
 

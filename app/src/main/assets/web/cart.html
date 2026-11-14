@@ -47,10 +47,11 @@
   <script src="assets/nutrolix-splash.js"></script>
   <!-- Android Mobile Browser Back Navigation Handler (Requirement 3) -->
   <script src="assets/nutrolix-back-handler.js"></script>
-  <!-- Firebase Authentication & Firestore SDK -->
+  <!-- Firebase Authentication, Firestore & Messaging SDK -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
   <script src="assets/nutrolix-firebase.js"></script>
   <!-- Shared Nutrolix Auth Script -->
   <script src="assets/nutrolix-auth.js"></script>
@@ -319,7 +320,7 @@
           </div>
 
           <form id="addressForm" class="space-y-4" onsubmit="event.preventDefault()">
-            <!-- 1. Full Name & 10-Digit WhatsApp Mobile Number -->
+            <!-- 1. Full Name & +91 WhatsApp Number -->
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label class="block text-xs font-black text-slate-800 mb-1">Full Name *</label>
@@ -328,47 +329,74 @@
               <div>
                 <label class="block text-xs font-black text-slate-800 mb-1 flex items-center space-x-1.5">
                   <i class="fa-brands fa-whatsapp text-emerald-600 text-sm"></i>
-                  <span>10-Digit WhatsApp Mobile Number *</span>
+                  <span>WhatsApp Number *</span>
                 </label>
                 <div class="flex items-center rounded-xl border border-slate-300 bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500 overflow-hidden">
                   <span class="px-3.5 py-2.5 text-xs font-black text-slate-600 bg-slate-100 border-r border-slate-200">+91</span>
-                  <input type="tel" id="custPhone" required maxlength="10" oninput="saveUserProfile()" placeholder="e.g. 9931354354" class="w-full text-sm bg-transparent px-3 py-2.5 font-bold focus:outline-none">
+                  <input type="tel" id="custPhone" required maxlength="10" inputmode="numeric" oninput="saveUserProfile()" placeholder="10-digit WhatsApp number" class="w-full text-sm bg-transparent px-3 py-2.5 font-bold focus:outline-none">
                 </div>
               </div>
             </div>
 
-            <!-- 2. One-Line Delivery Address -->
-            <div>
-              <label class="block text-xs font-black text-slate-800 mb-1 flex items-center justify-between">
-                <span>One-Line Delivery Address (Complete Address) *</span>
-                <span class="text-[10px] text-slate-400 font-normal">Flat / Shop No., Building, Sector / Road, Landmark, Area</span>
-              </label>
-              <textarea id="custAddress1" required rows="2" oninput="saveUserProfile()" placeholder="e.g. Shop No 4, Sector 14, Taloja Phase 1, Near Metro Station, Navi Mumbai" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"></textarea>
+            <!-- 2. Use My Current Location Banner (Permission-first + Google Maps Reverse Geocoding) -->
+            <div class="p-3.5 rounded-2xl bg-emerald-50/80 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div class="flex items-center space-x-2.5 min-w-0">
+                <div class="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                  <i class="fa-solid fa-location-crosshairs"></i>
+                </div>
+                <div class="min-w-0">
+                  <p class="text-xs font-black text-emerald-950">Current Delivery Location</p>
+                  <p id="gpsStatusNotice" class="text-[11px] text-emerald-800 font-medium truncate">Auto-fill PIN code, city & street after your permission</p>
+                </div>
+              </div>
+              <button type="button" id="btnDetectLocation" onclick="window.promptLocationConsent()" class="px-3.5 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black shadow-sm flex items-center justify-center space-x-1.5 shrink-0 cursor-pointer transition active:scale-95">
+                <i class="fa-solid fa-location-dot"></i>
+                <span>Use My Current Location</span>
+              </button>
             </div>
 
-            <!-- 3. City, State and Pincode Fields (Directly Editable, Zero Auto-Kurla) -->
+            <!-- Review & Confirm Auto-Filled Address Banner -->
+            <div id="locationReviewBanner" class="hidden p-3.5 rounded-2xl bg-amber-50 border border-amber-300 space-y-2 text-xs">
+              <div class="flex items-start justify-between gap-2">
+                <div class="flex items-start space-x-2">
+                  <i class="fa-solid fa-circle-check text-emerald-600 mt-0.5"></i>
+                  <div>
+                    <p class="font-black text-slate-900">Detected Address Filled — Please Review</p>
+                    <p id="detectedLocationSummary" class="text-[11px] text-slate-600 mt-0.5"></p>
+                  </div>
+                </div>
+                <button type="button" onclick="window.confirmDetectedAddressReview()" class="px-2.5 py-1 rounded-lg bg-emerald-700 text-white font-black text-[11px] shrink-0">Looks Good</button>
+              </div>
+              <label class="flex items-center space-x-2 text-[11px] text-slate-700 font-semibold cursor-pointer">
+                <input type="checkbox" id="chkStoreLocationConsent" class="rounded text-emerald-600 focus:ring-emerald-500">
+                <span>Save delivery GPS pin with my order so delivery partner finds my exact gate</span>
+              </label>
+            </div>
+
+            <!-- 3. Single-Line Address Input -->
+            <div>
+              <label class="block text-xs font-black text-slate-800 mb-1 flex items-center justify-between">
+                <span>Address *</span>
+                <span class="text-[10px] text-slate-400 font-normal">Flat / House No., Building, Street, Landmark</span>
+              </label>
+              <input type="text" id="custAddress1" required oninput="saveUserProfile()" placeholder="e.g. Flat 402, Sector 14, Near Metro Station" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            </div>
+
+            <!-- 4. PIN Code, City & State (Auto-filled on GPS/PIN, Always Editable) -->
             <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
               <div>
-                <label class="block font-black text-slate-800 mb-1">6-Digit PIN Code *</label>
-                <input type="text" id="custPincode" required maxlength="6" oninput="window.handlePincodeChange(this.value)" placeholder="e.g. 410208" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 font-bold bg-white focus:ring-2 focus:ring-emerald-500">
+                <label class="block font-black text-slate-800 mb-1">PIN Code *</label>
+                <input type="text" id="custPincode" required maxlength="6" inputmode="numeric" oninput="window.handlePincodeChange(this.value)" placeholder="e.g. 410208" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 font-bold bg-white focus:ring-2 focus:ring-emerald-500">
                 <span id="pinLookupStatus" class="text-[10px] text-emerald-700 font-bold block mt-1"></span>
               </div>
               <div>
-                <label class="block font-black text-slate-800 mb-1">City / Area *</label>
-                <input type="text" id="custCity" required oninput="saveUserProfile()" placeholder="e.g. Taloja / Navi Mumbai" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 font-bold bg-white focus:ring-2 focus:ring-emerald-500">
+                <label class="block font-black text-slate-800 mb-1">City *</label>
+                <input type="text" id="custCity" required oninput="saveUserProfile()" placeholder="e.g. Navi Mumbai" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 font-bold bg-white focus:ring-2 focus:ring-emerald-500">
               </div>
               <div>
-                <label class="block font-black text-slate-800 mb-1">State *</label>
-                <input type="text" id="custState" required oninput="saveUserProfile()" placeholder="e.g. Maharashtra" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 font-bold bg-white focus:ring-2 focus:ring-emerald-500">
+                <label class="block font-black text-slate-800 mb-1">State</label>
+                <input type="text" id="custState" oninput="saveUserProfile()" placeholder="e.g. Maharashtra" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 font-bold bg-white focus:ring-2 focus:ring-emerald-500">
               </div>
-            </div>
-
-            <div class="flex items-center justify-between pt-1">
-              <button type="button" id="btnDetectLocation" onclick="window.requestHardwareGpsLocation()" class="text-xs text-emerald-800 font-bold hover:underline flex items-center space-x-1.5 cursor-pointer">
-                <i class="fa-solid fa-location-crosshairs text-emerald-600"></i>
-                <span>Use Device GPS Pin (Optional)</span>
-              </button>
-              <div id="gpsStatusNotice" class="text-[11px] text-slate-500 font-semibold"></div>
             </div>
 
             <input type="hidden" id="custEmail" value="">
@@ -503,54 +531,100 @@
     </div>
 
     <!-- ========================================== -->
-    <!-- 1. DIRECT GOOGLE SIGN-IN POPUP MODAL -->
+    <!-- 1. UNIFIED CUSTOMER CHECKOUT LOGIN MODAL (Mobile OTP + Google) -->
     <!-- ========================================== -->
     <div id="googleAuthModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 text-center space-y-5 animate-in fade-in zoom-in-95 duration-200 relative">
+      <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl border border-slate-100 text-center space-y-4 relative">
         <button onclick="window.closeGoogleAuthModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold transition">
           <i class="fa-solid fa-xmark"></i>
         </button>
-        <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-tr from-emerald-100 to-teal-50 border-2 border-emerald-300 flex items-center justify-center shadow-md">
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="w-8 h-8">
-        </div>
         <div>
-          <span class="inline-block bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-1.5">1-Step Fast Checkout</span>
-          <h3 class="text-xl font-black text-slate-900 tracking-tight">Sign in with Google to Continue</h3>
-          <p class="text-xs text-slate-600 mt-1.5 leading-relaxed">
-            Order confirm karne, live WhatsApp dispatch notification aur invoice receive karne ke liye apne Google account se connect karein.
+          <span class="inline-block bg-emerald-100 text-emerald-800 text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full mb-1.5">1-Step Customer Checkout</span>
+          <h3 class="text-xl font-black text-slate-900 tracking-tight">Sign in to Place Your Order</h3>
+          <p class="text-xs text-slate-600 mt-1 leading-relaxed">
+            Verify with Mobile Number + OTP or continue with your Google account so your orders and push alerts sync everywhere.
           </p>
         </div>
-        <div class="space-y-3 pt-1">
-          <button id="modalGoogleBtn" onclick="window.triggerCheckoutGoogleAuth(this)" class="w-full py-3.5 px-4 rounded-2xl bg-white hover:bg-slate-50 border-2 border-slate-300 hover:border-emerald-600 text-slate-800 font-black text-sm shadow-sm transition flex items-center justify-center space-x-3 active:scale-98 cursor-pointer">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="w-5 h-5">
-            <span>Continue with Google</span>
-          </button>
-          <div class="flex items-center justify-center space-x-3 text-[11px] text-slate-500 font-semibold pt-1">
-            <span class="flex items-center space-x-1"><i class="fa-solid fa-shield-halved text-emerald-600"></i><span>100% Secure</span></span>
-            <span>•</span>
-            <span class="flex items-center space-x-1"><i class="fa-solid fa-bolt text-amber-500"></i><span>Instant Sign-In</span></span>
-            <span>•</span>
-            <span class="flex items-center space-x-1"><i class="fa-solid fa-check text-blue-500"></i><span>No Password</span></span>
+
+        <div class="text-left space-y-2.5 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          <label class="block text-[11px] font-black text-slate-700 uppercase">Mobile Number + OTP</label>
+          <div class="flex items-center rounded-xl border border-slate-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-emerald-500">
+            <span class="px-3 py-2.5 text-xs font-black text-slate-700 bg-slate-100 border-r border-slate-200">+91</span>
+            <input type="tel" id="checkoutOtpPhone" maxlength="10" inputmode="numeric" placeholder="10-digit mobile number" class="w-full px-3 py-2.5 text-sm font-bold text-slate-900 bg-transparent outline-none">
           </div>
+          <div id="checkoutOtpCodeGroup" class="hidden space-y-2">
+            <input type="tel" id="checkoutOtpCode" maxlength="6" inputmode="numeric" placeholder="Enter 6-digit OTP" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-center tracking-[0.35em] font-black text-sm text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500">
+            <div class="flex items-center justify-between text-[11px]">
+              <button type="button" onclick="window.triggerCheckoutPhoneOtp(true)" class="text-emerald-700 font-bold hover:underline">Resend OTP</button>
+              <span id="checkoutOtpHint" class="text-slate-500"></span>
+            </div>
+          </div>
+          <p id="checkoutOtpError" class="hidden text-xs font-semibold text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2"></p>
+          <button id="btnCheckoutSendOtp" type="button" onclick="window.triggerCheckoutPhoneOtp(false)" class="w-full py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow transition flex items-center justify-center space-x-2 cursor-pointer">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+            <span>Continue with Mobile Number + OTP</span>
+          </button>
+          <button id="btnCheckoutVerifyOtp" type="button" onclick="window.triggerCheckoutVerifyOtp()" class="hidden w-full py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow transition flex items-center justify-center space-x-2 cursor-pointer">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Verify OTP & Continue</span>
+          </button>
+        </div>
+
+        <div class="flex items-center">
+          <div class="flex-1 h-px bg-slate-200"></div>
+          <span class="px-3 text-[11px] font-bold text-slate-400 uppercase">or</span>
+          <div class="flex-1 h-px bg-slate-200"></div>
+        </div>
+
+        <button id="modalGoogleBtn" onclick="window.triggerCheckoutGoogleAuth(this)" class="w-full py-3.5 px-4 rounded-2xl bg-white hover:bg-slate-50 border-2 border-slate-300 hover:border-emerald-600 text-slate-800 font-black text-sm shadow-sm transition flex items-center justify-center space-x-3 active:scale-98 cursor-pointer">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" class="w-5 h-5">
+          <span>Continue with Google Account</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- EXPLICIT LOCATION PERMISSION CONSENT MODAL -->
+    <!-- ========================================== -->
+    <div id="locationConsentModal" class="hidden fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
+      <div class="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl border border-slate-100 space-y-4">
+        <div class="flex items-center space-x-3">
+          <div class="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg shrink-0">
+            <i class="fa-solid fa-location-dot"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-black text-slate-900">Allow Location Access?</h3>
+            <p class="text-[11px] text-slate-500">Only used when you choose auto-fill</p>
+          </div>
+        </div>
+        <p class="text-xs text-slate-600 leading-relaxed">
+          Nutrolix uses your current device location only to look up your PIN code, city, and nearby delivery address via Google Maps. Coordinates are not saved unless you confirm them on checkout, and you can always edit your address manually.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-2.5 pt-1">
+          <button type="button" onclick="window.acceptLocationConsent()" class="flex-1 py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow cursor-pointer">
+            Allow & Detect Location
+          </button>
+          <button type="button" onclick="window.declineLocationConsent()" class="flex-1 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs cursor-pointer">
+            Enter Address Manually
+          </button>
         </div>
       </div>
     </div>
 
     <!-- ========================================== -->
-    <!-- 2. ONE-LINE ADDRESS & WHATSAPP NUMBER MODAL -->
+    <!-- 2. SINGLE-LINE ADDRESS & WHATSAPP NUMBER MODAL -->
     <!-- ========================================== -->
     <div id="deliveryDetailsModal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
-      <div class="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-100 text-left space-y-4 my-auto relative animate-in fade-in zoom-in-95 duration-200">
+      <div class="bg-white rounded-3xl p-6 sm:p-7 max-w-lg w-full shadow-2xl border border-slate-100 text-left space-y-4 my-auto relative">
         <button onclick="window.closeDeliveryDetailsModal()" class="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-sm font-bold transition">
           <i class="fa-solid fa-xmark"></i>
         </button>
 
-        <!-- Google User Tag -->
         <div class="flex items-center space-x-3 pb-3 border-b border-slate-100">
           <img id="delivModalPhoto" src="https://ui-avatars.com/api/?name=User&background=047857&color=fff" class="w-12 h-12 rounded-full border-2 border-emerald-500 object-cover shadow-sm">
           <div class="min-w-0 flex-1">
             <div class="flex items-center space-x-1.5">
-              <span class="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full">Google Connected</span>
+              <span id="delivModalAuthBadge" class="text-[10px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full">Account Connected</span>
             </div>
             <p id="delivModalName" class="text-sm font-black text-slate-900 truncate">Customer</p>
             <p id="delivModalEmail" class="text-xs text-slate-500 truncate"></p>
@@ -558,49 +632,45 @@
         </div>
 
         <div>
-          <h3 class="text-base font-black text-slate-900">Delivery Details</h3>
-          <p class="text-xs text-slate-500">Apna WhatsApp number aur one-line delivery address enter karein</p>
+          <h3 class="text-base font-black text-slate-900">Complete Delivery Details</h3>
+          <p class="text-xs text-slate-500">Confirm your WhatsApp number and delivery address</p>
         </div>
 
-        <!-- WhatsApp Number -->
         <div>
           <label class="block text-xs font-black text-slate-800 mb-1 flex items-center space-x-1.5">
             <i class="fa-brands fa-whatsapp text-emerald-600 text-sm"></i>
-            <span>10-Digit WhatsApp Mobile Number *</span>
+            <span>WhatsApp Number *</span>
           </label>
           <div class="flex items-center rounded-xl border border-slate-300 bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500 overflow-hidden">
             <span class="px-3.5 py-2.5 text-xs font-black text-slate-600 bg-slate-100 border-r border-slate-200">+91</span>
-            <input type="tel" id="delivModalPhone" maxlength="10" placeholder="e.g. 9931354354" class="w-full text-sm font-bold p-2.5 bg-transparent focus:outline-none text-slate-900">
+            <input type="tel" id="delivModalPhone" maxlength="10" inputmode="numeric" placeholder="10-digit WhatsApp number" class="w-full text-sm font-bold p-2.5 bg-transparent focus:outline-none text-slate-900">
           </div>
-          <p class="text-[10px] text-slate-400 mt-1">Live order tracking updates aur bill is number par aayega</p>
+          <p class="text-[10px] text-slate-400 mt-1">Order dispatch and tracking alerts will be linked with this number</p>
         </div>
 
-        <!-- One-Line Delivery Address -->
         <div>
           <label class="block text-xs font-black text-slate-800 mb-1 flex items-center justify-between">
             <span class="flex items-center space-x-1.5">
               <i class="fa-solid fa-location-dot text-emerald-600 text-sm"></i>
-              <span>One-Line Delivery Address *</span>
+              <span>Address *</span>
             </span>
-            <span class="text-[10px] text-slate-400 font-normal">Flat / Shop, Building, Sector, Area</span>
+            <span class="text-[10px] text-slate-400 font-normal">Flat / House, Building, Area</span>
           </label>
-          <textarea id="delivModalAddress" rows="2" placeholder="e.g. Shop No 4, Sector 14, Taloja Phase 1, Near Metro Station, Navi Mumbai" class="w-full text-sm font-bold p-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900"></textarea>
+          <input type="text" id="delivModalAddress" placeholder="e.g. Shop No 4, Sector 14, Near Metro Station" class="w-full text-sm font-bold p-3 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 text-slate-900">
         </div>
 
-        <!-- PIN Code & City -->
         <div class="grid grid-cols-2 gap-3 text-xs">
           <div>
-            <label class="block font-black text-slate-800 mb-1">6-Digit PIN Code *</label>
-            <input type="text" id="delivModalPincode" maxlength="6" oninput="window.handlePincodeChangeModal(this.value)" placeholder="e.g. 410208" class="w-full text-sm font-bold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label class="block font-black text-slate-800 mb-1">PIN Code *</label>
+            <input type="text" id="delivModalPincode" maxlength="6" inputmode="numeric" oninput="window.handlePincodeChangeModal(this.value)" placeholder="e.g. 410208" class="w-full text-sm font-bold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
           </div>
           <div>
-            <label class="block font-black text-slate-800 mb-1">City / Area *</label>
-            <input type="text" id="delivModalCity" placeholder="Taloja / Navi Mumbai" class="w-full text-sm font-bold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <label class="block font-black text-slate-800 mb-1">City *</label>
+            <input type="text" id="delivModalCity" placeholder="e.g. Navi Mumbai" class="w-full text-sm font-bold p-2.5 rounded-xl border border-slate-300 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
           </div>
         </div>
         <div id="delivModalPinStatus" class="text-[11px] font-bold text-emerald-700 min-h-[16px]"></div>
 
-        <!-- Action Button -->
         <button type="button" id="btnConfirmAndPlace" onclick="window.confirmDeliveryDetailsAndPlaceOrder()" class="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm shadow-lg shadow-emerald-600/25 transition flex items-center justify-center space-x-2 active:scale-98 cursor-pointer">
           <i class="fa-solid fa-lock text-xs"></i>
           <span>Confirm Details & Place Order</span>
@@ -1155,27 +1225,116 @@
       }
     };
 
-    // Explicit hardware GPS request ONLY if user clicks it (NEVER auto-runs, ZERO Kurla fallback)
-    window.requestHardwareGpsLocation = function() {
+    let locationConsentGranted = false;
+
+    window.promptLocationConsent = function() {
+      const consentModal = document.getElementById('locationConsentModal');
+      if (consentModal) {
+        consentModal.classList.remove('hidden');
+      } else {
+        locationConsentGranted = true;
+        window.requestHardwareGpsLocation();
+      }
+    };
+
+    window.acceptLocationConsent = function() {
+      locationConsentGranted = true;
+      document.getElementById('locationConsentModal')?.classList.add('hidden');
+      const chk = document.getElementById('chkStoreLocationConsent');
+      if (chk) chk.checked = true;
+      window.requestHardwareGpsLocation();
+    };
+
+    window.declineLocationConsent = function() {
+      locationConsentGranted = false;
+      document.getElementById('locationConsentModal')?.classList.add('hidden');
       const statusEl = document.getElementById('gpsStatusNotice');
-      if (!navigator.geolocation) {
-        if (statusEl) statusEl.innerText = 'GPS is not supported on this browser. Please enter your address above.';
+      if (statusEl) statusEl.textContent = 'Enter your delivery address & PIN code below.';
+      document.getElementById('custAddress1')?.focus();
+    };
+
+    window.confirmDetectedAddressReview = function() {
+      document.getElementById('locationReviewBanner')?.classList.add('hidden');
+      saveUserProfile();
+    };
+
+    async function applyReverseGeocodedCoords(lat, lon, nativeGeocoder = null) {
+      const statusEl = document.getElementById('gpsStatusNotice');
+      const bannerEl = document.getElementById('locationReviewBanner');
+      const summaryEl = document.getElementById('detectedLocationSummary');
+
+      document.getElementById('custGpsLat').value = lat;
+      document.getElementById('custGpsLon').value = lon;
+
+      let resolved = null;
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/location/reverse-geocode', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lat, lon })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.success) resolved = data;
+        }
+      } catch (_) {}
+
+      if (!resolved && nativeGeocoder && (nativeGeocoder.pincode || nativeGeocoder.city || nativeGeocoder.formattedAddress)) {
+        resolved = nativeGeocoder;
+      }
+
+      if (resolved) {
+        if (resolved.pincode) document.getElementById('custPincode').value = resolved.pincode;
+        if (resolved.city) document.getElementById('custCity').value = resolved.city;
+        if (resolved.state) document.getElementById('custState').value = resolved.state;
+        if (resolved.formattedAddress && !document.getElementById('custAddress1').value.trim()) {
+          document.getElementById('custAddress1').value = resolved.formattedAddress;
+        }
+        if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-700 mr-1"></i>Location detected (${resolved.city || resolved.pincode || 'Ready'})`;
+        if (summaryEl) summaryEl.textContent = [resolved.formattedAddress || resolved.city, resolved.pincode ? `PIN: ${resolved.pincode}` : ''].filter(Boolean).join(' • ');
+        if (bannerEl) bannerEl.classList.remove('hidden');
+      } else {
+        if (statusEl) statusEl.textContent = 'GPS coordinates captured. Please confirm your PIN code & address below.';
+        if (bannerEl) bannerEl.classList.remove('hidden');
+      }
+      saveUserProfile();
+    }
+
+    // Explicit hardware GPS request ONLY AFTER user clicks Allow in Location Consent Modal
+    window.requestHardwareGpsLocation = function() {
+      if (!locationConsentGranted) {
+        window.promptLocationConsent();
         return;
       }
-      if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-emerald-600 mr-1"></i>Requesting exact device GPS pin...';
+      const statusEl = document.getElementById('gpsStatusNotice');
+      if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-emerald-700 mr-1"></i>Detecting location...';
+
+      // Prefer native Android FusedLocationProvider + OS runtime permission flow in APK
+      if (window.AndroidNative && typeof window.AndroidNative.requestCurrentLocation === 'function') {
+        window.onNativeLocationSuccess = function(payload) {
+          if (payload && payload.lat !== undefined && payload.lon !== undefined) {
+            applyReverseGeocodedCoords(payload.lat, payload.lon, payload.nativeGeocoder || null);
+          }
+        };
+        window.onNativeLocationError = function(err) {
+          if (statusEl) statusEl.textContent = (err && err.message) ? err.message : 'Unable to detect GPS. Please enter PIN & address manually.';
+        };
+        window.AndroidNative.requestCurrentLocation();
+        return;
+      }
+
+      if (!navigator.geolocation) {
+        if (statusEl) statusEl.innerText = 'GPS is unavailable in this browser. Please enter your PIN code & address manually.';
+        return;
+      }
 
       navigator.geolocation.getCurrentPosition(
         async (pos) => {
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          document.getElementById('custGpsLat').value = lat;
-          document.getElementById('custGpsLon').value = lon;
-          if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>GPS Pin Attached: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
-          saveUserProfile();
+          await applyReverseGeocodedCoords(pos.coords.latitude, pos.coords.longitude, null);
         },
-        (err) => {
-          console.warn('GPS permission denied or unavailable:', err.message);
-          if (statusEl) statusEl.innerHTML = '<span class="text-slate-500">Address entry is active. Enter your address and pincode above.</span>';
+        () => {
+          if (statusEl) statusEl.textContent = 'Location permission denied or GPS off. Please enter PIN code and address manually.';
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
@@ -1185,16 +1344,16 @@
       try {
         const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
         if (profile.name) document.getElementById('custName').value = profile.name;
-        if (profile.phone || profile.whatsapp) document.getElementById('custPhone').value = profile.phone || profile.whatsapp;
+        if (profile.whatsappNumber || profile.phone || profile.whatsapp) {
+          document.getElementById('custPhone').value = profile.whatsappNumber || profile.phone || profile.whatsapp;
+        }
         if (profile.email) document.getElementById('custEmail').value = profile.email;
-        if (profile.address1) document.getElementById('custAddress1').value = profile.address1;
-        
-        // Default to Taloja, Navi Mumbai if no city entered yet (NEVER Kurla!)
-        document.getElementById('custCity').value = profile.city || 'Taloja, Navi Mumbai';
-        document.getElementById('custState').value = profile.state || 'Maharashtra';
-        document.getElementById('custPincode').value = profile.pincode || '410208';
-        if (profile.gpsLat) document.getElementById('custGpsLat').value = profile.gpsLat;
-        if (profile.gpsLon) document.getElementById('custGpsLon').value = profile.gpsLon;
+        if (profile.address1 || profile.defaultAddress) {
+          document.getElementById('custAddress1').value = profile.address1 || profile.defaultAddress;
+        }
+        if (profile.city) document.getElementById('custCity').value = profile.city;
+        if (profile.state) document.getElementById('custState').value = profile.state;
+        if (profile.pincode) document.getElementById('custPincode').value = profile.pincode;
       } catch (_) {}
     }
 
@@ -1204,36 +1363,40 @@
         const profile = {
           ...existing,
           name: document.getElementById('custName').value.trim(),
-          phone: document.getElementById('custPhone').value.trim(),
+          whatsappNumber: document.getElementById('custPhone').value.trim(),
+          phone: existing.verifiedPhone || document.getElementById('custPhone').value.trim(),
           whatsapp: document.getElementById('custPhone').value.trim(),
           email: document.getElementById('custEmail').value.trim() || (existing.email || ''),
           address1: document.getElementById('custAddress1').value.trim(),
-          city: document.getElementById('custCity').value.trim() || 'Taloja, Navi Mumbai',
-          state: document.getElementById('custState').value.trim() || 'Maharashtra',
-          pincode: document.getElementById('custPincode').value.trim() || '410208',
-          gpsLat: document.getElementById('custGpsLat').value,
-          gpsLon: document.getElementById('custGpsLon').value
+          defaultAddress: document.getElementById('custAddress1').value.trim(),
+          city: document.getElementById('custCity').value.trim(),
+          state: document.getElementById('custState').value.trim(),
+          pincode: document.getElementById('custPincode').value.trim()
         };
         localStorage.setItem('nutrolix_user_profile', JSON.stringify(profile));
       } catch (_) {}
     };
 
-    // Check & display Google Auth status bar on cart page
+    // Check & display Unified Auth status bar on cart page (supports Mobile OTP, Google, Linked)
     window.checkCartAuthStatus = function() {
       const user = window.getNutrolixUser();
       const bar = document.getElementById('cartAuthStatusBar');
       if (!bar) return;
 
-      if (user && user.email) {
+      if (user) {
+        const label = user.name || user.verifiedPhone || user.email || 'Nutrolix Member';
         bar.innerHTML = `
           <div class="flex items-center space-x-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
-            <img src="${user.photo || 'https://ui-avatars.com/api/?name=User&background=047857&color=fff'}" class="w-6 h-6 rounded-full border border-emerald-500 object-cover">
-            <span class="text-xs font-black text-emerald-950">${user.name || user.email.split('@')[0]}</span>
-            <span class="text-[9px] bg-emerald-600 text-white font-black px-1.5 py-0.2 rounded-full">Connected</span>
+            <img src="${user.photo || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(label) + '&background=047857&color=fff'}" class="w-6 h-6 rounded-full border border-emerald-500 object-cover">
+            <span class="text-xs font-black text-emerald-950 truncate max-w-[140px]">${label}</span>
+            <span class="text-[9px] bg-emerald-600 text-white font-black px-1.5 py-0.2 rounded-full">Verified</span>
           </div>
         `;
-        if (!document.getElementById('custName').value && user.name) {
+        if (!document.getElementById('custName').value && user.name && user.name !== 'Nutrolix Customer') {
           document.getElementById('custName').value = user.name;
+        }
+        if (!document.getElementById('custPhone').value && (user.whatsappNumber || user.verifiedPhone || user.phone)) {
+          document.getElementById('custPhone').value = user.whatsappNumber || user.verifiedPhone || user.phone;
         }
         if (!document.getElementById('custEmail').value && user.email) {
           document.getElementById('custEmail').value = user.email;
@@ -1241,24 +1404,87 @@
       } else {
         bar.innerHTML = `
           <button type="button" onclick="window.openGoogleAuthModal()" class="text-xs font-black text-slate-800 bg-white border border-slate-300 hover:border-emerald-600 px-3 py-1.5 rounded-full shadow-sm flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-4 h-4">
-            <span>Sign in with Google</span>
+            <i class="fa-solid fa-user-shield text-emerald-700"></i>
+            <span>Login (OTP / Google)</span>
           </button>
         `;
       }
     };
 
     // ========================================================
-    // POINT 1: DIRECT GOOGLE SIGN-IN & ONE-LINE ADDRESS CHECKOUT FLOW
+    // UNIFIED CUSTOMER AUTH & SMART CHECKOUT FLOW
     // ========================================================
     window.openGoogleAuthModal = function() {
       const modal = document.getElementById('googleAuthModal');
-      if (modal) modal.classList.remove('hidden');
+      if (modal) {
+        const phonePrefill = (document.getElementById('custPhone')?.value || '').replace(/\D/g, '').slice(-10);
+        const inp = document.getElementById('checkoutOtpPhone');
+        if (inp && phonePrefill.length === 10) inp.value = phonePrefill;
+        document.getElementById('checkoutOtpError')?.classList.add('hidden');
+        modal.classList.remove('hidden');
+      }
     };
 
     window.closeGoogleAuthModal = function() {
       const modal = document.getElementById('googleAuthModal');
       if (modal) modal.classList.add('hidden');
+    };
+
+    window.triggerCheckoutPhoneOtp = async function(isResend = false) {
+      const phoneEl = document.getElementById('checkoutOtpPhone');
+      const errEl = document.getElementById('checkoutOtpError');
+      const sendBtn = document.getElementById('btnCheckoutSendOtp');
+      const verifyBtn = document.getElementById('btnCheckoutVerifyOtp');
+      const codeGroup = document.getElementById('checkoutOtpCodeGroup');
+      errEl.classList.add('hidden');
+
+      const digits = (phoneEl.value || '').replace(/\D/g, '').slice(-10);
+      if (digits.length !== 10) {
+        errEl.textContent = 'Please enter a valid 10-digit Indian mobile number.';
+        errEl.classList.remove('hidden');
+        return;
+      }
+
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Sending OTP...</span>';
+      try {
+        const res = await window.startNutrolixPhoneOtp(digits, { isResend });
+        if (res.mode === 'instant' && res.profile) {
+          window.onAuthSuccessCallback(res.profile);
+          return;
+        }
+        codeGroup.classList.remove('hidden');
+        document.getElementById('checkoutOtpHint').textContent = `Sent to +91 ${digits}`;
+        sendBtn.classList.add('hidden');
+        verifyBtn.classList.remove('hidden');
+        document.getElementById('checkoutOtpCode')?.focus();
+      } catch (e) {
+        errEl.textContent = e.message || 'Unable to send OTP right now.';
+        errEl.classList.remove('hidden');
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fa-solid fa-mobile-screen-button"></i><span>Continue with Mobile Number + OTP</span>';
+      }
+    };
+
+    window.triggerCheckoutVerifyOtp = async function() {
+      const codeEl = document.getElementById('checkoutOtpCode');
+      const errEl = document.getElementById('checkoutOtpError');
+      const verifyBtn = document.getElementById('btnCheckoutVerifyOtp');
+      errEl.classList.add('hidden');
+
+      verifyBtn.disabled = true;
+      verifyBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Verifying...</span>';
+      try {
+        const profile = await window.verifyNutrolixPhoneOtp(codeEl.value);
+        window.onAuthSuccessCallback(profile);
+      } catch (e) {
+        errEl.textContent = e.message || 'Incorrect OTP. Please try again.';
+        errEl.classList.remove('hidden');
+      } finally {
+        verifyBtn.disabled = false;
+        verifyBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Verify OTP & Continue</span>';
+      }
     };
 
     window.triggerCheckoutGoogleAuth = async function(btnEl) {
@@ -1267,24 +1493,27 @@
       }
     };
 
-    // Google Sign-In Success Handler callback registered with nutrolix-auth.js
+    // Unified Auth Success Callback (from Mobile OTP OR Google Sign-In)
     window.onAuthSuccessCallback = function(userProfile) {
       window.closeGoogleAuthModal();
       window.checkCartAuthStatus();
 
-      // Pre-fill user name and email
-      if (userProfile.name) document.getElementById('custName').value = userProfile.name;
+      if (userProfile.name && userProfile.name !== 'Nutrolix Customer') {
+        document.getElementById('custName').value = userProfile.name;
+      }
       if (userProfile.email) document.getElementById('custEmail').value = userProfile.email;
+      if (userProfile.verifiedPhone || userProfile.whatsappNumber) {
+        const ph = userProfile.whatsappNumber || userProfile.verifiedPhone;
+        if (!document.getElementById('custPhone').value) document.getElementById('custPhone').value = ph;
+      }
 
       const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-      const phone = (document.getElementById('custPhone')?.value || profile.phone || profile.whatsapp || '').trim();
-      const address = (document.getElementById('custAddress1')?.value || profile.address1 || '').trim();
+      const phone = (document.getElementById('custPhone')?.value || profile.whatsappNumber || profile.phone || '').replace(/\D/g, '').slice(-10);
+      const address = (document.getElementById('custAddress1')?.value || profile.address1 || (selectedSavedAddress ? selectedSavedAddress.address1 : '') || '').trim();
 
-      // If user lacks WhatsApp phone or one-line address, show Delivery Details Modal!
       if (!phone || phone.length < 10 || !address || address.length < 5) {
         window.openDeliveryDetailsModal();
       } else {
-        // All details present! Proceed to submit order
         window.executeOrderPlacement();
       }
     };
@@ -1292,81 +1521,59 @@
     window.openDeliveryDetailsModal = function() {
       const user = window.getNutrolixUser() || {};
       const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-
       const modal = document.getElementById('deliveryDetailsModal');
       if (!modal) return;
 
-      document.getElementById('delivModalPhoto').src = user.photo || 'https://ui-avatars.com/api/?name=User&background=047857&color=fff';
-      document.getElementById('delivModalName').innerText = user.name || profile.name || 'Valued Customer';
-      document.getElementById('delivModalEmail').innerText = user.email || profile.email || 'customer@nutrolix.in';
+      const label = user.name || profile.name || user.verifiedPhone || 'Valued Customer';
+      document.getElementById('delivModalPhoto').src = user.photo || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(label) + '&background=047857&color=fff');
+      document.getElementById('delivModalName').innerText = label;
+      document.getElementById('delivModalEmail').innerText = user.email || (user.verifiedPhone ? `+91 ${user.verifiedPhone}` : '');
+      const badgeEl = document.getElementById('delivModalAuthBadge');
+      if (badgeEl) {
+        badgeEl.textContent = user.phoneVerified ? 'Mobile Verified' : 'Google Connected';
+      }
 
-      document.getElementById('delivModalPhone').value = profile.phone || profile.whatsapp || document.getElementById('custPhone').value || '';
-      document.getElementById('delivModalAddress').value = profile.address1 || document.getElementById('custAddress1').value || '';
-      document.getElementById('delivModalPincode').value = profile.pincode || document.getElementById('custPincode').value || '410208';
-      document.getElementById('delivModalCity').value = profile.city || document.getElementById('custCity').value || 'Taloja, Navi Mumbai';
+      document.getElementById('delivModalPhone').value = document.getElementById('custPhone').value || profile.whatsappNumber || user.verifiedPhone || '';
+      document.getElementById('delivModalAddress').value = document.getElementById('custAddress1').value || profile.address1 || '';
+      document.getElementById('delivModalPincode').value = document.getElementById('custPincode').value || profile.pincode || '';
+      document.getElementById('delivModalCity').value = document.getElementById('custCity').value || profile.city || '';
 
       modal.classList.remove('hidden');
-      setTimeout(() => {
-        document.getElementById('delivModalPhone').focus();
-      }, 150);
+      setTimeout(() => document.getElementById('delivModalPhone')?.focus(), 120);
     };
 
     window.closeDeliveryDetailsModal = function() {
-      const modal = document.getElementById('deliveryDetailsModal');
-      if (modal) modal.classList.add('hidden');
+      document.getElementById('deliveryDetailsModal')?.classList.add('hidden');
     };
 
-    // User confirms WhatsApp phone + One-Line address in the modal
     window.confirmDeliveryDetailsAndPlaceOrder = function() {
-      const phone = (document.getElementById('delivModalPhone').value || '').trim();
+      const phone = (document.getElementById('delivModalPhone').value || '').replace(/\D/g, '').slice(-10);
       const address = (document.getElementById('delivModalAddress').value || '').trim();
-      const pincode = (document.getElementById('delivModalPincode').value || '').trim() || '410208';
-      const city = (document.getElementById('delivModalCity').value || '').trim() || 'Taloja, Navi Mumbai';
+      const pincode = (document.getElementById('delivModalPincode').value || '').replace(/\D/g, '').slice(0, 6);
+      const city = (document.getElementById('delivModalCity').value || '').trim();
 
-      if (!phone || phone.length < 10) {
-        alert('Kripya apna 10-digit WhatsApp number enter karein.');
+      if (phone.length !== 10) {
+        alert('Please enter your 10-digit WhatsApp mobile number.');
         document.getElementById('delivModalPhone').focus();
         return;
       }
-
       if (!address || address.length < 5) {
-        alert('Kripya apna One-Line delivery address (Flat/Shop No., Building, Area) enter karein.');
+        alert('Please enter your single-line delivery address.');
         document.getElementById('delivModalAddress').focus();
         return;
       }
+      if (pincode.length !== 6) {
+        alert('Please enter a valid 6-digit PIN code.');
+        document.getElementById('delivModalPincode').focus();
+        return;
+      }
 
-      // Sync into main page form fields
       document.getElementById('custPhone').value = phone;
       document.getElementById('custAddress1').value = address;
       document.getElementById('custPincode').value = pincode;
-      document.getElementById('custCity').value = city;
+      if (city) document.getElementById('custCity').value = city;
 
       saveUserProfile();
-
-      // Auto-save address to user's saved address book
-      try {
-        let addresses = getSavedAddresses();
-        const existingIdx = addresses.findIndex(a => a.phone === phone);
-        const user = window.getNutrolixUser() || {};
-        const newAddr = {
-          id: 'addr_' + Date.now(),
-          tag: 'Home / Delivery',
-          name: user.name || document.getElementById('custName').value || 'Customer',
-          phone: phone,
-          address1: address,
-          city: city,
-          state: 'Maharashtra',
-          pincode: pincode,
-          isDefault: true
-        };
-        if (existingIdx >= 0) {
-          addresses[existingIdx] = newAddr;
-        } else {
-          addresses.unshift(newAddr);
-        }
-        localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(addresses));
-      } catch (_) {}
-
       window.closeDeliveryDetailsModal();
       window.executeOrderPlacement();
     };
@@ -1374,29 +1581,27 @@
     // Primary checkout button trigger
     window.handleOrderCheckoutClick = function() {
       if (cart.length === 0) {
-        alert('Aapka cart empty hai. Kripya pehle product add karein.');
+        alert('Your cart is empty. Please add a product first.');
         return;
       }
 
-      // 1. Check if user is signed in with Google
+      // 1. Require Firebase Authentication (Mobile + OTP OR Google Account)
       const user = window.getNutrolixUser();
-      if (!user || !user.email) {
-        // Direct Google Sign-In Popup
+      if (!user) {
         window.openGoogleAuthModal();
         return;
       }
 
-      // 2. Check if WhatsApp phone and one-line address are available
+      // 2. Validate WhatsApp number & address
       const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-      const phone = (document.getElementById('custPhone')?.value || profile.phone || profile.whatsapp || '').trim();
+      const phone = (document.getElementById('custPhone')?.value || profile.whatsappNumber || user.verifiedPhone || '').replace(/\D/g, '').slice(-10);
       const address = (document.getElementById('custAddress1')?.value || profile.address1 || (selectedSavedAddress ? selectedSavedAddress.address1 : '') || '').trim();
 
-      if (!phone || phone.length < 10 || !address || address.length < 5) {
+      if (phone.length !== 10 || !address || address.length < 5) {
         window.openDeliveryDetailsModal();
         return;
       }
 
-      // 3. All valid, execute final order placement!
       window.executeOrderPlacement();
     };
 
@@ -1408,27 +1613,28 @@
       const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
 
       let name, phone, email, address1, city, state, pincode, gpsLat, gpsLon, googleMapsLink;
+      const storeCoordsAllowed = Boolean(locationConsentGranted && document.getElementById('chkStoreLocationConsent')?.checked);
 
       if (selectedSavedAddress) {
-        name = selectedSavedAddress.name || user.name || 'Valued Customer';
-        phone = selectedSavedAddress.phone || profile.phone || '9931354354';
-        email = user.email || profile.email || 'customer@nutrolix.in';
+        name = selectedSavedAddress.name || document.getElementById('custName').value.trim() || user.name || 'Customer';
+        phone = selectedSavedAddress.phone || document.getElementById('custPhone').value.trim() || profile.whatsappNumber || user.verifiedPhone || '';
+        email = user.email || profile.email || '';
         address1 = selectedSavedAddress.address1;
-        city = selectedSavedAddress.city || 'Taloja, Navi Mumbai';
-        state = selectedSavedAddress.state || 'Maharashtra';
-        pincode = selectedSavedAddress.pincode || '410208';
-        gpsLat = selectedSavedAddress.gpsLat;
-        gpsLon = selectedSavedAddress.gpsLon;
+        city = selectedSavedAddress.city || '';
+        state = selectedSavedAddress.state || '';
+        pincode = selectedSavedAddress.pincode || '';
+        gpsLat = storeCoordsAllowed ? selectedSavedAddress.gpsLat : null;
+        gpsLon = storeCoordsAllowed ? selectedSavedAddress.gpsLon : null;
       } else {
-        name = document.getElementById('custName').value.trim() || user.name || 'Valued Customer';
-        phone = document.getElementById('custPhone').value.trim() || profile.phone || '9931354354';
-        email = user.email || document.getElementById('custEmail').value.trim() || profile.email || 'customer@nutrolix.in';
-        address1 = document.getElementById('custAddress1').value.trim() || profile.address1;
-        pincode = document.getElementById('custPincode').value.trim() || '410208';
-        city = document.getElementById('custCity').value.trim() || 'Taloja, Navi Mumbai';
-        state = document.getElementById('custState').value.trim() || 'Maharashtra';
-        gpsLat = document.getElementById('custGpsLat').value;
-        gpsLon = document.getElementById('custGpsLon').value;
+        name = document.getElementById('custName').value.trim() || user.name || 'Customer';
+        phone = document.getElementById('custPhone').value.trim() || profile.whatsappNumber || user.verifiedPhone || '';
+        email = user.email || document.getElementById('custEmail').value.trim() || profile.email || '';
+        address1 = document.getElementById('custAddress1').value.trim() || profile.address1 || '';
+        pincode = document.getElementById('custPincode').value.trim() || '';
+        city = document.getElementById('custCity').value.trim() || '';
+        state = document.getElementById('custState').value.trim() || '';
+        gpsLat = storeCoordsAllowed ? (document.getElementById('custGpsLat').value || null) : null;
+        gpsLon = storeCoordsAllowed ? (document.getElementById('custGpsLon').value || null) : null;
       }
 
       googleMapsLink = (gpsLat && gpsLon) ? `https://maps.google.com/?q=${gpsLat},${gpsLon}` : '';
@@ -1448,19 +1654,23 @@
         id: generatedOrderId,
         orderId: generatedOrderId,
         orderNumber: generatedOrderId,
-        customer: { name, phone, email },
+        uid: user.uid || '',
+        customer: { name, phone, email, whatsappNumber: phone, verifiedPhone: user.verifiedPhone || '' },
         customerName: name,
         customerPhone: phone,
+        whatsappNumber: phone,
+        verifiedPhone: user.verifiedPhone || '',
         customerEmail: email,
-        deliveryAddress: { 
-          address1, 
-          city, 
-          state, 
+        deliveryAddress: {
+          address1,
+          city,
+          state,
           pincode,
           gpsLat: gpsLat || null,
           gpsLon: gpsLon || null,
           googleMapsUrl: googleMapsLink
         },
+        ...(storeCoordsAllowed && gpsLat && gpsLon ? { deliveryCoordinates: { lat: Number(gpsLat), lon: Number(gpsLon) } } : {}),
         items: cart,
         paymentMethod,
         subtotal,
@@ -1478,20 +1688,42 @@
         orderTimeMillis: nowMs
       };
 
+      // Persist address & customer profile into Firestore for cross-device sync
+      if (user.uid && window.NutrolixFirebase) {
+        const addrToSave = {
+          id: selectedSavedAddress?.id || 'addr_primary',
+          tag: selectedSavedAddress?.tag || 'Home',
+          name,
+          phone,
+          street: address1,
+          address1,
+          city,
+          state,
+          pincode
+        };
+        window.NutrolixFirebase.saveUserAddress(user.uid, addrToSave).catch(() => {});
+        window.NutrolixFirebase.saveUserProfile(user.uid, {
+          name,
+          email,
+          whatsappNumber: phone,
+          verifiedPhone: user.verifiedPhone || '',
+          defaultAddress: address1,
+          city,
+          state,
+          pincode
+        }).catch(() => {});
+      }
+
       const btn = document.getElementById('placeOrderBtn');
       if (btn) {
         btn.disabled = true;
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-base mr-2"></i><span>Securing Order...</span>';
       }
 
-      // 1. Sync order to live Firebase Firestore immediately (with _skipApi to let block below handle API call with full response)
       if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveOrder === 'function') {
         try {
           window.NutrolixFirebase.saveOrder({ ...orderPayload, _skipApi: true }).catch(fbErr => console.warn('Firebase order sync fallback:', fbErr));
-          console.log('✅ Order dispatched to Firebase Firestore:', generatedOrderId);
-        } catch (fbErr) {
-          console.warn('Firebase order sync fallback:', fbErr);
-        }
+        } catch (_) {}
       }
 
       // 2. If PayU Online Payment is selected, launch official PayU Gateway

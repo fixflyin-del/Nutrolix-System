@@ -1,4 +1,4 @@
-// Nutrolix Service Worker for Web Push & Order Updates
+// Nutrolix Service Worker for Web Push (VAPID) & FCM Background Order Updates
 self.addEventListener('install', event => {
   self.skipWaiting();
 });
@@ -8,25 +8,33 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('push', event => {
-  let data = {};
+  let raw = {};
   if (event.data) {
     try {
-      data = event.data.json();
+      raw = event.data.json();
     } catch (_) {
-      data = { title: 'Nutrolix Order Update', body: event.data.text() };
+      raw = { title: 'Nutrolix Order Update', body: event.data.text() };
     }
-  } else {
-    data = { title: 'Nutrolix Order Update', body: 'New update on your order status.' };
   }
 
-  const title = data.title || 'Nutrolix Functional Nutrition';
+  // Handle both RFC 8291 VAPID payload & Firebase FCM HTTP v1 webpush shape
+  const notif = raw.notification || {};
+  const data = raw.data || raw;
+  const title = notif.title || raw.title || data.title || 'Nutrolix Order Update';
+  const body = notif.body || raw.body || data.body || data.message || 'Your order status has been updated.';
+  const orderId = data.orderId || raw.orderId || '';
+  const targetUrl = (data.url || raw.url || (orderId ? `/orders.html?orderId=${encodeURIComponent(orderId)}` : '/orders.html'));
+
   const options = {
-    body: data.body || data.message || '',
-    icon: 'assets/nutrolix-logo.png',
-    badge: 'assets/nutrolix-logo.png',
+    body,
+    icon: '/assets/nutrolix-logo.png',
+    badge: '/assets/nutrolix-logo.png',
     vibrate: [200, 100, 200],
+    tag: data.dedupKey || (orderId ? `nutrolix_order_${orderId}` : undefined),
+    renotify: true,
     data: {
-      url: data.url || (data.orderId ? `orders.html?orderId=${data.orderId}` : 'orders.html')
+      orderId,
+      url: targetUrl
     }
   };
 
@@ -37,12 +45,13 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : 'orders.html';
+  const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/orders.html';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
       for (const client of windowClients) {
-        if (client.url.includes('orders.html') && 'focus' in client) {
+        if ('navigate' in client && 'focus' in client) {
+          client.navigate(targetUrl).catch(() => {});
           return client.focus();
         }
       }

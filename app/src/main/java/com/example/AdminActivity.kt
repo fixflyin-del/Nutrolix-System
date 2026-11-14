@@ -3,15 +3,19 @@ package com.example
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Vibrator
+import android.os.PowerManager
 import android.os.VibrationEffect
+import android.os.Vibrator
+import android.provider.Settings
 import android.view.View
 import android.view.ViewGroup
+import android.view.WindowManager
 import android.webkit.*
 import android.widget.Toast
 import androidx.activity.ComponentActivity
@@ -22,18 +26,24 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.NotificationsOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
-import com.example.ui.theme.MyApplicationTheme
-import com.example.util.OrderNotificationHelper
-import com.example.util.OrderAlarmPlayer
 import com.example.service.AdminOrderBackgroundService
+import com.example.ui.theme.MyApplicationTheme
+import com.example.util.OrderAlarmPlayer
+import com.example.util.OrderNotificationHelper
+import kotlinx.coroutines.delay
 
 class AdminActivity : ComponentActivity() {
 
@@ -61,13 +71,15 @@ class AdminActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
+    configureLockscreenVisibility()
 
-    // Initialize notification channels and real-time background order alert service
+    // Initialize notification channels and real-time 24/7 background order alert service
     OrderNotificationHelper.initChannel(this)
     AdminOrderBackgroundService.start(this)
 
-    // Stop active ringing tone once admin has opened the app
-    OrderAlarmPlayer.stopOrderAlarm()
+    // Only stop alarm if user tapped the notification or manually opened while unlocked
+    handleIntentAlarmStop(intent)
+    requestBatteryOptimizationExemptionIfNeeded()
 
     setContent {
       MyApplicationTheme {
@@ -89,14 +101,64 @@ class AdminActivity : ComponentActivity() {
     }
   }
 
+  private fun configureLockscreenVisibility() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+      setShowWhenLocked(true)
+      setTurnScreenOn(true)
+    } else {
+      @Suppress("DEPRECATION")
+      window.addFlags(
+        WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
+          WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+          WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
+      )
+    }
+  }
+
+  private fun handleIntentAlarmStop(targetIntent: Intent?) {
+    val explicitStop = targetIntent?.getBooleanExtra("stop_alarm_on_open", false) == true
+    val isFromLockscreen = targetIntent?.getBooleanExtra("from_lockscreen_alert", false) == true
+    val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
+    val isLocked = km?.isKeyguardLocked == true
+
+    if (explicitStop) {
+      OrderAlarmPlayer.stopOrderAlarm(this)
+      OrderNotificationHelper.cancelAdminOrderNotification(this, targetIntent?.getStringExtra("order_id"))
+    } else if (!isFromLockscreen && !isLocked) {
+      OrderAlarmPlayer.stopOrderAlarm(this)
+    }
+  }
+
+  @SuppressLint("BatteryLife")
+  private fun requestBatteryOptimizationExemptionIfNeeded() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+      try {
+        val pm = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
+        if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+          val prefs = getSharedPreferences("nutrolix_admin_ui_prefs", Context.MODE_PRIVATE)
+          if (!prefs.getBoolean("battery_opt_prompted_v1", false)) {
+            prefs.edit().putBoolean("battery_opt_prompted_v1", true).apply()
+            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+              data = Uri.parse("package:$packageName")
+            }
+            startActivity(intent)
+          }
+        }
+      } catch (_: Exception) {}
+    }
+  }
+
   override fun onResume() {
     super.onResume()
-    OrderAlarmPlayer.stopOrderAlarm()
+    // Ensure service stays alive and running whenever admin checks terminal
+    AdminOrderBackgroundService.start(this)
+    handleIntentAlarmStop(intent)
   }
 
   override fun onNewIntent(intent: Intent) {
     super.onNewIntent(intent)
-    OrderAlarmPlayer.stopOrderAlarm()
+    setIntent(intent)
+    handleIntentAlarmStop(intent)
   }
 }
 
@@ -110,6 +172,15 @@ fun NutrolixAdminWebViewApp(
   var loadingProgress by remember { mutableIntStateOf(0) }
   var isPageLoading by remember { mutableStateOf(true) }
   var lastBackPressTime by remember { mutableLongStateOf(0L) }
+  var isAlarmRinging by remember { mutableStateOf(OrderAlarmPlayer.isRinging()) }
+
+  // Poll native alarm state while AdminActivity is visible so user sees instant Silence button if triggered
+  LaunchedEffect(Unit) {
+    while (true) {
+      isAlarmRinging = OrderAlarmPlayer.isRinging()
+      delay(400L)
+    }
+  }
 
   // Runtime Notification Permission launcher for Android 13+
   val notificationPermissionLauncher = rememberLauncherForActivityResult(
@@ -180,7 +251,7 @@ fun NutrolixAdminWebViewApp(
               object {
                 @JavascriptInterface
                 fun stopAlarm() {
-                  OrderAlarmPlayer.stopOrderAlarm()
+                  OrderAlarmPlayer.stopOrderAlarm(ctx)
                 }
 
                 @JavascriptInterface
@@ -290,6 +361,40 @@ fun NutrolixAdminWebViewApp(
         },
         update = { webViewInstance = it }
       )
+
+      // Native Lockscreen-Safe Order Bell Silence Pill whenever alarm is actively ringing
+      if (isAlarmRinging) {
+        Button(
+          onClick = {
+            OrderAlarmPlayer.stopOrderAlarm(context)
+            isAlarmRinging = false
+            webViewInstance?.evaluateJavascript(
+              "try { if (typeof window.acknowledgeActiveAlarm === 'function') window.acknowledgeActiveAlarm(); } catch(e) {}",
+              null
+            )
+          },
+          colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFFDC2626),
+            contentColor = Color.White
+          ),
+          shape = RoundedCornerShape(28.dp),
+          modifier = Modifier
+            .align(Alignment.TopCenter)
+            .padding(top = 12.dp, start = 16.dp, end = 16.dp)
+            .heightIn(min = 48.dp)
+            .testTag("silence_order_alarm_button")
+        ) {
+          Icon(
+            imageVector = Icons.Filled.NotificationsOff,
+            contentDescription = "Silence Order Bell"
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+          Text(
+            text = "NEW ORDER RINGING — TAP TO SILENCE BELL",
+            fontWeight = FontWeight.Bold
+          )
+        }
+      }
 
       // Linear Loading Indicator
       if (isPageLoading) {

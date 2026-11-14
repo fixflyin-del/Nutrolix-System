@@ -770,22 +770,28 @@
             <span>Refresh Live Orders</span>
           </button>
         </div>
-        <!-- Status Filter Tabs (4 Standard Statuses: Accepted, Preparing, Dispatched, Delivered) -->
+        <!-- Status Filter Tabs (6 Standard Statuses) -->
         <div class="flex items-center space-x-2 overflow-x-auto pb-2 border-b border-slate-200 mb-4 custom-scrollbar">
           <button onclick="window.filterPackagedOrders('ALL')" id="orderFilterBtn-ALL" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-black bg-slate-900 text-white shadow-sm whitespace-nowrap">
             All Orders (<span id="cntAll">0</span>)
           </button>
-          <button onclick="window.filterPackagedOrders('Accepted')" id="orderFilterBtn-Accepted" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
-            Accepted (<span id="cntAccepted">0</span>)
+          <button onclick="window.filterPackagedOrders('Order Confirmed')" id="orderFilterBtn-OrderConfirmed" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+            Confirmed (<span id="cntAccepted">0</span>)
           </button>
-          <button onclick="window.filterPackagedOrders('Preparing')" id="orderFilterBtn-Preparing" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
-            Preparing (<span id="cntPreparing">0</span>)
+          <button onclick="window.filterPackagedOrders('Processing')" id="orderFilterBtn-Processing" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+            Processing (<span id="cntPreparing">0</span>)
           </button>
-          <button onclick="window.filterPackagedOrders('Dispatched')" id="orderFilterBtn-Dispatched" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
-            Dispatched (<span id="cntDispatched">0</span>)
+          <button onclick="window.filterPackagedOrders('Packed')" id="orderFilterBtn-Packed" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+            Packed (<span id="cntPacked">0</span>)
+          </button>
+          <button onclick="window.filterPackagedOrders('Out for Delivery')" id="orderFilterBtn-OutForDelivery" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+            Out for Delivery (<span id="cntDispatched">0</span>)
           </button>
           <button onclick="window.filterPackagedOrders('Delivered')" id="orderFilterBtn-Delivered" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
             Delivered (<span id="cntDelivered">0</span>)
+          </button>
+          <button onclick="window.filterPackagedOrders('Cancelled')" id="orderFilterBtn-Cancelled" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
+            Cancelled (<span id="cntCancelled">0</span>)
           </button>
         </div>
 
@@ -2268,12 +2274,15 @@
 
     function playChime() {
       if (!soundAlertEnabled) return;
+      if (window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.playAlarm === "function") return;
       playUrgentTone();
     }
 
     window.playNativeOrderAlarm = function(order) {
-      // 1. Android Native Bridge for wake lock and system ringer
-      if (window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.playAlarm === "function") {
+      const hasNativeBridge = !!(window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.playAlarm === "function");
+
+      // 1. Android Native Bridge for wake lock and single custom Order Chime (no mobile ringtone)
+      if (hasNativeBridge) {
         try { window.NutrolixAdminNativeBridge.playAlarm(); } catch (_) {}
       }
 
@@ -2292,8 +2301,8 @@
         banner.classList.remove('hidden');
       }
 
-      // 3. Browser notification if allowed
-      if (window.Notification && Notification.permission === 'granted' && order) {
+      // 3. Browser notification if allowed (skip in native APK since Android NotificationHelper handles it)
+      if (!hasNativeBridge && window.Notification && Notification.permission === 'granted' && order) {
         try {
           const nTitle = `🚨 New Nutrolix Order #${order.orderId || order.id}`;
           const nBody = `${order.customer?.name || 'Customer'} ordered for ₹${order.grandTotal || order.total}!`;
@@ -2303,13 +2312,19 @@
 
       if (!soundAlertEnabled) return;
 
-      // 4. Play first chime immediately
+      // In Admin APK, native OrderAlarmPlayer exclusively handles the single clean order chime & vibration
+      // so two overlapping tones never play at the same time. Web browsers play WebAudio chime below.
+      if (hasNativeBridge) {
+        return;
+      }
+
+      // 4. Play first chime immediately (Web Browser only)
       playUrgentTone();
       if (navigator.vibrate) {
         try { navigator.vibrate([500, 200, 500, 200, 800]); } catch (_) {}
       }
 
-      // 5. Continuous ringer loop every 1.8 seconds until acknowledged
+      // 5. Continuous ringer loop every 1.8 seconds until acknowledged (Web Browser only)
       if (ringInterval) clearInterval(ringInterval);
       ringInterval = setInterval(() => {
         if (!soundAlertEnabled) {
@@ -2391,12 +2406,12 @@
     window.normalizeOrderStatus = function(statusRaw) {
       const s = String(statusRaw || '').trim();
       const lower = s.toLowerCase();
-      if (!lower || lower === 'placed' || lower === 'order placed' || lower === 'pending' || lower === 'new') return 'Order Placed';
-      if (lower === 'confirmed' || lower === 'accepted') return 'Accepted';
-      if (lower === 'preparing' || lower === 'packed & ready' || lower === 'packed_ready') return 'Preparing';
-      if (lower === 'dispatched' || lower === 'in transit' || lower === 'in_transit' || lower === 'out_for_delivery' || lower === 'out for delivery') return 'Dispatched';
-      if (lower === 'delivered') return 'Delivered';
-      if (lower === 'cancelled' || lower === 'rejected') return lower === 'rejected' ? 'Rejected' : 'Cancelled';
+      if (!lower || lower === 'placed' || lower === 'order placed' || lower === 'pending' || lower === 'new' || lower === 'order confirmed' || lower === 'confirmed' || lower === 'accepted') return 'Order Confirmed';
+      if (lower === 'processing' || lower === 'preparing' || lower === 'in preparation') return 'Processing';
+      if (lower === 'packed' || lower === 'packed & ready' || lower === 'packed_ready') return 'Packed';
+      if (lower === 'dispatched' || lower === 'shipped' || lower === 'in transit' || lower === 'in_transit' || lower === 'out_for_delivery' || lower === 'out for delivery') return 'Out for Delivery';
+      if (lower === 'delivered' || lower === 'completed') return 'Delivered';
+      if (lower === 'cancelled' || lower === 'canceled' || lower === 'rejected') return 'Cancelled';
       return s;
     };
 
@@ -2594,30 +2609,42 @@
 
     window.updateOrderFilterCounts = function() {
       const orders = window.packagedOrders || [];
+      const norm = (s) => window.normalizeOrderStatus(s);
       const cntAll = orders.length;
-      const cntAccepted = orders.filter(o => ['accepted', 'confirmed', 'order placed', 'placed'].includes((o.status || '').toLowerCase())).length;
-      const cntPreparing = orders.filter(o => ['preparing', 'packed & ready'].includes((o.status || '').toLowerCase())).length;
-      const cntDispatched = orders.filter(o => ['dispatched', 'in transit', 'out_for_delivery'].includes((o.status || '').toLowerCase())).length;
-      const cntDelivered = orders.filter(o => ['delivered'].includes((o.status || '').toLowerCase())).length;
+      const cntAccepted = orders.filter(o => norm(o.status) === 'Order Confirmed').length;
+      const cntPreparing = orders.filter(o => norm(o.status) === 'Processing').length;
+      const cntPacked = orders.filter(o => norm(o.status) === 'Packed').length;
+      const cntDispatched = orders.filter(o => norm(o.status) === 'Out for Delivery').length;
+      const cntDelivered = orders.filter(o => norm(o.status) === 'Delivered').length;
+      const cntCancelled = orders.filter(o => norm(o.status) === 'Cancelled').length;
 
       const setBadge = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
       setBadge('cntAll', cntAll);
       setBadge('cntAccepted', cntAccepted);
       setBadge('cntPreparing', cntPreparing);
+      setBadge('cntPacked', cntPacked);
       setBadge('cntDispatched', cntDispatched);
       setBadge('cntDelivered', cntDelivered);
+      setBadge('cntCancelled', cntCancelled);
     };
 
     window.filterPackagedOrders = function(statusKey) {
       window.currentOrderFilter = statusKey;
-      ['ALL', 'Accepted', 'Preparing', 'Dispatched', 'Delivered'].forEach(key => {
-        const btn = document.getElementById('orderFilterBtn-' + key);
+      const idMap = {
+        'ALL': 'orderFilterBtn-ALL',
+        'Order Confirmed': 'orderFilterBtn-OrderConfirmed',
+        'Processing': 'orderFilterBtn-Processing',
+        'Packed': 'orderFilterBtn-Packed',
+        'Out for Delivery': 'orderFilterBtn-OutForDelivery',
+        'Delivered': 'orderFilterBtn-Delivered',
+        'Cancelled': 'orderFilterBtn-Cancelled'
+      };
+      Object.entries(idMap).forEach(([key, btnId]) => {
+        const btn = document.getElementById(btnId);
         if (btn) {
-          if (key === statusKey) {
-            btn.className = 'px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-black bg-slate-900 text-white shadow-sm whitespace-nowrap';
-          } else {
-            btn.className = 'px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap';
-          }
+          btn.className = key === statusKey
+            ? 'px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-black bg-slate-900 text-white shadow-sm whitespace-nowrap'
+            : 'px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap';
         }
       });
       window.renderPackagedOrdersTable();
@@ -2631,19 +2658,10 @@
         return;
       }
 
-      // Filter according to active tab (4 Required Statuses)
       let list = [...window.packagedOrders];
       const filter = window.currentOrderFilter;
       if (filter && filter !== 'ALL') {
-        if (filter === 'Accepted') {
-          list = list.filter(o => ['accepted', 'confirmed', 'order placed', 'placed'].includes((o.status || '').toLowerCase()));
-        } else if (filter === 'Preparing') {
-          list = list.filter(o => ['preparing', 'packed & ready'].includes((o.status || '').toLowerCase()));
-        } else if (filter === 'Dispatched') {
-          list = list.filter(o => ['dispatched', 'in transit'].includes((o.status || '').toLowerCase()));
-        } else if (filter === 'Delivered') {
-          list = list.filter(o => (o.status || '').toLowerCase() === 'delivered');
-        }
+        list = list.filter(o => window.normalizeOrderStatus(o.status) === filter);
       }
 
       if (list.length === 0) {
@@ -2651,7 +2669,6 @@
         return;
       }
 
-      // Group orders chronologically to calculate customer repeat badges
       const sortedAll = [...window.packagedOrders].sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
       const customerOrderCounts = {};
       const orderCustomerSequence = {};
@@ -2668,7 +2685,7 @@
         const items = (order.items || []).map(i => `${i.title || i.name || 'Item'} (${i.variant || 'Standard'}) × ${i.quantity || 1}`).join('<br>') || 'Order Items';
         const addrObj = order.deliveryAddress;
         const addr = addrObj
-          ? (typeof addrObj === 'string' ? addrObj : [addrObj.address1, addrObj.city, addrObj.state, addrObj.pincode].filter(Boolean).join(', ')) || 'Direct'
+          ? (typeof addrObj === 'string' ? addrObj : [addrObj.address1 || addrObj.street, addrObj.city, addrObj.state, addrObj.pincode].filter(Boolean).join(', ')) || 'Direct'
           : 'Direct';
         
         const seq = orderCustomerSequence[order.id] || 1;
@@ -2683,14 +2700,13 @@
           repeatBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200">${seq}th Order 👑 VIP</span>`;
         }
 
-        // Status badge color
-        const st = (order.status || 'Order Placed');
-        let statusBadgeClass = 'bg-amber-100 text-amber-800 border border-amber-200';
-        if (st === 'Accepted') statusBadgeClass = 'bg-blue-100 text-blue-800 border border-blue-200';
-        if (st === 'Preparing') statusBadgeClass = 'bg-purple-100 text-purple-800 border border-purple-200';
-        if (st === 'Dispatched' || st === 'In Transit') statusBadgeClass = 'bg-indigo-100 text-indigo-800 border border-indigo-200';
+        const st = window.normalizeOrderStatus(order.status || 'Order Confirmed');
+        let statusBadgeClass = 'bg-blue-100 text-blue-800 border border-blue-200';
+        if (st === 'Processing') statusBadgeClass = 'bg-purple-100 text-purple-800 border border-purple-200';
+        if (st === 'Packed') statusBadgeClass = 'bg-amber-100 text-amber-800 border border-amber-200';
+        if (st === 'Out for Delivery') statusBadgeClass = 'bg-indigo-100 text-indigo-800 border border-indigo-200';
         if (st === 'Delivered') statusBadgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
-        if (st === 'Cancelled' || st === 'Rejected') statusBadgeClass = 'bg-red-100 text-red-800 border border-red-200';
+        if (st === 'Cancelled') statusBadgeClass = 'bg-red-100 text-red-800 border border-red-200';
 
         return `
           <tr class="hover:bg-slate-50 transition border-b border-slate-100">
@@ -2698,7 +2714,7 @@
               <span class="font-extrabold text-blue-700 block text-xs">#${order.id}</span>
               <span class="text-[11px] text-slate-400 block">${d}</span>
               <span class="inline-block mt-1 px-2 py-0.5 rounded-md text-[10px] font-black ${statusBadgeClass}">${st}</span>
-              ${order.trackingNumber ? `<span class="block text-[10px] text-slate-500 font-mono mt-0.5">${order.courierName || 'Courier'}: ${order.trackingNumber}</span>` : ''}
+              ${order.trackingNumber ? `<span class="block text-[10px] text-slate-500 font-mono mt-0.5">${order.courierName || order.courier || 'Courier'}: ${order.trackingNumber}</span>` : ''}
             </td>
             <td class="p-3.5 align-top">
               <div class="flex items-center space-x-2 mb-1">
@@ -2715,33 +2731,41 @@
               ${items}
             </td>
             <td class="p-3.5 align-top">
-              <span class="font-black text-slate-900 text-sm">₹${order.grandTotal}</span>
+              <span class="font-black text-slate-900 text-sm">₹${order.grandTotal || order.total || 0}</span>
               <span class="block text-[10px] text-emerald-700 font-bold">${order.paymentMethod || 'Online (PayU)'}</span>
             </td>
-            <td class="p-3.5 align-top space-y-1.5 min-w-[140px]">
+            <td class="p-3.5 align-top space-y-1.5 min-w-[155px]">
               <select onchange="window.updatePackagedOrderStatus('${order.id}', this.value)" class="w-full text-xs font-black rounded-xl border border-slate-300 px-2.5 py-1.5 bg-white text-slate-800 shadow-sm focus:ring-2 focus:ring-emerald-500">
-                <option value="Accepted" ${(st === 'Accepted' || st === 'Order Placed') ? 'selected' : ''}>1. Accepted</option>
-                <option value="Preparing" ${st === 'Preparing' ? 'selected' : ''}>2. Preparing</option>
-                <option value="Dispatched" ${st === 'Dispatched' ? 'selected' : ''}>3. Dispatched</option>
-                <option value="Delivered" ${st === 'Delivered' ? 'selected' : ''}>4. Delivered</option>
+                <option value="Order Confirmed" ${st === 'Order Confirmed' ? 'selected' : ''}>1. Order Confirmed</option>
+                <option value="Processing" ${st === 'Processing' ? 'selected' : ''}>2. Processing</option>
+                <option value="Packed" ${st === 'Packed' ? 'selected' : ''}>3. Packed</option>
+                <option value="Out for Delivery" ${st === 'Out for Delivery' ? 'selected' : ''}>4. Out for Delivery</option>
+                <option value="Delivered" ${st === 'Delivered' ? 'selected' : ''}>5. Delivered</option>
+                <option value="Cancelled" ${st === 'Cancelled' ? 'selected' : ''}>6. Cancelled</option>
               </select>
 
-              <!-- Quick Status Action Buttons -->
-              ${(st === 'Accepted' || st === 'Order Placed') ? `
+              ${st === 'Order Confirmed' ? `
                 <button onclick="window.markOrderPreparing('${order.id}')" class="w-full py-1.5 px-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-black text-[10px] text-center shadow transition flex items-center justify-center space-x-1">
                   <i class="fa-solid fa-utensils"></i>
-                  <span>Mark Preparing</span>
+                  <span>Mark Processing</span>
                 </button>
               ` : ''}
 
-              ${st === 'Preparing' ? `
+              ${st === 'Processing' ? `
+                <button onclick="window.markOrderPacked('${order.id}')" class="w-full py-1.5 px-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] text-center shadow transition flex items-center justify-center space-x-1">
+                  <i class="fa-solid fa-boxes-packing"></i>
+                  <span>Mark Packed</span>
+                </button>
+              ` : ''}
+
+              ${st === 'Packed' ? `
                 <button onclick="window.markOrderDispatchedPrompt('${order.id}')" class="w-full py-1.5 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] text-center shadow transition flex items-center justify-center space-x-1">
                   <i class="fa-solid fa-truck-fast"></i>
-                  <span>Mark Dispatched</span>
+                  <span>Out for Delivery</span>
                 </button>
               ` : ''}
 
-              ${st === 'Dispatched' ? `
+              ${st === 'Out for Delivery' ? `
                 <button onclick="window.markOrderDelivered('${order.id}')" class="w-full py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] text-center shadow transition flex items-center justify-center space-x-1">
                   <i class="fa-solid fa-circle-check"></i>
                   <span>Mark Delivered</span>
@@ -2751,7 +2775,14 @@
               ${st === 'Delivered' ? `
                 <div class="text-[10px] font-black text-emerald-700 flex items-center justify-center space-x-1 py-1 bg-emerald-50 rounded-lg border border-emerald-200">
                   <i class="fa-solid fa-check-double"></i>
-                  <span>Delivered & Closed</span>
+                  <span>Delivered &amp; Closed</span>
+                </div>
+              ` : ''}
+
+              ${st === 'Cancelled' ? `
+                <div class="text-[10px] font-black text-rose-700 flex items-center justify-center space-x-1 py-1 bg-rose-50 rounded-lg border border-rose-200">
+                  <i class="fa-solid fa-ban"></i>
+                  <span>Cancelled</span>
                 </div>
               ` : ''}
             </td>
@@ -2770,30 +2801,33 @@
       }).join('');
     };
 
-    // Fast order status actions (4 Required Statuses: Accepted, Preparing, Dispatched, Delivered)
     window.acceptPackagedOrder = async function(orderId) {
       acknowledgedOrderIds.add(orderId);
-      await window.callOrderStatusEndpoint(orderId, 'Accepted');
-      alert(`✓ Order #${orderId} marked as Accepted! Customer push notification dispatched.`);
+      await window.callOrderStatusEndpoint(orderId, 'Order Confirmed');
+      alert(`✓ Order #${orderId} marked as Order Confirmed! Customer push notification dispatched.`);
       window.loadPackagedOrders();
     };
 
     window.markOrderPreparing = async function(orderId) {
       acknowledgedOrderIds.add(orderId);
-      await window.callOrderStatusEndpoint(orderId, 'Preparing');
-      alert(`✓ Order #${orderId} marked as Preparing! Customer push notification dispatched.`);
+      await window.callOrderStatusEndpoint(orderId, 'Processing');
+      alert(`✓ Order #${orderId} marked as Processing! Customer push notification dispatched.`);
+      window.loadPackagedOrders();
+    };
+
+    window.markOrderPacked = async function(orderId) {
+      acknowledgedOrderIds.add(orderId);
+      await window.callOrderStatusEndpoint(orderId, 'Packed');
+      alert(`✓ Order #${orderId} marked as Packed! Customer push notification dispatched.`);
       window.loadPackagedOrders();
     };
 
     window.markOrderDispatchedPrompt = async function(orderId) {
       acknowledgedOrderIds.add(orderId);
-      const courierName = prompt('Enter Courier Partner Name (e.g. Delhivery, Blue Dart, Porter):', 'Delhivery Express');
-      if (!courierName) return;
-      const trackingNumber = prompt('Enter Tracking AWB Number / Live Link:', 'AWB' + Math.floor(100000000 + Math.random() * 900000000));
-      if (!trackingNumber) return;
-
-      await window.callOrderStatusEndpoint(orderId, 'Dispatched', courierName, trackingNumber);
-      alert(`✓ Order #${orderId} marked as Dispatched! Customer push notification dispatched.`);
+      const courierName = prompt('Enter Courier / Delivery Partner Name (e.g. Delhivery, Blue Dart, Porter):', 'Nutrolix Express') || 'Nutrolix Express';
+      const trackingNumber = prompt('Enter Tracking Number (optional):', '') || '';
+      await window.callOrderStatusEndpoint(orderId, 'Out for Delivery', courierName, trackingNumber);
+      alert(`✓ Order #${orderId} marked as Out for Delivery! Customer push notification dispatched.`);
       window.loadPackagedOrders();
     };
 
@@ -2812,6 +2846,9 @@
     };
 
     window.callOrderStatusEndpoint = async function(orderId, status, courierName = '', trackingNumber = '') {
+      if (typeof window.acknowledgeActiveAlarm === 'function') {
+        try { window.acknowledgeActiveAlarm(); } catch (_) {}
+      }
       // 1. Update in-memory orders across buckets
       if (window.packagedOrders) {
         const ord = window.packagedOrders.find(o => o.id === orderId || o.orderId === orderId);
@@ -2855,7 +2892,8 @@
       }
 
       try {
-        await fetch('/api/nutrition-orders/status', {
+        const host = window.NUTROLIX_API_HOST || '';
+        await fetch(host + '/api/nutrition-orders/status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ orderId, status, courier: courierName, trackingNumber })

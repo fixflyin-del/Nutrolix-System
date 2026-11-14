@@ -24,7 +24,12 @@ import kotlinx.coroutines.tasks.await
 private const val TAG = "GoogleSignInService"
 
 sealed interface GoogleSignInResult {
-  data class Success(val user: FirebaseUser) : GoogleSignInResult
+  data class Success(
+    val user: FirebaseUser,
+    val linked: Boolean = false,
+    val previousUid: String? = null,
+    val collisionWarning: String? = null
+  ) : GoogleSignInResult
   data class Failure(val message: String, val throwable: Throwable? = null) : GoogleSignInResult
   data object Cancelled : GoogleSignInResult
 }
@@ -71,7 +76,7 @@ class GoogleSignInService(
     }
 
     if (webClientId.isBlank() || webClientId.startsWith("YOUR_WEB_CLIENT_ID")) {
-      Log.w(TAG, "Google default_web_client_id is not yet provisioned. Simulating fallback profile.")
+      Log.w(TAG, "Google default_web_client_id is not yet provisioned.")
       return GoogleSignInResult.Failure("Google Sign-In Web Client ID not provisioned yet. Set up Firebase in AI Studio.")
     }
 
@@ -97,11 +102,36 @@ class GoogleSignInService(
       }
 
       val firebaseCredential = GoogleAuthProvider.getCredential(idToken, null)
+      val existingUser = auth.currentUser
+      val prevUid = existingUser?.uid
+
+      if (existingUser != null) {
+        val alreadyHasGoogle = existingUser.providerData.any { it.providerId == GoogleAuthProvider.PROVIDER_ID }
+        if (!alreadyHasGoogle) {
+          try {
+            val linkedResult = existingUser.linkWithCredential(firebaseCredential).await()
+            val linkedUser = linkedResult.user ?: existingUser
+            return GoogleSignInResult.Success(user = linkedUser, linked = true, previousUid = null)
+          } catch (collision: com.google.firebase.auth.FirebaseAuthUserCollisionException) {
+            Log.w(TAG, "Google account already bound to another UID; signing into Google account cleanly", collision)
+            val fallbackResult = auth.signInWithCredential(firebaseCredential).await()
+            val fallbackUser = fallbackResult.user
+              ?: return GoogleSignInResult.Failure("Firebase Auth returned null user after collision recovery.")
+            return GoogleSignInResult.Success(
+              user = fallbackUser,
+              linked = false,
+              previousUid = prevUid,
+              collisionWarning = "This Google account already existed separately; switched to your Google account."
+            )
+          }
+        }
+      }
+
       val authResult = auth.signInWithCredential(firebaseCredential).await()
       val user = authResult.user
 
       if (user != null) {
-        GoogleSignInResult.Success(user)
+        GoogleSignInResult.Success(user = user, linked = false, previousUid = prevUid)
       } else {
         GoogleSignInResult.Failure("Firebase Auth returned null user after Google Sign-In.")
       }

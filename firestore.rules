@@ -1,35 +1,397 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Global safety net: default deny everything unless explicitly matched below
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ---------------------------------------------------------
+    // GLOBAL PRIMITIVES & SECURITY HELPERS
+    // ---------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_.\\-+]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (
+          request.auth.token.get('email_verified', false) == true &&
+          request.auth.token.get('email', '') == 'nutrolix.in@gmail.com'
+        )
+      );
+    }
+
+    // ---------------------------------------------------------
+    // ENTITY VALIDATION HELPERS (ANTI-UPDATE-GAP & SCHEMA SAFETY)
+    // ---------------------------------------------------------
+    function isValidUserProfile(data) {
+      return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+             data.keys().hasOnly([
+               'uid', 'id', 'name', 'email', 'phone', 'verifiedPhone', 'whatsappNumber',
+               'photo', 'authProviders', 'phoneVerified', 'googleLinked', 'linkedFromUid',
+               'currentAddress', 'savedAddresses', 'lastAddress', 'lastOrderId',
+               'lastOrderNumber', 'lastOrderAmount', 'lastOrderTime', 'nutriPoints',
+               'createdAt', 'updatedAt', 'updatedAtMillis', 'createdAtTs', 'updatedAtTs'
+             ]) &&
+             (!('name' in data) || (data.name is string && data.name.size() <= 120)) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 160)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 32)) &&
+             (!('verifiedPhone' in data) || (data.verifiedPhone is string && data.verifiedPhone.size() <= 32)) &&
+             (!('whatsappNumber' in data) || (data.whatsappNumber is string && data.whatsappNumber.size() <= 32)) &&
+             (!('photo' in data) || (data.photo is string && data.photo.size() <= 600)) &&
+             (!('currentAddress' in data) || (data.currentAddress is string && data.currentAddress.size() <= 400)) &&
+             (!('phoneVerified' in data) || data.phoneVerified is bool) &&
+             (!('googleLinked' in data) || data.googleLinked is bool) &&
+             (!('nutriPoints' in data) || (data.nutriPoints is number && data.nutriPoints >= 0)) &&
+             (!('authProviders' in data) || (data.authProviders is list && data.authProviders.size() <= 10 && (data.authProviders.size() == 0 || data.authProviders[0] is string))) &&
+             (!('savedAddresses' in data) || (data.savedAddresses is list && data.savedAddresses.size() <= 25 && (data.savedAddresses.size() == 0 || data.savedAddresses[0] is string))) &&
+             (!('createdAtTs' in data) || (data.createdAtTs is timestamp && data.createdAtTs <= request.time)) &&
+             (!('updatedAtTs' in data) || (data.updatedAtTs is timestamp && data.updatedAtTs <= request.time));
+    }
+
+    function isValidUserAddress(data) {
+      return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+             data.address1 is string && data.address1.size() >= 1 && data.address1.size() <= 350 &&
+             data.city is string && data.city.size() >= 1 && data.city.size() <= 120 &&
+             data.pincode is string && data.pincode.size() >= 4 && data.pincode.size() <= 12 &&
+             data.keys().hasOnly([
+               'id', 'uid', 'label', 'fullName', 'name', 'phone', 'whatsappNumber',
+               'address1', 'address', 'city', 'pincode', 'state', 'lat', 'lon',
+               'locationSource', 'isDefault', 'updatedAt', 'updatedAtMillis',
+               'createdAtTs', 'updatedAtTs'
+             ]) &&
+             (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 120)) &&
+             (!('whatsappNumber' in data) || (data.whatsappNumber is string && data.whatsappNumber.size() <= 32)) &&
+             (!('lat' in data) || (data.lat is number && data.lat >= -90 && data.lat <= 90)) &&
+             (!('lon' in data) || (data.lon is number && data.lon >= -180 && data.lon <= 180)) &&
+             (!('isDefault' in data) || data.isDefault is bool) &&
+             (!('createdAtTs' in data) || (data.createdAtTs is timestamp && data.createdAtTs <= request.time));
+    }
+
+    function isValidFcmToken(data) {
+      return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+             data.token is string && data.token.size() >= 8 && data.token.size() <= 4096 &&
+             data.keys().hasOnly([
+               'uid', 'token', 'fcmToken', 'platform', 'customerPhone',
+               'customerEmail', 'updatedAt', 'updatedAtMillis', 'updatedAtTs'
+             ]) &&
+             (!('platform' in data) || (data.platform is string && data.platform.size() <= 40)) &&
+             (!('customerPhone' in data) || (data.customerPhone is string && data.customerPhone.size() <= 32)) &&
+             (!('customerEmail' in data) || (data.customerEmail is string && data.customerEmail.size() <= 160));
+    }
+
+    function isValidNotification(data) {
+      return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+             data.orderId is string && data.orderId.size() >= 1 && data.orderId.size() <= 128 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+             data.message is string && data.message.size() >= 1 && data.message.size() <= 600 &&
+             data.keys().hasOnly([
+               'id', 'dedupKey', 'uid', 'orderId', 'status', 'title',
+               'message', 'url', 'read', 'timestamp', 'createdAtTs'
+             ]) &&
+             (!('status' in data) || (data.status is string && data.status.size() <= 64)) &&
+             (!('read' in data) || data.read is bool);
+    }
+
+    function isAllowedOrderStatus(statusVal) {
+      return statusVal is string && statusVal in [
+        'Order Placed', 'Order Confirmed', 'Processing', 'Packed',
+        'Out for Delivery', 'Delivered', 'Cancelled',
+        'PLACED', 'CONFIRMED', 'PREPARING', 'READY',
+        'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'
+      ];
+    }
+
+    function isTerminalOrderStatus(statusVal) {
+      return statusVal in ['Delivered', 'Cancelled', 'DELIVERED', 'CANCELLED'];
+    }
+
+    function isValidOrder(data) {
+      return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+             isAllowedOrderStatus(data.status) &&
+             data.items is list && data.items.size() <= 100 &&
+             data.keys().hasOnly([
+               'id', 'orderId', 'orderNumber', 'uid', 'customer',
+               'customerName', 'customerPhone', 'customerEmail', 'whatsappNumber',
+               'deliveryAddress', 'locationSource', 'lat', 'lon',
+               'items', 'subtotal', 'discount', 'deliveryFee', 'tax', 'packagingFee',
+               'tip', 'total', 'grandTotal', 'status', 'paymentMethod', 'paymentStatus',
+               'txnid', 'payuStatus', 'couponCode', 'courier', 'trackingNumber',
+               'deliveryOtp', 'specialInstructions', 'estimatedDeliveryMinutes',
+               'storeName', 'customerOrderCount', 'statusHistory',
+               'cancellationReason', 'refundStatus', 'refundAmount', 'refundTransactionId',
+               'ratingSubmitted', 'reviewText', 'orderTimeMillis', 'timestamp',
+               'createdAt', 'updatedAt', 'statusUpdatedAt', 'createdAtTs'
+             ]) &&
+             (!('total' in data) || (data.total is number && data.total >= 0)) &&
+             (!('grandTotal' in data) || (data.grandTotal is number && data.grandTotal >= 0)) &&
+             (!('customerName' in data) || (data.customerName is string && data.customerName.size() <= 120)) &&
+             (!('customerPhone' in data) || (data.customerPhone is string && data.customerPhone.size() <= 32)) &&
+             (!('whatsappNumber' in data) || (data.whatsappNumber is string && data.whatsappNumber.size() <= 32)) &&
+             (!('courier' in data) || (data.courier is string && data.courier.size() <= 80)) &&
+             (!('trackingNumber' in data) || (data.trackingNumber is string && data.trackingNumber.size() <= 80)) &&
+             (!('reviewText' in data) || (data.reviewText is string && data.reviewText.size() <= 1000)) &&
+             (!('ratingSubmitted' in data) || (data.ratingSubmitted is number && data.ratingSubmitted >= 1 && data.ratingSubmitted <= 5)) &&
+             (!('createdAtTs' in data) || (data.createdAtTs is timestamp && data.createdAtTs <= request.time));
+    }
+
+    function isValidReview(data) {
+      return data.rating is number && data.rating >= 1 && data.rating <= 5 &&
+             data.keys().hasOnly([
+               'id', 'uid', 'mealId', 'mealName', 'productId', 'orderId', 'orderNumber',
+               'customerPhone', 'customerName', 'rating', 'reviewText', 'timestampMillis',
+               'createdAtTs'
+             ]) &&
+             (!('uid' in data) || (data.uid is string && data.uid.size() <= 128)) &&
+             (!('reviewText' in data) || (data.reviewText is string && data.reviewText.size() <= 1000));
+    }
+
+    function isValidCatalogDoc(data) {
+      return data.keys().size() <= 40 &&
+             (!('id' in data) || (data.id is string && data.id.size() <= 128)) &&
+             (!('title' in data) || (data.title is string && data.title.size() <= 250)) &&
+             (!('name' in data) || (data.name is string && data.name.size() <= 250)) &&
+             (!('price' in data) || (data.price is number && data.price >= 0));
+    }
+
+    // ---------------------------------------------------------
+    // ADMIN ROLES
+    // ---------------------------------------------------------
+    match /admins/{adminUid} {
+      allow get: if isSignedIn() && isValidId(adminUid) && (request.auth.uid == adminUid || isAdmin());
+      allow list, create, update, delete: if false;
+    }
+
+    // ---------------------------------------------------------
+    // UNIFIED CUSTOMER PROFILES & SUBCOLLECTIONS
+    // ---------------------------------------------------------
     match /users/{userId} {
-      allow read, write: if true;
+      allow get: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin();
+
+      allow create: if isSignedIn() &&
+                       isValidId(userId) &&
+                       (request.auth.uid == userId || isAdmin()) &&
+                       incoming().uid == userId &&
+                       isValidUserProfile(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming()) &&
+                       (request.auth.uid == userId || isAdmin()) &&
+                       incoming().uid == existing().uid &&
+                       (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt) &&
+                       (!('createdAtTs' in existing()) || incoming().createdAtTs == existing().createdAtTs) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly([
+                         'id', 'name', 'email', 'phone', 'verifiedPhone', 'whatsappNumber',
+                         'photo', 'authProviders', 'phoneVerified', 'googleLinked', 'linkedFromUid',
+                         'currentAddress', 'savedAddresses', 'lastAddress', 'lastOrderId',
+                         'lastOrderNumber', 'lastOrderAmount', 'lastOrderTime', 'nutriPoints',
+                         'updatedAt', 'updatedAtMillis', 'updatedAtTs'
+                       ]);
+
+      allow delete: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+
+      match /addresses/{addrId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(addrId) && (request.auth.uid == userId || isAdmin());
+        allow list: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(addrId) &&
+                         (request.auth.uid == userId || isAdmin()) &&
+                         incoming().uid == userId &&
+                         isValidUserAddress(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(addrId) &&
+                         isValidUserAddress(incoming()) &&
+                         (request.auth.uid == userId || isAdmin()) &&
+                         incoming().uid == existing().uid &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'id', 'label', 'fullName', 'name', 'phone', 'whatsappNumber',
+                           'address1', 'address', 'city', 'pincode', 'state', 'lat', 'lon',
+                           'locationSource', 'isDefault', 'updatedAt', 'updatedAtMillis', 'updatedAtTs'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(addrId) && (request.auth.uid == userId || isAdmin());
+      }
+
+      match /fcmTokens/{tokenId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(tokenId) && (request.auth.uid == userId || isAdmin());
+        allow list: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+
+        allow create: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(tokenId) &&
+                         (request.auth.uid == userId || isAdmin()) &&
+                         incoming().uid == userId &&
+                         isValidFcmToken(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(tokenId) &&
+                         isValidFcmToken(incoming()) &&
+                         (request.auth.uid == userId || isAdmin()) &&
+                         incoming().uid == existing().uid &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'token', 'fcmToken', 'platform', 'customerPhone',
+                           'customerEmail', 'updatedAt', 'updatedAtMillis', 'updatedAtTs'
+                         ]);
+
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(tokenId) && (request.auth.uid == userId || isAdmin());
+      }
+
+      match /notifications/{notifId} {
+        allow get: if isSignedIn() && isValidId(userId) && isValidId(notifId) && (request.auth.uid == userId || isAdmin());
+        allow list: if isSignedIn() && isValidId(userId) && (request.auth.uid == userId || isAdmin());
+
+        allow create: if isAdmin() &&
+                         isValidId(userId) &&
+                         isValidId(notifId) &&
+                         incoming().uid == userId &&
+                         isValidNotification(incoming());
+
+        allow update: if isSignedIn() &&
+                         isValidId(userId) &&
+                         isValidId(notifId) &&
+                         isValidNotification(incoming()) &&
+                         (
+                           isAdmin() ||
+                           (
+                             request.auth.uid == userId &&
+                             incoming().uid == existing().uid &&
+                             incoming().diff(existing()).affectedKeys().hasOnly(['read']) &&
+                             incoming().read is bool
+                           )
+                         );
+
+        allow delete: if isSignedIn() && isValidId(userId) && isValidId(notifId) && (request.auth.uid == userId || isAdmin());
+      }
     }
+
+    // ---------------------------------------------------------
+    // ORDERS (STRICT UID ISOLATION + ADMIN FULFILLMENT)
+    // ---------------------------------------------------------
     match /orders/{orderId} {
-      allow read, write: if true;
+      allow get: if isSignedIn() && isValidId(orderId) && (existing().uid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().uid == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn() &&
+                       isValidId(orderId) &&
+                       (incoming().uid == request.auth.uid || isAdmin()) &&
+                       (isAdmin() || !(incoming().status in ['Delivered', 'DELIVERED'])) &&
+                       isValidOrder(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(orderId) &&
+                       isValidOrder(incoming()) &&
+                       incoming().uid == existing().uid &&
+                       (
+                         isAdmin() ||
+                         (
+                           !isTerminalOrderStatus(existing().status) &&
+                           request.auth.uid == existing().uid &&
+                           (
+                             incoming().diff(existing()).affectedKeys().hasOnly(['ratingSubmitted', 'reviewText', 'updatedAt']) ||
+                             (
+                               existing().status in ['Order Placed', 'Order Confirmed', 'PLACED', 'CONFIRMED'] &&
+                               incoming().status in ['Cancelled', 'CANCELLED'] &&
+                               incoming().diff(existing()).affectedKeys().hasOnly(['status', 'cancellationReason', 'statusUpdatedAt', 'updatedAt'])
+                             )
+                           )
+                         )
+                       );
+
+      allow delete: if isAdmin() && isValidId(orderId);
     }
-    match /meals/{mealId} {
-      allow read, write: if true;
-    }
-    match /banners/{bannerId} {
-      allow read, write: if true;
-    }
-    match /coupons/{couponId} {
-      allow read, write: if true;
-    }
-    match /settings/{settingId} {
-      allow read, write: if true;
-    }
+
+    // ---------------------------------------------------------
+    // CUSTOMER REVIEWS (PUBLIC READ, AUTHENTICATED WRITE)
+    // ---------------------------------------------------------
     match /reviews/{reviewId} {
-      allow read, write: if true;
+      allow get: if isValidId(reviewId);
+      allow list: if true;
+
+      allow create: if isSignedIn() &&
+                       isValidId(reviewId) &&
+                       (!('uid' in incoming()) || incoming().uid == request.auth.uid || isAdmin()) &&
+                       isValidReview(incoming());
+
+      allow update: if isSignedIn() &&
+                       isValidId(reviewId) &&
+                       isValidReview(incoming()) &&
+                       (isAdmin() || (existing().uid == request.auth.uid && incoming().uid == existing().uid));
+
+      allow delete: if isSignedIn() && isValidId(reviewId) && (isAdmin() || existing().uid == request.auth.uid);
     }
+
+    // ---------------------------------------------------------
+    // PUBLIC STOREFRONT CATALOG (PUBLIC READ, ADMIN-ONLY WRITE)
+    // ---------------------------------------------------------
     match /products/{productId} {
-      allow read, write: if true;
+      allow get: if isValidId(productId);
+      allow list: if true;
+      allow create, update: if isAdmin() && isValidId(productId) && isValidCatalogDoc(incoming());
+      allow delete: if isAdmin() && isValidId(productId);
     }
+
+    match /meals/{mealId} {
+      allow get: if isValidId(mealId);
+      allow list: if true;
+      allow create, update: if isAdmin() && isValidId(mealId) && isValidCatalogDoc(incoming());
+      allow delete: if isAdmin() && isValidId(mealId);
+    }
+
+    match /banners/{bannerId} {
+      allow get: if isValidId(bannerId);
+      allow list: if true;
+      allow create, update: if isAdmin() && isValidId(bannerId) && isValidCatalogDoc(incoming());
+      allow delete: if isAdmin() && isValidId(bannerId);
+    }
+
+    match /coupons/{couponId} {
+      allow get: if isValidId(couponId);
+      allow list: if true;
+      allow create, update: if isAdmin() && isValidId(couponId) && isValidCatalogDoc(incoming());
+      allow delete: if isAdmin() && isValidId(couponId);
+    }
+
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if true;
+      allow create, update: if isAdmin() && isValidId(settingId) && isValidCatalogDoc(incoming());
+      allow delete: if isAdmin() && isValidId(settingId);
+    }
+
     match /blogs/{blogId} {
-      allow read, write: if true;
+      allow get: if isValidId(blogId);
+      allow list: if true;
+      allow create, update: if isAdmin() && isValidId(blogId) && isValidCatalogDoc(incoming());
+      allow delete: if isAdmin() && isValidId(blogId);
     }
+
     match /kitchens/{kitchenId} {
-      allow read, write: if true;
+      allow get: if isValidId(kitchenId);
+      allow list: if true;
+      allow create, update: if isAdmin() && isValidId(kitchenId) && isValidCatalogDoc(incoming());
+      allow delete: if isAdmin() && isValidId(kitchenId);
     }
   }
 }

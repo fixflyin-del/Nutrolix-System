@@ -1,6 +1,5 @@
 package com.example.data
 
-import com.example.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaType
@@ -875,9 +874,8 @@ object FoodAiKnowledgeBase {
       return@withContext Result.success(localMatch)
     }
 
-    // 2. Query Gemini 3.5 Flash for any food item on earth!
-    val resolvedKey = apiKey?.takeIf { it.isNotBlank() }
-      ?: BuildConfig.GEMINI_API_KEY.takeIf { it.isNotBlank() && it != "YOUR_GEMINI_KEY" }
+    // 2. Query Gemini if user/caller supplied a key; otherwise fall through to server/synthesizer
+    val resolvedKey = apiKey?.trim()?.takeIf { it.isNotBlank() && it != "YOUR_GEMINI_KEY" }
 
     if (!resolvedKey.isNullOrBlank()) {
       try {

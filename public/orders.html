@@ -32,17 +32,17 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
   </style>
 
-  <!-- Universal Drawer Navigation -->
-  <script src="assets/nutrolix-drawer.js"></script>
-  <script src="assets/nutrolix-notifications.js"></script>
-  <!-- Animated Splash Screen (Requirement 4) -->
-  <script src="assets/nutrolix-splash.js"></script>
-  <!-- Android Mobile Browser Back Navigation Handler (Requirement 3) -->
-  <script src="assets/nutrolix-back-handler.js"></script>
-  <!-- Firebase Authentication SDK -->
+  <!-- Firebase SDKs (App, Auth, Firestore, Messaging) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
-  <!-- Shared Nutrolix Auth Script -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js"></script>
+  <!-- Universal Drawer, Cloud DB, Push & Auth Scripts -->
+  <script src="assets/nutrolix-firebase.js"></script>
+  <script src="assets/nutrolix-drawer.js"></script>
+  <script src="assets/nutrolix-notifications.js"></script>
+  <script src="assets/nutrolix-splash.js"></script>
+  <script src="assets/nutrolix-back-handler.js"></script>
   <script src="assets/nutrolix-auth.js"></script>
   <script src="assets/nutrolix-reviews.js"></script>
 </head>
@@ -219,22 +219,56 @@
   <!-- Main Content Container -->
   <main class="max-w-4xl mx-auto px-4 py-8 flex-1 w-full space-y-6">
 
-    <!-- 1. UNAUTHENTICATED STATE: Clean Direct Google Sign-In Gate -->
+    <!-- 1. UNAUTHENTICATED STATE: UNIFIED MOBILE OTP + GOOGLE LOGIN GATE -->
     <div id="authGateContainer" class="hidden py-8">
-      <div class="bg-white rounded-3xl p-8 sm:p-12 text-center max-w-lg mx-auto shadow-sm border border-slate-200 space-y-6">
+      <div class="bg-white rounded-3xl p-6 sm:p-10 text-center max-w-lg mx-auto shadow-sm border border-slate-200 space-y-5">
         <div class="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl shadow-sm border border-emerald-100">
           <i class="fa-solid fa-lock"></i>
         </div>
-        <div class="space-y-2">
-          <h2 class="text-2xl font-black text-slate-900">Sign in to View Order History</h2>
+        <div class="space-y-1.5">
+          <h2 class="text-2xl font-black text-slate-900">Sign in to View Your Orders</h2>
           <p class="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
-            Please sign in directly with your Google account to view your past orders, real-time live tracking, and invoice details.
+            Verify with Mobile Number + OTP or Google Account to access live delivery tracking, push updates, and order invoices.
           </p>
         </div>
 
-        <!-- 100% Direct Google Sign-In Button (NO manual email input!) -->
-        <button onclick="window.startDirectGoogleAuth(this)" class="w-full py-4 px-6 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 bg-white hover:bg-slate-50 transition flex items-center justify-center space-x-3 shadow-md group active:scale-95">
-          <svg class="w-6 h-6 shrink-0" viewBox="0 0 24 24">
+        <div class="text-left space-y-3 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+          <label class="block text-[11px] font-black uppercase text-slate-600">Mobile Number (OTP Verification)</label>
+          <div class="flex items-center bg-white border border-slate-300 rounded-xl overflow-hidden focus-within:border-emerald-600">
+            <span class="px-3 py-2.5 text-sm font-black text-slate-700 bg-slate-100 border-r border-slate-300">+91</span>
+            <input type="tel" id="ordersGatePhoneInput" maxlength="10" inputmode="numeric" placeholder="10-digit mobile number" class="w-full px-3 py-2.5 text-sm font-bold text-slate-900 outline-none">
+          </div>
+
+          <div id="ordersGateOtpSection" class="hidden space-y-2">
+            <label class="block text-[11px] font-black uppercase text-slate-600">Enter 6-Digit OTP</label>
+            <input type="tel" id="ordersGateOtpInput" maxlength="6" inputmode="numeric" placeholder="••••••" class="w-full px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-center tracking-[0.4em] text-base font-black text-slate-900 outline-none focus:border-emerald-600">
+            <div class="flex items-center justify-between text-[11px]">
+              <button type="button" onclick="window.handleOrdersGateSendOtp(true)" class="text-emerald-700 font-bold hover:underline">Resend OTP</button>
+              <span id="ordersGateOtpHint" class="text-slate-500"></span>
+            </div>
+          </div>
+
+          <p id="ordersGateAuthError" class="hidden text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2"></p>
+
+          <button type="button" id="ordersGateSendOtpBtn" onclick="window.handleOrdersGateSendOtp(false)" class="w-full py-3 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-black text-sm shadow transition flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-mobile-screen-button"></i>
+            <span>Continue with Mobile Number + OTP</span>
+          </button>
+
+          <button type="button" id="ordersGateVerifyOtpBtn" onclick="window.handleOrdersGateVerifyOtp()" class="hidden w-full py-3 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-sm shadow transition flex items-center justify-center space-x-2">
+            <i class="fa-solid fa-circle-check"></i>
+            <span>Verify OTP &amp; View Orders</span>
+          </button>
+        </div>
+
+        <div class="flex items-center">
+          <div class="flex-1 h-px bg-slate-200"></div>
+          <span class="px-3 text-[11px] font-bold text-slate-400 uppercase">or</span>
+          <div class="flex-1 h-px bg-slate-200"></div>
+        </div>
+
+        <button onclick="window.startDirectGoogleAuth(this)" class="w-full py-3.5 px-6 rounded-2xl border-2 border-slate-200 hover:border-emerald-500 bg-white hover:bg-slate-50 transition flex items-center justify-center space-x-3 shadow-sm group active:scale-95">
+          <svg class="w-5 h-5 shrink-0" viewBox="0 0 24 24">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
@@ -244,7 +278,7 @@
         </button>
 
         <div class="text-[11px] text-slate-400">
-          Fast & secure 1-click Google authentication.
+          Same unified order history across Android APK, Mobile Web &amp; Desktop Web.
         </div>
       </div>
     </div>
@@ -253,18 +287,36 @@
     <div id="authenticatedOrdersContent" class="space-y-6">
       
       <!-- User Profile Header Bar -->
-      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex items-center justify-between gap-3">
+      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
         <div class="flex items-center space-x-3">
           <img id="userAvatarImg" src="assets/nutrolix-logo.png" class="w-10 h-10 rounded-full object-cover border border-slate-200 bg-emerald-50">
           <div>
             <div class="text-xs font-black text-slate-900" id="userDisplayName">Customer</div>
-            <div class="text-[11px] text-slate-500 font-bold" id="userDisplayEmail">user@gmail.com</div>
+            <div class="text-[11px] text-slate-500 font-bold" id="userDisplayEmail">Account Verified</div>
           </div>
         </div>
-        <button onclick="window.handleNutrolixSignOut()" class="text-xs text-rose-600 font-bold hover:underline px-3 py-1.5 rounded-lg hover:bg-rose-50 transition flex items-center space-x-1">
-          <i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i>
-          <span>Sign Out</span>
-        </button>
+        <div class="flex items-center space-x-3">
+          <button type="button" onclick="window.NutrolixNotifications && window.NutrolixNotifications.requestPermission()" class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition flex items-center space-x-1">
+            <i class="fa-solid fa-bell text-[11px]"></i>
+            <span>Order Alerts</span>
+          </button>
+          <button onclick="window.handleNutrolixSignOut()" class="text-xs text-rose-600 font-bold hover:underline px-3 py-1.5 rounded-lg hover:bg-rose-50 transition flex items-center space-x-1">
+            <i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i>
+            <span>Sign Out</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Order Notification History Center -->
+      <div id="liveNotificationsCard" class="hidden bg-white rounded-2xl p-4 border border-emerald-200 shadow-sm space-y-2.5">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-black text-slate-900 flex items-center space-x-1.5">
+            <i class="fa-solid fa-bell text-emerald-600"></i>
+            <span>Order Status Notifications</span>
+          </span>
+          <span id="liveNotifCountBadge" class="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">0 updates</span>
+        </div>
+        <div id="liveNotificationsList" class="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar"></div>
       </div>
 
       <!-- VIEW A: ORDER HISTORY LIST ONLY (Default View Requested by User) -->
@@ -310,13 +362,18 @@
             </div>
           </div>
 
-          <!-- 5-Step Live Tracking Progress Stepper -->
+          <!-- 5-Step Live Tracking Progress Stepper (plus Cancelled banner) -->
           <div class="py-2">
             <h4 class="text-xs font-black text-slate-400 uppercase tracking-wider mb-4">Live Delivery Progress</h4>
+
+            <div id="cancelledStatusNotice" class="hidden p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold mb-3 flex items-center space-x-2">
+              <i class="fa-solid fa-circle-xmark text-base text-rose-600"></i>
+              <span>This order was cancelled. Need assistance or refund help? Chat with Nutrolix support below.</span>
+            </div>
             
-            <div class="relative">
+            <div id="deliveryStepperContainer" class="relative">
               <div class="hidden sm:block absolute top-5 left-6 right-6 h-1 bg-slate-200 -z-0">
-                <div id="stepperProgressBar" class="h-full bg-emerald-600 transition-all duration-500" style="width: 25%;"></div>
+                <div id="stepperProgressBar" class="h-full bg-emerald-600 transition-all duration-500" style="width: 0%;"></div>
               </div>
 
               <div class="grid grid-cols-1 sm:grid-cols-5 gap-3 relative z-10 text-xs font-bold">
@@ -325,28 +382,28 @@
                     <i class="fa-solid fa-receipt"></i>
                   </div>
                   <div class="sm:mt-2">
-                    <p class="font-extrabold text-slate-900">Placed</p>
+                    <p class="font-extrabold text-slate-900">Confirmed</p>
                     <p class="text-[10px] text-slate-400">Order Confirmed</p>
                   </div>
                 </div>
 
                 <div class="flex sm:flex-col items-center sm:text-center space-x-3 sm:space-x-0" id="stepNode-2">
                   <div class="w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-sm shrink-0">
-                    <i class="fa-solid fa-boxes-packing"></i>
+                    <i class="fa-solid fa-kitchen-set"></i>
                   </div>
                   <div class="sm:mt-2">
-                    <p class="font-extrabold text-slate-700">Packed</p>
-                    <p class="text-[10px] text-slate-400">Lab Tested Seal</p>
+                    <p class="font-extrabold text-slate-700">Processing</p>
+                    <p class="text-[10px] text-slate-400">Preparing Order</p>
                   </div>
                 </div>
 
                 <div class="flex sm:flex-col items-center sm:text-center space-x-3 sm:space-x-0" id="stepNode-3">
                   <div class="w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-sm shrink-0">
-                    <i class="fa-solid fa-truck"></i>
+                    <i class="fa-solid fa-boxes-packing"></i>
                   </div>
                   <div class="sm:mt-2">
-                    <p class="font-extrabold text-slate-700">Dispatched</p>
-                    <p class="text-[10px] text-slate-400">Courier Transit</p>
+                    <p class="font-extrabold text-slate-700">Packed</p>
+                    <p class="text-[10px] text-slate-400">Ready for Dispatch</p>
                   </div>
                 </div>
 
@@ -356,7 +413,7 @@
                   </div>
                   <div class="sm:mt-2">
                     <p class="font-extrabold text-slate-700">Out for Delivery</p>
-                    <p class="text-[10px] text-slate-400">Near Doorstep</p>
+                    <p class="text-[10px] text-slate-400">On the Way</p>
                   </div>
                 </div>
 
@@ -524,8 +581,131 @@
     let userOrders = [];
     let currentSelectedOrder = null;
     let currentRating = 5;
+    let firestoreOrdersUnsub = null;
+    let firestoreOrderList = [];
+    let pendingQueryOrderId = new URLSearchParams(window.location.search).get('orderId') || new URLSearchParams(window.location.search).get('id') || '';
 
-    // Check Authentication & Load Orders
+    function clean10Phone(p) {
+      return p ? String(p).replace(/\D/g, '').slice(-10) : '';
+    }
+
+    function orderBelongsToUser(order, user) {
+      if (!order || !user) return false;
+      if (user.uid && order.uid && order.uid === user.uid) return true;
+      const uPhone = clean10Phone(user.verifiedPhone || user.phone || user.whatsappNumber || '');
+      const oPhone = clean10Phone(order.customer?.phone || order.customerPhone || '');
+      if (uPhone && oPhone && uPhone === oPhone) return true;
+      const uEmail = String(user.email || '').trim().toLowerCase();
+      const oEmail = String(order.customer?.email || order.customerEmail || '').trim().toLowerCase();
+      if (uEmail && oEmail && uEmail === oEmail) return true;
+      return false;
+    }
+
+    window.handleOrdersGateSendOtp = async function(isResend) {
+      const phone = document.getElementById('ordersGatePhoneInput').value;
+      const errEl = document.getElementById('ordersGateAuthError');
+      const sendBtn = document.getElementById('ordersGateSendOtpBtn');
+      const verifyBtn = document.getElementById('ordersGateVerifyOtpBtn');
+      const otpSec = document.getElementById('ordersGateOtpSection');
+      errEl.classList.add('hidden');
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i><span>Sending OTP...</span>';
+      try {
+        const res = await window.startNutrolixPhoneOtp(phone, { isResend });
+        if (res.mode === 'instant') {
+          checkAuthAndLoadOrders();
+          return;
+        }
+        otpSec.classList.remove('hidden');
+        document.getElementById('ordersGateOtpHint').textContent = 'Sent to ' + res.phoneE164;
+        sendBtn.classList.add('hidden');
+        verifyBtn.classList.remove('hidden');
+        document.getElementById('ordersGateOtpInput').focus();
+      } catch (e) {
+        errEl.textContent = e.message || 'Unable to send OTP.';
+        errEl.classList.remove('hidden');
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = '<i class="fa-solid fa-mobile-screen-button"></i><span>Continue with Mobile Number + OTP</span>';
+      }
+    };
+
+    window.handleOrdersGateVerifyOtp = async function() {
+      const otp = document.getElementById('ordersGateOtpInput').value;
+      const errEl = document.getElementById('ordersGateAuthError');
+      const verifyBtn = document.getElementById('ordersGateVerifyOtpBtn');
+      errEl.classList.add('hidden');
+      verifyBtn.disabled = true;
+      verifyBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i><span>Verifying...</span>';
+      try {
+        await window.verifyNutrolixPhoneOtp(otp);
+        checkAuthAndLoadOrders();
+      } catch (e) {
+        errEl.textContent = e.message || 'Incorrect OTP.';
+        errEl.classList.remove('hidden');
+      } finally {
+        verifyBtn.disabled = false;
+        verifyBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Verify OTP &amp; View Orders</span>';
+      }
+    };
+
+    function renderLiveNotifications(list) {
+      const card = document.getElementById('liveNotificationsCard');
+      const container = document.getElementById('liveNotificationsList');
+      const badge = document.getElementById('liveNotifCountBadge');
+      if (!card || !container || !Array.isArray(list) || list.length === 0) {
+        if (card) card.classList.add('hidden');
+        return;
+      }
+      card.classList.remove('hidden');
+      const unreadCount = list.filter(n => !n.read).length;
+      if (badge) badge.textContent = unreadCount > 0 ? `${unreadCount} unread` : `${list.length} updates`;
+
+      container.innerHTML = list.slice(0, 10).map(n => `
+        <div onclick="window.handleNotificationClick('${n.id || ''}', '${n.orderId || ''}')" class="p-2.5 rounded-xl border ${n.read ? 'bg-slate-50 border-slate-100' : 'bg-emerald-50 border-emerald-200'} cursor-pointer hover:border-emerald-400 transition flex items-start justify-between gap-2 text-xs">
+          <div class="min-w-0">
+            <div class="font-extrabold text-slate-900 truncate">${n.title || 'Order Update'}</div>
+            <div class="text-[11px] text-slate-600 leading-snug">${n.message || ''}</div>
+          </div>
+          <span class="text-[10px] font-bold text-emerald-700 shrink-0">${n.orderId ? '#' + n.orderId : 'View'}</span>
+        </div>
+      `).join('');
+    }
+
+    window.handleNotificationClick = async function(notifId, orderId) {
+      const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
+      if (user && user.uid && notifId && window.NutrolixFirebase) {
+        window.NutrolixFirebase.markNotificationRead(user.uid, notifId);
+      }
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        fetch(host + '/api/notifications/mark-read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ uid: user?.uid || '', notifId })
+        }).catch(() => {});
+      } catch (_) {}
+      if (orderId) window.showOrderDetail(orderId);
+    };
+
+    async function loadUserNotificationHistory(user) {
+      if (!user) return;
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const qs = new URLSearchParams();
+        if (user.uid) qs.set('uid', user.uid);
+        if (user.verifiedPhone || user.phone) qs.set('phone', user.verifiedPhone || user.phone);
+        if (user.email) qs.set('email', user.email);
+        const res = await fetch(host + '/api/notifications/user-history?' + qs.toString());
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data.notifications) && data.notifications.length > 0) {
+            renderLiveNotifications(data.notifications);
+          }
+        }
+      } catch (_) {}
+    }
+
     function checkAuthAndLoadOrders() {
       const user = window.getNutrolixUser();
       const authGate = document.getElementById('authGateContainer');
@@ -534,6 +714,7 @@
       if (!user) {
         authGate.classList.remove('hidden');
         authContent.classList.add('hidden');
+        if (firestoreOrdersUnsub) { try { firestoreOrdersUnsub(); } catch (_) {} firestoreOrdersUnsub = null; }
         return;
       }
 
@@ -541,27 +722,30 @@
       authContent.classList.remove('hidden');
 
       document.getElementById('userDisplayName').textContent = user.name || 'Nutrolix Customer';
-      document.getElementById('userDisplayEmail').textContent = user.email || '';
-      if (user.photo) {
-        document.getElementById('userAvatarImg').src = user.photo;
+      const contactLine = [user.email, user.verifiedPhone ? `+91 ${user.verifiedPhone}` : (user.phone ? `+91 ${user.phone}` : '')].filter(Boolean).join(' • ');
+      document.getElementById('userDisplayEmail').textContent = contactLine || 'Verified Account';
+      if (user.photo) document.getElementById('userAvatarImg').src = user.photo;
+
+      if (firestoreOrdersUnsub) { try { firestoreOrdersUnsub(); } catch (_) {} }
+      if (user.uid && window.NutrolixFirebase && typeof window.NutrolixFirebase.subscribeUserOrders === 'function') {
+        firestoreOrdersUnsub = window.NutrolixFirebase.subscribeUserOrders(user.uid, (list) => {
+          firestoreOrderList = Array.isArray(list) ? list : [];
+          loadUserOrders(true);
+        });
       }
 
       loadUserOrders();
-
-      // Listen for Admin Console order status updates in real time
-      window.addEventListener('storage', (e) => {
-        if (e.key === 'nutrolix_orders' || e.key === 'nutrolix_store_orders' || e.key === 'nutrolix_food_orders') {
-          loadUserOrders(true);
-        }
-      });
-
-      // Background polling every 5 seconds so live updates sync across tabs and devices
-      setInterval(() => {
-        loadUserOrders(true);
-      }, 5000);
+      loadUserNotificationHistory(user);
     }
 
-    // Load Orders from localStorage & API (Live 1000% Synced)
+    window.addEventListener('nutrolix:notifications-updated', (e) => {
+      if (Array.isArray(e.detail)) renderLiveNotifications(e.detail);
+    });
+
+    window.addEventListener('nutrolix:order-push', () => {
+      loadUserOrders(true);
+    });
+
     async function loadUserOrders(silent = false) {
       const user = window.getNutrolixUser();
       if (!user) return;
@@ -574,23 +758,38 @@
       try {
         const orderMap = new Map();
 
-        // 1. Gather all local orders (Admin updates write here first)
-        const localSources = ['nutrolix_orders', 'nutrolix_store_orders', 'nutrolix_food_orders'];
-        localSources.forEach(key => {
+        // 1. Customer-scoped local orders
+        ['nutrolix_customer_orders', 'nutrolix_orders', 'nutrolix_store_orders', 'nutrolix_food_orders'].forEach(key => {
           try {
             const arr = JSON.parse(localStorage.getItem(key) || '[]');
             if (Array.isArray(arr)) {
               arr.forEach(o => {
                 const oid = o.id || o.orderId;
-                if (oid) orderMap.set(oid, { ...o });
+                if (oid && orderBelongsToUser(o, user)) orderMap.set(oid, { ...o });
               });
             }
           } catch (_) {}
         });
 
-        // 2. Fetch server-side orders
+        // 2. Firestore real-time UID snapshot orders
+        if (Array.isArray(firestoreOrderList)) {
+          firestoreOrderList.forEach(fo => {
+            const oid = fo.id || fo.orderId;
+            if (oid) {
+              const ex = orderMap.get(oid) || {};
+              orderMap.set(oid, { ...ex, ...fo });
+            }
+          });
+        }
+
+        // 3. Server scoped orders API
         try {
-          const res = await fetch('/api/nutrition-orders');
+          const host = window.NUTROLIX_API_HOST || '';
+          const qs = new URLSearchParams();
+          if (user.uid) qs.set('uid', user.uid);
+          if (user.verifiedPhone || user.phone) qs.set('phone', user.verifiedPhone || user.phone);
+          if (user.email) qs.set('email', user.email);
+          const res = await fetch(host + '/api/nutrition-orders?' + qs.toString());
           if (res.ok) {
             const serverOrders = await res.json();
             if (Array.isArray(serverOrders)) {
@@ -598,27 +797,44 @@
                 const oid = so.id || so.orderId;
                 if (!oid) return;
                 const existing = orderMap.get(oid);
-                if (existing) {
-                  // Prefer newer status
-                  orderMap.set(oid, { ...existing, ...so, status: so.status || existing.status });
-                } else {
-                  orderMap.set(oid, so);
-                }
+                orderMap.set(oid, existing ? { ...existing, ...so, status: so.status || existing.status } : so);
               });
             }
           }
         } catch (_) {}
 
-        const unique = Array.from(orderMap.values());
+        const unique = Array.from(orderMap.values()).sort((a, b) => {
+          const ta = Number(a.timestamp || a.orderTimeMillis || Date.parse(a.createdAt || a.orderTime || 0) || 0);
+          const tb = Number(b.timestamp || b.orderTimeMillis || Date.parse(b.createdAt || b.orderTime || 0) || 0);
+          return tb - ta;
+        });
+
         userOrders = unique;
         renderOrdersList();
+
+        if (pendingQueryOrderId) {
+          const found = userOrders.find(o => o.id === pendingQueryOrderId || o.orderId === pendingQueryOrderId);
+          if (found) {
+            const target = pendingQueryOrderId;
+            pendingQueryOrderId = '';
+            window.showOrderDetail(target);
+          }
+        }
       } catch (err) {
         console.warn('Orders load error:', err);
         renderOrdersList();
       }
     }
 
-    // Render Orders History List ONLY (Point 2)
+    function getStatusBadgeClass(status) {
+      const s = String(status || '').toLowerCase();
+      if (s.includes('cancel') || s.includes('reject')) return 'bg-rose-50 text-rose-800 border border-rose-200';
+      if (s.includes('out for delivery') || s.includes('out_for_delivery') || s.includes('dispatch') || s.includes('ship') || s.includes('packed')) return 'bg-amber-50 text-amber-800 border border-amber-200';
+      if (s.includes('deliver') || s.includes('complete')) return 'bg-emerald-50 text-emerald-800 border border-emerald-200';
+      if (s.includes('process') || s.includes('prepar')) return 'bg-purple-50 text-purple-800 border border-purple-200';
+      return 'bg-blue-50 text-blue-800 border border-blue-200';
+    }
+
     function renderOrdersList() {
       const container = document.getElementById('orderHistoryContainer');
 
@@ -639,21 +855,16 @@
       container.innerHTML = userOrders.map((ord, idx) => {
         const orderId = ord.id || ord.orderId || ('NTX-' + (idx + 1000));
         const itemCount = (ord.items || []).reduce((sum, it) => sum + (it.quantity || 1), 0);
-        const status = ord.status || 'Order Placed';
+        const status = ord.status || 'Order Confirmed';
         const dateStr = ord.createdAt ? new Date(ord.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent';
-        
-        // Status color styling
-        let badgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
-        if (status.includes('Placed')) badgeClass = 'bg-blue-50 text-blue-800 border border-blue-200';
-        if (status.includes('Packed') || status.includes('Dispatched')) badgeClass = 'bg-amber-50 text-amber-800 border border-amber-200';
-        if (status.includes('Delivered')) badgeClass = 'bg-emerald-50 text-emerald-800 border border-emerald-200';
+        const badgeClass = getStatusBadgeClass(status);
 
         const firstItem = (ord.items && ord.items[0]) ? ord.items[0] : null;
         const itemImg = firstItem ? (firstItem.image || 'assets/nutrolix-logo.png') : 'assets/nutrolix-logo.png';
         const firstItemTitle = firstItem ? (firstItem.title || firstItem.name || 'Nutrition Product') : 'Nutrolix Nutrition Item';
 
-                const isFood = (ord.orderType === 'healthy_food' || (ord.items && ord.items.some(i => (i.category || '').toLowerCase().includes('food') || (i.category || '').toLowerCase().includes('meal'))));
-        const typeBadge = isFood 
+        const isFood = (ord.orderType === 'healthy_food' || (ord.items && ord.items.some(i => (i.category || '').toLowerCase().includes('food') || (i.category || '').toLowerCase().includes('meal'))));
+        const typeBadge = isFood
           ? `<span class="text-[9px] px-2 py-0.5 rounded-full font-black bg-emerald-100 text-emerald-800 border border-emerald-200">🥗 Fresh Kitchen Meal</span>`
           : `<span class="text-[9px] px-2 py-0.5 rounded-full font-black bg-amber-100 text-amber-900 border border-amber-200">📦 Packaged Store Order</span>`;
 
@@ -670,7 +881,7 @@
                   <span class="text-[10px] px-2 py-0.5 rounded-full font-black ${badgeClass}">${status}</span>
                 </div>
                 <p class="text-xs text-slate-700 mt-1 truncate font-extrabold">${firstItemTitle} ${itemCount > 1 ? `+ ${itemCount - 1} more items` : ''}</p>
-                <p class="text-[11px] text-slate-400 mt-0.5">Placed on ${dateStr} • ${ord.paymentMethod || 'COD'}</p>
+                <p class="text-[11px] text-slate-400 mt-0.5">Placed on ${dateStr} • ${ord.paymentMethod || 'PayU Online'}</p>
               </div>
             </div>
 
@@ -695,105 +906,106 @@
       }).join('');
     }
 
-    // Show Single Order Details & Tracking (Point 2)
     window.showOrderDetail = function(orderId) {
       const order = userOrders.find(o => (o.id === orderId || o.orderId === orderId));
       if (!order) return;
       currentSelectedOrder = order;
 
-      // Switch views
       document.getElementById('ordersListView').classList.add('hidden');
       document.getElementById('orderDetailView').classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'smooth' });
 
-      // Populate details
       document.getElementById('detailOrderId').textContent = '#' + (order.id || order.orderId);
       const dateStr = order.createdAt ? new Date(order.createdAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'Recent';
       document.getElementById('detailOrderDate').textContent = 'Order Placed on ' + dateStr;
 
-      const status = order.status || 'Order Placed';
-      document.getElementById('detailStatusBadge').textContent = status;
+      const status = order.status || 'Order Confirmed';
+      const badgeEl = document.getElementById('detailStatusBadge');
+      badgeEl.textContent = status;
+      badgeEl.className = 'px-3 py-1 rounded-full text-xs font-black ' + getStatusBadgeClass(status);
 
-      // Update Stepper
+      const sLower = status.toLowerCase();
+      const cancelNotice = document.getElementById('cancelledStatusNotice');
+      const stepperBox = document.getElementById('deliveryStepperContainer');
+
+      if (sLower.includes('cancel') || sLower.includes('reject')) {
+        if (cancelNotice) cancelNotice.classList.remove('hidden');
+        if (stepperBox) stepperBox.classList.add('opacity-40');
+      } else {
+        if (cancelNotice) cancelNotice.classList.add('hidden');
+        if (stepperBox) stepperBox.classList.remove('opacity-40');
+      }
+
       let stepLevel = 1;
-      if (status.includes('Packed')) stepLevel = 2;
-      else if (status.includes('Dispatched') || status.includes('Shipped')) stepLevel = 3;
-      else if (status.includes('Out for Delivery')) stepLevel = 4;
-      else if (status.includes('Delivered') || status.includes('Completed')) stepLevel = 5;
+      if (sLower.includes('process') || sLower.includes('prepar')) stepLevel = 2;
+      else if (sLower.includes('pack')) stepLevel = 3;
+      else if (sLower.includes('out') || sLower.includes('dispatch') || sLower.includes('ship') || sLower.includes('transit')) stepLevel = 4;
+      else if (sLower.includes('deliver') || sLower.includes('complete')) stepLevel = 5;
 
       document.getElementById('stepperProgressBar').style.width = ((stepLevel - 1) * 25) + '%';
       for (let i = 1; i <= 5; i++) {
         const node = document.getElementById(`stepNode-${i}`);
         if (!node) continue;
         const iconContainer = node.querySelector('div');
-        if (i <= stepLevel) {
-          iconContainer.className = 'w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm shrink-0 shadow';
-        } else {
-          iconContainer.className = 'w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-sm shrink-0';
-        }
+        iconContainer.className = (i <= stepLevel && !sLower.includes('cancel'))
+          ? 'w-10 h-10 rounded-full bg-emerald-600 text-white flex items-center justify-center text-sm shrink-0 shadow'
+          : 'w-10 h-10 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center text-sm shrink-0';
       }
 
-      // Customized WhatsApp Support Link (Point 2: Customized Message Button)
       const ordIdText = order.id || order.orderId;
-      const itemsListText = (order.items || []).map(it => `${it.title || it.name} (x${it.quantity})`).join(', ');
-      const whatsappMsg = `Hi Nutrolix Support, I need assistance with my Order #${ordIdText}.\nItems: ${itemsListText}\nTotal Amount: ₹${order.grandTotal}.\nPlease update me on delivery status.`;
-      const whatsappUrl = `https://wa.me/919076254354?text=${encodeURIComponent(whatsappMsg)}`;
-      document.getElementById('btnOrderWhatsappSupport').href = whatsappUrl;
+      const itemsListText = (order.items || []).map(it => `${it.title || it.name} (x${it.quantity || 1})`).join(', ');
+      const whatsappMsg = `Hi Nutrolix Support, I need assistance with my Order #${ordIdText}.\nItems: ${itemsListText}\nTotal Amount: ₹${order.grandTotal || order.total}.\nPlease update me on delivery status.`;
+      document.getElementById('btnOrderWhatsappSupport').href = `https://wa.me/919076254354?text=${encodeURIComponent(whatsappMsg)}`;
 
-      // Items list
-      const itemsContainer = document.getElementById('detailItemsContainer');
-      itemsContainer.innerHTML = (order.items || []).map(it => `
+      document.getElementById('detailItemsContainer').innerHTML = (order.items || []).map(it => `
         <div class="flex items-center justify-between py-3 text-xs gap-3">
           <div class="flex items-center space-x-3 min-w-0">
             <img src="${it.image || 'assets/nutrolix-logo.png'}" class="w-12 h-12 rounded-xl object-cover border border-slate-100 bg-slate-50 shrink-0">
             <div class="min-w-0">
               <h5 class="font-extrabold text-slate-900 truncate">${it.title || it.name}</h5>
-              <span class="text-slate-500 text-[11px]">${it.variant || 'Standard'} • Qty: ${it.quantity} • ₹${it.price} each</span>
+              <span class="text-slate-500 text-[11px]">${it.variant || 'Standard'} • Qty: ${it.quantity || 1} • ₹${it.price} each</span>
             </div>
           </div>
           <div class="font-black text-slate-900 text-sm shrink-0">₹${(it.price || 0) * (it.quantity || 1)}</div>
         </div>
       `).join('');
 
-      // Address & Customer Info
       const cust = order.customer || {};
       const addr = order.deliveryAddress || {};
       document.getElementById('detailRecipientName').textContent = cust.name || 'Valued Customer';
-      document.getElementById('detailAddressText').textContent = [addr.address1, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ') || 'Address on file';
+      document.getElementById('detailAddressText').textContent = [addr.address1 || addr.street, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ') || 'Address on file';
       document.getElementById('detailPhoneText').textContent = 'Phone: ' + (cust.phone || 'Provided during checkout');
 
-      if (addr.googleMapsUrl || (addr.gpsLat && addr.gpsLon)) {
-        const mapsUrl = addr.googleMapsUrl || `https://maps.google.com/?q=${addr.gpsLat},${addr.gpsLon}`;
+      if (addr.googleMapsUrl || (addr.gpsLat && addr.gpsLon) || (order.deliveryCoordinates && order.deliveryCoordinates.lat)) {
+        const lat = addr.gpsLat || order.deliveryCoordinates?.lat;
+        const lng = addr.gpsLon || order.deliveryCoordinates?.lng;
+        const mapsUrl = addr.googleMapsUrl || `https://maps.google.com/?q=${lat},${lng}`;
         document.getElementById('detailMapsLink').href = mapsUrl;
         document.getElementById('detailMapsLinkRow').classList.remove('hidden');
       } else {
         document.getElementById('detailMapsLinkRow').classList.add('hidden');
       }
 
-      // Bill breakdown
-      document.getElementById('detailPaymentMethod').textContent = order.paymentMethod || 'Cash on Delivery';
-      document.getElementById('detailSubtotal').textContent = `₹${order.subtotal || order.grandTotal}`;
+      document.getElementById('detailPaymentMethod').textContent = order.paymentMethod || 'PayU Online';
+      document.getElementById('detailSubtotal').textContent = `₹${order.subtotal || order.grandTotal || order.total || 0}`;
       document.getElementById('detailDiscount').textContent = `-₹${order.discount || 0}`;
       document.getElementById('detailShipping').textContent = (order.shipping === 0 || !order.shipping) ? 'FREE' : `₹${order.shipping}`;
-      document.getElementById('detailGrandTotal').textContent = `₹${order.grandTotal || 0}`;
+      document.getElementById('detailGrandTotal').textContent = `₹${order.grandTotal || order.total || 0}`;
 
-      // Delivered review prompt
       const reviewBox = document.getElementById('deliveredReviewPromptBox');
-      if (status.includes('Delivered') || status.includes('Completed')) {
+      if (!sLower.includes('out for delivery') && !sLower.includes('out_for_delivery') && (sLower.includes('deliver') || sLower.includes('complete'))) {
         reviewBox.classList.remove('hidden');
       } else {
         reviewBox.classList.add('hidden');
       }
     };
 
-    // Return to Orders List
     window.backToOrderList = function() {
       document.getElementById('orderDetailView').classList.add('hidden');
       document.getElementById('ordersListView').classList.remove('hidden');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     };
 
-    // Review Modal Handlers
     window.openReviewModal = function() {
       if (!currentSelectedOrder) return;
       document.getElementById('reviewModalSubtitle').textContent = `Order #${currentSelectedOrder.id || currentSelectedOrder.orderId}`;
@@ -819,7 +1031,6 @@
       window.closeReviewModal();
     };
 
-    // Listen for auth changes
     window.addEventListener('nutrolix:auth-changed', () => {
       checkAuthAndLoadOrders();
     });
@@ -834,13 +1045,6 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       checkAuthAndLoadOrders();
-
-      // Check query param for direct order opening
-      const params = new URLSearchParams(window.location.search);
-      const queryId = params.get('orderId') || params.get('id');
-      if (queryId) {
-        setTimeout(() => window.showOrderDetail(queryId), 400);
-      }
     });
   </script>
 </body>

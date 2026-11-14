@@ -2,29 +2,39 @@ package com.example.util
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.media.AudioAttributes
+import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
-import android.media.RingtoneManager
 import android.media.ToneGenerator
+import android.net.Uri
 import android.os.Build
 import android.os.PowerManager
+import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.example.AdminActivity
+import com.example.MainActivity
 import com.example.R
+import com.example.service.AdminOrderBackgroundService
 import kotlinx.coroutines.*
 
 object OrderNotificationHelper {
   private const val CHANNEL_ID = "nutrolix_orders_channel"
   private const val CHANNEL_NAME = "Nutrolix Order Notifications"
-  private const val ADMIN_CHANNEL_ID = "nutrolix_admin_orders_channel"
+  // Bumped channel ID (v3) so Android discards older cached channels that used TYPE_RINGTONE.
+  // Sound is set to null on this visual channel so OrderAlarmPlayer alone plays the single custom order chime.
+  private const val ADMIN_CHANNEL_ID = "nutrolix_admin_orders_channel_v3"
   private const val ADMIN_CHANNEL_NAME = "Nutrolix Admin Order Alerts"
 
-  // Prevent duplicate notifications for the same order
+  // Prevent duplicate notifications for the same order in the current process
   private val notifiedAdminOrderIds = java.util.Collections.synchronizedSet(mutableSetOf<String>())
 
   fun initChannel(context: Context) {
@@ -39,22 +49,17 @@ object OrderNotificationHelper {
         enableVibration(true)
       }
 
-      val ringtoneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE)
-        ?: android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
-      val audioAttributes = android.media.AudioAttributes.Builder()
-        .setUsage(android.media.AudioAttributes.USAGE_ALARM)
-        .setContentType(android.media.AudioAttributes.CONTENT_TYPE_SONIFICATION)
-        .build()
-
+      // Visual-only high-priority lockscreen channel (no system ringtone audio;
+      // OrderAlarmPlayer plays our custom order chime exclusively to prevent double-ringing)
       val adminChannel = NotificationChannel(
         ADMIN_CHANNEL_ID,
         ADMIN_CHANNEL_NAME,
         NotificationManager.IMPORTANCE_HIGH
       ).apply {
-        description = "Instant loud ringing alerts for new customer orders placed in real time"
+        description = "Instant lockscreen visual alerts for new customer orders"
         enableVibration(true)
-        vibrationPattern = longArrayOf(0, 800, 300, 800, 300, 800, 300, 800)
-        setSound(ringtoneUri, audioAttributes)
+        vibrationPattern = longArrayOf(0, 600, 250, 600, 250, 600)
+        setSound(null, null)
         lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
         setBypassDnd(true)
         enableLights(true)
@@ -66,15 +71,15 @@ object OrderNotificationHelper {
 
   fun sendOrderConfirmationNotification(context: Context, orderId: String) {
     initChannel(context)
-    val intent = android.content.Intent(context, com.example.MainActivity::class.java).apply {
-      flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+    val intent = Intent(context, MainActivity::class.java).apply {
+      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
       putExtra("navigate_to", "orders")
     }
-    val pendingIntent = android.app.PendingIntent.getActivity(
+    val pendingIntent = PendingIntent.getActivity(
       context,
       orderId.hashCode(),
       intent,
-      android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
     val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -119,16 +124,16 @@ object OrderNotificationHelper {
       else -> return
     }
 
-    val intent = android.content.Intent(context, com.example.MainActivity::class.java).apply {
-      flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+    val intent = Intent(context, MainActivity::class.java).apply {
+      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
       putExtra("navigate_to", if (newStatus == com.example.model.OrderStatus.DELIVERED) "review_dialog" else "orders")
       putExtra("order_id", order.id)
     }
-    val pendingIntent = android.app.PendingIntent.getActivity(
+    val pendingIntent = PendingIntent.getActivity(
       context,
       (order.id + newStatus.name).hashCode(),
       intent,
-      android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
     val builder = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -149,27 +154,96 @@ object OrderNotificationHelper {
     }
   }
 
+  fun sendFcmOrderNotification(
+    context: Context,
+    title: String,
+    body: String,
+    orderId: String = "",
+    openUrl: String = ""
+  ) {
+    initChannel(context)
+    val intent = Intent(context, MainActivity::class.java).apply {
+      flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+      putExtra("navigate_to", "orders")
+      if (orderId.isNotBlank()) putExtra("order_id", orderId)
+      if (openUrl.isNotBlank()) putExtra("open_url", openUrl)
+    }
+    val notifId = if (orderId.isNotBlank()) ("fcm_" + orderId + "_" + title).hashCode() else ("fcm_" + System.currentTimeMillis()).hashCode()
+    val pendingIntent = PendingIntent.getActivity(
+      context,
+      notifId,
+      intent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+      .setSmallIcon(R.drawable.nutrolix_app_icon)
+      .setContentTitle(title)
+      .setContentText(body)
+      .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+      .setContentIntent(pendingIntent)
+      .setPriority(NotificationCompat.PRIORITY_MAX)
+      .setVibrate(longArrayOf(0, 300, 150, 300))
+      .setAutoCancel(true)
+      .setDefaults(NotificationCompat.DEFAULT_ALL)
+
+    try {
+      NotificationManagerCompat.from(context).notify(notifId, builder.build())
+    } catch (_: SecurityException) {
+      // Handled gracefully
+    }
+  }
+
   fun sendAdminNewOrderNotification(context: Context, order: com.example.model.Order) {
     if (notifiedAdminOrderIds.contains(order.id)) return
     notifiedAdminOrderIds.add(order.id)
     initChannel(context)
 
-    val itemsSummary = order.items.joinToString(", ") { "${it.quantity}x ${it.meal.name}" }
-    val timeFormatted = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault()).format(java.util.Date(order.orderTimeMillis))
-
-    val clickIntent = android.content.Intent(context, com.example.AdminActivity::class.java).apply {
-      flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
-      putExtra("order_id", order.id)
+    val itemsSummary = if (order.items.isNotEmpty()) {
+      order.items.joinToString(", ") { "${it.quantity}x ${it.meal.name}" }
+    } else {
+      "Open Nutrolix Admin to view order items"
     }
-    val clickPendingIntent = android.app.PendingIntent.getActivity(
+    val timeFormatted = java.text.SimpleDateFormat("hh:mm a", java.util.Locale.getDefault())
+      .format(java.util.Date(order.orderTimeMillis))
+
+    // User-tapped notification: opens AdminActivity and silences the bell
+    val clickIntent = Intent(context, AdminActivity::class.java).apply {
+      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+      putExtra("order_id", order.id)
+      putExtra("stop_alarm_on_open", true)
+    }
+    val clickPendingIntent = PendingIntent.getActivity(
       context,
       ("click_" + order.id).hashCode(),
       clickIntent,
-      android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
-    val ringtoneUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_RINGTONE)
-      ?: android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+    // Full-screen lockscreen wake intent: wakes locked screen WITHOUT silently stopping the bell
+    val fullScreenIntent = Intent(context, AdminActivity::class.java).apply {
+      flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+      putExtra("order_id", order.id)
+      putExtra("from_lockscreen_alert", true)
+    }
+    val fullScreenPendingIntent = PendingIntent.getActivity(
+      context,
+      ("fs_" + order.id).hashCode(),
+      fullScreenIntent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
+
+    // Notification shade "Silence Bell" quick action
+    val stopAlarmIntent = Intent(context, AdminOrderBackgroundService::class.java).apply {
+      action = AdminOrderBackgroundService.ACTION_STOP_ALARM
+      putExtra("order_id", order.id)
+    }
+    val stopAlarmPendingIntent = PendingIntent.getService(
+      context,
+      ("stop_" + order.id).hashCode(),
+      stopAlarmIntent,
+      PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+    )
 
     val builder = NotificationCompat.Builder(context, ADMIN_CHANNEL_ID)
       .setSmallIcon(R.drawable.nutrolix_app_icon)
@@ -177,15 +251,21 @@ object OrderNotificationHelper {
       .setContentText("Customer: ${order.customerName} • $timeFormatted")
       .setStyle(
         NotificationCompat.BigTextStyle()
-          .bigText("Order ${order.orderNumber} placed at $timeFormatted\nCustomer: ${order.customerName} (+91 ${order.customerPhone})\nItems: $itemsSummary\nDelivery to: ${order.deliveryAddress}\nTotal: ₹${order.total.toInt()} (${order.paymentMethod})")
+          .bigText(
+            "Order ${order.orderNumber} placed at $timeFormatted\n" +
+              "Customer: ${order.customerName} ${if (order.customerPhone.isNotBlank()) "(+91 ${order.customerPhone})" else ""}\n" +
+              "Items: $itemsSummary\n" +
+              "Total: ₹${order.total.toInt()} (${order.paymentMethod})"
+          )
       )
       .setContentIntent(clickPendingIntent)
-      .setFullScreenIntent(clickPendingIntent, true)
+      .setFullScreenIntent(fullScreenPendingIntent, true)
+      .addAction(0, "Silence Bell", stopAlarmPendingIntent)
       .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
       .setPriority(NotificationCompat.PRIORITY_MAX)
       .setCategory(NotificationCompat.CATEGORY_ALARM)
-      .setSound(ringtoneUri)
-      .setVibrate(longArrayOf(0, 800, 300, 800, 300, 800, 300, 800))
+      .setSilent(true) // Audio is handled exclusively by OrderAlarmPlayer (no ringtone overlap)
+      .setVibrate(longArrayOf(0, 600, 250, 600, 250, 600))
       .setAutoCancel(true)
 
     try {
@@ -194,120 +274,138 @@ object OrderNotificationHelper {
       // Handled gracefully if permission denied
     }
   }
+
+  fun cancelAdminOrderNotification(context: Context, orderId: String?) {
+    if (orderId.isNullOrBlank()) return
+    try {
+      NotificationManagerCompat.from(context).cancel(("admin_" + orderId).hashCode())
+    } catch (_: Exception) {}
+  }
 }
 
 /**
- * Global Order Alarm Player for Lock Screen & Background Alerts
- * Uses MediaPlayer on STREAM_ALARM with isLooping=true, PowerManager WakeLock to wake screen,
- * and rhythmic vibration.
+ * Single-Source Global Order Alarm Player for Lock Screen & Background Alerts.
+ * Plays ONLY the dedicated custom order bell chime (R.raw.nutrolix_order_alert)
+ * on USAGE_ALARM with CPU + Screen WakeLocks — NEVER phone call ringtone (TYPE_RINGTONE)
+ * and NEVER two overlapping sounds.
  */
 object OrderAlarmPlayer {
-  private var activeRingtone: android.media.Ringtone? = null
+  private const val TAG = "OrderAlarmPlayer"
   private var mediaPlayer: MediaPlayer? = null
-  private var wakeLock: PowerManager.WakeLock? = null
+  private var screenWakeLock: PowerManager.WakeLock? = null
+  private var audioFocusRequest: AudioFocusRequest? = null
   private var ringJob: Job? = null
   private var vibrationJob: Job? = null
+
   @Volatile
   private var isAlarmActive: Boolean = false
   private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
   @Synchronized
   fun playOrderAlarm(context: Context) {
+    // If already actively playing our order chime, keep playing smoothly without stuttering/restarting
+    if (isAlarmActive && (try { mediaPlayer?.isPlaying == true } catch (_: Exception) { false })) {
+      refreshScreenWakeLock(context)
+      return
+    }
+
     stopOrderAlarm()
     isAlarmActive = true
 
-    // 1. Acquire WakeLock to turn on device screen even if locked
+    // 1. Acquire WakeLock to light up / wake the device even if screen is locked
+    refreshScreenWakeLock(context)
+
+    // 2. Request transient alarm audio focus
+    val appCtx = context.applicationContext
+    val audioManager = appCtx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    val alarmAttributes = AudioAttributes.Builder()
+      .setUsage(AudioAttributes.USAGE_ALARM)
+      .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+      .build()
+
     try {
-      val pm = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-      @Suppress("DEPRECATION")
-      wakeLock = pm?.newWakeLock(
-        PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
-        "Nutrolix:NewOrderWakeLock"
-      )
-      wakeLock?.acquire(35000L) // 35 seconds max
-    } catch (_: Exception) {}
-
-    // 2. Play continuous loud looping ringtone on STREAM_ALARM
-    var startedMedia = false
-    val candidateUris = listOfNotNull(
-      RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE),
-      RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM),
-      RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-    )
-
-    for (uri in candidateUris) {
-      var mp: MediaPlayer? = null
-      try {
-        mp = MediaPlayer().apply {
-          setAudioAttributes(
-            AudioAttributes.Builder()
-              .setUsage(AudioAttributes.USAGE_ALARM)
-              .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-              .build()
-          )
-          setOnErrorListener { failedPlayer, _, _ ->
-            try { failedPlayer.release() } catch (_: Exception) {}
-            if (mediaPlayer === failedPlayer) {
-              mediaPlayer = null
-            }
-            true
-          }
-          setDataSource(context.applicationContext, uri)
-          prepare()
-          isLooping = true
-          start()
-        }
-        mediaPlayer = mp
-        startedMedia = true
-        break
-      } catch (_: Exception) {
-        try { mp?.release() } catch (_: Exception) {}
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+          .setAudioAttributes(alarmAttributes)
+          .setAcceptsDelayedFocusGain(false)
+          .setOnAudioFocusChangeListener { }
+          .build()
+        audioFocusRequest = req
+        audioManager?.requestAudioFocus(req)
+      } else {
+        @Suppress("DEPRECATION")
+        audioManager?.requestAudioFocus(null, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
       }
+    } catch (e: Exception) {
+      Log.w(TAG, "AudioFocus notice: ${e.message}")
+    }
+
+    // 3. Play ONLY our custom Order Notification Chime raw asset (zero phone ringtones!)
+    var startedMedia = false
+    var mp: MediaPlayer? = null
+    try {
+      val chimeUri = Uri.parse("android.resource://${appCtx.packageName}/${R.raw.nutrolix_order_alert}")
+      mp = MediaPlayer().apply {
+        setAudioAttributes(alarmAttributes)
+        setWakeMode(appCtx, PowerManager.PARTIAL_WAKE_LOCK)
+        setVolume(1.0f, 1.0f)
+        setOnErrorListener { failedPlayer, _, _ ->
+          try { failedPlayer.release() } catch (_: Exception) {}
+          if (mediaPlayer === failedPlayer) {
+            mediaPlayer = null
+          }
+          true
+        }
+        setDataSource(appCtx, chimeUri)
+        prepare()
+        isLooping = true
+        start()
+      }
+      mediaPlayer = mp
+      startedMedia = true
+      Log.i(TAG, "Started single clean Nutrolix Order Notification Chime")
+    } catch (e: Exception) {
+      Log.e(TAG, "Failed playing custom order chime raw resource: ${e.message}")
+      try { mp?.release() } catch (_: Exception) {}
     }
 
     if (!startedMedia) {
-      var ringtoneStarted = false
-      for (uri in candidateUris) {
-        try {
-          val rt = RingtoneManager.getRingtone(context.applicationContext, uri)
-          if (rt != null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-              rt.audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                .build()
-            }
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-              rt.isLooping = true
-            }
-            rt.play()
-            activeRingtone = rt
-            ringtoneStarted = true
-            break
-          }
-        } catch (_: Exception) {}
-      }
-      if (!ringtoneStarted) {
-        startFallbackTone()
-      }
+      startFallbackChimeTone()
     }
 
-    // 3. Rhythmic loud vibration loop
-    startVibrationLoop(context)
+    // 4. Rhythmic vibration loop (no extra audio)
+    startVibrationLoop(appCtx)
   }
 
-  private fun startFallbackTone() {
+  private fun refreshScreenWakeLock(context: Context) {
+    try {
+      val pm = context.applicationContext.getSystemService(Context.POWER_SERVICE) as? PowerManager
+      if (screenWakeLock?.isHeld == true) {
+        try { screenWakeLock?.release() } catch (_: Exception) {}
+      }
+      @Suppress("DEPRECATION")
+      screenWakeLock = pm?.newWakeLock(
+        PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP or PowerManager.ON_AFTER_RELEASE,
+        "Nutrolix:NewOrderWakeLock"
+      )?.apply {
+        setReferenceCounted(false)
+        acquire(45000L)
+      }
+    } catch (_: Exception) {}
+  }
+
+  private fun startFallbackChimeTone() {
     ringJob?.cancel()
     ringJob = scope.launch {
       var toneGen: ToneGenerator? = null
       try {
         toneGen = ToneGenerator(AudioManager.STREAM_ALARM, 100)
         while (isActive && isAlarmActive) {
-          toneGen.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 400)
-          delay(650)
-          if (!isAlarmActive) break
           toneGen.startTone(ToneGenerator.TONE_PROP_BEEP2, 300)
-          delay(800)
+          delay(450)
+          if (!isAlarmActive) break
+          toneGen.startTone(ToneGenerator.TONE_PROP_ACK, 300)
+          delay(1200)
         }
       } catch (_: Exception) {
       } finally {
@@ -328,32 +426,27 @@ object OrderAlarmPlayer {
       }
 
       var cycles = 0
-      while (isActive && isRinging() && cycles < 40) {
+      while (isActive && isRinging() && cycles < 45) {
         try {
-          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), -1))
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val attrs = VibrationAttributes.createForUsage(VibrationAttributes.USAGE_ALARM)
+            vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 450, 200, 450), -1), attrs)
+          } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 450, 200, 450), -1))
           } else {
             @Suppress("DEPRECATION")
-            vibrator?.vibrate(longArrayOf(0, 500, 200, 500), -1)
+            vibrator?.vibrate(longArrayOf(0, 450, 200, 450), -1)
           }
         } catch (_: Exception) {}
-        delay(1400)
+        delay(1600)
         cycles++
       }
     }
   }
 
   @Synchronized
-  fun stopOrderAlarm() {
+  fun stopOrderAlarm(context: Context? = null) {
     isAlarmActive = false
-
-    val rt = activeRingtone
-    activeRingtone = null
-    if (rt != null) {
-      try {
-        if (rt.isPlaying) rt.stop()
-      } catch (_: Exception) {}
-    }
 
     val mp = mediaPlayer
     mediaPlayer = null
@@ -378,11 +471,24 @@ object OrderAlarmPlayer {
       vibrationJob = null
     } catch (_: Exception) {}
 
+    if (context != null) {
+      try {
+        val am = context.applicationContext.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+          audioFocusRequest?.let { am?.abandonAudioFocusRequest(it) }
+        } else {
+          @Suppress("DEPRECATION")
+          am?.abandonAudioFocus(null)
+        }
+      } catch (_: Exception) {}
+    }
+    audioFocusRequest = null
+
     try {
-      if (wakeLock?.isHeld == true) {
-        wakeLock?.release()
+      if (screenWakeLock?.isHeld == true) {
+        screenWakeLock?.release()
       }
-      wakeLock = null
+      screenWakeLock = null
     } catch (_: Exception) {}
   }
 
@@ -391,8 +497,8 @@ object OrderAlarmPlayer {
 }
 
 /**
- * Continuous ringing alert for store admins
- * Delegates to OrderAlarmPlayer for synchronized lock screen & background audio
+ * Continuous ringing alert for store admins.
+ * Delegates to OrderAlarmPlayer for synchronized lock screen & background audio.
  */
 class AdminAlertSoundManager(private val context: Context) {
   fun startAlertRing(onBeep: () -> Unit = {}) {
@@ -401,7 +507,7 @@ class AdminAlertSoundManager(private val context: Context) {
   }
 
   fun stopAlertRing() {
-    OrderAlarmPlayer.stopOrderAlarm()
+    OrderAlarmPlayer.stopOrderAlarm(context)
   }
 
   fun isRinging(): Boolean = OrderAlarmPlayer.isRinging()

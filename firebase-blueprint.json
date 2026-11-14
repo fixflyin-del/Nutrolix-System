@@ -1,27 +1,278 @@
 {
   "entities": {
-    "UserProfile": {
-      "collection": "users",
-      "fields": {
+    "AdminUser": {
+      "title": "AdminUser",
+      "description": "Authorized store administrator document keyed by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
         "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["ADMIN"] }
+      },
+      "required": ["uid"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Unified customer profile keyed by Firebase Auth UID linking Mobile OTP and Google accounts.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "id": { "type": "string" },
         "name": { "type": "string" },
         "email": { "type": "string" },
         "phone": { "type": "string" },
+        "verifiedPhone": { "type": "string" },
+        "whatsappNumber": { "type": "string" },
+        "photo": { "type": "string" },
+        "authProviders": { "type": "array" },
+        "phoneVerified": { "type": "boolean" },
+        "googleLinked": { "type": "boolean" },
+        "linkedFromUid": { "type": "string" },
+        "currentAddress": { "type": "string" },
+        "savedAddresses": { "type": "array" },
         "nutriPoints": { "type": "number" },
-        "currentAddress": { "type": "string" }
-      }
+        "lastOrderId": { "type": "string" },
+        "lastOrderAmount": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "updatedAtMillis": { "type": "number" },
+        "createdAtTs": { "type": "string", "format": "date-time", "description": "Server timestamp from FieldValue.serverTimestamp()" },
+        "updatedAtTs": { "type": "string", "format": "date-time", "description": "Server timestamp from FieldValue.serverTimestamp()" }
+      },
+      "required": ["uid"]
+    },
+    "UserAddress": {
+      "title": "UserAddress",
+      "description": "Customer saved delivery address with optional GPS reverse-geocoded coordinates.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "label": { "type": "string" },
+        "fullName": { "type": "string" },
+        "phone": { "type": "string" },
+        "whatsappNumber": { "type": "string" },
+        "address1": { "type": "string" },
+        "city": { "type": "string" },
+        "pincode": { "type": "string" },
+        "state": { "type": "string" },
+        "lat": { "type": "number" },
+        "lon": { "type": "number" },
+        "locationSource": { "type": "string" },
+        "isDefault": { "type": "boolean" },
+        "updatedAt": { "type": "string" },
+        "updatedAtMillis": { "type": "number" }
+      },
+      "required": ["uid", "address1", "city", "pincode"]
+    },
+    "UserFcmToken": {
+      "title": "UserFcmToken",
+      "description": "Registered FCM / Web Push device token scoped to a customer UID.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "token": { "type": "string" },
+        "fcmToken": { "type": "string" },
+        "platform": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "customerEmail": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "updatedAtMillis": { "type": "number" }
+      },
+      "required": ["uid", "token"]
+    },
+    "UserNotification": {
+      "title": "UserNotification",
+      "description": "Real-time order status notification record synced for customer viewing.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "dedupKey": { "type": "string" },
+        "uid": { "type": "string" },
+        "orderId": { "type": "string" },
+        "status": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "url": { "type": "string" },
+        "read": { "type": "boolean" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["uid", "orderId", "title", "message"]
     },
     "Order": {
-      "collection": "orders",
-      "fields": {
+      "title": "Order",
+      "description": "Customer order linked strictly to owner Firebase UID for isolated order tracking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "orderId": { "type": "string" },
         "orderNumber": { "type": "string" },
+        "uid": { "type": "string" },
         "customerName": { "type": "string" },
         "customerPhone": { "type": "string" },
+        "customerEmail": { "type": "string" },
+        "whatsappNumber": { "type": "string" },
         "status": { "type": "string" },
+        "items": { "type": "array" },
         "total": { "type": "number" },
+        "grandTotal": { "type": "number" },
         "deliveryOtp": { "type": "string" },
-        "kitchenName": { "type": "string" }
+        "paymentMethod": { "type": "string" },
+        "paymentStatus": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "orderTimeMillis": { "type": "number" },
+        "createdAtTs": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "status", "items"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Packaged nutrition store product.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "price": { "type": "number" },
+        "inStock": { "type": "boolean" }
+      },
+      "required": ["id"]
+    },
+    "Meal": {
+      "title": "Meal",
+      "description": "Fresh Healthy Food cloud kitchen menu item.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "price": { "type": "number" },
+        "isAvailable": { "type": "boolean" }
+      },
+      "required": ["id", "name"]
+    },
+    "Banner": {
+      "title": "Banner",
+      "description": "Promotional store banner.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id"]
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "Discount coupon configuration.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string" },
+        "discountValue": { "type": "number" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["code"]
+    },
+    "StoreSetting": {
+      "title": "StoreSetting",
+      "description": "Global store operational settings and announcements.",
+      "type": "object",
+      "properties": {
+        "storeName": { "type": "string" },
+        "isOpen": { "type": "boolean" },
+        "announcement": { "type": "string" }
       }
+    },
+    "Blog": {
+      "title": "Blog",
+      "description": "Nutrition article or blog post.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" }
+      },
+      "required": ["id", "title"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Verified customer product or meal review.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "uid": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviewText": { "type": "string" }
+      },
+      "required": ["id", "rating"]
+    },
+    "Kitchen": {
+      "title": "Kitchen",
+      "description": "Cloud kitchen outlet configuration.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      },
+      "required": ["id", "name"]
+    }
+  },
+  "firestore": {
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminUser" },
+      "description": "Role documents designating store administrators."
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Unified customer profiles keyed strictly by Firebase Auth UID."
+    },
+    "/users/{userId}/addresses/{addrId}": {
+      "schema": { "$ref": "#/entities/UserAddress" },
+      "description": "Customer saved delivery addresses scoped to owner UID."
+    },
+    "/users/{userId}/fcmTokens/{tokenId}": {
+      "schema": { "$ref": "#/entities/UserFcmToken" },
+      "description": "Customer FCM / Web Push device registration tokens."
+    },
+    "/users/{userId}/notifications/{notifId}": {
+      "schema": { "$ref": "#/entities/UserNotification" },
+      "description": "Per-user order status notification feed."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Customer orders isolated by owner UID and manageable by admins."
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Packaged nutrition products (public read, admin write)."
+    },
+    "/meals/{mealId}": {
+      "schema": { "$ref": "#/entities/Meal" },
+      "description": "Cloud kitchen meals (public read, admin write)."
+    },
+    "/banners/{bannerId}": {
+      "schema": { "$ref": "#/entities/Banner" },
+      "description": "Storefront banners (public read, admin write)."
+    },
+    "/coupons/{couponId}": {
+      "schema": { "$ref": "#/entities/Coupon" },
+      "description": "Discount coupons (public read, admin write)."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/StoreSetting" },
+      "description": "Store settings & announcements (public read, admin write)."
+    },
+    "/blogs/{blogId}": {
+      "schema": { "$ref": "#/entities/Blog" },
+      "description": "Published blogs and nutrition articles (public read, admin write)."
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Customer reviews (public read, authenticated owner or admin write)."
+    },
+    "/kitchens/{kitchenId}": {
+      "schema": { "$ref": "#/entities/Kitchen" },
+      "description": "Cloud kitchen locations (public read, admin write)."
     }
   }
 }
