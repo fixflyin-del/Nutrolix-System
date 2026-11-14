@@ -94,9 +94,9 @@ fun MyOrdersScreen(
           )
           Text(
             text = if (userProfile.isLoggedIn) {
-              "Account: ${userProfile.name.ifBlank { userProfile.email.ifBlank { "+91 " + userProfile.phone } }}"
+              "Account: ${userProfile.name.ifBlank { "+91 " + userProfile.phone }}"
             } else {
-              "Sign in with Google to view your personal order history"
+              "Sign in with WhatsApp OTP to view your personal order history"
             },
             fontSize = 12.sp,
             color = NutrolixTextSecondary
@@ -123,7 +123,7 @@ fun MyOrdersScreen(
               ) {
                 Icon(Icons.Default.AccountCircle, contentDescription = null, tint = NutrolixDarkGreen, modifier = Modifier.size(28.dp))
               }
-              Text("Sign in with Google to view your orders", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NutrolixDarkGreen)
+              Text("Sign in with WhatsApp OTP to view your orders", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = NutrolixDarkGreen)
               Text("Your past meals, active deliveries and invoices will appear here.", fontSize = 11.sp, color = NutrolixTextSecondary, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
               Button(
                 onClick = onLoginClick,
@@ -131,7 +131,7 @@ fun MyOrdersScreen(
                 colors = ButtonDefaults.buttonColors(containerColor = NutrolixPrimaryGreen),
                 modifier = Modifier.fillMaxWidth().height(42.dp)
               ) {
-                Text("Continue with Google", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text("Continue with WhatsApp OTP", fontSize = 13.sp, fontWeight = FontWeight.Bold)
               }
             }
           }

@@ -157,7 +157,7 @@ class FirestoreService(
         "phone" to (verifiedPhone.ifBlank { whatsappNumber }),
         "authProviders" to providers,
         "phoneVerified" to verifiedPhone.isNotBlank(),
-        "googleLinked" to providers.any { it.contains("google") },
+        "googleLinked" to false,
         "updatedAtMillis" to System.currentTimeMillis()
       )
       firestore.collection("users").document(uid).set(data, SetOptions.merge()).await()

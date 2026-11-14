@@ -34,8 +34,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
-import com.example.auth.GoogleSignInResult
-import com.example.auth.GoogleSignInService
 import com.example.auth.PhoneAuthService
 import com.example.auth.PhoneOtpStartResult
 import com.example.auth.PhoneOtpVerifyResult
@@ -175,7 +173,6 @@ fun NutrolixSupplementBrandApp(
   var webViewInstance by remember { mutableStateOf<WebView?>(null) }
   var lastBackPressTime by remember { mutableLongStateOf(0L) }
 
-  val googleSignInService = remember { GoogleSignInService(context) }
   val phoneAuthService = remember { PhoneAuthService() }
   val firestoreService = remember { FirestoreService(context) }
   val coroutineScope = rememberCoroutineScope()
@@ -434,52 +431,6 @@ fun NutrolixSupplementBrandApp(
               }
 
               @JavascriptInterface
-              fun startGoogleSignIn() {
-                coroutineScope.launch {
-                  when (val result = googleSignInService.signIn(context)) {
-                    is GoogleSignInResult.Success -> {
-                      val user = result.user
-                      fetchAndSyncFcmToken(user)
-                      val email = user.email ?: ""
-                      val name = user.displayName ?: email.substringBefore("@")
-                      val photo = user.photoUrl?.toString() ?: ""
-                      val uid = user.uid
-                      val richPayload = firebaseUserToJson(user, result.linked, result.previousUid, result.collisionWarning).toString()
-                      val quotedRich = JSONObject.quote(richPayload)
-                      val quotedEmail = JSONObject.quote(email)
-                      val quotedName = JSONObject.quote(name)
-                      val quotedPhoto = JSONObject.quote(photo)
-                      val quotedUid = JSONObject.quote(uid)
-                      activity?.runOnUiThread {
-                        webViewInstance?.evaluateJavascript(
-                          "if (typeof window.onNativeUnifiedAuthSuccess === 'function') { window.onNativeUnifiedAuthSuccess(JSON.parse($quotedRich)); } " +
-                            "else if (typeof window.onNativeGoogleSignInSuccess === 'function') { window.onNativeGoogleSignInSuccess($quotedEmail, $quotedName, $quotedPhoto, $quotedUid); }",
-                          null
-                        )
-                      }
-                    }
-                    is GoogleSignInResult.Failure -> {
-                      val quotedMsg = JSONObject.quote(result.message)
-                      activity?.runOnUiThread {
-                        webViewInstance?.evaluateJavascript(
-                          "if (typeof window.onNativeGoogleSignInFailure === 'function') { window.onNativeGoogleSignInFailure($quotedMsg); }",
-                          null
-                        )
-                      }
-                    }
-                    GoogleSignInResult.Cancelled -> {
-                      activity?.runOnUiThread {
-                        webViewInstance?.evaluateJavascript(
-                          "if (typeof window.onNativeGoogleSignInCancelled === 'function') { window.onNativeGoogleSignInCancelled(); }",
-                          null
-                        )
-                      }
-                    }
-                  }
-                }
-              }
-
-              @JavascriptInterface
               fun getFcmToken() {
                 try {
                   FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
@@ -631,9 +582,9 @@ fun NutrolixSupplementBrandApp(
 
               @JavascriptInterface
               fun signOut() {
-                coroutineScope.launch {
-                  googleSignInService.signOut()
-                }
+                try {
+                  FirebaseAuth.getInstance().signOut()
+                } catch (_: Throwable) {}
               }
             }, "AndroidNative")
 

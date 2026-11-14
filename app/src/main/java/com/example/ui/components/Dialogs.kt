@@ -928,20 +928,14 @@ fun AdminLoginDialog(
 }
 
 /**
- * Requirement 2 & 3: Real Customer Phone Number & 4-Digit PIN Authentication
- * First-time registration & returning customer login with rate-limiting and PIN hashing.
- */
-/**
  * Customer Authentication Dialog:
- * Pure Smooth 1-Click Google Sign-In (Phone OTP & PIN completely removed per user instructions).
+ * WhatsApp Mobile Number + OTP Authentication.
  */
 @Composable
 fun CustomerAuthDialog(
   onDismiss: () -> Unit,
-  onGoogleSignIn: () -> Unit
+  onContinueWithOtp: () -> Unit = {}
 ) {
-  var isSigningIn by remember { mutableStateOf(false) }
-
   AlertDialog(
     onDismissRequest = onDismiss,
     shape = RoundedCornerShape(24.dp),
@@ -967,7 +961,7 @@ fun CustomerAuthDialog(
               color = NutrolixDarkGreen
             )
             Text(
-              text = "Fast & secure 1-click Google sign-in",
+              text = "WhatsApp Mobile Number + OTP",
               fontSize = 11.sp,
               color = NutrolixTextSecondary
             )
@@ -1008,41 +1002,21 @@ fun CustomerAuthDialog(
           }
         }
 
-        // 1-Click Google Sign-In Button
-        Surface(
-          onClick = {
-            if (!isSigningIn) {
-              isSigningIn = true
-              onGoogleSignIn()
-            }
-          },
+        Button(
+          onClick = onContinueWithOtp,
           shape = RoundedCornerShape(14.dp),
-          color = Color.White,
-          shadowElevation = 3.dp,
-          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+          colors = ButtonDefaults.buttonColors(containerColor = NutrolixPrimaryGreen),
           modifier = Modifier
             .fillMaxWidth()
-            .height(52.dp)
-            .testTag("google_sign_in_button")
+            .height(50.dp)
+            .testTag("whatsapp_otp_sign_in_button")
         ) {
-          Row(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-          ) {
-            Surface(shape = CircleShape, color = Color(0xFF4285F4), modifier = Modifier.size(26.dp)) {
-              Box(contentAlignment = Alignment.Center) {
-                Text("G", color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Black)
-              }
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-              text = if (isSigningIn) "Signing in with Google..." else "Continue with Google",
-              fontSize = 15.sp,
-              fontWeight = FontWeight.Bold,
-              color = Color(0xFF1E293B)
-            )
-          }
+          Text(
+            text = "Continue with WhatsApp OTP",
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.White
+          )
         }
       }
     },

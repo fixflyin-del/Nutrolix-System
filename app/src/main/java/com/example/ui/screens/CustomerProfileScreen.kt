@@ -156,7 +156,7 @@ fun CustomerProfileScreen(
                 verticalAlignment = Alignment.CenterVertically
               ) {
                 Text(
-                  text = "Verified Google Account",
+                  text = "Verified WhatsApp Account",
                   fontSize = 11.sp,
                   color = NutrolixLightGreen
                 )
@@ -176,7 +176,7 @@ fun CustomerProfileScreen(
             }
           }
         } else {
-          // Guest State: Direct Google 1-Click Signup/Login (Requirement 2)
+          // Guest State: WhatsApp Mobile OTP Signup/Login
           Card(
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = NutrolixSurface),
@@ -213,7 +213,7 @@ fun CustomerProfileScreen(
               )
 
               Text(
-                text = "Register/Login with direct Google with one click to manage saved addresses, track live deliveries, and view invoices.",
+                text = "Verify your 10-digit WhatsApp mobile number with OTP to manage your name, saved addresses, and live deliveries.",
                 fontSize = 12.sp,
                 color = NutrolixTextSecondary,
                 modifier = Modifier.padding(top = 4.dp, bottom = 14.dp),
@@ -229,13 +229,7 @@ fun CustomerProfileScreen(
                   .height(46.dp)
                   .testTag("profile_login_button")
               ) {
-                Surface(shape = CircleShape, color = Color.White, modifier = Modifier.size(22.dp)) {
-                  Box(contentAlignment = Alignment.Center) {
-                    Text("G", color = Color(0xFF4285F4), fontSize = 13.sp, fontWeight = FontWeight.Black)
-                  }
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Continue with Google (1-Click)", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                Text("Continue with WhatsApp OTP", fontWeight = FontWeight.Bold, fontSize = 13.sp)
               }
             }
           }
@@ -352,7 +346,7 @@ fun CustomerProfileScreen(
                 color = NutrolixTextPrimary
               )
               Text(
-                text = "Your past orders and digital invoices are securely linked to your Google account.",
+                text = "Your past orders and digital invoices are securely linked to your WhatsApp mobile number.",
                 fontSize = 11.sp,
                 color = NutrolixTextSecondary,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -364,7 +358,7 @@ fun CustomerProfileScreen(
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
               ) {
-                Text("Sign in with Google", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text("Sign in with WhatsApp OTP", fontSize = 12.sp, fontWeight = FontWeight.Bold)
               }
             }
           }
