@@ -1496,12 +1496,8 @@
           document.getElementById('custPhone').value = String(user.whatsappNumber || user.verifiedPhone || user.phone).replace(/\D/g, '').slice(-10);
         }
       } else {
-        bar.innerHTML = `
-          <button type="button" onclick="window.openWhatsappAuthModal()" class="text-xs font-black text-slate-800 bg-white border border-slate-300 hover:border-emerald-600 px-3 py-1.5 rounded-full shadow-sm flex items-center space-x-1.5 transition active:scale-95 cursor-pointer">
-            <i class="fa-brands fa-whatsapp text-emerald-600"></i>
-            <span>WhatsApp Login</span>
-          </button>
-        `;
+        // Checkout authentication is handled inline beside the WhatsApp number field.
+        bar.innerHTML = '';
       }
       window.updateCartPhoneOkButtonState();
     };
@@ -1699,17 +1695,24 @@
         return;
       }
 
-      // 1. Require WhatsApp Number + OTP Verification
-      const user = window.getNutrolixUser();
-      if (!user) {
-        pendingOrderConfirmAfterAuth = true;
-        window.openWhatsappAuthModal();
+      // Require the checkout phone field first; never open a separate login/signup modal.
+      const phoneInput = document.getElementById('custPhone');
+      const phone = (phoneInput?.value || '').replace(/\D/g, '').slice(-10);
+      if (!/^[6-9]\d{9}$/.test(phone)) {
+        alert('Please fill all details. Enter your 10-digit WhatsApp number first.');
+        phoneInput?.focus();
         return;
       }
 
-      // 2. Validate One-Line Address & Pincode (Name is NEVER required)
+      const user = window.getNutrolixUser();
+      const verifiedPhone = user ? String(user.verifiedPhone || user.phone || '').replace(/\D/g, '').slice(-10) : '';
+      if (!user || verifiedPhone !== phone) {
+        window.handleCartInlinePhoneOk(false);
+        return;
+      }
+
+      // Validate delivery address and PIN after WhatsApp verification.
       const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-      const phone = (document.getElementById('custPhone')?.value || profile.whatsappNumber || user.verifiedPhone || '').replace(/\D/g, '').slice(-10);
       const address = (document.getElementById('custAddress1')?.value || profile.address1 || (selectedSavedAddress ? selectedSavedAddress.address1 : '') || '').trim();
       const pincode = (document.getElementById('custPincode')?.value || profile.pincode || (selectedSavedAddress ? selectedSavedAddress.pincode : '') || '').replace(/\D/g, '').slice(0, 6);
 
@@ -1752,6 +1755,14 @@
         state = document.getElementById('custState').value.trim() || '';
         gpsLat = storeCoordsAllowed ? (document.getElementById('custGpsLat').value || null) : null;
         gpsLon = storeCoordsAllowed ? (document.getElementById('custGpsLon').value || null) : null;
+      }
+
+      phone = String(phone || '').replace(/\D/g, '').slice(-10);
+      const verifiedPhone = String(user.verifiedPhone || user.phone || '').replace(/\D/g, '').slice(-10);
+      if (!user.uid || phone.length !== 10 || phone !== verifiedPhone || !address1 || address1.trim().length < 4 || String(pincode || '').replace(/\D/g, '').length !== 6 || !city) {
+        alert('Please fill all details and verify your WhatsApp number before placing the order.');
+        document.getElementById('custPhone')?.focus();
+        return;
       }
 
       googleMapsLink = (gpsLat && gpsLon) ? `https://maps.google.com/?q=${gpsLat},${gpsLon}` : '';
