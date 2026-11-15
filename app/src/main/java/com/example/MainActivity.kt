@@ -391,6 +391,7 @@ fun NutrolixSupplementBrandApp(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
           var ptrWrapper: PullToRefreshWebViewWrapper? = null
+          var isUsingOfflineFallback = false
           val webView = WebView(ctx).apply {
             layoutParams = ViewGroup.LayoutParams(
               ViewGroup.LayoutParams.MATCH_PARENT,
@@ -412,7 +413,8 @@ fun NutrolixSupplementBrandApp(
               setSupportZoom(false)
               builtInZoomControls = false
               displayZoomControls = false
-              cacheMode = WebSettings.LOAD_DEFAULT
+              // Always request current website assets; APK should not pin an old web build.
+              cacheMode = WebSettings.LOAD_NO_CACHE
               mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
               userAgentString = settings.userAgentString + " NutrolixApp/2.0.0"
             }
@@ -760,6 +762,9 @@ fun NutrolixSupplementBrandApp(
               override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 ptrWrapper?.finishRefreshing()
+                if (Uri.parse(url ?: "").host.equals(Uri.parse(MainActivity.LIVE_SERVER_URL).host, ignoreCase = true)) {
+                  isUsingOfflineFallback = false
+                }
                 view?.evaluateJavascript("window.__nutrolixNativePtr = true;", null)
               }
 
@@ -836,7 +841,19 @@ fun NutrolixSupplementBrandApp(
               ) {
                 if (request?.isForMainFrame == true) {
                   ptrWrapper?.finishRefreshing()
-                  if (request.url?.scheme != "file") {
+                  val errorCode = error?.errorCode
+                  val isConnectivityFailure =
+                    errorCode == WebViewClient.ERROR_HOST_LOOKUP ||
+                    errorCode == WebViewClient.ERROR_CONNECT ||
+                    errorCode == WebViewClient.ERROR_TIMEOUT ||
+                    errorCode == WebViewClient.ERROR_IO
+                  val liveHost = Uri.parse(MainActivity.LIVE_SERVER_URL).host
+                  val failedHost = request.url?.host
+                  if (isConnectivityFailure &&
+                    failedHost.equals(liveHost, ignoreCase = true) &&
+                    !isUsingOfflineFallback
+                  ) {
+                    isUsingOfflineFallback = true
                     view?.loadUrl(MainActivity.PRIMARY_APP_URL)
                   }
                 }
@@ -844,11 +861,16 @@ fun NutrolixSupplementBrandApp(
             }
           }
           PullToRefreshWebViewWrapper(ctx, webView) { wv ->
-            wv.clearCache(false)
-            wv.reload()
+            wv.clearCache(true)
+            if (isUsingOfflineFallback) {
+              isUsingOfflineFallback = false
+              wv.loadUrl(MainActivity.LIVE_SERVER_URL)
+            } else {
+              wv.reload()
+            }
           }.also {
             ptrWrapper = it
-            webView.clearCache(false)
+            webView.clearCache(true)
             webView.loadUrl(deepLinkUrl ?: MainActivity.LIVE_SERVER_URL)
             webViewInstance = webView
           }
