@@ -539,4 +539,53 @@ test('Cart checkout skips OTP for authenticated users and persists first-order a
   assert.ok(serverJs.includes("isFirstAddr ? 'addr_primary'"), 'server.js POST /api/nutrition-orders should auto-create primary profile address');
 });
 
+test('Admin Portal requires 4-digit PIN 9090 on entry and removes inner PIN/confirmation forms from Customer Data Audit UI', async () => {
+  const root = path.resolve(__dirname, '..');
+  for (const rel of ['public/admin.html', 'app/src/main/assets/web/admin.html']) {
+    const html = fs.readFileSync(path.join(root, rel), 'utf8');
+    assert.ok(html.includes('id="adminPortalLockOverlay"'), `Missing 4-digit portal lock overlay in ${rel}`);
+    assert.ok(html.includes('id="adminPortalPinInput"'), `Missing 4-digit PIN input in ${rel}`);
+    assert.equal(html.includes('purgeAdminPinInput'), false, `Inner purgeAdminPinInput still present in ${rel}`);
+    assert.equal(html.includes('btnUnlockAdminPurge'), false, `Inner btnUnlockAdminPurge still present in ${rel}`);
+    assert.equal(html.includes('purgeConfirmPhraseInput'), false, `Inner purgeConfirmPhraseInput still present in ${rel}`);
+    assert.equal(html.includes('Admin PIN Required'), false, `Inner Admin PIN Required badge still present in ${rel}`);
+    assert.ok(html.includes('id="btnRunCustomerDryRun"'), `Direct Dry-Run Preview button missing in ${rel}`);
+    assert.ok(html.includes('id="btnExecuteLivePurge"'), `Direct Delete Customer Data button missing in ${rel}`);
+  }
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address();
+  const port = typeof addr === 'object' && addr ? addr.port : 0;
+  const postLogin = (payload) => new Promise((resolve, reject) => {
+    const bodyStr = JSON.stringify(payload);
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port,
+      path: '/api/admin/login',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) }
+    }, (res) => {
+      let raw = '';
+      res.on('data', c => raw += c);
+      res.on('end', () => resolve({ status: res.statusCode, json: JSON.parse(raw) }));
+    });
+    req.on('error', reject);
+    req.write(bodyStr);
+    req.end();
+  });
+
+  try {
+    const badRes = await postLogin({ pin: '1234' });
+    assert.equal(badRes.status, 401);
+
+    const okRes = await postLogin({ pin: '9090' });
+    assert.equal(okRes.status, 200);
+    assert.equal(okRes.json.success, true);
+    assert.ok(core.verifyAdminSessionToken(okRes.json.token));
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+
 

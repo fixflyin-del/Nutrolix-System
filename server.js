@@ -3202,22 +3202,21 @@ const server = http.createServer(async (req, res) => {
     req.on('end', () => {
       try {
         const { email, password, pin } = JSON.parse(body || '{}');
-        const validEmails = ['nutrolix.in@gmail.com', 'admin@nutrolix.in', 'admin'];
-        const validPass = ['907625', 'nutrolix2026', 'admin123', 'admin'];
-        const cleanEmail = (email || '').toLowerCase().trim();
-        const isAuth = validEmails.includes(cleanEmail) &&
-          (validPass.includes((password || '').trim()) || validPass.includes((pin || '').trim()));
+        const portalPin = String(process.env.ADMIN_PORTAL_PIN || '9090').trim();
+        const submittedPin = String(pin || password || '').trim();
+        const cleanEmail = (email || '').toLowerCase().trim() || 'nutrolix.in@gmail.com';
+        const isAuth = submittedPin === portalPin;
         if (isAuth) {
           const token = nutrolixCore.signAdminSessionToken(cleanEmail);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({
             success: true,
             token,
-            user: { email: 'nutrolix.in@gmail.com', role: 'ADMIN', name: 'Nutrolix Administrator' }
+            user: { email: cleanEmail, role: 'ADMIN', name: 'Nutrolix Administrator' }
           }));
         } else {
           res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ error: 'Invalid admin credentials. Please enter authorized admin email and PIN.' }));
+          res.end(JSON.stringify({ error: 'Invalid 4-digit Admin PIN.' }));
         }
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
