@@ -373,6 +373,10 @@
     } catch (_) {}
 
     localStorage.removeItem('nutrolix_user_profile');
+    // Customer-specific caches must never survive sign-out on a shared device.
+    localStorage.removeItem('nutrolix_saved_addresses');
+    localStorage.removeItem('nutrolix_customer_orders');
+    localStorage.removeItem('nutrolix_user');
     window.dispatchEvent(new CustomEvent('nutrolix:auth-changed', { detail: null }));
     if (typeof window.onAuthSignOutCallback === 'function') {
       window.onAuthSignOutCallback();
