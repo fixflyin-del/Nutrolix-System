@@ -765,11 +765,14 @@
         // 3. Server scoped orders API
         try {
           const host = window.NUTROLIX_API_HOST || '';
-          const qs = new URLSearchParams();
-          if (user.uid) qs.set('uid', user.uid);
-          if (user.verifiedPhone || user.phone) qs.set('phone', user.verifiedPhone || user.phone);
-          if (user.email) qs.set('email', user.email);
-          const res = await fetch(host + '/api/nutrition-orders?' + qs.toString());
+          const authUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+          const idToken = authUser ? await authUser.getIdToken().catch(() => '') : '';
+          if (!idToken) throw new Error('Verified customer session is required to load order history.');
+          const res = await fetch(host + '/api/nutrition-orders', {
+            method: 'GET',
+            headers: { Authorization: 'Bearer ' + idToken },
+            cache: 'no-store'
+          });
           if (res.ok) {
             const serverOrders = await res.json();
             if (Array.isArray(serverOrders)) {
