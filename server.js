@@ -2768,7 +2768,7 @@ const server = http.createServer((req, res) => {
           ]) {
             try {
               const clientSource = fs.readFileSync(clientConfigPath, 'utf8');
-              const match = clientSource.match(/apiKey\\s*:\\s*["'](AIza[0-9A-Za-z_-]+)["']/);
+              const match = clientSource.match(/apiKey\s*:\s*["'](AIza[0-9A-Za-z_-]+)["']/);
               if (match) { firebaseApiKey = match[1]; break; }
             } catch (_) {}
           }
