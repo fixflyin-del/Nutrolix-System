@@ -270,44 +270,68 @@ async function gatherCustomerTokens({ uid = '', customerPhone = '', customerEmai
   const canonicalUid = nutrolixCore.canonicalCustomerUid(cleanPhone) || '';
   const candidateUids = Array.from(new Set([String(uid || '').trim(), canonicalUid].filter(Boolean)));
 
-  try {
-    const queries = [];
-    for (const u of candidateUids) {
-      for (const dbId of nutrolixCore.BOTH_DB_IDS) {
-        queries.push(
-          nutrolixCore.firestoreListDocuments(`users/${u}/fcmTokens`, dbId)
-            .then((docs) => docs.map((d) => ({ ...d, uid: d.uid || u, _firestorePath: `users/${u}/fcmTokens/${d._docId}`, _dbId: dbId })))
-            .catch(() => [])
-        );
-      }
+  // Read the customer's own token subcollection first. This is the durable
+  // registration path for both FCM and Web Push; avoid scanning every user's
+  // global token collections on each checkout.
+  const scopedReads = [];
+  for (const u of candidateUids) {
+    for (const dbId of nutrolixCore.BOTH_DB_IDS) {
+      scopedReads.push(
+        nutrolixCore.firestoreListDocuments(`users/${u}/fcmTokens`, dbId)
+          .then((docs) => docs.map((d) => {
+            let subscription = d.subscription || null;
+            if (!subscription && d.subscriptionJson) {
+              try { subscription = JSON.parse(d.subscriptionJson); } catch (_) {}
+            }
+            return { ...d, subscription, uid: d.uid || u, _firestorePath: `users/${u}/fcmTokens/${d._docId}`, _dbId: dbId };
+          }))
+          .catch(() => [])
+      );
     }
+  }
+  const scopedLists = await Promise.all(scopedReads);
+  for (const list of scopedLists) firestoreTokens.push(...list);
+
+  // Compatibility fallback for older Web Push registrations that predate
+  // the user-scoped token subcollection. Use indexed equality queries rather
+  // than downloading up to 800 documents from each global collection.
+  if (firestoreTokens.length === 0) {
+    const filters = [];
+    if (canonicalUid) filters.push({ field: 'uid', value: canonicalUid });
+    if (cleanPhone) filters.push({ field: 'customerPhone', value: cleanPhone });
+    if (cleanPhone) filters.push({ field: 'phone', value: cleanPhone });
+    const legacyReads = [];
     for (const col of ['notificationTokens', 'fcmTokens']) {
       for (const dbId of nutrolixCore.BOTH_DB_IDS) {
-        queries.push(
-          nutrolixCore.firestoreListAllDocuments(col, dbId, 800)
-            .then(({ docs }) => docs.map((d) => ({ ...d, _firestorePath: `${col}/${d._docId}`, _dbId: dbId })))
-            .catch(() => [])
-        );
+        for (const filter of filters) {
+          const structuredQuery = {
+            from: [{ collectionId: col }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: filter.field },
+                op: 'EQUAL',
+                value: { stringValue: filter.value }
+              }
+            },
+            limit: 100
+          };
+          legacyReads.push(
+            nutrolixCore.firestoreRunQuery(structuredQuery, '', dbId)
+              .then((docs) => docs.map((d) => {
+                let subscription = d.subscription || null;
+                if (!subscription && d.subscriptionJson) {
+                  try { subscription = JSON.parse(d.subscriptionJson); } catch (_) {}
+                }
+                return { ...d, subscription, _firestorePath: `${col}/${d._docId}`, _dbId: dbId };
+              }))
+              .catch(() => [])
+          );
+        }
       }
     }
-    const resolvedLists = await Promise.all(queries);
-    for (const list of resolvedLists) {
-      for (const doc of list) {
-        if (!doc) continue;
-        let parsedSub = doc.subscription || null;
-        if (!parsedSub && doc.subscriptionJson) {
-          try { parsedSub = JSON.parse(doc.subscriptionJson); } catch (_) {}
-        }
-        if (doc.fcmToken || doc.token || (parsedSub && parsedSub.endpoint) || doc.endpoint) {
-          firestoreTokens.push({
-            ...doc,
-            subscription: parsedSub,
-            endpoint: doc.endpoint || (parsedSub && parsedSub.endpoint) || ''
-          });
-        }
-      }
-    }
-  } catch (_) {}
+    const legacyLists = await Promise.all(legacyReads);
+    for (const list of legacyLists) firestoreTokens.push(...list);
+  }
 
   const allTokens = [...localTokens, ...firestoreTokens];
   const matched = nutrolixCore.matchCustomerTokens(allTokens, {
@@ -318,7 +342,6 @@ async function gatherCustomerTokens({ uid = '', customerPhone = '', customerEmai
 
   return { localTokens, firestoreTokens, matched, candidateUids, canonicalUid, tokensFile };
 }
-
 async function pruneDeadNotificationTargets(deadEndpoints, deadFcmTokens, deadDocPaths = []) {
   const tokensFile = path.join(PUBLIC_DIR, 'data', 'notification_tokens.json');
   let localTokens = safeReadJson(tokensFile, []);
