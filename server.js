@@ -2749,12 +2749,30 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ success: false, code: 'FIREBASE_ADMIN_NOT_CONFIGURED', error: 'Firebase server authentication is not configured.' }));
           return;
         }
-        const configPath = path.join(__dirname, 'app', 'google-services.json');
-        let firebaseApiKey = '';
-        try {
-          const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-          firebaseApiKey = cfg.client[0].api_key[0].current_key || '';
-        } catch (_) {}
+        // Firebase Identity Toolkit needs the public Firebase Web API key.
+        // Prefer an explicit Vercel env var; fall back to the committed Android config,
+        // then to the same public client config embedded in the customer web assets.
+        let firebaseApiKey = String(process.env.FIREBASE_WEB_API_KEY || '').trim();
+        if (!firebaseApiKey) {
+          const configPath = path.join(__dirname, 'app', 'google-services.json');
+          try {
+            const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            firebaseApiKey = cfg.client?.[0]?.api_key?.[0]?.current_key || '';
+          } catch (_) {}
+        }
+        if (!firebaseApiKey) {
+          for (const clientConfigPath of [
+            path.join(__dirname, 'public', 'assets', 'nutrolix-auth.js'),
+            path.join(__dirname, 'public', 'assets', 'nutrolix-firebase.js'),
+            path.join(__dirname, 'app', 'src', 'main', 'assets', 'web', 'assets', 'nutrolix-auth.js')
+          ]) {
+            try {
+              const clientSource = fs.readFileSync(clientConfigPath, 'utf8');
+              const match = clientSource.match(/apiKey\\s*:\\s*["'](AIza[0-9A-Za-z_-]+)["']/);
+              if (match) { firebaseApiKey = match[1]; break; }
+            } catch (_) {}
+          }
+        }
         if (!firebaseApiKey) {
           res.writeHead(503, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Firebase client configuration is missing.' }));
