@@ -27,7 +27,7 @@ import com.example.service.AdminOrderBackgroundService
 import kotlinx.coroutines.*
 
 object OrderNotificationHelper {
-  private const val CHANNEL_ID = "nutrolix_orders_channel"
+  private const val CHANNEL_ID = "nutrolix_orders_channel_v2"
   private const val CHANNEL_NAME = "Nutrolix Order Notifications"
   // Bumped channel ID (v3) so Android discards older cached channels that used TYPE_RINGTONE.
   // Sound is set to null on this visual channel so OrderAlarmPlayer alone plays the single custom order chime.
@@ -47,6 +47,14 @@ object OrderNotificationHelper {
       ).apply {
         description = "Order status and confirmation notifications"
         enableVibration(true)
+        vibrationPattern = longArrayOf(0, 250, 150, 250)
+        setSound(
+          android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION),
+          AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        )
       }
 
       // Visual-only high-priority lockscreen channel (no system ringtone audio;
