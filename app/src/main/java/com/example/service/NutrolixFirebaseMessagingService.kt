@@ -35,23 +35,34 @@ class NutrolixFirebaseMessagingService : FirebaseMessagingService() {
       .apply()
 
     val currentUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
+    val authPrefs = getSharedPreferences(MainActivity.PREFS_AUTH, MODE_PRIVATE)
+    val prefUid = authPrefs.getString(MainActivity.KEY_AUTH_UID, "") ?: ""
+    val prefPhone = authPrefs.getString(MainActivity.KEY_AUTH_PHONE, "") ?: ""
+    val rawPhone = (currentUser?.phoneNumber ?: "").ifBlank { prefPhone }
+    val cleanPhone = rawPhone.filter { it.isDigit() }.takeLast(10)
+    val resolvedUid = if (cleanPhone.length == 10 && cleanPhone.first() in '6'..'9') {
+      "phone_$cleanPhone"
+    } else {
+      (currentUser?.uid ?: "").ifBlank { prefUid }
+    }
+
     serviceScope.launch {
-      if (currentUser != null) {
+      if (resolvedUid.isNotBlank()) {
         try {
           com.example.data.FirestoreService(applicationContext).saveFcmToken(
-            uid = currentUser.uid,
+            uid = resolvedUid,
             token = token,
-            phone = currentUser.phoneNumber ?: "",
-            email = currentUser.email ?: ""
+            phone = cleanPhone,
+            email = currentUser?.email ?: ""
           )
         } catch (e: Exception) {
           Log.w(TAG, "Firestore FCM token sync error: ${e.message}")
         }
       }
       registerTokenOnServer(
-        uid = currentUser?.uid ?: "",
+        uid = resolvedUid,
         token = token,
-        phone = currentUser?.phoneNumber ?: "",
+        phone = cleanPhone,
         email = currentUser?.email ?: ""
       )
     }

@@ -45,18 +45,23 @@ self.addEventListener('push', event => {
 
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const targetUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/orders.html';
+  const rawUrl = (event.notification.data && event.notification.data.url) ? event.notification.data.url : '/orders.html';
+  let resolvedUrl = '/orders.html';
+  try {
+    resolvedUrl = new URL(rawUrl.startsWith('http') ? rawUrl : (rawUrl.startsWith('/') ? rawUrl : '/' + rawUrl), self.location.origin).href;
+  } catch (_) {
+    resolvedUrl = self.location.origin + '/orders.html';
+  }
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windowClients => {
       for (const client of windowClients) {
-        if ('navigate' in client && 'focus' in client) {
-          client.navigate(targetUrl).catch(() => {});
-          return client.focus();
+        if (client.url && client.url.startsWith(self.location.origin) && 'navigate' in client && 'focus' in client) {
+          return client.navigate(resolvedUrl).then(() => client.focus()).catch(() => clients.openWindow(resolvedUrl));
         }
       }
       if (clients.openWindow) {
-        return clients.openWindow(targetUrl);
+        return clients.openWindow(resolvedUrl);
       }
     })
   );

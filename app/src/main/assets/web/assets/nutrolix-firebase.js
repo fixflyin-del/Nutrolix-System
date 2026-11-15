@@ -5,7 +5,7 @@
 (function() {
   if (typeof window.NUTROLIX_API_HOST === 'undefined') {
     window.NUTROLIX_API_HOST = (window.location && window.location.protocol === 'file:')
-      ? 'https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app'
+      ? 'https://nutrolixweb.vercel.app'
       : '';
   }
 
@@ -43,6 +43,14 @@
     return String(p).replace(/\D/g, '').slice(-10);
   }
 
+  function canonicalUid(uid, phone) {
+    const cleanP = cleanPhone(phone);
+    if (cleanP.length === 10 && /^[6-9]\d{9}$/.test(cleanP)) {
+      return 'phone_' + cleanP;
+    }
+    return String(uid || '').trim();
+  }
+
   function hashTokenId(str) {
     let h = 0;
     const s = String(str || '');
@@ -71,62 +79,79 @@
         cleanOrder.orderId = cleanOrder.id || ('ORD-' + Math.floor(100000 + Math.random() * 900000));
       }
       if (!cleanOrder.id) cleanOrder.id = cleanOrder.orderId;
+      if (!cleanOrder.idempotencyKey) cleanOrder.idempotencyKey = cleanOrder.orderId;
       if (!cleanOrder.createdAt) cleanOrder.createdAt = new Date().toISOString();
       if (!cleanOrder.timestamp) cleanOrder.timestamp = Date.now();
       if (!cleanOrder.orderTimeMillis) cleanOrder.orderTimeMillis = cleanOrder.timestamp;
 
+      const phoneDigits = cleanPhone(
+        cleanOrder.verifiedPhone || cleanOrder.customerPhone || (cleanOrder.customer && (cleanOrder.customer.verifiedPhone || cleanOrder.customer.phone)) || ''
+      );
+      if (phoneDigits.length === 10) {
+        cleanOrder.verifiedPhone = phoneDigits;
+        cleanOrder.customerPhone = phoneDigits;
+      }
+
       const authUid = (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser)
         ? firebase.auth().currentUser.uid
         : '';
-      if (!cleanOrder.uid && authUid) {
-        cleanOrder.uid = authUid;
+      cleanOrder.uid = canonicalUid(cleanOrder.uid || authUid, phoneDigits);
+
+      let apiOrder = null;
+      if (!skipApi) {
+        const host = window.NUTROLIX_API_HOST || '';
+        const resp = await fetch(host + '/api/nutrition-orders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(cleanOrder)
+        });
+        const respJson = await resp.json().catch(() => ({}));
+        if (!resp.ok || respJson.success !== true) {
+          throw new Error(respJson.error || 'Unable to confirm order on server. Please retry.');
+        }
+        apiOrder = respJson.order || cleanOrder;
       }
 
-      if (db) {
+      const authoritativeOrder = apiOrder || cleanOrder;
+
+      if (db && authoritativeOrder.uid) {
         try {
-          await db.collection('orders').doc(cleanOrder.orderId).set(cleanOrder, { merge: true });
+          await db.collection('orders').doc(authoritativeOrder.orderId).set(authoritativeOrder, { merge: true });
         } catch (e) {
-          console.warn('Firestore order save fallback:', e.message);
+          console.warn('Firestore direct order mirror notice:', e.message);
         }
       }
 
-      // Sync customer summary profile under UID when available
-      if (cleanOrder.uid || (cleanOrder.customer && (cleanOrder.customer.phone || cleanOrder.customer.email))) {
-        this.saveUser({
-          uid: cleanOrder.uid || '',
-          id: cleanOrder.uid || cleanOrder.customer?.phone || cleanOrder.customer?.email,
-          name: cleanOrder.customer?.name || cleanOrder.customerName || 'Customer',
-          phone: cleanOrder.customer?.phone || cleanOrder.customerPhone || '',
-          whatsappNumber: cleanOrder.whatsappNumber || cleanOrder.customer?.whatsappNumber || cleanOrder.customer?.phone || '',
-          email: cleanOrder.customer?.email || cleanOrder.customerEmail || '',
-          lastAddress: cleanOrder.deliveryAddress
-            ? [cleanOrder.deliveryAddress.address1, cleanOrder.deliveryAddress.city, cleanOrder.deliveryAddress.pincode].filter(Boolean).join(', ')
+      // Sync customer summary profile under canonical UID
+      if (authoritativeOrder.uid) {
+        const summaryUpdate = {
+          uid: authoritativeOrder.uid,
+          id: authoritativeOrder.uid,
+          phone: phoneDigits || '',
+          whatsappNumber: authoritativeOrder.whatsappNumber || (authoritativeOrder.customer && authoritativeOrder.customer.whatsappNumber) || phoneDigits || '',
+          email: (authoritativeOrder.customer && authoritativeOrder.customer.email) || authoritativeOrder.customerEmail || '',
+          lastAddress: authoritativeOrder.deliveryAddress
+            ? [authoritativeOrder.deliveryAddress.address1, authoritativeOrder.deliveryAddress.city, authoritativeOrder.deliveryAddress.pincode].filter(Boolean).join(', ')
             : '',
-          lastOrderId: cleanOrder.orderId,
-          lastOrderAmount: Number(cleanOrder.grandTotal || cleanOrder.total || 0),
-          updatedAt: cleanOrder.createdAt
-        }).catch(() => {});
-      }
-
-      if (!skipApi) {
-        try {
-          const host = window.NUTROLIX_API_HOST || '';
-          await fetch(host + '/api/nutrition-orders', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(cleanOrder)
-          });
-        } catch (_) {}
+          lastOrderId: authoritativeOrder.orderId,
+          lastOrderAmount: Number(authoritativeOrder.grandTotal || authoritativeOrder.total || 0),
+          updatedAt: authoritativeOrder.createdAt
+        };
+        const candidateName = String((authoritativeOrder.customer && authoritativeOrder.customer.name) || authoritativeOrder.customerName || '').trim();
+        if (candidateName && !['nutrolix customer', 'customer', 'guest'].includes(candidateName.toLowerCase())) {
+          summaryUpdate.name = candidateName;
+        }
+        this.saveUserProfile(authoritativeOrder.uid, summaryUpdate).catch(() => {});
       }
 
       try {
         const local = JSON.parse(localStorage.getItem('nutrolix_customer_orders') || '[]')
-          .filter(o => (o.id || o.orderId) !== cleanOrder.orderId);
-        local.unshift(cleanOrder);
+          .filter(o => (o.id || o.orderId) !== authoritativeOrder.orderId);
+        local.unshift(authoritativeOrder);
         localStorage.setItem('nutrolix_customer_orders', JSON.stringify(local.slice(0, 60)));
       } catch (_) {}
 
-      return cleanOrder;
+      return authoritativeOrder;
     },
 
     // Admin global listener
@@ -381,6 +406,18 @@
 
     updateOrderStatus: async function(orderId, statusData) {
       const db = this.getDb();
+      let apiResult = null;
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/nutrition-orders/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId, ...statusData })
+        });
+        apiResult = await res.json().catch(() => ({}));
+      } catch (e) {
+        console.warn('Order status endpoint notice:', e.message);
+      }
       if (db) {
         try {
           await db.collection('orders').doc(orderId).set({
@@ -391,14 +428,7 @@
           console.warn('Firestore update order status fallback:', e.message);
         }
       }
-      try {
-        const host = window.NUTROLIX_API_HOST || '';
-        await fetch(host + '/api/nutrition-orders/status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, ...statusData })
-        });
-      } catch (_) {}
+      return apiResult || { success: true };
     },
 
     // 4. PRODUCTS REAL-TIME SYNC

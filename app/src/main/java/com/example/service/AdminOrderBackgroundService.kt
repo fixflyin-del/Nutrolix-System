@@ -402,7 +402,6 @@ class AdminOrderBackgroundService : Service() {
   }
 
   private val remoteOrderEndpoints = listOf(
-    "https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app/api/nutrition-orders",
     "https://nutrolixweb.vercel.app/api/nutrition-orders"
   )
 

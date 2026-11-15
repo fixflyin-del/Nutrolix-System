@@ -49,7 +49,7 @@ class AdminActivity : ComponentActivity() {
 
   companion object {
     const val PRIMARY_ADMIN_URL = "file:///android_asset/web/admin.html"
-    const val LIVE_SERVER_ADMIN_URL = "https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app/admin.html"
+    const val LIVE_SERVER_ADMIN_URL = "https://nutrolixweb.vercel.app/admin.html"
   }
 
   // File upload callback for WebChromeClient (Product Image uploads)
@@ -191,6 +191,35 @@ fun NutrolixAdminWebViewApp(
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
+    try {
+      com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
+        if (task.isSuccessful && !task.result.isNullOrBlank()) {
+          val fcmTok = task.result!!
+          Thread {
+            try {
+              val url = java.net.URL("https://nutrolixweb.vercel.app/api/notifications/register-token")
+              val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 8000
+                readTimeout = 8000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+              }
+              val body = org.json.JSONObject().apply {
+                put("uid", "nutrolix_admin_device")
+                put("role", "admin")
+                put("platform", "android-admin-apk")
+                put("fcmToken", fcmTok)
+                put("token", fcmTok)
+              }.toString()
+              conn.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+              conn.responseCode
+              conn.disconnect()
+            } catch (_: Exception) {}
+          }.start()
+        }
+      }
+    } catch (_: Throwable) {}
   }
 
   // Handle Android hardware/gesture back press

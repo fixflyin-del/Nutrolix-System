@@ -8,7 +8,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script>
     (function() {
-      const LIVE_SERVER = 'https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app';
+      const LIVE_SERVER = 'https://nutrolixweb.vercel.app';
       const isLocalFile = (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null');
       window.NUTROLIX_API_HOST = isLocalFile ? LIVE_SERVER : '';
     })();
@@ -714,6 +714,37 @@
     let cart = [];
     let appliedCoupon = null;
     let selectedSavedAddress = null;
+
+    function getCartSignature() {
+      const pm = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'COD';
+      const coupon = appliedCoupon ? appliedCoupon.code : '';
+      const addr = (document.getElementById('custAddress1')?.value || '').trim().slice(0, 40);
+      const pin = (document.getElementById('custPincode')?.value || '').trim();
+      const itemsSig = (cart || []).map(i => `${i.id || i.title}:${i.variant || ''}:${i.quantity || 1}:${i.price || 0}`).join('|');
+      return `${itemsSig}::${pm}::${coupon}::${pin}::${addr}`;
+    }
+
+    function getOrCreateCheckoutIdempotencyKey() {
+      const sig = getCartSignature();
+      try {
+        const saved = JSON.parse(sessionStorage.getItem('nutrolix_checkout_idem') || 'null');
+        if (saved && saved.sig === sig && saved.key) {
+          return { key: saved.key, orderId: saved.orderId };
+        }
+      } catch (_) {}
+      const rand = Math.floor(100000 + Math.random() * 900000);
+      const newObj = {
+        sig,
+        key: `idem_${Date.now().toString(36)}_${rand}`,
+        orderId: `ORD-${rand}`
+      };
+      try { sessionStorage.setItem('nutrolix_checkout_idem', JSON.stringify(newObj)); } catch (_) {}
+      return newObj;
+    }
+
+    function resetCheckoutIdempotencyKey() {
+      try { sessionStorage.removeItem('nutrolix_checkout_idem'); } catch (_) {}
+    }
 
     function getStoreSettings() {
       try {
@@ -1785,19 +1816,22 @@
       const shipping = subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee;
       const grandTotal = Math.max(0, subtotal - couponDiscount - foodDiscount + shipping);
 
-      const generatedOrderId = 'ORD-' + Math.floor(100000 + Math.random() * 900000);
+      const idemInfo = getOrCreateCheckoutIdempotencyKey();
+      const generatedOrderId = idemInfo.orderId;
+      const idempotencyKey = idemInfo.key;
       const nowIso = new Date().toISOString();
       const nowMs = Date.now();
       const orderPayload = {
         id: generatedOrderId,
         orderId: generatedOrderId,
         orderNumber: generatedOrderId,
+        idempotencyKey,
         uid: user.uid || '',
-        customer: { name, phone, email, whatsappNumber: phone, verifiedPhone: user.verifiedPhone || '' },
+        customer: { name, phone, email, whatsappNumber: phone, verifiedPhone: verifiedPhone || phone },
         customerName: name,
         customerPhone: phone,
         whatsappNumber: phone,
-        verifiedPhone: user.verifiedPhone || '',
+        verifiedPhone: verifiedPhone || phone,
         customerEmail: email,
         deliveryAddress: {
           address1,
@@ -1844,7 +1878,7 @@
           name,
           email,
           whatsappNumber: phone,
-          verifiedPhone: user.verifiedPhone || '',
+          verifiedPhone: verifiedPhone || phone,
           defaultAddress: address1,
           city,
           state,
@@ -1858,13 +1892,7 @@
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-base mr-2"></i><span>Securing Order...</span>';
       }
 
-      if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveOrder === 'function') {
-        try {
-          window.NutrolixFirebase.saveOrder({ ...orderPayload, _skipApi: true }).catch(fbErr => console.warn('Firebase order sync fallback:', fbErr));
-        } catch (_) {}
-      }
-
-      // 2. If PayU Online Payment is selected, launch official PayU Gateway
+      // 2. If PayU Online Payment is selected, launch official PayU Gateway (server-persisted pending order)
       if (paymentMethod.includes('PayU') || paymentMethod.includes('Online')) {
         if (btn) btn.innerHTML = '<i class="fa-solid fa-shield-halved fa-spin text-base mr-2"></i><span>Opening PayU Gateway...</span>';
         try {
@@ -1874,20 +1902,24 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               orderId: generatedOrderId,
+              idempotencyKey,
+              uid: user.uid || '',
+              verifiedPhone: verifiedPhone || phone,
               totalAmount: grandTotal,
               customerName: name,
               customerEmail: email,
               customerPhone: phone,
               items: cart,
-              deliveryAddress: orderPayload.deliveryAddress
+              deliveryAddress: orderPayload.deliveryAddress,
+              couponCode: orderPayload.couponCode || null
             })
           });
           const payuData = await payuRes.json();
-          if (payuData.success) {
+          if (payuRes.ok && payuData && payuData.success) {
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = payuData.action; // https://secure.payu.in/_payment
-            
+
             const fields = {
               key: payuData.key,
               txnid: payuData.txnid,
@@ -1911,91 +1943,75 @@
             form.submit();
             return;
           } else {
-            throw new Error(payuData.error || 'Failed to initiate PayU payment');
+            throw new Error((payuData && payuData.error) || 'Failed to initiate PayU payment');
           }
         } catch (payuErr) {
-          alert('PayU Gateway notice: ' + payuErr.message + '. You may also choose Cash on Delivery.');
+          alert('PayU Gateway error: ' + payuErr.message + '. Your cart is saved — please retry or choose Cash on Delivery.');
           if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<span>Confirm &amp; Place Order</span><i class="fa-solid fa-arrow-right text-base ml-2"></i>';
+            btn.innerHTML = '<i class="fa-solid fa-lock text-sm mr-2"></i><span>Confirm &amp; Place Order</span>';
           }
           return;
         }
       }
 
-      // 3. Cash on Delivery (COD) / Direct Order
+      // 3. Cash on Delivery (COD) / Direct Authoritative Order
       try {
-        const host = window.NUTROLIX_API_HOST || '';
-        const res = await fetch(host + '/api/nutrition-orders', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(orderPayload)
-        });
-        const data = await res.json();
-        
         let confirmedOrder = null;
-        if (data && data.success && data.order) {
-          confirmedOrder = { ...orderPayload, ...data.order, id: generatedOrderId, orderId: generatedOrderId };
+        if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveOrder === 'function') {
+          const data = await window.NutrolixFirebase.saveOrder(orderPayload);
+          if (!data || !data.success || !data.order) {
+            throw new Error((data && data.error) || 'Order could not be confirmed on the server.');
+          }
+          confirmedOrder = { ...orderPayload, ...data.order };
         } else {
-          confirmedOrder = {
-            ...orderPayload,
-            status: 'Order Placed'
-          };
+          const host = window.NUTROLIX_API_HOST || '';
+          const res = await fetch(host + '/api/nutrition-orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderPayload)
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok || !data || !data.success || !data.order) {
+            throw new Error((data && data.error) || `Order server error (${res.status})`);
+          }
+          confirmedOrder = { ...orderPayload, ...data.order };
         }
+
+        const finalOrdId = confirmedOrder.id || confirmedOrder.orderId || generatedOrderId;
+        confirmedOrder.id = finalOrdId;
+        confirmedOrder.orderId = finalOrdId;
 
         let existingLocal = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
         const prevCustomerOrders = existingLocal.filter(o => o.customer && (o.customer.phone === phone || (email && o.customer.email === email))).length;
-        const orderSequenceNumber = prevCustomerOrders + 1;
+        const orderSequenceNumber = confirmedOrder.orderSequence || (prevCustomerOrders + 1);
         confirmedOrder.orderSequence = orderSequenceNumber;
 
-        existingLocal = existingLocal.filter(o => (o.id || o.orderId) !== generatedOrderId);
+        existingLocal = existingLocal.filter(o => (o.id || o.orderId) !== finalOrdId);
         existingLocal.unshift(confirmedOrder);
         localStorage.setItem('nutrolix_orders', JSON.stringify(existingLocal));
-        
+
+        resetCheckoutIdempotencyKey();
         localStorage.removeItem('nutrolix_packaged_cart');
         localStorage.removeItem('nutrolix_store_cart');
         cart = [];
         renderCart();
 
-        const ordId = confirmedOrder.id || confirmedOrder.orderId;
-        document.getElementById('successOrderId').innerText = ordId;
+        document.getElementById('successOrderId').innerText = finalOrdId;
         const orderSeqText = orderSequenceNumber === 1 ? 'First Order 🎉' : `${orderSequenceNumber}th Order 🌟`;
         document.getElementById('successCustomer').innerText = `${name} (${phone}) • ${orderSeqText}`;
         document.getElementById('successPayment').innerText = paymentMethod;
-        document.getElementById('successAmount').innerText = `₹${grandTotal}`;
-        
+        document.getElementById('successAmount').innerText = `₹${confirmedOrder.grandTotal || grandTotal}`;
+
         const trackBtn = document.getElementById('btnModalTrackOrder');
         if (trackBtn) {
-          trackBtn.href = `orders.html?orderId=${ordId}`;
+          trackBtn.href = `orders.html?orderId=${encodeURIComponent(finalOrdId)}`;
         }
 
         document.getElementById('orderSuccessModal').classList.remove('hidden');
       } catch (err) {
-        // Offline / client fallback
-        const ordId = 'NTX-' + Math.floor(100000 + Math.random() * 900000);
-        const fallbackOrder = {
-          ...orderPayload,
-          id: ordId,
-          orderId: ordId,
-          status: 'Accepted',
-          orderSequence: 1,
-          createdAt: new Date().toISOString()
-        };
-        let existingLocal = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
-        existingLocal.unshift(fallbackOrder);
-        localStorage.setItem('nutrolix_orders', JSON.stringify(existingLocal));
-        localStorage.removeItem('nutrolix_packaged_cart');
-        localStorage.removeItem('nutrolix_store_cart');
-        cart = [];
-        renderCart();
-
-        document.getElementById('successOrderId').innerText = ordId;
-        document.getElementById('successCustomer').innerText = `${name} (${phone})`;
-        document.getElementById('successPayment').innerText = paymentMethod;
-        document.getElementById('successAmount').innerText = `₹${grandTotal}`;
-        const trackBtn = document.getElementById('btnModalTrackOrder');
-        if (trackBtn) trackBtn.href = `orders.html?orderId=${ordId}`;
-        document.getElementById('orderSuccessModal').classList.remove('hidden');
+        console.error('[Cart] Order confirmation failed:', err);
+        alert('Unable to confirm your order right now: ' + (err.message || 'Server unreachable') + '\n\nYour cart items are preserved. Please check your connection and try again.');
       } finally {
         if (btn) {
           btn.disabled = false;

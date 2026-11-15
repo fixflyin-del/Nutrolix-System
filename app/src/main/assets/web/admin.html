@@ -12,7 +12,7 @@
   <script>
     // Universal API Bridge: Redirects relative API requests to live Cloud Run server when running inside Android WebView
     (function() {
-      const LIVE_SERVER = 'https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app';
+      const LIVE_SERVER = 'https://nutrolixweb.vercel.app';
       const isLocalOrFile = (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null');
       window.NUTROLIX_API_HOST = isLocalOrFile ? LIVE_SERVER : '';
       
@@ -663,6 +663,43 @@
               <button type="button" onclick="window.testCloudinaryPicker()" class="px-3.5 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow transition">
                 <i class="fa-solid fa-upload text-[11px]"></i>
                 <span>Test Upload Photo</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Section 6: Secure Customer Data Audit & One-Time Reset (Dry-Run Preview Default) -->
+          <div class="bg-rose-50/60 border border-rose-200 rounded-3xl p-5 shadow-sm space-y-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-rose-200/70">
+              <div class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 rounded-xl bg-rose-700 text-white flex items-center justify-center font-black text-sm shadow">
+                  <i class="fa-solid fa-database"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-black text-slate-900">Customer Data Audit &amp; Reset Utility (Dry-Run Default)</h3>
+                  <p class="text-[11px] text-slate-600">Counts &amp; audits customer accounts, addresses, orders, and notification tokens while strictly preserving Products, Meals, Blogs, Coupons, Store Settings &amp; Admin records.</p>
+                </div>
+              </div>
+              <span id="adminSessionTokenBadge" class="text-[10px] font-black px-2.5 py-1 rounded-full bg-slate-200 text-slate-700">Admin PIN Required</span>
+            </div>
+
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2.5">
+              <input type="password" id="purgeAdminPinInput" placeholder="Enter Admin PIN to unlock audit/reset" class="flex-1 px-3 py-2 text-xs rounded-xl border border-rose-200 bg-white font-bold focus:outline-none focus:border-rose-500">
+              <button type="button" id="btnUnlockAdminPurge" onclick="window.unlockAdminPurgeSession()" class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow transition whitespace-nowrap">
+                Unlock Admin Token
+              </button>
+              <button type="button" id="btnRunCustomerDryRun" onclick="window.runCustomerDataAudit(true)" class="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs shadow transition whitespace-nowrap flex items-center space-x-1.5">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <span>Run Dry-Run Preview</span>
+              </button>
+            </div>
+
+            <div id="purgeAuditOutput" class="hidden bg-white rounded-2xl border border-rose-200 p-3.5 text-xs space-y-2"></div>
+
+            <div class="pt-2 border-t border-rose-200/70 flex flex-col sm:flex-row sm:items-center gap-2.5">
+              <input type="text" id="purgeConfirmPhraseInput" placeholder="Type DELETE ALL CUSTOMER DATA to enable permanent purge" class="flex-1 px-3 py-2 text-xs rounded-xl border border-rose-300 bg-white font-mono text-slate-800 focus:outline-none focus:border-rose-600">
+              <button type="button" id="btnExecuteLivePurge" onclick="window.runCustomerDataAudit(false)" class="px-4 py-2 rounded-xl bg-rose-700 hover:bg-rose-800 text-white font-black text-xs shadow transition whitespace-nowrap flex items-center space-x-1.5">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>Delete Customer Data</span>
               </button>
             </div>
           </div>
@@ -2575,11 +2612,14 @@
       window.purgeDummyCachedData();
       window.mergeAndRenderAllOrders(false);
 
-      // Fetch from Cloud Run / relative server API AND Vercel deployment so orders from WebApp & App always sync
-      const endpoints = [
-        { key: 'cloudRun', url: '/api/nutrition-orders' },
-        { key: 'vercel', url: 'https://nutrolixweb.vercel.app/api/nutrition-orders' }
-      ];
+      const endpoints = [{ key: 'cloudRun', url: '/api/nutrition-orders' }];
+      const hostStr = String(window.NUTROLIX_API_HOST || '');
+      const originStr = String(window.location && window.location.origin || '');
+      if (originStr && originStr !== 'null' && !originStr.includes('nutrolixweb.vercel.app') && !hostStr.includes('nutrolixweb.vercel.app')) {
+        endpoints.push({ key: 'vercel', url: 'https://nutrolixweb.vercel.app/api/nutrition-orders' });
+      } else if (window.liveOrderBuckets) {
+        window.liveOrderBuckets.vercel = [];
+      }
 
       await Promise.all(endpoints.map(async ep => {
         try {
@@ -2803,53 +2843,97 @@
 
     window.acceptPackagedOrder = async function(orderId) {
       acknowledgedOrderIds.add(orderId);
-      await window.callOrderStatusEndpoint(orderId, 'Order Confirmed');
-      alert(`✓ Order #${orderId} marked as Order Confirmed! Customer push notification dispatched.`);
-      window.loadPackagedOrders();
+      try {
+        const res = await window.callOrderStatusEndpoint(orderId, 'Order Confirmed');
+        const pushNote = window.formatPushSummary(res);
+        alert(`✓ Order #${orderId} marked as Order Confirmed!\n${pushNote}`);
+        window.loadPackagedOrders();
+      } catch (err) {
+        alert('❌ Failed to update order status: ' + err.message);
+      }
     };
 
     window.markOrderPreparing = async function(orderId) {
       acknowledgedOrderIds.add(orderId);
-      await window.callOrderStatusEndpoint(orderId, 'Processing');
-      alert(`✓ Order #${orderId} marked as Processing! Customer push notification dispatched.`);
-      window.loadPackagedOrders();
+      try {
+        const res = await window.callOrderStatusEndpoint(orderId, 'Processing');
+        const pushNote = window.formatPushSummary(res);
+        alert(`✓ Order #${orderId} marked as Processing!\n${pushNote}`);
+        window.loadPackagedOrders();
+      } catch (err) {
+        alert('❌ Failed to update order status: ' + err.message);
+      }
     };
 
     window.markOrderPacked = async function(orderId) {
       acknowledgedOrderIds.add(orderId);
-      await window.callOrderStatusEndpoint(orderId, 'Packed');
-      alert(`✓ Order #${orderId} marked as Packed! Customer push notification dispatched.`);
-      window.loadPackagedOrders();
+      try {
+        const res = await window.callOrderStatusEndpoint(orderId, 'Packed');
+        const pushNote = window.formatPushSummary(res);
+        alert(`✓ Order #${orderId} marked as Packed!\n${pushNote}`);
+        window.loadPackagedOrders();
+      } catch (err) {
+        alert('❌ Failed to update order status: ' + err.message);
+      }
     };
 
     window.markOrderDispatchedPrompt = async function(orderId) {
       acknowledgedOrderIds.add(orderId);
       const courierName = prompt('Enter Courier / Delivery Partner Name (e.g. Delhivery, Blue Dart, Porter):', 'Nutrolix Express') || 'Nutrolix Express';
       const trackingNumber = prompt('Enter Tracking Number (optional):', '') || '';
-      await window.callOrderStatusEndpoint(orderId, 'Out for Delivery', courierName, trackingNumber);
-      alert(`✓ Order #${orderId} marked as Out for Delivery! Customer push notification dispatched.`);
-      window.loadPackagedOrders();
+      try {
+        const res = await window.callOrderStatusEndpoint(orderId, 'Out for Delivery', courierName, trackingNumber);
+        const pushNote = window.formatPushSummary(res);
+        alert(`✓ Order #${orderId} marked as Out for Delivery!\n${pushNote}`);
+        window.loadPackagedOrders();
+      } catch (err) {
+        alert('❌ Failed to update order status: ' + err.message);
+      }
     };
 
     window.markOrderDelivered = async function(orderId) {
       acknowledgedOrderIds.add(orderId);
-      await window.callOrderStatusEndpoint(orderId, 'Delivered');
-      alert(`✓ Order #${orderId} marked as Delivered! Customer push notification dispatched.`);
-      window.loadPackagedOrders();
+      try {
+        const res = await window.callOrderStatusEndpoint(orderId, 'Delivered');
+        const pushNote = window.formatPushSummary(res);
+        alert(`✓ Order #${orderId} marked as Delivered!\n${pushNote}`);
+        window.loadPackagedOrders();
+      } catch (err) {
+        alert('❌ Failed to update order status: ' + err.message);
+      }
     };
 
     window.updatePackagedOrderStatus = async function(orderId, newStatus) {
       acknowledgedOrderIds.add(orderId);
-      await window.callOrderStatusEndpoint(orderId, newStatus);
-      alert(`✓ Order #${orderId} status updated to "${newStatus}" & Customer push notification sent!`);
-      window.loadPackagedOrders();
+      try {
+        const res = await window.callOrderStatusEndpoint(orderId, newStatus);
+        const pushNote = window.formatPushSummary(res);
+        alert(`✓ Order #${orderId} status updated to "${newStatus}"!\n${pushNote}`);
+        window.loadPackagedOrders();
+      } catch (err) {
+        alert('❌ Failed to update order status: ' + err.message);
+        window.loadPackagedOrders();
+      }
+    };
+
+    window.formatPushSummary = function(apiRes) {
+      const p = apiRes && apiRes.push;
+      if (!p) return 'In-app & order feed updated.';
+      if (p.skippedDuplicate) return 'Notification already sent previously for this status (deduped).';
+      if (p.deliveryStatus === 'delivered' || p.deliveryStatus === 'accepted') {
+        return `Push delivered/accepted: ${p.sentCount || 0} (FCM: ${p.fcmSentCount || 0}, WebPush: ${p.webPushSentCount || 0}).`;
+      }
+      if (p.deliveryStatus === 'failed') {
+        return `⚠️ Push delivery failed (${p.failedCount || 0} device errors); in-app notification saved.`;
+      }
+      return 'No active push token registered for this customer yet; in-app notification saved.';
     };
 
     window.callOrderStatusEndpoint = async function(orderId, status, courierName = '', trackingNumber = '') {
       if (typeof window.acknowledgeActiveAlarm === 'function') {
         try { window.acknowledgeActiveAlarm(); } catch (_) {}
       }
-      // 1. Update in-memory orders across buckets
+      // 1. Optimistic local state update
       if (window.packagedOrders) {
         const ord = window.packagedOrders.find(o => o.id === orderId || o.orderId === orderId);
         if (ord) {
@@ -2870,7 +2954,6 @@
         }
       });
 
-      // 2. Update localStorage nutrolix_orders
       try {
         let localOrders = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
         const idx = localOrders.findIndex(o => o.id === orderId || o.orderId === orderId);
@@ -2882,25 +2965,22 @@
         localStorage.setItem('nutrolix_orders', JSON.stringify(localOrders));
       } catch (_) {}
 
-      // 3. Sync to Firebase Firestore AND backend API
-      if (window.NutrolixFirebase && typeof window.NutrolixFirebase.updateOrderStatus === 'function') {
-        window.NutrolixFirebase.updateOrderStatus(orderId, {
-          status,
-          courier: courierName,
-          trackingNumber
-        }).catch(() => {});
-      }
+      // 2. Single authoritative server update (which writes Firestore + sends deduplicated FCM/WebPush)
+      const adminToken = sessionStorage.getItem('nutrolix_admin_token') || '';
+      const headers = { 'Content-Type': 'application/json' };
+      if (adminToken) headers['X-Nutrolix-Admin-Token'] = adminToken;
 
-      try {
-        const host = window.NUTROLIX_API_HOST || '';
-        await fetch(host + '/api/nutrition-orders/status', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId, status, courier: courierName, trackingNumber })
-        });
-      } catch (err) {
-        console.error('Error updating status on server:', err);
+      const host = window.NUTROLIX_API_HOST || '';
+      const res = await fetch(host + '/api/nutrition-orders/status', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ orderId, status, courier: courierName, trackingNumber })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data || !data.success) {
+        throw new Error((data && data.error) || `Server status update failed (${res.status})`);
       }
+      return data;
     };
 
     // WhatsApp Order Update
@@ -3597,37 +3677,38 @@
       }
 
       try {
-        try {
-          await fetch('/api/notifications/broadcast', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-        } catch (_) {}
+        const res = await fetch('/api/notifications/broadcast', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data || !data.success) {
+          throw new Error((data && data.error) || `Broadcast failed (${res.status})`);
+        }
 
-        // Always save to local notifications log so history and active status never fail
         let logs = [];
         try { logs = JSON.parse(localStorage.getItem('nutrolix_notifications_log') || '[]'); } catch(_) {}
         const newLog = {
-          id: 'notif_' + Date.now(),
+          id: (data.log && data.log.id) || ('notif_' + Date.now()),
           title: payload.title,
           message: payload.body,
           target: 'ALL_CUSTOMERS',
           type: payload.type || 'PROMOTIONAL',
           url: payload.url || '',
           timestamp: new Date().toISOString(),
-          status: 'SENT',
-          targetTokens: 1
+          status: data.deliveryStatus || 'DISPATCHED',
+          targetTokens: data.sentCount || 0
         };
         logs.unshift(newLog);
         localStorage.setItem('nutrolix_notifications_log', JSON.stringify(logs));
-        
-        alert('✓ Push notification broadcast successfully dispatched to all active devices!');
+
+        alert(`Push Broadcast Status: ${(data.deliveryStatus || 'done').toUpperCase()}\n\n• Delivered/Accepted: ${data.sentCount || 0} (FCM: ${data.fcmSentCount || 0}, WebPush: ${data.webPushSentCount || 0})\n• Failed: ${data.failedCount || 0}\n• Active Registered Devices: ${data.registeredDevices || 0}`);
         document.getElementById('notifTitle').value = '';
         document.getElementById('notifBody').value = '';
         window.loadNotificationHistory();
       } catch (err) {
-        alert('Broadcast recorded: ' + err.message);
+        alert('❌ Push notification broadcast error: ' + err.message);
       }
     };
 
@@ -4882,9 +4963,126 @@
       }
     };
 
-    window.addEventListener("DOMContentLoaded", window.initNutrolixAdmin);
+    window.refreshAdminTokenBadge = function() {
+      const badge = document.getElementById('adminSessionTokenBadge');
+      if (!badge) return;
+      const tok = sessionStorage.getItem('nutrolix_admin_token') || '';
+      if (tok) {
+        badge.textContent = 'Admin Token Active';
+        badge.className = 'text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800';
+      } else {
+        badge.textContent = 'Admin PIN Required';
+        badge.className = 'text-[10px] font-black px-2.5 py-1 rounded-full bg-slate-200 text-slate-700';
+      }
+    };
+
+    window.unlockAdminPurgeSession = async function() {
+      const pinEl = document.getElementById('purgeAdminPinInput');
+      const pin = (pinEl && pinEl.value || '').trim();
+      if (!pin) return alert('Please enter your Admin PIN to authenticate.');
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pin })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data || !data.success || !data.token) {
+          throw new Error((data && data.error) || 'Invalid Admin PIN');
+        }
+        sessionStorage.setItem('nutrolix_admin_token', data.token);
+        if (pinEl) pinEl.value = '';
+        window.refreshAdminTokenBadge();
+        alert('✓ Admin session authenticated cleanly.');
+      } catch (err) {
+        alert('❌ Admin authentication failed: ' + err.message);
+      }
+    };
+
+    window.runCustomerDataAudit = async function(dryRun = true) {
+      const token = sessionStorage.getItem('nutrolix_admin_token') || '';
+      if (!token) {
+        alert('Please enter your Admin PIN and click "Unlock Admin Token" first.');
+        document.getElementById('purgeAdminPinInput')?.focus();
+        return;
+      }
+
+      const phrase = (document.getElementById('purgeConfirmPhraseInput')?.value || '').trim();
+      if (!dryRun) {
+        if (phrase !== 'DELETE ALL CUSTOMER DATA') {
+          alert('Type exact phrase DELETE ALL CUSTOMER DATA in the confirmation box to proceed.');
+          return;
+        }
+        if (!confirm('⚠️ FINAL CONFIRMATION\n\nThis will permanently delete ALL customer accounts, addresses, orders, and notification tokens from Firestore.\nProducts, Meals, Blogs, Coupons, Store Settings & Admins will be preserved.\n\nContinue?')) {
+          return;
+        }
+      }
+
+      const outEl = document.getElementById('purgeAuditOutput');
+      if (outEl) {
+        outEl.classList.remove('hidden');
+        outEl.innerHTML = `<div class="text-slate-600 font-bold"><i class="fa-solid fa-circle-notch fa-spin mr-1.5"></i>${dryRun ? 'Running Dry-Run Audit across Firestore databases...' : 'Executing permanent customer data cleanup...'}</div>`;
+      }
+
+      try {
+        const res = await fetch('/api/admin/customer-data/purge', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Nutrolix-Admin-Token': token
+          },
+          body: JSON.stringify({
+            dryRun: Boolean(dryRun),
+            confirmPhrase: dryRun ? '' : phrase
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data || !data.success) {
+          throw new Error((data && data.error) || `Request failed (${res.status})`);
+        }
+        const rows = Object.entries(data.databases || {}).map(([dbId, dbCols]) => {
+          const cols = Object.entries(dbCols || {}).map(([col, stat]) => {
+            const matched = stat.matched || 0;
+            const deleted = stat.deleted || 0;
+            const subNote = stat.subcollections && Object.keys(stat.subcollections).length
+              ? ' (+subs: ' + Object.entries(stat.subcollections).map(([s, sv]) => `${s}:${dryRun ? (sv.matched || 0) : `${sv.deleted || 0}/${sv.matched || 0}`}`).join(', ') + ')'
+              : '';
+            const countText = dryRun ? `${matched} matched${subNote}` : `${deleted} / ${matched} deleted${subNote}`;
+            return `<li class="flex justify-between py-0.5 border-b border-slate-100 gap-2"><span>${col}</span><span class="font-mono font-bold text-right">${countText}</span></li>`;
+          }).join('');
+          return `<div class="mb-2"><div class="font-black text-slate-800 mb-1">DB: ${dbId}</div><ul class="space-y-0.5">${cols}</ul></div>`;
+        }).join('');
+
+        const totalMatched = (data.totals && data.totals.matched) || 0;
+        const totalDeleted = (data.totals && data.totals.deleted) || 0;
+        if (outEl) {
+          outEl.innerHTML = `
+            <div class="font-black ${dryRun ? 'text-amber-800' : 'text-rose-800'}">
+              ${dryRun ? '✓ DRY-RUN PREVIEW (No Data Deleted)' : '✓ LIVE PURGE COMPLETED'}
+              • Matched: ${totalMatched} | Deleted: ${totalDeleted}
+            </div>
+            ${rows}
+            <div class="text-[10px] text-emerald-700 font-bold pt-1">
+              Preserved intact: ${(data.preservedCollections || []).join(', ')}
+            </div>
+          `;
+        }
+      } catch (err) {
+        if (outEl) {
+          outEl.innerHTML = `<div class="text-rose-700 font-bold">❌ Error: ${err.message}</div>`;
+        }
+      }
+    };
+
+    window.addEventListener("DOMContentLoaded", () => {
+      window.refreshAdminTokenBadge();
+      window.initNutrolixAdmin();
+    });
     if (document.readyState === "interactive" || document.readyState === "complete") {
-      setTimeout(window.initNutrolixAdmin, 20);
+      setTimeout(() => {
+        window.refreshAdminTokenBadge();
+        window.initNutrolixAdmin();
+      }, 20);
     }
   </script>
 </body>

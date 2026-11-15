@@ -5,7 +5,7 @@
 (function() {
   if (typeof window.NUTROLIX_API_HOST === 'undefined') {
     window.NUTROLIX_API_HOST = (window.location && window.location.protocol === 'file:')
-      ? 'https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app'
+      ? 'https://nutrolixweb.vercel.app'
       : '';
   }
 
@@ -31,29 +31,56 @@
     return String(p).replace(/\D/g, '').slice(-10);
   }
 
-  function toE164India(p) {
-    const digits = clean10Phone(p);
-    return digits.length === 10 ? `+91${digits}` : '';
+  function isMeaningfulName(n) {
+    const clean = String(n || '').trim().toLowerCase();
+    return Boolean(clean) && !['nutrolix customer', 'customer', 'guest', 'guest customer', 'user'].includes(clean);
+  }
+
+  function pickBestName() {
+    for (let i = 0; i < arguments.length; i++) {
+      const val = arguments[i];
+      if (isMeaningfulName(val)) return String(val).trim();
+    }
+    return 'Nutrolix Customer';
+  }
+
+  function toCanonicalUid(uid, phone) {
+    const cleanPhone = clean10Phone(phone);
+    if (cleanPhone.length === 10 && /^[6-9]\d{9}$/.test(cleanPhone)) {
+      return 'phone_' + cleanPhone;
+    }
+    return String(uid || '').trim();
   }
 
   function buildAvatar(name) {
     return `https://ui-avatars.com/api/?name=${encodeURIComponent(name || 'Customer')}&background=047857&color=fff&bold=true`;
   }
 
-  let webConfirmationResult = null;
-  let webRecaptchaVerifier = null;
-  let nativeVerificationId = '';
+  function clearCustomerLocalCaches(keepProfile) {
+    if (!keepProfile) {
+      localStorage.removeItem('nutrolix_user_profile');
+    }
+    localStorage.removeItem('nutrolix_saved_addresses');
+    localStorage.removeItem('nutrolix_customer_orders');
+    localStorage.removeItem('nutrolix_orders');
+    localStorage.removeItem('nutrolix_store_orders');
+    localStorage.removeItem('nutrolix_food_orders');
+    localStorage.removeItem('nutrolix_notification_registered');
+    localStorage.removeItem('nutrolix_pending_otp_phone');
+    sessionStorage.removeItem('nutrolix_shown_notif_ids');
+  }
+
   let pendingNativePhoneCallbacks = null;
   let pendingNativeOtpCallbacks = null;
+  let hydrationPromise = null;
 
   // Get current logged-in user profile (WhatsApp Mobile OTP / Phone Auth)
   window.getNutrolixUser = function() {
     try {
       const p = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-      const phoneDigits = clean10Phone(p.verifiedPhone || p.phone || p.whatsappNumber || '');
-      // A saved checkout profile is not proof of authentication.
-      // Only profiles written after a successful Firebase custom-token sign-in
-      // may be treated as a verified customer session.
+      const phoneDigits = clean10Phone(
+        p.verifiedPhone || p.phone || p.whatsappNumber || (String(p.uid || '').startsWith('phone_') ? String(p.uid).slice(6) : '')
+      );
       const hasIdentity = Boolean(
         p &&
         p.authSession === true &&
@@ -73,7 +100,7 @@
   };
 
   // Save authenticated user profile & hydrate Firestore + backend
-  window.saveNutrolixUser = function(userData) {
+  window.saveNutrolixUser = function(userData, opts = {}) {
     let existing = {};
     try {
       existing = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
@@ -83,20 +110,31 @@
       userData.verifiedPhone ||
       (userData.phoneVerified ? userData.phone : '') ||
       userData.phone ||
+      (String(userData.uid || '').startsWith('phone_') ? String(userData.uid).slice(6) : '') ||
       existing.verifiedPhone ||
       ''
     );
+    const targetUid = toCanonicalUid(userData.uid || existing.uid || '', verifiedPhone);
+
+    // Clear cross-account local caches if account UID switched
+    if (existing.uid && targetUid && existing.uid !== targetUid) {
+      clearCustomerLocalCaches(true);
+      existing = {};
+    }
+
     const displayPhone = clean10Phone(userData.phone || verifiedPhone || existing.phone || '');
     const whatsappNumber = clean10Phone(userData.whatsappNumber || existing.whatsappNumber || displayPhone || '');
-    const rawName = (userData.name !== undefined ? userData.name : existing.name) || '';
-    const name = String(rawName).trim() || 'Nutrolix Customer';
+    const name = pickBestName(userData.name, existing.name);
 
     const updated = {
       ...existing,
       ...userData,
-      uid: userData.uid || existing.uid || '',
+      uid: targetUid,
+      id: targetUid,
       name,
-      email: String(userData.email !== undefined ? userData.email : (existing.email || '')).trim().toLowerCase(),
+      email: String(
+        (userData.email !== undefined && userData.email !== '') ? userData.email : (existing.email || '')
+      ).trim().toLowerCase(),
       phone: displayPhone,
       verifiedPhone,
       whatsappNumber,
@@ -112,98 +150,184 @@
 
     localStorage.setItem('nutrolix_user_profile', JSON.stringify(updated));
 
-    try {
-      if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveUserProfile === 'function' && updated.uid) {
-        window.NutrolixFirebase.saveUserProfile(updated.uid, updated).catch(() => {});
-      } else if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveUser === 'function') {
-        window.NutrolixFirebase.saveUser(updated).catch(() => {});
-      }
-    } catch (_) {}
+    if (!opts.skipRemoteSync) {
+      try {
+        if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveUserProfile === 'function' && updated.uid) {
+          window.NutrolixFirebase.saveUserProfile(updated.uid, updated).catch(() => {});
+        } else if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveUser === 'function') {
+          window.NutrolixFirebase.saveUser(updated).catch(() => {});
+        }
+      } catch (_) {}
 
-    try {
-      const host = window.NUTROLIX_API_HOST || '';
-      fetch(host + '/api/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updated)
-      }).catch(() => {});
-    } catch (_) {}
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        fetch(host + '/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updated)
+        }).catch(() => {});
+      } catch (_) {}
+    }
 
     window.dispatchEvent(new CustomEvent('nutrolix:auth-changed', { detail: updated }));
     return updated;
   };
 
-  function firebaseUserToProfile(u, extra = {}) {
+  function firebaseUserToProfile(u, extra = {}, opts = {}) {
     if (!u) return null;
-    const verifiedPhone = clean10Phone(u.phoneNumber || extra.verifiedPhone || extra.phone || '');
+    const fromUid = String(u.uid || '').startsWith('phone_') ? String(u.uid).slice(6) : '';
+    const verifiedPhone = clean10Phone(u.phoneNumber || extra.verifiedPhone || extra.phone || fromUid || '');
     return window.saveNutrolixUser({
-      uid: u.uid,
-      name: extra.name || u.displayName || 'Nutrolix Customer',
+      uid: toCanonicalUid(u.uid, verifiedPhone),
+      name: pickBestName(extra.name, u.displayName),
+      email: extra.email || u.email || '',
       phone: verifiedPhone,
       verifiedPhone,
       whatsappNumber: extra.whatsappNumber || verifiedPhone,
       photo: u.photoURL || extra.photo || '',
+      city: extra.city || '',
+      state: extra.state || '',
+      pincode: extra.pincode || '',
+      defaultAddress: extra.defaultAddress || '',
       providers: ['phone'],
-      phoneVerified: Boolean(verifiedPhone.length === 10),
-      linkedFromUid: extra.previousUid || ''
-    });
+      phoneVerified: Boolean(verifiedPhone.length === 10)
+    }, opts);
   }
 
-  // Hydrate Firestore addresses + saved profile right after auth
-  async function hydrateFromFirestore(uid) {
-    if (!uid || !window.NutrolixFirebase) return;
-    try {
-      const remoteProfile = await window.NutrolixFirebase.fetchUserProfile(uid);
-      if (remoteProfile) {
+  // Authoritative server & Firestore hydration: remote Firestore/server profile & addresses ALWAYS win over stale localStorage
+  async function hydrateFromFirestore(uid, firebaseUser = null) {
+    if (!uid) return null;
+    if (hydrationPromise) return hydrationPromise;
+    hydrationPromise = (async () => {
+      try {
         const local = window.getNutrolixUser() || {};
-        const merged = {
-          ...remoteProfile,
-          ...local,
-          name: (local.name && local.name !== 'Nutrolix Customer') ? local.name : (remoteProfile.name || local.name),
-          whatsappNumber: local.whatsappNumber || remoteProfile.whatsappNumber || local.phone || '',
-          city: local.city || remoteProfile.city || '',
-          state: local.state || remoteProfile.state || '',
-          pincode: local.pincode || remoteProfile.pincode || '',
-          defaultAddress: local.defaultAddress || remoteProfile.defaultAddress || ''
-        };
-        localStorage.setItem('nutrolix_user_profile', JSON.stringify(merged));
+        const phone = clean10Phone(
+          local.verifiedPhone || local.phone || (String(uid).startsWith('phone_') ? String(uid).slice(6) : '')
+        );
+        const canonicalUid = toCanonicalUid(uid, phone);
+        let serverProfile = null;
+        let serverAddresses = null;
+
+        // 1. Server-side canonical sync (reads both DBs + migrates legacy UIDs)
+        try {
+          const authUser = firebaseUser || (typeof firebase !== 'undefined' && firebase.auth ? firebase.auth().currentUser : null);
+          const idToken = authUser ? await authUser.getIdToken().catch(() => '') : '';
+          if (idToken) {
+            const host = window.NUTROLIX_API_HOST || '';
+            const res = await fetch(host + '/api/auth/sync-canonical', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + idToken
+              },
+              body: JSON.stringify({
+                uid: canonicalUid,
+                phone,
+                profile: local
+              })
+            });
+            if (res.ok) {
+              const syncData = await res.json().catch(() => null);
+              if (syncData && syncData.success) {
+                if (syncData.profile) serverProfile = syncData.profile;
+                if (Array.isArray(syncData.addresses)) serverAddresses = syncData.addresses;
+              }
+            }
+          }
+        } catch (_) {}
+
+        // 2. Direct Firestore read fallback / merge
+        let remoteProfile = serverProfile;
+        if (!remoteProfile && window.NutrolixFirebase && typeof window.NutrolixFirebase.fetchUserProfile === 'function') {
+          remoteProfile = await window.NutrolixFirebase.fetchUserProfile(canonicalUid);
+        }
+
+        if (remoteProfile) {
+          const bestName = pickBestName(remoteProfile.name, local.name);
+          const merged = {
+            ...local,
+            ...remoteProfile,
+            uid: canonicalUid,
+            id: canonicalUid,
+            name: bestName,
+            email: remoteProfile.email || local.email || '',
+            phone: clean10Phone(remoteProfile.verifiedPhone || remoteProfile.phone || phone) || phone,
+            verifiedPhone: clean10Phone(remoteProfile.verifiedPhone || remoteProfile.phone || phone) || phone,
+            whatsappNumber: clean10Phone(remoteProfile.whatsappNumber || remoteProfile.phone || local.whatsappNumber || phone) || phone,
+            city: remoteProfile.city || local.city || '',
+            state: remoteProfile.state || local.state || '',
+            pincode: remoteProfile.pincode || local.pincode || '',
+            defaultAddress: remoteProfile.defaultAddress || local.defaultAddress || '',
+            authProvider: 'phone',
+            providers: ['phone'],
+            phoneVerified: true,
+            googleLinked: false,
+            verified: true,
+            authSession: true
+          };
+          localStorage.setItem('nutrolix_user_profile', JSON.stringify(merged));
+          window.dispatchEvent(new CustomEvent('nutrolix:auth-changed', { detail: merged }));
+        }
+
+        let addrs = serverAddresses;
+        if ((!Array.isArray(addrs) || addrs.length === 0) && window.NutrolixFirebase && typeof window.NutrolixFirebase.fetchUserAddresses === 'function') {
+          addrs = await window.NutrolixFirebase.fetchUserAddresses(canonicalUid);
+        }
+        if (Array.isArray(addrs)) {
+          localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(addrs));
+          window.dispatchEvent(new CustomEvent('nutrolix:addresses-updated', { detail: addrs }));
+        }
+        return window.getNutrolixUser();
+      } catch (_) {
+        return null;
+      } finally {
+        hydrationPromise = null;
       }
-      const addrs = await window.NutrolixFirebase.fetchUserAddresses(uid);
-      if (Array.isArray(addrs) && addrs.length > 0) {
-        localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(addrs));
-      }
-    } catch (_) {}
+    })();
+    return hydrationPromise;
   }
 
-  // Listen to Firebase Web Auth state automatically (Phone Auth only)
+  window.hydrateNutrolixCustomerSession = hydrateFromFirestore;
+
+  // Listen to Firebase Web Auth state automatically (Phone Auth & custom token phone_<mobile>)
   if (typeof firebase !== 'undefined' && firebase.auth) {
     firebase.auth().onAuthStateChanged(async (u) => {
-      if (u && u.phoneNumber) {
-        const prof = firebaseUserToProfile(u);
-        await hydrateFromFirestore(u.uid);
-        window.dispatchEvent(new CustomEvent('nutrolix:auth-changed', { detail: prof }));
+      const hasPhoneIdentity = Boolean(
+        u && (u.phoneNumber || (u.uid && String(u.uid).startsWith('phone_')))
+      );
+      if (hasPhoneIdentity) {
+        let preProfile = null;
+        if (window.NutrolixFirebase && typeof window.NutrolixFirebase.fetchUserProfile === 'function') {
+          preProfile = await window.NutrolixFirebase.fetchUserProfile(u.uid).catch(() => null);
+        }
+        const prof = firebaseUserToProfile(u, preProfile || {}, { skipRemoteSync: true });
+        await hydrateFromFirestore(u.uid, u);
+        window.dispatchEvent(new CustomEvent('nutrolix:auth-changed', { detail: window.getNutrolixUser() || prof }));
       }
     });
   }
 
-  // If running inside Android APK, seed from native FirebaseAuth currentUser if WebView localStorage was empty
+  // If running inside Android APK, seed from native FirebaseAuth/SharedPrefs if WebView localStorage was empty
   setTimeout(() => {
     try {
       if (!window.getNutrolixUser() && window.AndroidNative && typeof window.AndroidNative.getAuthUserJson === 'function') {
         const raw = window.AndroidNative.getAuthUserJson();
         if (raw) {
           const parsed = JSON.parse(raw);
-          const phoneDigits = clean10Phone(parsed.verifiedPhone || parsed.phone || '');
-          if (parsed && parsed.uid && phoneDigits.length === 10) {
+          const phoneDigits = clean10Phone(
+            parsed.verifiedPhone || parsed.phone || (String(parsed.uid || '').startsWith('phone_') ? String(parsed.uid).slice(6) : '')
+          );
+          if (parsed && (parsed.uid || phoneDigits.length === 10) && phoneDigits.length === 10) {
+            const canonicalUid = toCanonicalUid(parsed.uid, phoneDigits);
             window.saveNutrolixUser({
-              uid: parsed.uid,
-              name: parsed.name || 'Nutrolix Customer',
+              uid: canonicalUid,
+              name: pickBestName(parsed.name),
               phone: phoneDigits,
               verifiedPhone: phoneDigits,
               photo: parsed.photo || '',
               providers: ['phone']
-            });
-            hydrateFromFirestore(parsed.uid);
+            }, { skipRemoteSync: true });
+            hydrateFromFirestore(canonicalUid);
           }
         }
       }
@@ -211,27 +335,13 @@
   }, 50);
 
   // -------------------------------------------------------------
-  // WHATSAPP MOBILE NUMBER + OTP (FIREBASE PHONE AUTH)
+  // WHATSAPP MOBILE NUMBER + OTP (FAST2SMS + FIREBASE CUSTOM AUTH)
   // -------------------------------------------------------------
-  function ensureRecaptchaContainer() {
-    let el = document.getElementById('nutrolix-global-recaptcha');
-    if (!el) {
-      el = document.createElement('div');
-      el.id = 'nutrolix-global-recaptcha';
-      el.style.position = 'fixed';
-      el.style.bottom = '0';
-      el.style.left = '0';
-      el.style.zIndex = '99999';
-      document.body.appendChild(el);
-    }
-    return 'nutrolix-global-recaptcha';
-  }
-
   const FAST2SMS_AUTH_API_BASE = (window.location && window.location.protocol === 'file:')
     ? 'https://nutrolixweb.vercel.app'
     : (window.NUTROLIX_API_HOST || '');
 
-  window.startNutrolixPhoneOtp = async function(rawPhone, opts = {}) {
+  window.startNutrolixPhoneOtp = async function(rawPhone) {
     const digits = clean10Phone(rawPhone);
     if (digits.length !== 10 || !/^[6-9]\d{9}$/.test(digits)) {
       throw new Error('Please enter a valid 10-digit Indian WhatsApp number.');
@@ -267,33 +377,51 @@
     if (typeof firebase === 'undefined' || !firebase.auth) {
       throw new Error('Firebase Auth SDK is not loaded. Please refresh and try again.');
     }
+
     const authResult = await firebase.auth().signInWithCustomToken(result.customToken);
+    localStorage.removeItem('nutrolix_pending_otp_phone');
+
+    const serverProfile = result.profile && typeof result.profile === 'object' ? result.profile : {};
     const profile = firebaseUserToProfile(authResult.user, {
-      name: 'Nutrolix Customer',
+      ...serverProfile,
       phone,
       verifiedPhone: phone,
-      whatsappNumber: phone
-    });
-    localStorage.removeItem('nutrolix_pending_otp_phone');
-    await hydrateFromFirestore(authResult.user.uid);
-    if (typeof window.onAuthSuccessCallback === 'function') window.onAuthSuccessCallback(profile);
-    return profile;
+      whatsappNumber: serverProfile.whatsappNumber || phone
+    }, { skipRemoteSync: true });
+
+    if (Array.isArray(result.addresses)) {
+      localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(result.addresses));
+    }
+
+    // Sync session into Android Native bridge so FCM registration attaches canonical UID immediately
+    try {
+      if (window.AndroidNative && typeof window.AndroidNative.syncAuthSession === 'function') {
+        window.AndroidNative.syncAuthSession(authResult.user.uid, phone, result.customToken);
+      }
+    } catch (_) {}
+
+    const hydrated = await hydrateFromFirestore(authResult.user.uid, authResult.user);
+    const finalProfile = hydrated || profile;
+    if (typeof window.onAuthSuccessCallback === 'function') window.onAuthSuccessCallback(finalProfile);
+    return finalProfile;
   };
 
   async function handleNativePhoneSuccess(u) {
     const phoneDigits = clean10Phone(u.verifiedPhone || u.phone || '');
+    const canonicalUid = toCanonicalUid(u.uid, phoneDigits);
     const profile = window.saveNutrolixUser({
-      uid: u.uid,
-      name: u.name || 'Nutrolix Customer',
+      uid: canonicalUid,
+      name: pickBestName(u.name),
       phone: phoneDigits,
       verifiedPhone: phoneDigits,
       whatsappNumber: phoneDigits,
       photo: u.photo || '',
       providers: ['phone']
-    });
-    await hydrateFromFirestore(u.uid);
-    if (typeof window.onAuthSuccessCallback === 'function') window.onAuthSuccessCallback(profile);
-    return profile;
+    }, { skipRemoteSync: true });
+    const hydrated = await hydrateFromFirestore(canonicalUid);
+    const finalProfile = hydrated || profile;
+    if (typeof window.onAuthSuccessCallback === 'function') window.onAuthSuccessCallback(finalProfile);
+    return finalProfile;
   }
 
   window.onNativeUnifiedAuthSuccess = async function(payload) {
@@ -335,8 +463,7 @@
     }
   };
 
-
-  // Sign out
+  // Sign out cleanly — clears ALL account-scoped caches to prevent cross-account leakage
   window.handleNutrolixSignOut = function() {
     try {
       if (typeof firebase !== 'undefined' && firebase.auth) {
@@ -347,7 +474,7 @@
       }
     } catch (_) {}
 
-    localStorage.removeItem('nutrolix_user_profile');
+    clearCustomerLocalCaches(false);
     window.dispatchEvent(new CustomEvent('nutrolix:auth-changed', { detail: null }));
     if (typeof window.onAuthSignOutCallback === 'function') {
       window.onAuthSignOutCallback();

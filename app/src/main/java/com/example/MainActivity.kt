@@ -65,6 +65,9 @@ class MainActivity : ComponentActivity() {
   companion object {
     const val PRIMARY_APP_URL = "file:///android_asset/web/index.html"
     const val LIVE_SERVER_URL = "https://nutrolixweb.vercel.app/"
+    const val PREFS_AUTH = "nutrolix_auth_prefs"
+    const val KEY_AUTH_UID = "uid"
+    const val KEY_AUTH_PHONE = "verified_phone"
   }
 
   var filePathCallback: ValueCallback<Array<Uri>>? = null
@@ -208,6 +211,21 @@ fun NutrolixSupplementBrandApp(
     return fine || coarse
   }
 
+  fun resolveCustomerIdentity(user: FirebaseUser?): Pair<String, String> {
+    val authPrefs = context.getSharedPreferences(MainActivity.PREFS_AUTH, Context.MODE_PRIVATE)
+    val prefUid = authPrefs.getString(MainActivity.KEY_AUTH_UID, "") ?: ""
+    val prefPhone = authPrefs.getString(MainActivity.KEY_AUTH_PHONE, "") ?: ""
+    val rawPhone = (user?.phoneNumber ?: "").ifBlank { prefPhone }
+    val digits = rawPhone.filter { it.isDigit() }.takeLast(10)
+    val rawUid = (user?.uid ?: "").ifBlank { prefUid }
+    val resolvedUid = if (digits.length == 10 && digits.first() in '6'..'9') {
+      "phone_$digits"
+    } else {
+      rawUid
+    }
+    return resolvedUid to digits
+  }
+
   fun fetchAndSyncFcmToken(user: FirebaseUser?) {
     try {
       FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
@@ -219,14 +237,15 @@ fun NutrolixSupplementBrandApp(
           context.getSharedPreferences(NutrolixFirebaseMessagingService.PREFS_NAME, Context.MODE_PRIVATE)
             .edit().putString(NutrolixFirebaseMessagingService.KEY_FCM_TOKEN, token).apply()
 
+          val (resolvedUid, resolvedPhone) = resolveCustomerIdentity(user)
           coroutineScope.launch(Dispatchers.IO) {
-            if (user != null) {
+            if (resolvedUid.isNotBlank()) {
               try {
                 firestoreService.saveFcmToken(
-                  uid = user.uid,
+                  uid = resolvedUid,
                   token = token,
-                  phone = user.phoneNumber ?: "",
-                  email = user.email ?: ""
+                  phone = resolvedPhone,
+                  email = user?.email ?: ""
                 )
               } catch (_: Throwable) {}
             }
@@ -240,16 +259,16 @@ fun NutrolixSupplementBrandApp(
                 setRequestProperty("Content-Type", "application/json")
               }
               val payload = JSONObject().apply {
-                put("uid", user?.uid ?: "")
+                put("uid", resolvedUid)
                 put("fcmToken", token)
                 put("token", token)
-                put("customerPhone", user?.phoneNumber ?: "")
+                put("customerPhone", resolvedPhone)
                 put("customerEmail", user?.email ?: "")
                 put("platform", "android-apk")
               }
               conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
               val responseCode = conn.responseCode
-              android.util.Log.i("NutrolixFCM", "Anonymous/device token registration HTTP $responseCode")
+              android.util.Log.i("NutrolixFCM", "Token registration HTTP $responseCode (uid=$resolvedUid)")
               conn.disconnect()
             } catch (e: Exception) {
               android.util.Log.w("NutrolixFCM", "Server token registration failed: ${e.message}")
@@ -376,7 +395,51 @@ fun NutrolixSupplementBrandApp(
               @JavascriptInterface
               fun getAuthUserJson(): String {
                 val u = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
-                return u?.let { firebaseUserToJson(it).toString() } ?: ""
+                if (u != null) {
+                  val obj = firebaseUserToJson(u)
+                  val (_, resolvedPhone) = resolveCustomerIdentity(u)
+                  if (obj.optString("phone").isBlank() && resolvedPhone.isNotBlank()) {
+                    obj.put("phone", resolvedPhone)
+                    obj.put("verifiedPhone", resolvedPhone)
+                  }
+                  return obj.toString()
+                }
+                val (prefUid, prefPhone) = resolveCustomerIdentity(null)
+                if (prefUid.isNotBlank() && prefPhone.length == 10) {
+                  return JSONObject().apply {
+                    put("uid", prefUid)
+                    put("phone", prefPhone)
+                    put("verifiedPhone", prefPhone)
+                    put("name", "Nutrolix Customer")
+                  }.toString()
+                }
+                return ""
+              }
+
+              @JavascriptInterface
+              fun syncAuthSession(uid: String, verifiedPhone: String, customToken: String) {
+                val digits = verifiedPhone.filter { it.isDigit() }.takeLast(10)
+                val canonicalUid = if (digits.length == 10 && digits.first() in '6'..'9') {
+                  "phone_$digits"
+                } else {
+                  uid.trim()
+                }
+                context.getSharedPreferences(MainActivity.PREFS_AUTH, Context.MODE_PRIVATE)
+                  .edit()
+                  .putString(MainActivity.KEY_AUTH_UID, canonicalUid)
+                  .putString(MainActivity.KEY_AUTH_PHONE, digits)
+                  .apply()
+
+                if (customToken.isNotBlank()) {
+                  try {
+                    FirebaseAuth.getInstance().signInWithCustomToken(customToken)
+                      .addOnCompleteListener {
+                        fetchAndSyncFcmToken(FirebaseAuth.getInstance().currentUser)
+                      }
+                    return
+                  } catch (_: Throwable) {}
+                }
+                fetchAndSyncFcmToken(try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null })
               }
 
               @JavascriptInterface
@@ -469,9 +532,10 @@ fun NutrolixSupplementBrandApp(
                     }
                     if (!token.isNullOrBlank()) {
                       val user = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
-                      if (user != null) {
+                      val (resolvedUid, resolvedPhone) = resolveCustomerIdentity(user)
+                      if (resolvedUid.isNotBlank()) {
                         coroutineScope.launch(Dispatchers.IO) {
-                          firestoreService.saveFcmToken(user.uid, token, user.phoneNumber ?: "", user.email ?: "")
+                          firestoreService.saveFcmToken(resolvedUid, token, resolvedPhone, user?.email ?: "")
                         }
                       }
                       val quoted = JSONObject.quote(token)
@@ -612,6 +676,10 @@ fun NutrolixSupplementBrandApp(
               @JavascriptInterface
               fun signOut() {
                 try {
+                  context.getSharedPreferences(MainActivity.PREFS_AUTH, Context.MODE_PRIVATE)
+                    .edit()
+                    .clear()
+                    .apply()
                   FirebaseAuth.getInstance().signOut()
                 } catch (_: Throwable) {}
               }

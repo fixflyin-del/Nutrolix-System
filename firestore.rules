@@ -43,9 +43,11 @@ service cloud.firestore {
       return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
              data.keys().hasOnly([
                'uid', 'id', 'name', 'email', 'phone', 'verifiedPhone', 'whatsappNumber',
-               'photo', 'authProviders', 'phoneVerified', 'googleLinked', 'linkedFromUid',
-               'currentAddress', 'savedAddresses', 'lastAddress', 'lastOrderId',
-               'lastOrderNumber', 'lastOrderAmount', 'lastOrderTime', 'nutriPoints',
+               'photo', 'authProviders', 'providers', 'authProvider', 'phoneVerified',
+               'verified', 'authSession', 'googleLinked', 'linkedFromUid', 'lastLoginAt',
+               'currentAddress', 'defaultAddress', 'city', 'state', 'pincode',
+               'savedAddresses', 'lastAddress', 'lastOrderId', 'lastOrderNumber',
+               'lastOrderAmount', 'lastOrderTime', 'nutriPoints',
                'createdAt', 'updatedAt', 'updatedAtMillis', 'createdAtTs', 'updatedAtTs'
              ]) &&
              (!('name' in data) || (data.name is string && data.name.size() <= 120)) &&
@@ -54,11 +56,19 @@ service cloud.firestore {
              (!('verifiedPhone' in data) || (data.verifiedPhone is string && data.verifiedPhone.size() <= 32)) &&
              (!('whatsappNumber' in data) || (data.whatsappNumber is string && data.whatsappNumber.size() <= 32)) &&
              (!('photo' in data) || (data.photo is string && data.photo.size() <= 600)) &&
+             (!('authProvider' in data) || (data.authProvider is string && data.authProvider.size() <= 32)) &&
              (!('currentAddress' in data) || (data.currentAddress is string && data.currentAddress.size() <= 400)) &&
+             (!('defaultAddress' in data) || (data.defaultAddress is string && data.defaultAddress.size() <= 400)) &&
+             (!('city' in data) || (data.city is string && data.city.size() <= 120)) &&
+             (!('state' in data) || (data.state is string && data.state.size() <= 120)) &&
+             (!('pincode' in data) || (data.pincode is string && data.pincode.size() <= 16)) &&
              (!('phoneVerified' in data) || data.phoneVerified is bool) &&
+             (!('verified' in data) || data.verified is bool) &&
+             (!('authSession' in data) || data.authSession is bool) &&
              (!('googleLinked' in data) || data.googleLinked is bool) &&
              (!('nutriPoints' in data) || (data.nutriPoints is number && data.nutriPoints >= 0)) &&
              (!('authProviders' in data) || (data.authProviders is list && data.authProviders.size() <= 10 && (data.authProviders.size() == 0 || data.authProviders[0] is string))) &&
+             (!('providers' in data) || (data.providers is list && data.providers.size() <= 10 && (data.providers.size() == 0 || data.providers[0] is string))) &&
              (!('savedAddresses' in data) || (data.savedAddresses is list && data.savedAddresses.size() <= 25 && (data.savedAddresses.size() == 0 || data.savedAddresses[0] is string))) &&
              (!('createdAtTs' in data) || (data.createdAtTs is timestamp && data.createdAtTs <= request.time)) &&
              (!('updatedAtTs' in data) || (data.updatedAtTs is timestamp && data.updatedAtTs <= request.time));
@@ -70,11 +80,14 @@ service cloud.firestore {
              data.city is string && data.city.size() >= 1 && data.city.size() <= 120 &&
              data.pincode is string && data.pincode.size() >= 4 && data.pincode.size() <= 12 &&
              data.keys().hasOnly([
-               'id', 'uid', 'label', 'fullName', 'name', 'phone', 'whatsappNumber',
-               'address1', 'address', 'city', 'pincode', 'state', 'lat', 'lon',
+               'id', 'uid', 'label', 'tag', 'fullName', 'name', 'phone', 'whatsappNumber',
+               'street', 'address1', 'address', 'city', 'pincode', 'state',
+               'lat', 'lon', 'gpsLat', 'gpsLon', 'deliveryCoordinates',
                'locationSource', 'isDefault', 'updatedAt', 'updatedAtMillis',
                'createdAtTs', 'updatedAtTs'
              ]) &&
+             (!('tag' in data) || (data.tag is string && data.tag.size() <= 40)) &&
+             (!('street' in data) || (data.street is string && data.street.size() <= 350)) &&
              (!('fullName' in data) || (data.fullName is string && data.fullName.size() <= 120)) &&
              (!('whatsappNumber' in data) || (data.whatsappNumber is string && data.whatsappNumber.size() <= 32)) &&
              (!('lat' in data) || (data.lat is number && data.lat >= -90 && data.lat <= 90)) &&
@@ -101,10 +114,11 @@ service cloud.firestore {
              data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
              data.message is string && data.message.size() >= 1 && data.message.size() <= 600 &&
              data.keys().hasOnly([
-               'id', 'dedupKey', 'uid', 'orderId', 'status', 'title',
+               'id', 'dedupKey', 'uid', 'orderId', 'status', 'type', 'title',
                'message', 'url', 'read', 'timestamp', 'createdAtTs'
              ]) &&
              (!('status' in data) || (data.status is string && data.status.size() <= 64)) &&
+             (!('type' in data) || (data.type is string && data.type.size() <= 64)) &&
              (!('read' in data) || data.read is bool);
     }
 
@@ -126,24 +140,29 @@ service cloud.firestore {
              isAllowedOrderStatus(data.status) &&
              data.items is list && data.items.size() <= 100 &&
              data.keys().hasOnly([
-               'id', 'orderId', 'orderNumber', 'uid', 'customer',
-               'customerName', 'customerPhone', 'customerEmail', 'whatsappNumber',
-               'deliveryAddress', 'locationSource', 'lat', 'lon',
-               'items', 'subtotal', 'discount', 'deliveryFee', 'tax', 'packagingFee',
-               'tip', 'total', 'grandTotal', 'status', 'paymentMethod', 'paymentStatus',
-               'txnid', 'payuStatus', 'couponCode', 'courier', 'trackingNumber',
+               'id', 'orderId', 'orderNumber', 'idempotencyKey', 'uid', 'customer',
+               'customerName', 'customerPhone', 'verifiedPhone', 'customerEmail', 'whatsappNumber',
+               'deliveryAddress', 'deliveryCoordinates', 'locationSource', 'lat', 'lon',
+               'items', 'subtotal', 'discount', 'foodDiscount', 'foodOfferType',
+               'shipping', 'deliveryFee', 'tax', 'packagingFee', 'tip', 'total', 'grandTotal',
+               'status', 'normalizedStatusKey', 'paymentMethod', 'paymentStatus', 'payuPaymentId',
+               'txnid', 'payuStatus', 'couponCode', 'courier', 'courierName', 'trackingNumber',
                'deliveryOtp', 'specialInstructions', 'estimatedDeliveryMinutes',
-               'storeName', 'customerOrderCount', 'statusHistory',
+               'storeName', 'orderType', 'customerOrderCount', 'orderSequence', 'statusHistory',
                'cancellationReason', 'refundStatus', 'refundAmount', 'refundTransactionId',
                'ratingSubmitted', 'reviewText', 'orderTimeMillis', 'timestamp',
-               'createdAt', 'updatedAt', 'statusUpdatedAt', 'createdAtTs'
+               'createdAt', 'orderTime', 'updatedAt', 'statusUpdatedAt', 'createdAtTs'
              ]) &&
              (!('total' in data) || (data.total is number && data.total >= 0)) &&
              (!('grandTotal' in data) || (data.grandTotal is number && data.grandTotal >= 0)) &&
+             (!('shipping' in data) || (data.shipping is number && data.shipping >= 0)) &&
+             (!('foodDiscount' in data) || (data.foodDiscount is number && data.foodDiscount >= 0)) &&
              (!('customerName' in data) || (data.customerName is string && data.customerName.size() <= 120)) &&
              (!('customerPhone' in data) || (data.customerPhone is string && data.customerPhone.size() <= 32)) &&
+             (!('verifiedPhone' in data) || (data.verifiedPhone is string && data.verifiedPhone.size() <= 32)) &&
              (!('whatsappNumber' in data) || (data.whatsappNumber is string && data.whatsappNumber.size() <= 32)) &&
              (!('courier' in data) || (data.courier is string && data.courier.size() <= 80)) &&
+             (!('courierName' in data) || (data.courierName is string && data.courierName.size() <= 80)) &&
              (!('trackingNumber' in data) || (data.trackingNumber is string && data.trackingNumber.size() <= 80)) &&
              (!('reviewText' in data) || (data.reviewText is string && data.reviewText.size() <= 1000)) &&
              (!('ratingSubmitted' in data) || (data.ratingSubmitted is number && data.ratingSubmitted >= 1 && data.ratingSubmitted <= 5)) &&
@@ -199,9 +218,11 @@ service cloud.firestore {
                        (!('createdAtTs' in existing()) || incoming().createdAtTs == existing().createdAtTs) &&
                        incoming().diff(existing()).affectedKeys().hasOnly([
                          'id', 'name', 'email', 'phone', 'verifiedPhone', 'whatsappNumber',
-                         'photo', 'authProviders', 'phoneVerified', 'googleLinked', 'linkedFromUid',
-                         'currentAddress', 'savedAddresses', 'lastAddress', 'lastOrderId',
-                         'lastOrderNumber', 'lastOrderAmount', 'lastOrderTime', 'nutriPoints',
+                         'photo', 'authProviders', 'providers', 'authProvider', 'phoneVerified',
+                         'verified', 'authSession', 'googleLinked', 'linkedFromUid', 'lastLoginAt',
+                         'currentAddress', 'defaultAddress', 'city', 'state', 'pincode',
+                         'savedAddresses', 'lastAddress', 'lastOrderId', 'lastOrderNumber',
+                         'lastOrderAmount', 'lastOrderTime', 'nutriPoints',
                          'updatedAt', 'updatedAtMillis', 'updatedAtTs'
                        ]);
 
@@ -225,8 +246,9 @@ service cloud.firestore {
                          (request.auth.uid == userId || isAdmin()) &&
                          incoming().uid == existing().uid &&
                          incoming().diff(existing()).affectedKeys().hasOnly([
-                           'id', 'label', 'fullName', 'name', 'phone', 'whatsappNumber',
-                           'address1', 'address', 'city', 'pincode', 'state', 'lat', 'lon',
+                           'id', 'label', 'tag', 'fullName', 'name', 'phone', 'whatsappNumber',
+                           'street', 'address1', 'address', 'city', 'pincode', 'state',
+                           'lat', 'lon', 'gpsLat', 'gpsLon', 'deliveryCoordinates',
                            'locationSource', 'isDefault', 'updatedAt', 'updatedAtMillis', 'updatedAtTs'
                          ]);
 
@@ -393,5 +415,19 @@ service cloud.firestore {
       allow create, update: if isAdmin() && isValidId(kitchenId) && isValidCatalogDoc(incoming());
       allow delete: if isAdmin() && isValidId(kitchenId);
     }
+
+    // ---------------------------------------------------------
+    // SERVER-ONLY COLLECTIONS (ADMIN SDK / BACKEND REST ONLY)
+    // ---------------------------------------------------------
+    match /notificationTokens/{docId} { allow read, write: if false; }
+    match /fcmTokens/{docId} { allow read, write: if false; }
+    match /notificationDedups/{docId} { allow read, write: if false; }
+    match /notificationDeliveries/{docId} { allow read, write: if false; }
+    match /adminTokens/{docId} { allow read, write: if false; }
+    match /customerDiscounts/{docId} { allow read, write: if false; }
+    match /auditLogs/{docId} { allow read, write: if false; }
+    match /payuTransactions/{docId} { allow read, write: if false; }
+    match /catalogStore/{docId} { allow read, write: if false; }
+    match /otpSessions/{docId} { allow read, write: if false; }
   }
 }

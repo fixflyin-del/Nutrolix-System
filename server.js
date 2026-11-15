@@ -5,6 +5,8 @@ const path = require('path');
 const url = require('url');
 const crypto = require('crypto');
 const nutrolixCore = require('./lib/nutrolix-core');
+const customerSync = require('./lib/nutrolix-customer-sync');
+const nutrolixPurge = require('./lib/nutrolix-purge');
 
 const PORT = 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -88,15 +90,42 @@ function safeReadJson(filePath, defaultValue = []) {
   return defaultValue;
 }
 
+// Firestore-backed catalog & settings persistence helper (read-through & write-through across both DBs)
+async function readCatalogDocOrFallback(docKey, localFile, fallbackValue) {
+  try {
+    const fsDoc = await nutrolixCore.firestoreGetFirstAvailable(`catalogStore/${docKey}`);
+    if (fsDoc && fsDoc.dataJson) {
+      const parsed = JSON.parse(fsDoc.dataJson);
+      safeWriteJson(localFile, parsed);
+      return parsed;
+    }
+    if (fsDoc && fsDoc.items !== undefined) {
+      safeWriteJson(localFile, fsDoc.items);
+      return fsDoc.items;
+    }
+  } catch (_) {}
+  return safeReadJson(localFile, fallbackValue);
+}
+
+async function writeCatalogDocAndLocal(docKey, localFile, value) {
+  safeWriteJson(localFile, value);
+  try {
+    await nutrolixCore.firestorePatchBothDbs(`catalogStore/${docKey}`, {
+      key: docKey,
+      dataJson: JSON.stringify(value),
+      updatedAt: new Date().toISOString(),
+      updatedAtMillis: Date.now()
+    });
+  } catch (_) {}
+}
+
 // Customer Discount Engine Helpers (Strictly for Healthy Food / Cloud Kitchen orders)
 function normalizePhone(p) {
-  if (!p) return '';
-  return String(p).replace(/\D/g, '').slice(-10);
+  return nutrolixCore.normalizePhone(p);
 }
 
 function normalizeEmail(e) {
-  if (!e) return '';
-  return String(e).toLowerCase().trim();
+  return nutrolixCore.normalizeEmail(e);
 }
 
 function getCustomerDiscountsStore() {
@@ -107,6 +136,29 @@ function getCustomerDiscountsStore() {
 function saveCustomerDiscountsStore(store) {
   const file = path.join(PUBLIC_DIR, 'data', 'customer_discounts.json');
   safeWriteJson(file, store);
+}
+
+function buildEligibilityResponse(is100Redeemed) {
+  if (!is100Redeemed) {
+    return {
+      eligible: true,
+      offerType: 'FIRST100',
+      discount: 100,
+      minOrder: 349,
+      title: '₹100 OFF on First Healthy Meal',
+      description: 'Get ₹100 OFF on your first Healthy Food order (Min. order ₹349)',
+      bannerText: 'Order Ready Healthy Meals Now & Get ₹100 OFF on Your First Order! (Min. Order ₹349)'
+    };
+  }
+  return {
+    eligible: true,
+    offerType: 'SUBSEQUENT50',
+    discount: 50,
+    minOrder: 249,
+    title: '₹50 OFF on Healthy Food',
+    description: 'Get ₹50 OFF on your next Healthy Food order (Min. order ₹249)',
+    bannerText: 'Keep Your Health Streak Going: Get ₹50 OFF on Your Next Meal! (Min. Order ₹249)'
+  };
 }
 
 function getCustomerHealthyFoodEligibility(phoneRaw, emailRaw) {
@@ -121,48 +173,181 @@ function getCustomerHealthyFoodEligibility(phoneRaw, emailRaw) {
   if (!customerRecord) {
     const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
     try {
-      if (fs.existsSync(ordersFile)) {
-        const orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8') || '[]');
-        const hasPast100Order = orders.some(o => {
-          const ordPhone = normalizePhone(o.customerPhone || o.phone);
-          const ordEmail = normalizeEmail(o.customerEmail || o.email);
-          const matches = (phone && ordPhone === phone) || (email && ordEmail === email);
-          const hasFoodDiscount = (o.foodDiscount && o.foodDiscount >= 50) || (o.couponCode === 'FIRST100');
-          return matches && hasFoodDiscount;
-        });
-        if (hasPast100Order) {
-          customerRecord = { first100Redeemed: true };
-          if (phone) store[phone] = customerRecord;
-          if (email) store[email] = customerRecord;
-          saveCustomerDiscountsStore(store);
-        }
+      const orders = safeReadJson(ordersFile, []);
+      const hasPast100Order = orders.some(o => {
+        const ordPhone = customerSync.extractOrderPhone(o);
+        const ordEmail = customerSync.extractOrderEmail(o);
+        const matches = (phone && ordPhone === phone) || (email && ordEmail === email);
+        const hasFoodDiscount = (o.foodDiscount && o.foodDiscount >= 50) || (o.couponCode === 'FIRST100');
+        return matches && hasFoodDiscount;
+      });
+      if (hasPast100Order) {
+        customerRecord = { first100Redeemed: true };
+        if (phone) store[phone] = customerRecord;
+        if (email) store[email] = customerRecord;
+        saveCustomerDiscountsStore(store);
       }
     } catch (_) {}
   }
 
-  const is100Redeemed = Boolean(customerRecord && customerRecord.first100Redeemed);
+  return buildEligibilityResponse(Boolean(customerRecord && customerRecord.first100Redeemed));
+}
 
-  if (!is100Redeemed) {
-    return {
-      eligible: true,
-      offerType: 'FIRST100',
-      discount: 100,
-      minOrder: 349,
-      title: '₹100 OFF on First Healthy Meal',
-      description: 'Get ₹100 OFF on your first Healthy Food order (Min. order ₹349)',
-      bannerText: 'Order Ready Healthy Meals Now & Get ₹100 OFF on Your First Order! (Min. Order ₹349)'
-    };
+async function getCustomerHealthyFoodEligibilityDurable(phoneRaw, emailRaw) {
+  const phone = normalizePhone(phoneRaw);
+  const email = normalizeEmail(emailRaw);
+  const local = getCustomerHealthyFoodEligibility(phoneRaw, emailRaw);
+  if (local.offerType === 'SUBSEQUENT50') return local;
+
+  try {
+    const discountKey = phone || (email ? 'email_' + crypto.createHash('sha1').update(email).digest('hex').slice(0, 12) : '');
+    if (discountKey) {
+      const fsDisc = await nutrolixCore.firestoreGetFirstAvailable(`customerDiscounts/${discountKey}`);
+      if (fsDisc && fsDisc.first100Redeemed) {
+        const store = getCustomerDiscountsStore();
+        store[discountKey] = fsDisc;
+        saveCustomerDiscountsStore(store);
+        return buildEligibilityResponse(true);
+      }
+    }
+  } catch (_) {}
+  return local;
+}
+
+async function recordHealthyFoodRedemption(order) {
+  if (!order || !order.foodDiscount || Number(order.foodDiscount) <= 0) return;
+  const phone = customerSync.extractOrderPhone(order);
+  const email = customerSync.extractOrderEmail(order);
+  const store = getCustomerDiscountsStore();
+  const key = phone || email;
+  if (!key) return;
+
+  const existing = (phone && store[phone]) || (email && store[email]) || {};
+  const rec = { ...existing };
+  if (order.couponCode === 'FIRST100' || Number(order.foodDiscount) >= 100 || !rec.first100Redeemed) {
+    rec.first100Redeemed = true;
+    rec.first100RedeemedAt = new Date().toISOString();
+    rec.first100OrderId = order.orderId || order.id;
   } else {
-    // Subsequent Offer confirmed by user at min order ₹249
-    return {
-      eligible: true,
-      offerType: 'SUBSEQUENT50',
-      discount: 50,
-      minOrder: 249,
-      title: '₹50 OFF on Healthy Food',
-      description: 'Get ₹50 OFF on your next Healthy Food order (Min. order ₹249)',
-      bannerText: 'Keep Your Health Streak Going: Get ₹50 OFF on Your Next Meal! (Min. Order ₹249)'
-    };
+    if (!Array.isArray(rec.subsequentRedemptions)) rec.subsequentRedemptions = [];
+    rec.subsequentRedemptions.push({
+      orderId: order.orderId || order.id,
+      amount: Number(order.foodDiscount),
+      date: new Date().toISOString()
+    });
+  }
+
+  if (phone) store[phone] = rec;
+  if (email) store[email] = rec;
+  saveCustomerDiscountsStore(store);
+
+  const fsKey = phone || ('email_' + crypto.createHash('sha1').update(email).digest('hex').slice(0, 12));
+  try {
+    await nutrolixCore.firestorePatchBothDbs(`customerDiscounts/${fsKey}`, {
+      ...rec,
+      phone,
+      email,
+      updatedAt: new Date().toISOString()
+    });
+  } catch (_) {}
+}
+
+function makeTokenDocId(rawVal) {
+  return crypto.createHash('sha1').update(String(rawVal || '')).digest('hex').slice(0, 24);
+}
+
+async function gatherCustomerTokens({ uid = '', customerPhone = '', customerEmail = '' }) {
+  const tokensFile = path.join(PUBLIC_DIR, 'data', 'notification_tokens.json');
+  let localTokens = safeReadJson(tokensFile, []);
+  if (!Array.isArray(localTokens)) localTokens = [];
+
+  const firestoreTokens = [];
+  const cleanPhone = normalizePhone(customerPhone);
+  const canonicalUid = nutrolixCore.canonicalCustomerUid(cleanPhone) || '';
+  const candidateUids = Array.from(new Set([String(uid || '').trim(), canonicalUid].filter(Boolean)));
+
+  try {
+    const queries = [];
+    for (const u of candidateUids) {
+      for (const dbId of nutrolixCore.BOTH_DB_IDS) {
+        queries.push(
+          nutrolixCore.firestoreListDocuments(`users/${u}/fcmTokens`, dbId)
+            .then((docs) => docs.map((d) => ({ ...d, uid: d.uid || u, _firestorePath: `users/${u}/fcmTokens/${d._docId}`, _dbId: dbId })))
+            .catch(() => [])
+        );
+      }
+    }
+    for (const col of ['notificationTokens', 'fcmTokens']) {
+      for (const dbId of nutrolixCore.BOTH_DB_IDS) {
+        queries.push(
+          nutrolixCore.firestoreListAllDocuments(col, dbId, 800)
+            .then(({ docs }) => docs.map((d) => ({ ...d, _firestorePath: `${col}/${d._docId}`, _dbId: dbId })))
+            .catch(() => [])
+        );
+      }
+    }
+    const resolvedLists = await Promise.all(queries);
+    for (const list of resolvedLists) {
+      for (const doc of list) {
+        if (!doc) continue;
+        let parsedSub = doc.subscription || null;
+        if (!parsedSub && doc.subscriptionJson) {
+          try { parsedSub = JSON.parse(doc.subscriptionJson); } catch (_) {}
+        }
+        if (doc.fcmToken || doc.token || (parsedSub && parsedSub.endpoint) || doc.endpoint) {
+          firestoreTokens.push({
+            ...doc,
+            subscription: parsedSub,
+            endpoint: doc.endpoint || (parsedSub && parsedSub.endpoint) || ''
+          });
+        }
+      }
+    }
+  } catch (_) {}
+
+  const allTokens = [...localTokens, ...firestoreTokens];
+  const matched = nutrolixCore.matchCustomerTokens(allTokens, {
+    uid: canonicalUid || uid,
+    phone: cleanPhone,
+    email: customerEmail
+  });
+
+  return { localTokens, firestoreTokens, matched, candidateUids, canonicalUid, tokensFile };
+}
+
+async function pruneDeadNotificationTargets(deadEndpoints, deadFcmTokens, deadDocPaths = []) {
+  const tokensFile = path.join(PUBLIC_DIR, 'data', 'notification_tokens.json');
+  let localTokens = safeReadJson(tokensFile, []);
+  if (!Array.isArray(localTokens)) localTokens = [];
+
+  if (deadEndpoints.length > 0 || deadFcmTokens.length > 0) {
+    localTokens = localTokens.filter((t) => {
+      const ep = (t.subscription && t.subscription.endpoint) || t.endpoint;
+      const ft = t.fcmToken || t.token;
+      if (ep && deadEndpoints.includes(ep)) return false;
+      if (ft && deadFcmTokens.includes(ft)) return false;
+      return true;
+    });
+    safeWriteJson(tokensFile, localTokens);
+
+    for (const rawDead of [...deadEndpoints, ...deadFcmTokens]) {
+      const docId = makeTokenDocId(rawDead);
+      try {
+        await Promise.all([
+          nutrolixCore.firestoreDeleteBothDbs(`notificationTokens/${docId}`),
+          nutrolixCore.firestoreDeleteBothDbs(`fcmTokens/${docId}`),
+          nutrolixCore.firestoreDeleteBothDbs(`adminTokens/${docId}`)
+        ]);
+      } catch (_) {}
+    }
+  }
+
+  for (const deadDoc of deadDocPaths) {
+    if (deadDoc && deadDoc.path) {
+      try {
+        await nutrolixCore.firestoreDeleteDocument(deadDoc.path, deadDoc.dbId || nutrolixCore.DEFAULT_DB_ID);
+      } catch (_) {}
+    }
   }
 }
 
@@ -181,56 +366,44 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
         force: false
       };
 
-  const uid = String(opts.uid || '').trim();
-  const customerPhone = opts.customerPhone || '';
-  const customerEmail = opts.customerEmail || '';
-  const orderId = opts.orderId || '';
-  const status = opts.status || '';
+  const cleanPhone = normalizePhone(opts.customerPhone || '');
+  const resolvedUid = nutrolixCore.canonicalCustomerUid(cleanPhone) || String(opts.uid || '').trim();
+  const customerEmail = normalizeEmail(opts.customerEmail || '');
+  const orderId = String(opts.orderId || '').trim();
+  const status = String(opts.status || '').trim();
   const title = opts.title || 'Nutrolix Order Update';
   const message = opts.message || '';
   const dedupKey = opts.dedupKey ? String(opts.dedupKey).trim() : '';
   const force = Boolean(opts.force);
 
-  const tokensFile = path.join(PUBLIC_DIR, 'data', 'notification_tokens.json');
   const logFile = path.join(PUBLIC_DIR, 'data', 'notifications_log.json');
-
   let logs = safeReadJson(logFile, []);
+  if (!Array.isArray(logs)) logs = [];
+
   if (dedupKey && !force) {
     const alreadyLogged = logs.find(l => l.dedupKey === dedupKey || l.id === dedupKey);
     if (alreadyLogged) {
       return { ...alreadyLogged, deduplicated: true };
     }
+    const existingDedup = await nutrolixCore.firestoreGetFirstAvailable(`notificationDedups/${dedupKey}`);
+    if (existingDedup) {
+      return {
+        id: dedupKey,
+        dedupKey,
+        orderId: orderId || null,
+        status,
+        title,
+        message,
+        deduplicated: true,
+        timestamp: existingDedup.timestamp || new Date().toISOString()
+      };
+    }
   }
 
-  let localTokens = safeReadJson(tokensFile, []);
-  if (!Array.isArray(localTokens)) localTokens = [];
-
-  // Pull additional FCM tokens registered in Firestore when Service Account is available
-  const firestoreTokens = [];
-  if (uid) {
-    try {
-      const [defaultUserTokens, namedUserTokens] = await Promise.all([
-        nutrolixCore.firestoreListDocuments(`users/${uid}/fcmTokens`, nutrolixCore.DEFAULT_DB_ID),
-        nutrolixCore.firestoreListDocuments(`users/${uid}/fcmTokens`, nutrolixCore.NAMED_DB_ID)
-      ]);
-      for (const doc of defaultUserTokens) {
-        if (doc && (doc.token || doc.fcmToken) && doc._docId) {
-          firestoreTokens.push({ ...doc, uid, _firestorePath: `users/${uid}/fcmTokens/${doc._docId}`, _dbId: nutrolixCore.DEFAULT_DB_ID });
-        }
-      }
-      for (const doc of namedUserTokens) {
-        if (doc && (doc.token || doc.fcmToken) && doc._docId) {
-          firestoreTokens.push({ ...doc, uid, _firestorePath: `users/${uid}/fcmTokens/${doc._docId}`, _dbId: nutrolixCore.NAMED_DB_ID });
-        }
-      }
-    } catch (_) {}
-  }
-
-  const allTokens = [...localTokens, ...firestoreTokens];
-  const matchingTokens = nutrolixCore.matchCustomerTokens(allTokens, {
-    uid,
-    phone: customerPhone,
-    email: customerEmail
+  const { matched: matchingTokens, firestoreTokens } = await gatherCustomerTokens({
+    uid: resolvedUid,
+    customerPhone: cleanPhone,
+    customerEmail
   });
 
   const targetUrl = orderId ? `/orders.html?orderId=${encodeURIComponent(orderId)}` : '/orders.html';
@@ -249,7 +422,7 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
   const deadFirestoreDocs = [];
 
   for (const tokenRec of matchingTokens) {
-    const fcmTok = tokenRec.fcmToken || ((!tokenRec.subscription || !tokenRec.subscription.endpoint) ? tokenRec.token : '');
+    const fcmTok = tokenRec.fcmToken || ((!tokenRec.subscription || !tokenRec.subscription.endpoint) && tokenRec.token && !String(tokenRec.token).startsWith('http') ? tokenRec.token : '');
     if (fcmTok) {
       try {
         const fcmRes = await nutrolixCore.sendFcmV1Message(fcmTok, {
@@ -264,96 +437,222 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
             dedupKey: dedupKey || ''
           }
         });
-        deliveryAttempts.push({ channel: 'FCM_V1', tokenPrefix: String(fcmTok).slice(0, 14), status: fcmRes.status, error: fcmRes.error || '' });
+        deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
+          channel: 'fcm_v1',
+          targetId: fcmTok,
+          sent: Boolean(fcmRes.sent),
+          permanentFailure: Boolean(fcmRes.permanentFailure),
+          statusCode: fcmRes.sent ? 200 : 0,
+          detail: fcmRes.status || fcmRes.error || ''
+        }));
         if (fcmRes.permanentFailure) {
           deadFcmTokens.push(fcmTok);
-          if (tokenRec._firestorePath) {
-            deadFirestoreDocs.push({ path: tokenRec._firestorePath, dbId: tokenRec._dbId });
+          firestoreTokens
+            .filter((ft) => (ft.fcmToken || ft.token) === fcmTok && ft._firestorePath)
+            .forEach((ft) => deadFirestoreDocs.push({ path: ft._firestorePath, dbId: ft._dbId }));
+        }
+      } catch (err) {
+        deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
+          channel: 'fcm_v1',
+          targetId: fcmTok,
+          sent: false,
+          detail: 'FAILED: ' + err.message
+        }));
+      }
+    }
+
+    const sub = tokenRec.subscription && tokenRec.subscription.endpoint
+      ? tokenRec.subscription
+      : (tokenRec.endpoint && tokenRec.keys ? { endpoint: tokenRec.endpoint, keys: tokenRec.keys } : null);
+
+    if (sub && sub.endpoint) {
+      if (!webpush) {
+        deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
+          channel: 'web_push',
+          targetId: sub.endpoint,
+          sent: false,
+          detail: 'WEBPUSH_UNAVAILABLE'
+        }));
+      } else {
+        try {
+          const wpRes = await webpush.sendNotification(sub, payloadStr, {
+            TTL: 86400,
+            urgency: 'high'
+          });
+          const statusCode = (wpRes && wpRes.statusCode) || 201;
+          deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
+            channel: 'web_push',
+            targetId: sub.endpoint,
+            accepted: true,
+            statusCode,
+            detail: `PUSH_SERVICE_ACCEPTED_${statusCode}`
+          }));
+        } catch (err) {
+          const code = Number(err.statusCode || 0);
+          const isGone = code === 410 || code === 404;
+          if (isGone) {
+            deadEndpoints.push(sub.endpoint);
+            firestoreTokens
+              .filter((ft) => (ft.endpoint || (ft.subscription && ft.subscription.endpoint)) === sub.endpoint && ft._firestorePath)
+              .forEach((ft) => deadFirestoreDocs.push({ path: ft._firestorePath, dbId: ft._dbId }));
           }
-        }
-      } catch (err) {
-        deliveryAttempts.push({ channel: 'FCM_V1', status: 'FAILED: ' + err.message });
-      }
-    }
-
-    if (webpush && tokenRec.subscription && tokenRec.subscription.endpoint) {
-      try {
-        await webpush.sendNotification(tokenRec.subscription, payloadStr, {
-          TTL: 86400,
-          urgency: 'high'
-        });
-        deliveryAttempts.push({ channel: 'WEB_PUSH', endpoint: tokenRec.subscription.endpoint, status: 'DELIVERED_TO_PUSH_SERVICE' });
-      } catch (err) {
-        if (err.statusCode === 410 || err.statusCode === 404) {
-          deadEndpoints.push(tokenRec.subscription.endpoint);
-          deliveryAttempts.push({ channel: 'WEB_PUSH', endpoint: tokenRec.subscription.endpoint, status: 'EXPIRED_REMOVED' });
-        } else {
-          deliveryAttempts.push({ channel: 'WEB_PUSH', endpoint: tokenRec.subscription.endpoint, status: 'FAILED: ' + err.message });
+          deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
+            channel: 'web_push',
+            targetId: sub.endpoint,
+            sent: false,
+            permanentFailure: isGone,
+            statusCode: code,
+            detail: isGone ? 'EXPIRED_SUBSCRIPTION_REMOVED' : ('FAILED: ' + err.message)
+          }));
         }
       }
     }
   }
 
-  // Clean up expired Web Push subscriptions & unregistered FCM tokens
-  if (deadEndpoints.length > 0 || deadFcmTokens.length > 0) {
-    localTokens = localTokens.filter(t => {
-      const ep = t.subscription && t.subscription.endpoint;
-      const ft = t.fcmToken || t.token;
-      if (ep && deadEndpoints.includes(ep)) return false;
-      if (ft && deadFcmTokens.includes(ft)) return false;
-      return true;
-    });
-    safeWriteJson(tokensFile, localTokens);
-  }
-  for (const deadDoc of deadFirestoreDocs) {
-    try { await nutrolixCore.firestoreDeleteDocument(deadDoc.path, deadDoc.dbId); } catch (_) {}
+  if (deliveryAttempts.length === 0) {
+    deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
+      channel: 'in_app_inbox',
+      targetId: resolvedUid || cleanPhone,
+      accepted: Boolean(resolvedUid || cleanPhone),
+      detail: 'NO_TOKENS_REGISTERED_INBOX_ONLY'
+    }));
   }
 
-  const notifId = dedupKey || ('notif_' + Date.now());
+  await pruneDeadNotificationTargets(deadEndpoints, deadFcmTokens, deadFirestoreDocs);
+
+  const notifId = dedupKey || ('notif_' + Date.now() + '_' + crypto.randomBytes(3).toString('hex'));
+  const nowIso = new Date().toISOString();
   const logEntry = {
     id: notifId,
     dedupKey: dedupKey || notifId,
-    uid: uid || '',
+    uid: resolvedUid || '',
     orderId: orderId || null,
     status: status || '',
     type: 'ORDER_UPDATE',
     title,
     message,
-    customerPhone: normalizePhone(customerPhone),
-    customerEmail: normalizeEmail(customerEmail),
+    customerPhone: cleanPhone,
+    customerEmail,
     url: targetUrl,
     read: false,
-    timestamp: new Date().toISOString(),
-    deliveryStatus: deliveryAttempts.length > 0 ? deliveryAttempts : [{ status: 'LOGGED_IN_APP_HISTORY' }]
+    timestamp: nowIso,
+    targetedDevices: matchingTokens.length,
+    deliveryStatus: deliveryAttempts
   };
 
   logs.unshift(logEntry);
   safeWriteJson(logFile, logs.slice(0, 250));
 
-  // Sync notification history to Firestore when uid & Service Account are available
-  if (uid) {
-    const firestoreNotif = {
-      id: notifId,
-      dedupKey: dedupKey || notifId,
-      uid,
-      orderId: String(orderId || ''),
-      status: String(status || ''),
-      type: 'ORDER_UPDATE',
-      title,
-      message,
-      url: targetUrl,
-      read: false,
-      timestamp: logEntry.timestamp
-    };
-    try {
-      await Promise.all([
-        nutrolixCore.firestorePatchDocument(`users/${uid}/notifications/${notifId}`, firestoreNotif, nutrolixCore.DEFAULT_DB_ID),
-        nutrolixCore.firestorePatchDocument(`users/${uid}/notifications/${notifId}`, firestoreNotif, nutrolixCore.NAMED_DB_ID)
-      ]);
-    } catch (_) {}
-  }
+  try {
+    const persistenceTasks = [];
+    if (dedupKey) {
+      persistenceTasks.push(
+        nutrolixCore.firestorePatchBothDbs(`notificationDedups/${dedupKey}`, {
+          dedupKey,
+          orderId,
+          status,
+          uid: resolvedUid,
+          timestamp: nowIso
+        })
+      );
+    }
+    persistenceTasks.push(
+      nutrolixCore.firestorePatchBothDbs(`notificationDeliveries/${notifId}`, {
+        id: notifId,
+        orderId,
+        status,
+        uid: resolvedUid,
+        targetedDevices: matchingTokens.length,
+        attemptsJson: JSON.stringify(deliveryAttempts),
+        timestamp: nowIso
+      })
+    );
+    if (resolvedUid) {
+      persistenceTasks.push(
+        nutrolixCore.firestorePatchBothDbs(`users/${resolvedUid}/notifications/${notifId}`, {
+          id: notifId,
+          dedupKey: dedupKey || notifId,
+          uid: resolvedUid,
+          orderId: String(orderId || ''),
+          status: String(status || ''),
+          type: 'ORDER_UPDATE',
+          title,
+          message,
+          url: targetUrl,
+          read: false,
+          timestamp: nowIso
+        })
+      );
+    }
+    await Promise.all(persistenceTasks);
+  } catch (_) {}
 
   return logEntry;
+}
+
+async function dispatchPushToAdmins({ orderId = '', title = '', message = '', total = 0, customerName = '' } = {}) {
+  const tokensFile = path.join(PUBLIC_DIR, 'data', 'notification_tokens.json');
+  const localTokens = safeReadJson(tokensFile, []);
+  const candidates = [];
+  if (Array.isArray(localTokens)) {
+    localTokens.filter((t) => t.role === 'admin' || t.platform === 'android-admin-apk').forEach((t) => candidates.push(t));
+  }
+  try {
+    const [defDocs, namedDocs] = await Promise.all([
+      nutrolixCore.firestoreListAllDocuments('adminTokens', nutrolixCore.DEFAULT_DB_ID, 200),
+      nutrolixCore.firestoreListAllDocuments('adminTokens', nutrolixCore.NAMED_DB_ID, 200)
+    ]);
+    for (const d of [...defDocs.docs, ...namedDocs.docs]) {
+      if (d && (d.fcmToken || d.token)) {
+        candidates.push({ ...d, _firestorePath: `adminTokens/${d._docId}` });
+      }
+    }
+  } catch (_) {}
+
+  const seen = new Set();
+  const attempts = [];
+  const deadFcm = [];
+  const finalTitle = title || `New Order #${orderId}!`;
+  const finalBody = message || `${customerName || 'Customer'} placed an order of ₹${Number(total || 0).toFixed(0)}.`;
+
+  for (const rec of candidates) {
+    const tok = rec.fcmToken || rec.token;
+    if (!tok || seen.has(tok)) continue;
+    seen.add(tok);
+    try {
+      const fcmRes = await nutrolixCore.sendFcmV1Message(tok, {
+        title: finalTitle,
+        body: finalBody,
+        orderId,
+        url: '/admin.html',
+        channelId: 'nutrolix_orders_channel',
+        data: {
+          type: 'ADMIN_NEW_ORDER',
+          orderId: String(orderId || '')
+        }
+      });
+      attempts.push(customerSync.classifyDeliveryAttempt({
+        channel: 'admin_fcm_v1',
+        targetId: tok,
+        sent: Boolean(fcmRes.sent),
+        permanentFailure: Boolean(fcmRes.permanentFailure),
+        statusCode: fcmRes.sent ? 200 : 0,
+        detail: fcmRes.status || ''
+      }));
+      if (fcmRes.permanentFailure) deadFcm.push(tok);
+    } catch (err) {
+      attempts.push(customerSync.classifyDeliveryAttempt({
+        channel: 'admin_fcm_v1',
+        targetId: tok,
+        sent: false,
+        detail: 'FAILED: ' + err.message
+      }));
+    }
+  }
+  if (deadFcm.length > 0) {
+    await pruneDeadNotificationTargets([], deadFcm, []);
+  }
+  return attempts;
 }
 
 
@@ -1296,11 +1595,11 @@ Output ONLY a valid JSON object (no markdown, no backticks) with this schema:
 }
 
 // Main HTTP Server
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-gemini-api-key');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Nutrolix-Admin-Token, x-gemini-api-key');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -1343,17 +1642,17 @@ const server = http.createServer((req, res) => {
     };
 
     if (req.method === 'GET') {
-      const data = safeReadJson(settingsFile, defaultSettings);
+      const data = await readCatalogDocOrFallback('store_settings', settingsFile, defaultSettings);
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ success: true, settings: data }));
       return;
     } else if (req.method === 'POST') {
       let bodyData = '';
       req.on('data', chunk => bodyData += chunk);
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const payload = JSON.parse(bodyData || '{}');
-          safeWriteJson(settingsFile, payload);
+          await writeCatalogDocAndLocal('store_settings', settingsFile, payload);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, settings: payload }));
         } catch (err) {
@@ -1391,17 +1690,17 @@ const server = http.createServer((req, res) => {
     };
 
     if (req.method === 'GET') {
-      const data = safeReadJson(heroFile, defaultHero);
+      const data = await readCatalogDocOrFallback('hero_products', heroFile, defaultHero);
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({ success: true, heroProducts: data }));
       return;
     } else if (req.method === 'POST') {
       let bodyData = '';
       req.on('data', chunk => bodyData += chunk);
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const payload = JSON.parse(bodyData || '{}');
-          safeWriteJson(heroFile, payload);
+          await writeCatalogDocAndLocal('hero_products', heroFile, payload);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, heroProducts: payload }));
         } catch (err) {
@@ -1678,7 +1977,7 @@ const server = http.createServer((req, res) => {
     const productsFile = path.join(PUBLIC_DIR, 'data', 'nutrition_products.json');
     if (req.method === 'GET') {
       try {
-        const products = safeReadJson(productsFile, []);
+        const products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(products));
       } catch (e) {
@@ -1689,10 +1988,10 @@ const server = http.createServer((req, res) => {
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const item = JSON.parse(body || '{}');
-          let products = safeReadJson(productsFile, []);
+          let products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
           const existingIdx = products.findIndex(p => p.id === item.id);
           if (existingIdx >= 0) {
             products[existingIdx] = { ...products[existingIdx], ...item };
@@ -1700,7 +1999,7 @@ const server = http.createServer((req, res) => {
             if (!item.id) item.id = 'prod_' + Date.now().toString(36);
             products.unshift(item);
           }
-          safeWriteJson(productsFile, products);
+          await writeCatalogDocAndLocal('nutrition_products', productsFile, products);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, product: item }));
         } catch (err) {
@@ -1712,9 +2011,9 @@ const server = http.createServer((req, res) => {
     } else if (req.method === 'DELETE') {
       try {
         const id = parsedUrl.query.id;
-        let products = safeReadJson(productsFile, []);
+        let products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
         if (id) products = products.filter(p => p.id !== id);
-        safeWriteJson(productsFile, products);
+        await writeCatalogDocAndLocal('nutrition_products', productsFile, products);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
@@ -1728,13 +2027,13 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && reqPath === '/api/nutrition-products/delete') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { id } = JSON.parse(body || '{}');
         const productsFile = path.join(PUBLIC_DIR, 'data', 'nutrition_products.json');
-        let products = safeReadJson(productsFile, []);
+        let products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
         products = products.filter(p => p.id !== id);
-        safeWriteJson(productsFile, products);
+        await writeCatalogDocAndLocal('nutrition_products', productsFile, products);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
@@ -1874,7 +2173,7 @@ const server = http.createServer((req, res) => {
     const blogsFile = path.join(PUBLIC_DIR, 'data', 'blogs.json');
     if (req.method === 'GET') {
       try {
-        const blogs = safeReadJson(blogsFile, []);
+        const blogs = await readCatalogDocOrFallback('blogs', blogsFile, []);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(blogs));
       } catch (e) {
@@ -1885,21 +2184,21 @@ const server = http.createServer((req, res) => {
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const blog = JSON.parse(body || '{}');
-          let blogs = safeReadJson(blogsFile, []);
+          let blogs = await readCatalogDocOrFallback('blogs', blogsFile, []);
           if (!blog.id) blog.id = 'blog_' + Date.now().toString(36);
           if (!blog.date) blog.date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
           if (!blog.readTime) blog.readTime = '4 min read';
-          
+
           const existingIdx = blogs.findIndex(b => b.id === blog.id);
           if (existingIdx >= 0) {
             blogs[existingIdx] = { ...blogs[existingIdx], ...blog };
           } else {
             blogs.unshift(blog);
           }
-          safeWriteJson(blogsFile, blogs);
+          await writeCatalogDocAndLocal('blogs', blogsFile, blogs);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, blog }));
         } catch (err) {
@@ -1914,13 +2213,13 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && reqPath === '/api/blogs/delete') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { id } = JSON.parse(body || '{}');
         const blogsFile = path.join(PUBLIC_DIR, 'data', 'blogs.json');
-        let blogs = safeReadJson(blogsFile, []);
+        let blogs = await readCatalogDocOrFallback('blogs', blogsFile, []);
         blogs = blogs.filter(b => b.id !== id);
-        safeWriteJson(blogsFile, blogs);
+        await writeCatalogDocAndLocal('blogs', blogsFile, blogs);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
@@ -1944,98 +2243,176 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(result));
       } catch (err) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: false, fallbackRequired: true, code: 'BAD_REQUEST', error: err.message }));
       }
     });
     return;
   }
 
-  // Nutrition Orders API (Full Management & Status Updates)
+  // Nutrition Orders API (Durable Firestore + Validation + Idempotency + Notifications)
   if (reqPath === '/api/nutrition-orders' || reqPath === '/api/orders') {
     const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
     if (req.method === 'GET') {
       try {
-        let data = safeReadJson(ordersFile, []);
+        const localOrders = safeReadJson(ordersFile, []);
+        const byOrderId = new Map();
+        for (const o of Array.isArray(localOrders) ? localOrders : []) {
+          const oid = String(o.orderId || o.id || '').trim();
+          if (oid) byOrderId.set(oid, o);
+        }
+
+        // Pull authoritative orders from both Firestore databases
+        try {
+          const [defRes, namedRes] = await Promise.all([
+            nutrolixCore.firestoreListAllDocuments('orders', nutrolixCore.DEFAULT_DB_ID, 2000),
+            nutrolixCore.firestoreListAllDocuments('orders', nutrolixCore.NAMED_DB_ID, 2000)
+          ]);
+          for (const doc of [...defRes.docs, ...namedRes.docs]) {
+            const oid = String(doc.orderId || doc.id || doc._docId || '').trim();
+            if (!oid) continue;
+            const cleanDoc = { ...doc, id: oid, orderId: oid };
+            delete cleanDoc._docId;
+            delete cleanDoc._docName;
+            byOrderId.set(oid, { ...(byOrderId.get(oid) || {}), ...cleanDoc });
+          }
+        } catch (_) {}
+
+        let data = Array.from(byOrderId.values());
+        data.sort((a, b) => {
+          const ta = Number(a.timestamp || a.orderTimeMillis || Date.parse(a.createdAt || a.orderTime || 0) || 0);
+          const tb = Number(b.timestamp || b.orderTimeMillis || Date.parse(b.createdAt || b.orderTime || 0) || 0);
+          return tb - ta;
+        });
+
         const qUid = String(parsedUrl.query.uid || '').trim();
-        const qPhone = normalizePhone(parsedUrl.query.phone || '');
+        const qPhone = normalizePhone(parsedUrl.query.phone || '') || (qUid.startsWith('phone_') ? normalizePhone(qUid.slice(6)) : '');
         const qEmail = normalizeEmail(parsedUrl.query.email || '');
         if (qUid || qPhone || qEmail) {
           data = data.filter(o => {
             const oUid = String(o.uid || '').trim();
-            const oPhone = normalizePhone(o.customerPhone || o.phone || (o.customer && o.customer.phone));
-            const oEmail = normalizeEmail(o.customerEmail || o.email || (o.customer && o.customer.email));
+            const oPhone = customerSync.extractOrderPhone(o);
+            const oEmail = customerSync.extractOrderEmail(o);
             return (qUid && oUid && oUid === qUid) || (qPhone && oPhone && oPhone === qPhone) || (qEmail && oEmail && oEmail === qEmail);
           });
         }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(data));
       } catch (e) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify([]));
+        res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
       }
       return;
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
       req.on('end', async () => {
+        let rawPayload = null;
         try {
-          const order = JSON.parse(body || '{}');
-          const oid = order.id || order.orderId || ('NUTRO-STORE-' + Math.floor(100000 + Math.random() * 900000));
-          order.id = oid;
-          order.orderId = order.orderId || oid;
-          if (!order.orderTime) order.orderTime = order.createdAt || new Date().toISOString();
+          rawPayload = JSON.parse(body || '');
+        } catch (_) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON request body.' }));
+          return;
+        }
+
+        const validation = customerSync.validateOrderPayload(rawPayload);
+        if (!validation.valid) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: validation.errors[0], errors: validation.errors }));
+          return;
+        }
+
+        try {
+          const order = validation.normalizedOrder;
           let orders = safeReadJson(ordersFile, []);
+          if (!Array.isArray(orders)) orders = [];
 
-          // If Healthy Food Discount was applied, record persistent redemption
-          if (order.foodDiscount && order.foodDiscount > 0) {
-            const phone = normalizePhone(order.customerPhone || order.phone);
-            const email = normalizeEmail(order.customerEmail || order.email);
-            const store = getCustomerDiscountsStore();
-            const rec = (phone && store[phone]) || (email && store[email]) || {};
-
-            if (order.couponCode === 'FIRST100' || order.foodDiscount >= 100 || !rec.first100Redeemed) {
-              rec.first100Redeemed = true;
-              rec.first100RedeemedAt = new Date().toISOString();
-              rec.first100OrderId = order.id;
-            } else {
-              if (!rec.subsequentRedemptions) rec.subsequentRedemptions = [];
-              rec.subsequentRedemptions.push({ orderId: order.id, amount: order.foodDiscount, date: new Date().toISOString() });
-            }
-
-            if (phone) store[phone] = rec;
-            if (email) store[email] = rec;
-            saveCustomerDiscountsStore(store);
+          // Idempotency & duplicate order guard (check local + Firestore)
+          const existingLocal = orders.find(o =>
+            o.orderId === order.orderId ||
+            o.id === order.orderId ||
+            (order.idempotencyKey && o.idempotencyKey === order.idempotencyKey)
+          );
+          if (existingLocal) {
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({ success: true, order: existingLocal, deduplicated: true }));
+            return;
           }
 
-          const existingIdx = orders.findIndex(o => (o.id === oid || o.orderId === oid));
-          if (existingIdx >= 0) {
-            orders[existingIdx] = { ...orders[existingIdx], ...order };
-          } else {
-            orders.unshift(order);
+          const existingFs = await nutrolixCore.firestoreGetFirstAvailable(`orders/${order.orderId}`);
+          if (existingFs && existingFs.orderId) {
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({ success: true, order: existingFs, deduplicated: true }));
+            return;
           }
+
+          // Persist Healthy Food Discount redemption durably
+          await recordHealthyFoodRedemption(order);
+
+          orders.unshift(order);
           safeWriteJson(ordersFile, orders);
 
-          // Trigger Genuine Order Placed Customer Push Notification
-          const copy = nutrolixCore.buildOrderStatusNotificationCopy(order.id, order.status || 'Order Placed');
+          // Persist authoritative order & non-clobbering customer summary to both Firestore DBs
+          const fsWrite = await nutrolixCore.firestorePatchBothDbs(`orders/${order.orderId}`, order);
+          if (order.uid) {
+            try {
+              const existingUser = await nutrolixCore.firestoreGetFirstAvailable(`users/${order.uid}`);
+              const bestName = nutrolixCore.pickBestCustomerName(existingUser && existingUser.name, order.customerName);
+              await nutrolixCore.firestorePatchBothDbs(`users/${order.uid}`, {
+                uid: order.uid,
+                id: order.uid,
+                name: bestName,
+                phone: order.customerPhone,
+                verifiedPhone: order.customerPhone,
+                whatsappNumber: order.whatsappNumber || order.customerPhone,
+                email: order.customerEmail || (existingUser && existingUser.email) || '',
+                lastOrderId: order.orderId,
+                lastOrderAmount: order.grandTotal,
+                city: (order.deliveryAddress && order.deliveryAddress.city) || (existingUser && existingUser.city) || '',
+                state: (order.deliveryAddress && order.deliveryAddress.state) || (existingUser && existingUser.state) || '',
+                pincode: (order.deliveryAddress && order.deliveryAddress.pincode) || (existingUser && existingUser.pincode) || '',
+                updatedAt: new Date().toISOString(),
+                updatedAtMillis: Date.now()
+              });
+            } catch (_) {}
+          }
+
+          // Dispatch Customer Order Placed notification & Admin New Order FCM alert
+          const copy = nutrolixCore.buildOrderStatusNotificationCopy(order.orderId, order.status || 'Order Placed');
+          let pushLog = null;
+          let adminPushAttempts = [];
           try {
-            await dispatchPushToCustomer({
-              uid: order.uid || '',
-              customerPhone: order.customerPhone || order.phone,
-              customerEmail: order.customerEmail || order.email,
-              orderId: order.id,
+            pushLog = await dispatchPushToCustomer({
+              uid: order.uid,
+              customerPhone: order.customerPhone,
+              customerEmail: order.customerEmail,
+              orderId: order.orderId,
               status: order.status || 'Order Placed',
               title: copy.title,
               message: copy.message,
               dedupKey: copy.dedupKey
             });
           } catch (_) {}
+          try {
+            adminPushAttempts = await dispatchPushToAdmins({
+              orderId: order.orderId,
+              total: order.grandTotal,
+              customerName: order.customerName
+            });
+          } catch (_) {}
 
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: true, order }));
+          res.end(JSON.stringify({
+            success: true,
+            order,
+            firestorePersisted: fsWrite.anySuccess,
+            pushDelivery: pushLog ? pushLog.deliveryStatus : [],
+            adminPushAttempts
+          }));
         } catch (err) {
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: true, order: { id: 'NTX-' + Date.now(), ...JSON.parse(body || '{}') } }));
+          res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: err.message || 'Order creation failed.' }));
         }
       });
       return;
@@ -2044,10 +2421,9 @@ const server = http.createServer((req, res) => {
 
   // Discount Validation APIs (Part B: Healthy Food Exclusivity)
   if (reqPath === '/api/discounts/healthy-food-eligibility' && req.method === 'GET') {
-    const parsedUrl = url.parse(req.url, true);
     const phone = parsedUrl.query.phone || '';
     const email = parsedUrl.query.email || '';
-    const eligibility = getCustomerHealthyFoodEligibility(phone, email);
+    const eligibility = await getCustomerHealthyFoodEligibilityDurable(phone, email);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     res.end(JSON.stringify(eligibility));
     return;
@@ -2056,10 +2432,10 @@ const server = http.createServer((req, res) => {
   if (reqPath === '/api/discounts/validate-healthy-food' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { items, customerPhone, customerEmail } = JSON.parse(body || '{}');
-        const eligibility = getCustomerHealthyFoodEligibility(customerPhone, customerEmail);
+        const eligibility = await getCustomerHealthyFoodEligibilityDurable(customerPhone, customerEmail);
 
         // Calculate subtotal strictly for Healthy Food / Cloud Kitchen meals (Excluding packaged store goods)
         let healthyFoodSubtotal = 0;
@@ -2068,12 +2444,12 @@ const server = http.createServer((req, res) => {
             const cat = (it.category || '').toLowerCase();
             const id = (it.id || '').toLowerCase();
             const isFood = Boolean(
-              it.isFood || 
-              cat.includes('food') || 
-              cat.includes('meal') || 
-              cat.includes('thali') || 
-              cat.includes('salad') || 
-              cat.includes('bowl') || 
+              it.isFood ||
+              cat.includes('food') ||
+              cat.includes('meal') ||
+              cat.includes('thali') ||
+              cat.includes('salad') ||
+              cat.includes('bowl') ||
               cat.includes('combos') ||
               id.startsWith('food_') ||
               id.startsWith('meal_') ||
@@ -2108,66 +2484,97 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  // Update order status (With Genuine Customer Push Notification Triggers across all 6 statuses + Firestore patch)
+  // Update order status (Authoritative Firestore lookup + Customer Push Notification Triggers)
   if (req.method === 'POST' && (reqPath === '/api/nutrition-orders/status' || reqPath === '/api/orders/status')) {
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', async () => {
       try {
-        const { orderId, status, courier, trackingNumber, uid, customerPhone, customerEmail } = JSON.parse(body || '{}');
-        const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
-        let orders = safeReadJson(ordersFile, []);
-        
-        const idx = orders.findIndex(o => (o.id === orderId || o.orderId === orderId));
-        let updatedOrder = null;
-        if (idx >= 0) {
-          orders[idx].status = status;
-          orders[idx].statusUpdatedAt = new Date().toISOString();
-          if (courier) orders[idx].courier = courier;
-          if (trackingNumber) orders[idx].trackingNumber = trackingNumber;
-          if (uid && !orders[idx].uid) orders[idx].uid = uid;
-          safeWriteJson(ordersFile, orders);
-          updatedOrder = orders[idx];
-        } else {
-          updatedOrder = {
-            id: orderId,
-            orderId: orderId,
-            uid: uid || '',
-            customerPhone: customerPhone || '',
-            customerEmail: customerEmail || '',
-            status: status,
-            statusUpdatedAt: new Date().toISOString(),
-            courier: courier || '',
-            trackingNumber: trackingNumber || ''
-          };
-          orders.unshift(updatedOrder);
-          safeWriteJson(ordersFile, orders);
+        let payload = null;
+        try {
+          payload = JSON.parse(body || '');
+        } catch (_) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON request body.' }));
+          return;
         }
 
-        const targetUid = updatedOrder.uid || uid || '';
-        const targetPhone = updatedOrder.customerPhone || updatedOrder.phone || customerPhone || (updatedOrder.customer && updatedOrder.customer.phone) || '';
-        const targetEmail = updatedOrder.customerEmail || updatedOrder.email || customerEmail || (updatedOrder.customer && updatedOrder.customer.email) || '';
+        const orderId = String(payload.orderId || payload.id || '').trim();
+        const rawStatus = String(payload.status || '').trim();
+        const courier = String(payload.courier || '').trim();
+        const trackingNumber = String(payload.trackingNumber || '').trim();
 
-        const copy = nutrolixCore.buildOrderStatusNotificationCopy(orderId, status, courier || updatedOrder.courier, trackingNumber || updatedOrder.trackingNumber);
-        let notificationDispatched = false;
+        if (!orderId || !rawStatus) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'orderId and status are required.' }));
+          return;
+        }
 
-        // Patch Firestore order document server-side when Service Account is configured
-        try {
-          const patchPayload = {
-            status: status,
-            statusUpdatedAt: updatedOrder.statusUpdatedAt,
-            ...(courier ? { courier } : {}),
-            ...(trackingNumber ? { trackingNumber } : {})
-          };
-          await Promise.all([
-            nutrolixCore.firestorePatchDocument(`orders/${orderId}`, patchPayload, nutrolixCore.DEFAULT_DB_ID),
-            nutrolixCore.firestorePatchDocument(`orders/${orderId}`, patchPayload, nutrolixCore.NAMED_DB_ID)
-          ]);
-        } catch (_) {}
+        const normStatus = nutrolixCore.normalizeOrderStatus(rawStatus);
+        const statusToPersist = rawStatus;
+        const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
+        let orders = safeReadJson(ordersFile, []);
+        if (!Array.isArray(orders)) orders = [];
 
+        const idx = orders.findIndex(o => (o.id === orderId || o.orderId === orderId));
+        let existingOrder = idx >= 0 ? orders[idx] : null;
+        if (!existingOrder) {
+          existingOrder = await nutrolixCore.firestoreGetFirstAvailable(`orders/${orderId}`);
+        }
+
+        const nowIso = new Date().toISOString();
+        const targetPhone = customerSync.extractOrderPhone({
+          ...(existingOrder || {}),
+          customerPhone: payload.customerPhone || (existingOrder && existingOrder.customerPhone) || ''
+        });
+        const targetUid = nutrolixCore.canonicalCustomerUid(targetPhone) ||
+          String((existingOrder && existingOrder.uid) || payload.uid || '').trim();
+        const targetEmail = customerSync.extractOrderEmail({
+          ...(existingOrder || {}),
+          customerEmail: payload.customerEmail || (existingOrder && existingOrder.customerEmail) || ''
+        });
+
+        const updatedOrder = {
+          ...(existingOrder || {}),
+          id: orderId,
+          orderId,
+          uid: targetUid,
+          customerPhone: targetPhone || (existingOrder && existingOrder.customerPhone) || '',
+          customerEmail: targetEmail || (existingOrder && existingOrder.customerEmail) || '',
+          status: statusToPersist,
+          normalizedStatusKey: normStatus.key,
+          statusUpdatedAt: nowIso,
+          ...(courier ? { courier } : {}),
+          ...(trackingNumber ? { trackingNumber } : {})
+        };
+        delete updatedOrder._docId;
+        delete updatedOrder._docName;
+
+        if (idx >= 0) orders[idx] = updatedOrder;
+        else orders.unshift(updatedOrder);
+        safeWriteJson(ordersFile, orders);
+
+        const patchPayload = {
+          status: statusToPersist,
+          normalizedStatusKey: normStatus.key,
+          statusUpdatedAt: nowIso,
+          ...(targetUid ? { uid: targetUid } : {}),
+          ...(targetPhone ? { customerPhone: targetPhone, verifiedPhone: targetPhone } : {}),
+          ...(courier ? { courier } : {}),
+          ...(trackingNumber ? { trackingNumber } : {})
+        };
+        const fsRes = await nutrolixCore.firestorePatchBothDbs(`orders/${orderId}`, patchPayload);
+
+        const copy = nutrolixCore.buildOrderStatusNotificationCopy(
+          orderId,
+          statusToPersist,
+          updatedOrder.courier || courier,
+          updatedOrder.trackingNumber || trackingNumber
+        );
+        let logResult = null;
         if (copy && copy.title) {
           try {
-            const logResult = await dispatchPushToCustomer({
+            logResult = await dispatchPushToCustomer({
               uid: targetUid,
               customerPhone: targetPhone,
               customerEmail: targetEmail,
@@ -2177,15 +2584,22 @@ const server = http.createServer((req, res) => {
               message: copy.message,
               dedupKey: copy.dedupKey
             });
-            notificationDispatched = Boolean(logResult);
           } catch (_) {}
         }
 
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ success: true, order: updatedOrder, notificationSent: notificationDispatched, notificationCopy: copy }));
+        res.end(JSON.stringify({
+          success: true,
+          order: updatedOrder,
+          firestorePersisted: fsRes.anySuccess,
+          notificationSent: Boolean(logResult && !logResult.deduplicated),
+          deduplicated: Boolean(logResult && logResult.deduplicated),
+          pushDelivery: logResult ? logResult.deliveryStatus : [],
+          notificationCopy: copy
+        }));
       } catch (err) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ success: true, error: err.message }));
+        res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: err.message || 'Status update failed.' }));
       }
     });
     return;
@@ -2202,47 +2616,83 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && reqPath === '/api/payu/initiate') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const orderData = JSON.parse(body || '{}');
         const orderId = orderData.orderId || ('ORD-' + Math.floor(100000 + Math.random() * 900000));
         const txnid = 'NTX_' + orderId + '_' + Date.now().toString(36);
-        const amount = Number(orderData.totalAmount || orderData.total || orderData.amount || 0).toFixed(2);
-        const productinfo = (orderData.items && orderData.items.length) 
-          ? orderData.items.map(i => i.name).join(', ').substring(0, 90) 
+        const numericAmount = Number(orderData.totalAmount || orderData.total || orderData.grandTotal || orderData.amount || 0);
+        if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Valid payable amount is required for online payment.' }));
+          return;
+        }
+        const amount = numericAmount.toFixed(2);
+        const productinfo = (orderData.items && orderData.items.length)
+          ? orderData.items.map(i => i.name).join(', ').substring(0, 90)
           : (orderData.productinfo || 'Nutrolix Functional Nutrition');
         const firstname = (orderData.customerName || orderData.name || orderData.firstname || 'Customer').split(' ')[0] || 'Customer';
         const email = (orderData.customerEmail || orderData.email || 'customer@nutrolix.in').trim();
-        const phone = (orderData.customerPhone || orderData.phone || '9999999999').replace(/[^0-9]/g, '').slice(-10);
+        const phone = customerSync.extractOrderPhone(orderData);
+        if (!nutrolixCore.isValidIndianMobile(phone)) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Valid 10-digit mobile number is required for online payment.' }));
+          return;
+        }
+        const canonicalUid = nutrolixCore.canonicalCustomerUid(phone) || orderData.uid || '';
 
         // Calculate Official PayU SHA-512 Hash
         const hashString = `${PAYU_KEY}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${PAYU_SALT}`;
         const hash = crypto.createHash('sha512').update(hashString).digest('hex');
 
-        const host = req.headers['host'] || 'ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app';
+        const host = req.headers['host'] || 'nutrolixweb.vercel.app';
         const protocol = (req.headers['x-forwarded-proto'] || 'https');
         const baseUrl = `${protocol}://${host}`;
 
         const surl = `${baseUrl}/api/payu/response`;
         const furl = `${baseUrl}/api/payu/response`;
 
-        // Pre-save pending order
         const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
-        let orders = [];
-        if (fs.existsSync(ordersFile)) orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8') || '[]');
+        let orders = safeReadJson(ordersFile, []);
+        if (!Array.isArray(orders)) orders = [];
         const pendingOrder = {
           ...orderData,
+          id: orderId,
           orderId,
+          uid: canonicalUid,
+          customerPhone: phone,
+          verifiedPhone: phone,
+          customerEmail: normalizeEmail(email),
           txnid,
           paymentMethod: 'PayU Online Payment (UPI, Cards, NetBanking)',
           paymentStatus: 'PAYMENT_PENDING',
+          status: orderData.status || 'Payment Pending',
+          grandTotal: numericAmount,
+          total: numericAmount,
           amount,
-          createdAt: new Date().toISOString()
+          createdAt: orderData.createdAt || new Date().toISOString(),
+          timestamp: Number(orderData.timestamp) || Date.now(),
+          orderTimeMillis: Number(orderData.orderTimeMillis) || Date.now()
         };
-        const existingIdx = orders.findIndex(o => o.orderId === orderId);
+        const existingIdx = orders.findIndex(o => o.orderId === orderId || o.id === orderId);
         if (existingIdx >= 0) orders[existingIdx] = { ...orders[existingIdx], ...pendingOrder };
         else orders.unshift(pendingOrder);
         safeWriteJson(ordersFile, orders.slice(0, 150));
+
+        // Persist pending order & txnid lookup durably to both Firestore DBs so cold Vercel callbacks find it
+        await Promise.all([
+          nutrolixCore.firestorePatchBothDbs(`orders/${orderId}`, pendingOrder),
+          nutrolixCore.firestorePatchBothDbs(`payuTransactions/${txnid}`, {
+            txnid,
+            orderId,
+            uid: canonicalUid,
+            customerPhone: phone,
+            customerEmail: normalizeEmail(email),
+            amount,
+            paymentStatus: 'PAYMENT_PENDING',
+            createdAt: pendingOrder.createdAt
+          })
+        ]);
 
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({
@@ -2262,17 +2712,17 @@ const server = http.createServer((req, res) => {
         }));
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ error: err.message }));
+        res.end(JSON.stringify({ success: false, error: err.message }));
       }
     });
     return;
   }
 
-  // Endpoint 2: PayU Webhook / Callback Handler
+  // Endpoint 2: PayU Webhook / Callback Handler (Durable across stateless Vercel instances)
   if (req.method === 'POST' && reqPath === '/api/payu/response') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const querystring = require('querystring');
         const params = querystring.parse(body);
@@ -2284,43 +2734,86 @@ const server = http.createServer((req, res) => {
         const firstname = params.firstname;
         const email = params.email;
         const receivedHash = params.hash;
-        const mihpayid = params.mihpayid;
+        const mihpayid = params.mihpayid || '';
 
         const resHashString = `${PAYU_SALT}|${status}|||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${PAYU_KEY}`;
         const calculatedHash = crypto.createHash('sha512').update(resHashString).digest('hex');
 
         const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
         let orders = safeReadJson(ordersFile, []);
+        if (!Array.isArray(orders)) orders = [];
         const orderIdx = orders.findIndex(o => o.txnid === txnid);
-        let orderId = txnid ? txnid.split('_')[1] : '';
+        let orderId = txnid && txnid.includes('_') ? txnid.split('_')[1] : '';
+        let targetOrder = orderIdx >= 0 ? orders[orderIdx] : null;
+
+        if (!targetOrder && txnid) {
+          const txnDoc = await nutrolixCore.firestoreGetFirstAvailable(`payuTransactions/${txnid}`);
+          if (txnDoc && txnDoc.orderId) orderId = txnDoc.orderId;
+        }
+        if (!targetOrder && orderId) {
+          targetOrder = await nutrolixCore.firestoreGetFirstAvailable(`orders/${orderId}`);
+        }
 
         if (status === 'success' && receivedHash === calculatedHash) {
-          if (orderIdx >= 0) {
-            orders[orderIdx].paymentStatus = 'PAID via PayU India';
-            orders[orderIdx].status = 'Order Confirmed';
-            orders[orderIdx].payuPaymentId = mihpayid;
-            orderId = orders[orderIdx].orderId || orderId;
-            safeWriteJson(ordersFile, orders);
+          const confirmedOrder = {
+            ...(targetOrder || {}),
+            id: orderId || (targetOrder && targetOrder.orderId),
+            orderId: orderId || (targetOrder && targetOrder.orderId),
+            txnid,
+            paymentStatus: 'PAID via PayU India',
+            status: 'Order Confirmed',
+            payuPaymentId: mihpayid,
+            statusUpdatedAt: new Date().toISOString()
+          };
+          delete confirmedOrder._docId;
+          delete confirmedOrder._docName;
+
+          if (orderIdx >= 0) orders[orderIdx] = confirmedOrder;
+          else if (confirmedOrder.orderId) orders.unshift(confirmedOrder);
+          safeWriteJson(ordersFile, orders);
+
+          if (confirmedOrder.orderId) {
+            await Promise.all([
+              nutrolixCore.firestorePatchBothDbs(`orders/${confirmedOrder.orderId}`, confirmedOrder),
+              nutrolixCore.firestorePatchBothDbs(`payuTransactions/${txnid}`, {
+                paymentStatus: 'PAID via PayU India',
+                payuPaymentId: mihpayid,
+                updatedAt: confirmedOrder.statusUpdatedAt
+              }),
+              recordHealthyFoodRedemption(confirmedOrder)
+            ]);
+
             try {
-              const confirmedCopy = nutrolixCore.buildOrderStatusNotificationCopy(orderId, 'Order Confirmed');
-              dispatchPushToCustomer({
-                uid: orders[orderIdx].uid || '',
-                customerPhone: orders[orderIdx].customerPhone || orders[orderIdx].phone || '',
-                customerEmail: orders[orderIdx].customerEmail || email || '',
-                orderId,
+              const confirmedCopy = nutrolixCore.buildOrderStatusNotificationCopy(confirmedOrder.orderId, 'Order Confirmed');
+              await dispatchPushToCustomer({
+                uid: confirmedOrder.uid || '',
+                customerPhone: customerSync.extractOrderPhone(confirmedOrder),
+                customerEmail: customerSync.extractOrderEmail(confirmedOrder) || email || '',
+                orderId: confirmedOrder.orderId,
                 status: 'Order Confirmed',
                 title: confirmedCopy.title,
                 message: confirmedCopy.message,
                 dedupKey: confirmedCopy.dedupKey
               });
+              await dispatchPushToAdmins({
+                orderId: confirmedOrder.orderId,
+                total: confirmedOrder.grandTotal || Number(amount) || 0,
+                customerName: confirmedOrder.customerName || firstname
+              });
             } catch (_) {}
           }
-          res.writeHead(302, { 'Location': `/orders.html?orderId=${encodeURIComponent(orderId)}&payment=success` });
+          res.writeHead(302, { 'Location': `/orders.html?orderId=${encodeURIComponent(confirmedOrder.orderId || orderId)}&payment=success` });
           res.end();
         } else {
-          if (orderIdx >= 0) {
-            orders[orderIdx].paymentStatus = 'PAYMENT_FAILED';
-            safeWriteJson(ordersFile, orders);
+          if (orderId) {
+            if (orderIdx >= 0) {
+              orders[orderIdx].paymentStatus = 'PAYMENT_FAILED';
+              safeWriteJson(ordersFile, orders);
+            }
+            await nutrolixCore.firestorePatchBothDbs(`orders/${orderId}`, {
+              paymentStatus: 'PAYMENT_FAILED',
+              statusUpdatedAt: new Date().toISOString()
+            });
           }
           res.writeHead(302, { 'Location': `/cart.html?payment=failed&reason=${encodeURIComponent(params.error_Message || 'Payment cancelled or failed')}` });
           res.end();
@@ -2504,7 +2997,7 @@ const server = http.createServer((req, res) => {
     const foodFile = path.join(PUBLIC_DIR, 'data', 'healthy_food_menu.json');
     if (req.method === 'GET') {
       try {
-        const meals = safeReadJson(foodFile, []);
+        const meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(meals));
       } catch (e) {
@@ -2515,10 +3008,10 @@ const server = http.createServer((req, res) => {
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const meal = JSON.parse(body || '{}');
-          let meals = safeReadJson(foodFile, []);
+          let meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
           if (Array.isArray(meal)) {
             meals = meal;
           } else {
@@ -2530,7 +3023,7 @@ const server = http.createServer((req, res) => {
               meals.unshift(meal);
             }
           }
-          safeWriteJson(foodFile, meals);
+          await writeCatalogDocAndLocal('healthy_food_menu', foodFile, meals);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, meals }));
         } catch (err) {
@@ -2542,9 +3035,9 @@ const server = http.createServer((req, res) => {
     } else if (req.method === 'DELETE') {
       try {
         const id = parsedUrl.query.id;
-        let meals = safeReadJson(foodFile, []);
+        let meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
         if (id) meals = meals.filter(m => m.id !== id);
-        safeWriteJson(foodFile, meals);
+        await writeCatalogDocAndLocal('healthy_food_menu', foodFile, meals);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true, meals }));
       } catch (err) {
@@ -2558,13 +3051,13 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && reqPath === '/api/food-menu/delete') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { id } = JSON.parse(body || '{}');
         const foodFile = path.join(PUBLIC_DIR, 'data', 'healthy_food_menu.json');
-        let meals = safeReadJson(foodFile, []);
+        let meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
         meals = meals.filter(m => m.id !== id);
-        safeWriteJson(foodFile, meals);
+        await writeCatalogDocAndLocal('healthy_food_menu', foodFile, meals);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true, meals }));
       } catch (err) {
@@ -2589,7 +3082,7 @@ const server = http.createServer((req, res) => {
     ];
     if (req.method === 'GET') {
       try {
-        const cats = safeReadJson(catFile, defaults);
+        const cats = await readCatalogDocOrFallback('healthy_food_categories', catFile, defaults);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(cats));
       } catch (e) {
@@ -2600,10 +3093,10 @@ const server = http.createServer((req, res) => {
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const payload = JSON.parse(body || '{}');
-          let cats = safeReadJson(catFile, defaults);
+          let cats = await readCatalogDocOrFallback('healthy_food_categories', catFile, defaults);
 
           if (Array.isArray(payload)) {
             cats = payload;
@@ -2618,7 +3111,7 @@ const server = http.createServer((req, res) => {
               cats.push(payload);
             }
           }
-          safeWriteJson(catFile, cats);
+          await writeCatalogDocAndLocal('healthy_food_categories', catFile, cats);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, categories: cats }));
         } catch (err) {
@@ -2631,7 +3124,7 @@ const server = http.createServer((req, res) => {
   }
 
   // -------------------------------------------------------------
-  // PHASE 2 API: ADMIN AUTHENTICATION
+  // PHASE 2 API: ADMIN AUTHENTICATION & SECURE ONE-TIME CUSTOMER DATA PURGE
   // -------------------------------------------------------------
   if (req.method === 'POST' && reqPath === '/api/admin/login') {
     let body = '';
@@ -2641,19 +3134,173 @@ const server = http.createServer((req, res) => {
         const { email, password, pin } = JSON.parse(body || '{}');
         const validEmails = ['nutrolix.in@gmail.com', 'admin@nutrolix.in', 'admin'];
         const validPass = ['907625', 'nutrolix2026', 'admin123', 'admin'];
-        const isAuth = validEmails.includes((email || '').toLowerCase().trim()) && 
-                       (validPass.includes((password || '').trim()) || validPass.includes((pin || '').trim()));
+        const cleanEmail = (email || '').toLowerCase().trim();
+        const isAuth = validEmails.includes(cleanEmail) &&
+          (validPass.includes((password || '').trim()) || validPass.includes((pin || '').trim()));
         if (isAuth) {
-          const token = 'ntx_adm_' + Date.now() + '_' + Math.random().toString(36).substring(2, 9);
+          const token = nutrolixCore.signAdminSessionToken(cleanEmail);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: true, token, user: { email: 'nutrolix.in@gmail.com', role: 'ADMIN', name: 'Nutrolix Administrator' } }));
+          res.end(JSON.stringify({
+            success: true,
+            token,
+            user: { email: 'nutrolix.in@gmail.com', role: 'ADMIN', name: 'Nutrolix Administrator' }
+          }));
         } else {
-          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ error: 'Invalid admin credentials. Please enter authorized admin email and PIN.' }));
         }
       } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
+  }
+
+  if (req.method === 'POST' && reqPath === '/api/admin/customer-data/purge') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const headerAdminToken = req.headers['x-nutrolix-admin-token'] || '';
+        const authHeader = req.headers['authorization'] || '';
+        let authorizedAdmin = nutrolixCore.verifyAdminSessionToken(headerAdminToken || authHeader);
+
+        if (!authorizedAdmin && authHeader) {
+          const decodedUser = await nutrolixCore.verifyFirebaseIdToken(authHeader, __dirname);
+          if (decodedUser && decodedUser.uid) {
+            if (decodedUser.email === 'nutrolix.in@gmail.com') {
+              authorizedAdmin = { email: decodedUser.email, role: 'ADMIN' };
+            } else {
+              const adminDoc = await nutrolixCore.firestoreGetFirstAvailable(`admins/${decodedUser.uid}`);
+              if (adminDoc && (adminDoc.role === 'admin' || adminDoc.isAdmin === true)) {
+                authorizedAdmin = { email: decodedUser.email || decodedUser.uid, role: 'ADMIN' };
+              }
+            }
+          }
+        }
+
+        if (!authorizedAdmin) {
+          res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({
+            success: false,
+            error: 'Admin authorization required. Authenticate via /api/admin/login or Firebase Admin account.'
+          }));
+          return;
+        }
+
+        let payload = {};
+        try {
+          payload = JSON.parse(body || '{}');
+        } catch (_) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON payload.' }));
+          return;
+        }
+
+        const dryRun = payload.dryRun !== false;
+        const confirmPhrase = String(payload.confirmPhrase || '').trim();
+        const deleteLocalFiles = Boolean(payload.deleteLocalFiles);
+
+        const summary = await nutrolixPurge.purgeCustomerData({
+          dryRun,
+          confirmPhrase,
+          deleteLocalFiles,
+          rootDir: __dirname
+        });
+
+        // Write non-PII summary audit record
+        const auditId = 'audit_purge_' + Date.now();
+        const auditRecord = {
+          id: auditId,
+          action: 'CUSTOMER_DATA_PURGE',
+          mode: summary.mode,
+          actor: authorizedAdmin.email || 'admin',
+          totals: summary.totals,
+          timestamp: summary.timestamp
+        };
+        try {
+          const auditFile = path.join(PUBLIC_DIR, 'data', 'audit_logs.json');
+          const logs = safeReadJson(auditFile, []);
+          logs.unshift(auditRecord);
+          safeWriteJson(auditFile, logs.slice(0, 100));
+          await nutrolixCore.firestorePatchBothDbs(`auditLogs/${auditId}`, {
+            ...auditRecord,
+            totalsJson: JSON.stringify(summary.totals)
+          });
+        } catch (_) {}
+
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, ...summary }));
+      } catch (err) {
+        const code = err.statusCode || 500;
+        res.writeHead(code, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, code: err.code || 'PURGE_ERROR', error: err.message }));
+      }
+    });
+    return;
+  }
+
+  // -------------------------------------------------------------
+  // CANONICAL CUSTOMER IDENTITY SYNC ENDPOINT
+  // -------------------------------------------------------------
+  if (req.method === 'POST' && reqPath === '/api/auth/sync-canonical') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const authHeader = req.headers['authorization'] || '';
+        const verifiedUser = await nutrolixCore.verifyFirebaseIdToken(authHeader, __dirname);
+        if (!verifiedUser || !verifiedUser.uid) {
+          res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Valid Firebase ID token is required.' }));
+          return;
+        }
+
+        let payload = {};
+        try { payload = JSON.parse(body || '{}'); } catch (_) {}
+
+        const tokenUid = String(verifiedUser.uid);
+        const tokenPhone = normalizePhone(verifiedUser.phoneNumber || (tokenUid.startsWith('phone_') ? tokenUid.slice(6) : ''));
+        const bodyPhone = normalizePhone(payload.phone || '');
+        const cleanPhone = tokenPhone || bodyPhone;
+
+        if (!nutrolixCore.isValidIndianMobile(cleanPhone)) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Verified 10-digit mobile number is required.' }));
+          return;
+        }
+
+        const canonicalUid = nutrolixCore.canonicalCustomerUid(cleanPhone);
+        // Ensure verified token matches canonical UID or owns that verified phone number
+        if (tokenUid !== canonicalUid && tokenPhone && tokenPhone !== cleanPhone) {
+          res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Identity mismatch.' }));
+          return;
+        }
+
+        const extraProfile = payload.profile && typeof payload.profile === 'object' ? payload.profile : {};
+        const merged = await customerSync.mergeLegacyCustomerAccount({
+          canonicalUid,
+          phone: cleanPhone,
+          extraProfile
+        });
+
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({
+          success: true,
+          uid: canonicalUid,
+          profile: merged.profile,
+          addresses: merged.addresses,
+          migrationSummary: {
+            migratedUids: merged.migratedUids,
+            migratedOrdersCount: merged.migratedOrdersCount,
+            migratedAddressesCount: merged.migratedAddressesCount
+          }
+        }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
       }
     });
     return;
@@ -2740,39 +3387,13 @@ const server = http.createServer((req, res) => {
           return;
         }
 
-        // Create a stable Firebase UID after Fast2SMS confirms the OTP.
-        const saRaw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
-        let sa = null;
-        try { sa = JSON.parse(saRaw.startsWith('{') ? saRaw : Buffer.from(saRaw, 'base64').toString('utf8')); } catch (_) {}
-        if (!sa || !sa.client_email || !sa.private_key || !sa.project_id) {
+        const sa = nutrolixCore.parseServiceAccountFromEnv();
+        if (!sa) {
           res.writeHead(503, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, code: 'FIREBASE_ADMIN_NOT_CONFIGURED', error: 'Firebase server authentication is not configured.' }));
           return;
         }
-        // Firebase Identity Toolkit needs the public Firebase Web API key.
-        // Prefer an explicit Vercel env var; fall back to the committed Android config,
-        // then to the same public client config embedded in the customer web assets.
-        let firebaseApiKey = String(process.env.FIREBASE_WEB_API_KEY || '').trim();
-        if (!firebaseApiKey) {
-          const configPath = path.join(__dirname, 'app', 'google-services.json');
-          try {
-            const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
-            firebaseApiKey = cfg.client?.[0]?.api_key?.[0]?.current_key || '';
-          } catch (_) {}
-        }
-        if (!firebaseApiKey) {
-          for (const clientConfigPath of [
-            path.join(__dirname, 'public', 'assets', 'nutrolix-auth.js'),
-            path.join(__dirname, 'public', 'assets', 'nutrolix-firebase.js'),
-            path.join(__dirname, 'app', 'src', 'main', 'assets', 'web', 'assets', 'nutrolix-auth.js')
-          ]) {
-            try {
-              const clientSource = fs.readFileSync(clientConfigPath, 'utf8');
-              const match = clientSource.match(/apiKey\s*:\s*["'](AIza[0-9A-Za-z_-]+)["']/);
-              if (match) { firebaseApiKey = match[1]; break; }
-            } catch (_) {}
-          }
-        }
+        const firebaseApiKey = nutrolixCore.getFirebaseWebApiKey(__dirname);
         if (!firebaseApiKey) {
           res.writeHead(503, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: 'Firebase client configuration is missing.' }));
@@ -2789,7 +3410,7 @@ const server = http.createServer((req, res) => {
         const signer = crypto.createSign('RSA-SHA256');
         signer.update(unsigned);
         const customToken = unsigned + '.' + signer.sign(sa.private_key.replace(/\\n/g, '\n'), 'base64url');
-        const identity = await new Promise((resolve, reject) => {
+        await new Promise((resolve, reject) => {
           const data = JSON.stringify({ token: customToken, returnSecureToken: true });
           const request = https.request('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + encodeURIComponent(firebaseApiKey), {
             method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }, timeout: 15000
@@ -2807,10 +3428,24 @@ const server = http.createServer((req, res) => {
           request.on('error', reject);
           request.write(data); request.end();
         });
+
+        // Merge & fetch existing canonical profile + addresses so returning users immediately get their real profile on every device
+        const merged = await customerSync.mergeLegacyCustomerAccount({
+          canonicalUid: uid,
+          phone: mobile
+        });
+
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
-          success: true, verified: true, customToken, uid,
-          profile: { uid, id: uid, name: 'Nutrolix Customer', phone: mobile, verifiedPhone: mobile, whatsappNumber: mobile, phoneVerified: true, verified: true, authProvider: 'phone', providers: ['phone'], googleLinked: false }
+          success: true,
+          verified: true,
+          customToken,
+          uid,
+          profile: merged.profile || {
+            uid, id: uid, name: 'Nutrolix Customer', phone: mobile, verifiedPhone: mobile, whatsappNumber: mobile,
+            phoneVerified: true, verified: true, authProvider: 'phone', providers: ['phone'], googleLinked: false
+          },
+          addresses: merged.addresses || []
         }));
       } catch (error) {
         console.error('Fast2SMS WhatsApp OTP error:', error.message);
@@ -2830,108 +3465,198 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (reqPath === '/api/notifications/register-token') {
-    if (req.method === 'POST') {
-      let body = '';
-      req.on('data', chunk => body += chunk);
-      req.on('end', async () => {
+  if (reqPath === '/api/notifications/register-token' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        let sub = null;
         try {
-          const sub = JSON.parse(body || '{}');
-          const tokenFile = path.join(PUBLIC_DIR, 'data', 'notification_tokens.json');
-          let tokens = safeReadJson(tokenFile, []);
-          if (!Array.isArray(tokens)) tokens = [];
-
-          const fcmToken = sub.fcmToken || ((!sub.subscription || !sub.subscription.endpoint) ? (sub.token || '') : '');
-          const endpoint = (sub.subscription && sub.subscription.endpoint) || sub.endpoint || fcmToken || sub.token || '';
-          const uid = String(sub.uid || '').trim();
-          const customerPhone = normalizePhone(sub.customerPhone || sub.phone);
-          const customerEmail = normalizeEmail(sub.customerEmail || sub.email);
-          const platform = sub.platform || 'web';
-
-          if (endpoint) {
-            const existingIdx = tokens.findIndex(t => {
-              const tEndpoint = (t.subscription && t.subscription.endpoint) || t.endpoint || t.fcmToken || t.token;
-              return tEndpoint === endpoint;
-            });
-
-            const newEntry = {
-              uid,
-              fcmToken,
-              token: fcmToken || endpoint,
-              subscription: sub.subscription || (sub.keys ? { endpoint, keys: sub.keys } : null),
-              endpoint,
-              customerPhone,
-              customerEmail,
-              platform,
-              registeredAt: new Date().toISOString()
-            };
-
-            if (existingIdx >= 0) {
-              tokens[existingIdx] = { ...tokens[existingIdx], ...newEntry };
-            } else {
-              tokens.push(newEntry);
-            }
-            safeWriteJson(tokenFile, tokens);
-
-            let firestorePersisted = false;
-            if (fcmToken) {
-              const tokenDocId = crypto.createHash('sha1').update(String(fcmToken)).digest('hex').slice(0, 24);
-              const firestoreTokenObj = {
-                uid,
-                token: fcmToken,
-                fcmToken,
-                platform,
-                customerPhone,
-                customerEmail,
-                updatedAt: new Date().toISOString()
-              };
-              try {
-                const writes = [
-                  nutrolixCore.firestorePatchDocument(`fcmTokens/${tokenDocId}`, firestoreTokenObj, nutrolixCore.DEFAULT_DB_ID),
-                  nutrolixCore.firestorePatchDocument(`fcmTokens/${tokenDocId}`, firestoreTokenObj, nutrolixCore.NAMED_DB_ID)
-                ];
-                if (uid) {
-                  writes.push(
-                    nutrolixCore.firestorePatchDocument(`users/${uid}/fcmTokens/${tokenDocId}`, firestoreTokenObj, nutrolixCore.DEFAULT_DB_ID),
-                    nutrolixCore.firestorePatchDocument(`users/${uid}/fcmTokens/${tokenDocId}`, firestoreTokenObj, nutrolixCore.NAMED_DB_ID)
-                  );
-                }
-                const results = await Promise.all(writes);
-                firestorePersisted = results.some(Boolean);
-              } catch (_) {}
-            }
-          }
-
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: true, registered: Boolean(endpoint), firestorePersisted: Boolean(firestorePersisted), storage: firestorePersisted ? 'firestore' : 'local_only' }));
-        } catch (e) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: e.message }));
+          sub = JSON.parse(body || '');
+        } catch (_) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Invalid JSON request body.' }));
+          return;
         }
-      });
-      return;
-    }
+
+        const fcmToken = String(sub.fcmToken || ((!sub.subscription || !sub.subscription.endpoint) && sub.token && !String(sub.token).startsWith('http') ? sub.token : '')).trim();
+        const subscriptionObj = (sub.subscription && sub.subscription.endpoint)
+          ? sub.subscription
+          : (sub.endpoint && sub.keys ? { endpoint: sub.endpoint, keys: sub.keys } : null);
+        const endpoint = String((subscriptionObj && subscriptionObj.endpoint) || sub.endpoint || fcmToken || sub.token || '').trim();
+
+        if (!endpoint) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'A valid FCM token or Web Push subscription endpoint is required.' }));
+          return;
+        }
+
+        const customerPhone = normalizePhone(sub.customerPhone || sub.phone || '');
+        const resolvedUid = nutrolixCore.canonicalCustomerUid(customerPhone) || String(sub.uid || '').trim();
+        const customerEmail = normalizeEmail(sub.customerEmail || sub.email || '');
+        const platform = String(sub.platform || 'web').trim();
+        const role = String(sub.role || (platform.includes('admin') ? 'admin' : 'customer')).trim().toLowerCase();
+
+        const tokenFile = path.join(PUBLIC_DIR, 'data', 'notification_tokens.json');
+        let tokens = safeReadJson(tokenFile, []);
+        if (!Array.isArray(tokens)) tokens = [];
+
+        const existingIdx = tokens.findIndex(t => {
+          const tEndpoint = (t.subscription && t.subscription.endpoint) || t.endpoint || t.fcmToken || t.token;
+          return tEndpoint === endpoint;
+        });
+
+        const nowIso = new Date().toISOString();
+        const newEntry = {
+          uid: resolvedUid,
+          role,
+          fcmToken,
+          token: fcmToken || endpoint,
+          subscription: subscriptionObj,
+          endpoint,
+          customerPhone,
+          customerEmail,
+          platform,
+          registeredAt: nowIso,
+          updatedAt: nowIso
+        };
+
+        if (existingIdx >= 0) tokens[existingIdx] = { ...tokens[existingIdx], ...newEntry };
+        else tokens.push(newEntry);
+        safeWriteJson(tokenFile, tokens);
+
+        let firestorePersisted = false;
+        const tokenDocId = makeTokenDocId(endpoint);
+        const firestoreTokenObj = {
+          uid: resolvedUid,
+          role,
+          token: fcmToken || endpoint,
+          fcmToken: fcmToken || '',
+          endpoint,
+          subscriptionJson: subscriptionObj ? JSON.stringify(subscriptionObj) : '',
+          platform,
+          customerPhone,
+          customerEmail,
+          updatedAt: nowIso,
+          updatedAtMillis: Date.now()
+        };
+
+        try {
+          const writes = [
+            nutrolixCore.firestorePatchBothDbs(`notificationTokens/${tokenDocId}`, firestoreTokenObj)
+          ];
+          if (fcmToken) {
+            writes.push(nutrolixCore.firestorePatchBothDbs(`fcmTokens/${tokenDocId}`, firestoreTokenObj));
+          }
+          if (role === 'admin') {
+            writes.push(nutrolixCore.firestorePatchBothDbs(`adminTokens/${tokenDocId}`, firestoreTokenObj));
+          } else if (resolvedUid) {
+            writes.push(nutrolixCore.firestorePatchBothDbs(`users/${resolvedUid}/fcmTokens/${tokenDocId}`, firestoreTokenObj));
+          }
+          const results = await Promise.all(writes);
+          firestorePersisted = results.some(r => r && r.anySuccess);
+        } catch (_) {}
+
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({
+          success: true,
+          registered: true,
+          uid: resolvedUid,
+          role,
+          firestorePersisted,
+          storage: firestorePersisted ? 'firestore' : 'local_only'
+        }));
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
+      }
+    });
+    return;
+  }
+
+  if (reqPath === '/api/notifications/unregister' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const sub = JSON.parse(body || '{}');
+        const endpoint = String((sub.subscription && sub.subscription.endpoint) || sub.endpoint || sub.fcmToken || sub.token || '').trim();
+        const customerPhone = normalizePhone(sub.customerPhone || sub.phone || '');
+        const resolvedUid = nutrolixCore.canonicalCustomerUid(customerPhone) || String(sub.uid || '').trim();
+        if (!endpoint) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Token or endpoint required to unregister.' }));
+          return;
+        }
+        const docId = makeTokenDocId(endpoint);
+        const userDocPaths = resolvedUid
+          ? nutrolixCore.BOTH_DB_IDS.map((dbId) => ({ path: `users/${resolvedUid}/fcmTokens/${docId}`, dbId }))
+          : [];
+        await pruneDeadNotificationTargets([endpoint], [endpoint], userDocPaths);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, unregistered: true }));
+      } catch (err) {
+        res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
   }
 
   if (reqPath === '/api/notifications/user-history' && req.method === 'GET') {
     const logFile = path.join(PUBLIC_DIR, 'data', 'notifications_log.json');
     try {
-      const uid = String(parsedUrl.query.uid || '').trim();
-      const phone = normalizePhone(parsedUrl.query.phone || '');
+      const qUid = String(parsedUrl.query.uid || '').trim();
+      const phone = normalizePhone(parsedUrl.query.phone || '') || (qUid.startsWith('phone_') ? normalizePhone(qUid.slice(6)) : '');
+      const uid = nutrolixCore.canonicalCustomerUid(phone) || qUid;
       const email = normalizeEmail(parsedUrl.query.email || '');
-      const logs = safeReadJson(logFile, []);
-      const filtered = logs.filter(l => {
-        if (!uid && !phone && !email) return false;
+
+      if (!uid && !phone && !email) {
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, notifications: [], unreadCount: 0 }));
+        return;
+      }
+
+      const byNotifId = new Map();
+      const localLogs = safeReadJson(logFile, []);
+      for (const l of Array.isArray(localLogs) ? localLogs : []) {
         const lUid = String(l.uid || '').trim();
         const lPhone = normalizePhone(l.customerPhone || l.phone || l.target);
         const lEmail = normalizeEmail(l.customerEmail || l.email);
-        return (uid && lUid && lUid === uid) || (phone && lPhone && lPhone === phone) || (email && lEmail && lEmail === email);
+        if ((uid && lUid && lUid === uid) || (phone && lPhone && lPhone === phone) || (email && lEmail && lEmail === email)) {
+          const nid = String(l.id || l.dedupKey || '');
+          if (nid) byNotifId.set(nid, l);
+        }
+      }
+
+      if (uid) {
+        try {
+          const [defNotifs, namedNotifs] = await Promise.all([
+            nutrolixCore.firestoreListAllDocuments(`users/${uid}/notifications`, nutrolixCore.DEFAULT_DB_ID, 100),
+            nutrolixCore.firestoreListAllDocuments(`users/${uid}/notifications`, nutrolixCore.NAMED_DB_ID, 100)
+          ]);
+          for (const doc of [...defNotifs.docs, ...namedNotifs.docs]) {
+            const nid = String(doc.id || doc._docId || doc.dedupKey || '');
+            if (!nid) continue;
+            const cleanDoc = { ...doc, id: nid };
+            delete cleanDoc._docId;
+            delete cleanDoc._docName;
+            byNotifId.set(nid, { ...(byNotifId.get(nid) || {}), ...cleanDoc });
+          }
+        } catch (_) {}
+      }
+
+      const mergedList = Array.from(byNotifId.values()).sort((a, b) => {
+        const ta = Date.parse(a.timestamp || 0) || 0;
+        const tb = Date.parse(b.timestamp || 0) || 0;
+        return tb - ta;
       });
+
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({
         success: true,
-        notifications: filtered,
-        unreadCount: filtered.filter(n => !n.read).length
+        notifications: mergedList.slice(0, 60),
+        unreadCount: mergedList.filter(n => !n.read).length
       }));
     } catch (e) {
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -2943,19 +3668,21 @@ const server = http.createServer((req, res) => {
   if (reqPath === '/api/notifications/mark-read' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { id, notifId, uid, phone, email, markAll } = JSON.parse(body || '{}');
         const targetId = id || notifId;
         const logFile = path.join(PUBLIC_DIR, 'data', 'notifications_log.json');
         const logs = safeReadJson(logFile, []);
         const cleanPhone = normalizePhone(phone || '');
+        const resolvedUid = nutrolixCore.canonicalCustomerUid(cleanPhone) || String(uid || '').trim();
         const cleanEmail = normalizeEmail(email || '');
         let updated = 0;
+
         for (const l of logs) {
           const matchesId = targetId && (l.id === targetId || l.dedupKey === targetId);
           const matchesOwner = markAll && (
-            (uid && l.uid === uid) ||
+            (resolvedUid && l.uid === resolvedUid) ||
             (cleanPhone && normalizePhone(l.customerPhone || l.phone) === cleanPhone) ||
             (cleanEmail && normalizeEmail(l.customerEmail || l.email) === cleanEmail)
           );
@@ -2965,6 +3692,20 @@ const server = http.createServer((req, res) => {
           }
         }
         if (updated > 0) safeWriteJson(logFile, logs);
+
+        if (resolvedUid) {
+          if (targetId) {
+            await nutrolixCore.firestorePatchBothDbs(`users/${resolvedUid}/notifications/${targetId}`, { read: true });
+          } else if (markAll) {
+            const fsNotifs = await nutrolixCore.firestoreListDocuments(`users/${resolvedUid}/notifications`, nutrolixCore.DEFAULT_DB_ID);
+            await Promise.all(
+              fsNotifs
+                .filter((n) => !n.read && (n._docId || n.id))
+                .map((n) => nutrolixCore.firestorePatchBothDbs(`users/${resolvedUid}/notifications/${n._docId || n.id}`, { read: true }))
+            );
+          }
+        }
+
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true, updated }));
       } catch (e) {
@@ -2979,7 +3720,7 @@ const server = http.createServer((req, res) => {
     const logFile = path.join(PUBLIC_DIR, 'data', 'notifications_log.json');
     if (req.method === 'GET') {
       try {
-        const logs = safeReadJson(logFile, []);
+        const logs = await readCatalogDocOrFallback('notifications_history', logFile, []);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(logs));
       } catch (e) {
@@ -2998,27 +3739,36 @@ const server = http.createServer((req, res) => {
         const notif = JSON.parse(body || '{}');
         const logFile = path.join(PUBLIC_DIR, 'data', 'notifications_log.json');
         const tokenFile = path.join(PUBLIC_DIR, 'data', 'notification_tokens.json');
-        let logs = safeReadJson(logFile, []);
+        let logs = await readCatalogDocOrFallback('notifications_history', logFile, []);
+        if (!Array.isArray(logs)) logs = [];
         let tokens = safeReadJson(tokenFile, []);
         if (!Array.isArray(tokens)) tokens = [];
 
-        // Vercel Functions have ephemeral local storage. Load durable device registrations
-        // from Firestore before broadcasting so notifications reach devices across instances.
+        // Load durable Web Push + FCM registrations across both Firestore DBs
         try {
-          const [defaultTokens, namedTokens] = await Promise.all([
-            nutrolixCore.firestoreListDocuments('fcmTokens', nutrolixCore.DEFAULT_DB_ID),
-            nutrolixCore.firestoreListDocuments('fcmTokens', nutrolixCore.NAMED_DB_ID)
+          const [ntDef, ntNamed, fcmDef, fcmNamed] = await Promise.all([
+            nutrolixCore.firestoreListAllDocuments('notificationTokens', nutrolixCore.DEFAULT_DB_ID, 1000),
+            nutrolixCore.firestoreListAllDocuments('notificationTokens', nutrolixCore.NAMED_DB_ID, 1000),
+            nutrolixCore.firestoreListAllDocuments('fcmTokens', nutrolixCore.DEFAULT_DB_ID, 1000),
+            nutrolixCore.firestoreListAllDocuments('fcmTokens', nutrolixCore.NAMED_DB_ID, 1000)
           ]);
-          const durableTokens = [...defaultTokens, ...namedTokens]
-            .filter(doc => doc && (doc.fcmToken || doc.token))
-            .map(doc => ({
-              ...doc,
-              fcmToken: doc.fcmToken || doc.token,
-              token: doc.fcmToken || doc.token
-            }));
+          const durableTokens = [...ntDef.docs, ...ntNamed.docs, ...fcmDef.docs, ...fcmNamed.docs]
+            .filter(doc => doc && (doc.fcmToken || doc.token || doc.endpoint || doc.subscriptionJson))
+            .map(doc => {
+              let parsedSub = doc.subscription || null;
+              if (!parsedSub && doc.subscriptionJson) {
+                try { parsedSub = JSON.parse(doc.subscriptionJson); } catch (_) {}
+              }
+              return {
+                ...doc,
+                subscription: parsedSub,
+                fcmToken: doc.fcmToken || (!String(doc.token || '').startsWith('http') ? doc.token : ''),
+                token: doc.fcmToken || doc.token || doc.endpoint
+              };
+            });
           const byToken = new Map();
           [...tokens, ...durableTokens].forEach(rec => {
-            const key = rec.fcmToken || rec.token || (rec.subscription && rec.subscription.endpoint);
+            const key = rec.fcmToken || (rec.subscription && rec.subscription.endpoint) || rec.endpoint || rec.token;
             if (key) byToken.set(key, { ...(byToken.get(key) || {}), ...rec });
           });
           tokens = Array.from(byToken.values());
@@ -3029,12 +3779,15 @@ const server = http.createServer((req, res) => {
         const targetUrl = notif.url || '/orders.html';
 
         let deliveredCount = 0;
+        let acceptedCount = 0;
+        let failedCount = 0;
         const deadEndpoints = [];
         const deadFcmTokens = [];
         const seenDestinations = new Set();
 
         for (const tokenRec of tokens) {
-          const fcmTok = tokenRec.fcmToken || ((!tokenRec.subscription || !tokenRec.subscription.endpoint) ? tokenRec.token : '');
+          if (tokenRec.role === 'admin') continue;
+          const fcmTok = tokenRec.fcmToken || ((!tokenRec.subscription || !tokenRec.subscription.endpoint) && tokenRec.token && !String(tokenRec.token).startsWith('http') ? tokenRec.token : '');
           if (fcmTok && !seenDestinations.has(fcmTok)) {
             seenDestinations.add(fcmTok);
             try {
@@ -3047,8 +3800,11 @@ const server = http.createServer((req, res) => {
                 data: { type: notif.type || 'PROMOTIONAL' }
               });
               if (fcmRes.sent) deliveredCount++;
+              else failedCount++;
               if (fcmRes.permanentFailure) deadFcmTokens.push(fcmTok);
-            } catch (_) {}
+            } catch (_) {
+              failedCount++;
+            }
           }
           const subEp = tokenRec.subscription && tokenRec.subscription.endpoint;
           if (webpush && subEp && !seenDestinations.has(subEp)) {
@@ -3059,8 +3815,9 @@ const server = http.createServer((req, res) => {
                 JSON.stringify({ title, body: message, orderId: notif.orderId || '', url: targetUrl }),
                 { TTL: 86400, urgency: 'high' }
               );
-              deliveredCount++;
+              acceptedCount++;
             } catch (err) {
+              failedCount++;
               if (err.statusCode === 410 || err.statusCode === 404) {
                 deadEndpoints.push(subEp);
               }
@@ -3068,16 +3825,7 @@ const server = http.createServer((req, res) => {
           }
         }
 
-        if (deadEndpoints.length > 0 || deadFcmTokens.length > 0) {
-          tokens = tokens.filter(t => {
-            const ep = t.subscription && t.subscription.endpoint;
-            const ft = t.fcmToken || t.token;
-            if (ep && deadEndpoints.includes(ep)) return false;
-            if (ft && deadFcmTokens.includes(ft)) return false;
-            return true;
-          });
-          safeWriteJson(tokenFile, tokens);
-        }
+        await pruneDeadNotificationTargets(deadEndpoints, deadFcmTokens, []);
 
         const entry = {
           id: 'notif_' + Date.now(),
@@ -3090,12 +3838,22 @@ const server = http.createServer((req, res) => {
           timestamp: new Date().toISOString(),
           status: 'SENT',
           targetedCount: seenDestinations.size,
-          deliveredCount
+          deliveredCount,
+          acceptedCount,
+          failedCount
         };
         logs.unshift(entry);
-        safeWriteJson(logFile, logs.slice(0, 250));
+        await writeCatalogDocAndLocal('notifications_history', logFile, logs.slice(0, 250));
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ success: true, notification: entry, targetedCount: seenDestinations.size, deliveredCount }));
+        res.end(JSON.stringify({
+          success: true,
+          notification: entry,
+          targetedCount: seenDestinations.size,
+          deliveredCount,
+          acceptedCount,
+          failedCount,
+          prunedCount: deadEndpoints.length + deadFcmTokens.length
+        }));
       } catch (err) {
         res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: false, error: err.message }));
@@ -3229,7 +3987,7 @@ const server = http.createServer((req, res) => {
   if (reqPath === '/api/settings' || reqPath === '/api/store-settings') {
     const settingsFile = path.join(PUBLIC_DIR, 'data', 'store_settings.json');
     if (req.method === 'GET') {
-      const data = safeReadJson(settingsFile, {
+      const data = await readCatalogDocOrFallback('store_settings', settingsFile, {
         storeName: "Nutrolix",
         announcement: "🔥 Flat 10% OFF on all functional foods! Use Code: NUTRO10 • Free Delivery Above ₹499",
         announcementActive: true,
@@ -3242,10 +4000,10 @@ const server = http.createServer((req, res) => {
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const newSettings = JSON.parse(body || '{}');
-          safeWriteJson(settingsFile, newSettings);
+          await writeCatalogDocAndLocal('store_settings', settingsFile, newSettings);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, settings: newSettings }));
         } catch (err) {
@@ -3261,7 +4019,7 @@ const server = http.createServer((req, res) => {
   if (reqPath === '/api/coupons' || reqPath === '/api/store-coupons') {
     const couponsFile = path.join(PUBLIC_DIR, 'data', 'store_coupons.json');
     if (req.method === 'GET') {
-      const data = safeReadJson(couponsFile, [
+      const data = await readCatalogDocOrFallback('store_coupons', couponsFile, [
         { code: 'NUTRO10', title: '10% OFF on All Products', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true },
         { code: 'NUTRO20', title: '20% OFF on Orders > ₹1499', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true }
       ]);
@@ -3271,10 +4029,10 @@ const server = http.createServer((req, res) => {
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const newCoupons = JSON.parse(body || '[]');
-          safeWriteJson(couponsFile, newCoupons);
+          await writeCatalogDocAndLocal('store_coupons', couponsFile, newCoupons);
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, coupons: newCoupons }));
         } catch (err) {
@@ -3286,53 +4044,77 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // Registered Customers & Users
+  // Registered Customers & Users (Firestore-backed + Non-clobbering merge)
   if (reqPath === '/api/users') {
     if (req.method === 'GET') {
       const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
       const usersFile = path.join(PUBLIC_DIR, 'data', 'users.json');
-      let usersMap = {};
+      const usersMap = {};
 
-      if (fs.existsSync(usersFile)) {
-        try {
-          const savedUsers = JSON.parse(fs.readFileSync(usersFile, 'utf8') || '[]');
-          savedUsers.forEach(u => {
-            const key = u.phone || u.email || u.id;
-            if (key) usersMap[key] = u;
-          });
-        } catch (_) {}
-      }
+      const addUserRecord = (u) => {
+        if (!u) return;
+        const phone = normalizePhone(u.verifiedPhone || u.phone || u.whatsappNumber || (String(u.uid || '').startsWith('phone_') ? String(u.uid).slice(6) : ''));
+        const key = nutrolixCore.canonicalCustomerUid(phone) || String(u.uid || u.id || u.email || '').trim();
+        if (!key) return;
+        const prev = usersMap[key] || {};
+        usersMap[key] = {
+          ...prev,
+          ...u,
+          uid: key,
+          id: key,
+          phone: phone || prev.phone || '',
+          verifiedPhone: phone || prev.verifiedPhone || '',
+          name: nutrolixCore.pickBestCustomerName(prev.name, u.name)
+        };
+      };
 
-      if (fs.existsSync(ordersFile)) {
-        try {
-          const orders = JSON.parse(fs.readFileSync(ordersFile, 'utf8') || '[]');
-          orders.forEach(o => {
-            const cust = o.customer || {};
-            const phone = cust.phone || o.customerPhone;
-            const email = cust.email || o.customerEmail || 'customer@nutrolix.in';
-            const name = cust.name || o.customerName || 'Customer';
-            const key = phone || email;
-            if (key) {
-              const addr = o.deliveryAddress ? `${o.deliveryAddress.address1 || ''}, ${o.deliveryAddress.city || ''} - ${o.deliveryAddress.pincode || ''}` : (o.address || '');
-              if (!usersMap[key]) {
-                usersMap[key] = {
-                  id: key,
-                  name,
-                  phone: phone || '',
-                  email,
-                  lastAddress: addr,
-                  totalOrders: 1,
-                  totalSpend: Number(o.grandTotal || o.total || o.amount || 0),
-                  updatedAt: o.createdAt || new Date().toISOString()
-                };
-              } else {
-                usersMap[key].totalOrders += 1;
-                usersMap[key].totalSpend += Number(o.grandTotal || o.total || o.amount || 0);
-                if (addr) usersMap[key].lastAddress = addr;
-              }
+      const savedUsers = safeReadJson(usersFile, []);
+      if (Array.isArray(savedUsers)) savedUsers.forEach(addUserRecord);
+
+      try {
+        const [defUsers, namedUsers] = await Promise.all([
+          nutrolixCore.firestoreListAllDocuments('users', nutrolixCore.DEFAULT_DB_ID, 1500),
+          nutrolixCore.firestoreListAllDocuments('users', nutrolixCore.NAMED_DB_ID, 1500)
+        ]);
+        for (const doc of [...defUsers.docs, ...namedUsers.docs]) {
+          const clean = { ...doc };
+          delete clean._docId;
+          delete clean._docName;
+          addUserRecord(clean);
+        }
+      } catch (_) {}
+
+      const orders = safeReadJson(ordersFile, []);
+      if (Array.isArray(orders)) {
+        orders.forEach(o => {
+          const phone = customerSync.extractOrderPhone(o);
+          const email = customerSync.extractOrderEmail(o);
+          const name = nutrolixCore.pickBestCustomerName(o.customer && o.customer.name, o.customerName);
+          const key = nutrolixCore.canonicalCustomerUid(phone) || String(o.uid || email || '').trim();
+          if (key) {
+            const addr = o.deliveryAddress && typeof o.deliveryAddress === 'object'
+              ? `${o.deliveryAddress.address1 || ''}, ${o.deliveryAddress.city || ''} - ${o.deliveryAddress.pincode || ''}`
+              : (o.address || '');
+            if (!usersMap[key]) {
+              usersMap[key] = {
+                id: key,
+                uid: key,
+                name,
+                phone: phone || '',
+                email: email || '',
+                lastAddress: addr,
+                totalOrders: 1,
+                totalSpend: Number(o.grandTotal || o.total || o.amount || 0),
+                updatedAt: o.createdAt || new Date().toISOString()
+              };
+            } else {
+              usersMap[key].totalOrders = (usersMap[key].totalOrders || 0) + 1;
+              usersMap[key].totalSpend = (usersMap[key].totalSpend || 0) + Number(o.grandTotal || o.total || o.amount || 0);
+              usersMap[key].name = nutrolixCore.pickBestCustomerName(usersMap[key].name, name);
+              if (addr) usersMap[key].lastAddress = addr;
             }
-          });
-        } catch (_) {}
+          }
+        });
       }
 
       const userList = Object.values(usersMap);
@@ -3342,41 +4124,47 @@ const server = http.createServer((req, res) => {
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const user = JSON.parse(body || '{}');
           const usersFile = path.join(PUBLIC_DIR, 'data', 'users.json');
           let savedUsers = safeReadJson(usersFile, []);
-          const key = user.uid || user.id || normalizePhone(user.verifiedPhone || user.phone) || normalizeEmail(user.email);
+          if (!Array.isArray(savedUsers)) savedUsers = [];
+          const cleanPhone = normalizePhone(user.verifiedPhone || user.phone || user.whatsappNumber || (String(user.uid || '').startsWith('phone_') ? String(user.uid).slice(6) : ''));
+          const key = nutrolixCore.canonicalCustomerUid(cleanPhone) || String(user.uid || user.id || normalizeEmail(user.email) || '').trim();
           if (key) {
-            user.id = key;
-            user.uid = user.uid || key;
-            user.updatedAt = new Date().toISOString();
+            const existingFs = await nutrolixCore.firestoreGetFirstAvailable(`users/${key}`);
             const idx = savedUsers.findIndex(u =>
-              (u.uid && user.uid && u.uid === user.uid) ||
-              (u.phone && user.phone && normalizePhone(u.phone) === normalizePhone(user.phone)) ||
+              (u.uid && u.uid === key) ||
+              (cleanPhone && normalizePhone(u.phone || u.verifiedPhone) === cleanPhone) ||
               (u.email && user.email && normalizeEmail(u.email) === normalizeEmail(user.email)) ||
               (u.id === key)
             );
-            if (idx >= 0) savedUsers[idx] = { ...savedUsers[idx], ...user };
-            else savedUsers.unshift(user);
+            const existingLocal = idx >= 0 ? savedUsers[idx] : {};
+            const mergedUser = {
+              ...(existingFs || {}),
+              ...existingLocal,
+              ...user,
+              id: key,
+              uid: key,
+              phone: cleanPhone || existingLocal.phone || (existingFs && existingFs.phone) || '',
+              verifiedPhone: cleanPhone || existingLocal.verifiedPhone || (existingFs && existingFs.verifiedPhone) || '',
+              name: nutrolixCore.pickBestCustomerName(user.name, existingFs && existingFs.name, existingLocal.name),
+              updatedAt: new Date().toISOString(),
+              updatedAtMillis: Date.now()
+            };
+            delete mergedUser._docId;
+            delete mergedUser._docName;
+
+            if (idx >= 0) savedUsers[idx] = mergedUser;
+            else savedUsers.unshift(mergedUser);
             safeWriteJson(usersFile, savedUsers);
 
-            // Reassign orders & tokens if merging from a previousUid to current uid
-            if (user.linkedFromUid && user.uid && user.linkedFromUid !== user.uid) {
-              try {
-                const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
-                const orders = safeReadJson(ordersFile, []);
-                let changed = false;
-                for (const o of orders) {
-                  if (o.uid === user.linkedFromUid) {
-                    o.uid = user.uid;
-                    changed = true;
-                  }
-                }
-                if (changed) safeWriteJson(ordersFile, orders);
-              } catch (_) {}
-            }
+            await nutrolixCore.firestorePatchBothDbs(`users/${key}`, mergedUser);
+
+            res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({ success: true, user: mergedUser }));
+            return;
           }
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: true, user }));

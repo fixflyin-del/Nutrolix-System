@@ -983,7 +983,7 @@ object FoodAiKnowledgeBase {
   }
 
   private fun queryServerBackend(foodQuery: String): FoodAiDetail? {
-    val url = "https://ais-dev-hdct4zqciie73skb7kah2l-760738801567.asia-northeast1.run.app/api/food-ai-lookup"
+    val url = "https://nutrolixweb.vercel.app/api/food-ai-lookup"
     val reqJson = JSONObject().put("query", foodQuery)
     val body = reqJson.toString().toRequestBody("application/json".toMediaType())
 

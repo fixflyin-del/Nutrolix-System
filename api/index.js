@@ -28,7 +28,36 @@ module.exports = (req, res) => {
   }
 
   if (targetPath) {
-    effectiveUrl = targetPath;
+    const cleanTargetPath = targetPath.split('?')[0];
+    const searchParams = new URLSearchParams();
+
+    // Preserve any query parameters present on original req.url or targetPath
+    for (const rawUrl of [req.url, targetPath]) {
+      const qIdx = String(rawUrl || '').indexOf('?');
+      if (qIdx >= 0) {
+        const sp = new URLSearchParams(String(rawUrl).slice(qIdx + 1));
+        for (const [k, v] of sp.entries()) {
+          if (k !== '__route' && k !== '__path' && k !== '0') {
+            searchParams.set(k, v);
+          }
+        }
+      }
+    }
+
+    // Merge Vercel-parsed req.query parameters (excluding internal rewrite params)
+    if (req.query && typeof req.query === 'object') {
+      for (const [k, v] of Object.entries(req.query)) {
+        if (k === '__route' || k === '__path' || k === '0' || v === undefined) continue;
+        if (Array.isArray(v)) {
+          if (v.length > 0) searchParams.set(k, String(v[v.length - 1]));
+        } else {
+          searchParams.set(k, String(v));
+        }
+      }
+    }
+
+    const qs = searchParams.toString();
+    effectiveUrl = qs ? `${cleanTargetPath}?${qs}` : cleanTargetPath;
   }
 
   // If Vercel already consumed the body into req.body and the stream has ended

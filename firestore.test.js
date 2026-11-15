@@ -243,9 +243,80 @@ test("Verified Admin can manage catalog, list orders, update status, and send no
       uid: ALICE_UID,
       orderId: "ORD-2002",
       status: "Out for Delivery",
+      type: "ORDER_STATUS",
       title: "Nutrolix – Out for Delivery!",
       message: "Your order is out for delivery.",
       read: false,
     })
   );
+});
+
+test("Canonical WhatsApp phone_<digits> customer profile, address & order schemas succeed and server-only collections stay locked", async () => {
+  const PHONE_UID = "phone_9876543210";
+  const phoneDb = testEnv.authenticatedContext(PHONE_UID).firestore();
+  const unauthDb = testEnv.unauthenticatedContext().firestore();
+
+  await assertSucceeds(
+    phoneDb.collection("users").doc(PHONE_UID).set({
+      uid: PHONE_UID,
+      id: PHONE_UID,
+      name: "Nutrolix Customer",
+      phone: "9876543210",
+      verifiedPhone: "9876543210",
+      whatsappNumber: "9876543210",
+      providers: ["phone"],
+      authProvider: "phone",
+      verified: true,
+      phoneVerified: true,
+      authSession: true,
+      googleLinked: false,
+      lastLoginAt: new Date().toISOString(),
+      defaultAddress: "Flat 202, Sai Enclave",
+      city: "Navi Mumbai",
+      state: "Maharashtra",
+      pincode: "410208",
+    })
+  );
+
+  await assertSucceeds(
+    phoneDb.collection("users").doc(PHONE_UID).collection("addresses").doc("addr_primary").set({
+      id: "addr_primary",
+      uid: PHONE_UID,
+      tag: "Home",
+      street: "Flat 202, Sai Enclave",
+      address1: "Flat 202, Sai Enclave",
+      city: "Navi Mumbai",
+      state: "Maharashtra",
+      pincode: "410208",
+      deliveryCoordinates: { lat: 19.03, lng: 73.06, consentGranted: true },
+    })
+  );
+
+  await assertSucceeds(
+    phoneDb.collection("orders").doc("ORD-556677").set({
+      id: "ORD-556677",
+      orderId: "ORD-556677",
+      orderNumber: "ORD-556677",
+      idempotencyKey: "idem_abc_123",
+      uid: PHONE_UID,
+      status: "Order Placed",
+      verifiedPhone: "9876543210",
+      customerPhone: "9876543210",
+      whatsappNumber: "9876543210",
+      shipping: 0,
+      foodDiscount: 100,
+      foodOfferType: "FIRST_HEALTHY_100",
+      orderTime: new Date().toISOString(),
+      items: [{ title: "High Protein Bowl", quantity: 1, price: 299 }],
+      total: 199,
+      grandTotal: 199,
+    })
+  );
+
+  // Server-only collections are inaccessible to clients & unauthenticated callers
+  for (const col of ["notificationTokens", "notificationDedups", "adminTokens", "payuTransactions", "catalogStore", "auditLogs"]) {
+    await assertFails(phoneDb.collection(col).get());
+    await assertFails(phoneDb.collection(col).doc("doc1").set({ test: true }));
+    await assertFails(unauthDb.collection(col).get());
+  }
 });
