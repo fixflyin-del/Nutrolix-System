@@ -115,11 +115,12 @@
       const authoritativeOrder = apiOrder || cleanOrder;
 
       if (db && authoritativeOrder.uid) {
-        try {
-          await db.collection('orders').doc(authoritativeOrder.orderId).set(authoritativeOrder, { merge: true });
-        } catch (e) {
-          console.warn('Firestore direct order mirror notice:', e.message);
-        }
+        // The API has already confirmed the authoritative order write.
+        // This client-side mirror is best-effort only and must never block
+        // the checkout success screen if the browser Firestore SDK stalls.
+        db.collection('orders').doc(authoritativeOrder.orderId)
+          .set(authoritativeOrder, { merge: true })
+          .catch((e) => console.warn('Firestore direct order mirror notice:', e.message));
       }
 
       // Sync customer summary profile under canonical UID
