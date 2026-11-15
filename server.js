@@ -3652,61 +3652,64 @@ const server = http.createServer(async (req, res) => {
   if (reqPath === '/api/notifications/user-history' && req.method === 'GET') {
     const logFile = path.join(PUBLIC_DIR, 'data', 'notifications_log.json');
     try {
-      const qUid = String(parsedUrl.query.uid || '').trim();
-      const phone = normalizePhone(parsedUrl.query.phone || '') || (qUid.startsWith('phone_') ? normalizePhone(qUid.slice(6)) : '');
-      const uid = nutrolixCore.canonicalCustomerUid(phone) || qUid;
-      const email = normalizeEmail(parsedUrl.query.email || '');
-
-      if (!uid && !phone && !email) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ success: true, notifications: [], unreadCount: 0 }));
+      const authHeader = String(req.headers['authorization'] || '');
+      const decodedUser = await nutrolixCore.verifyFirebaseIdToken(authHeader, __dirname);
+      if (!decodedUser || !decodedUser.uid) {
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: 'A verified Firebase customer session is required.' }));
         return;
       }
+      const tokenUid = String(decodedUser.uid);
+      const phone = normalizePhone(decodedUser.phoneNumber || (tokenUid.startsWith('phone_') ? tokenUid.slice(6) : ''));
+      if (!nutrolixCore.isValidIndianMobile(phone)) {
+        res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: 'Verified customer phone identity is required.' }));
+        return;
+      }
+      const uid = nutrolixCore.canonicalCustomerUid(phone);
+      const email = normalizeEmail(decodedUser.email || '');
 
       const byNotifId = new Map();
       const localLogs = safeReadJson(logFile, []);
       for (const l of Array.isArray(localLogs) ? localLogs : []) {
         const lUid = String(l.uid || '').trim();
         const lPhone = normalizePhone(l.customerPhone || l.phone || l.target);
-        const lEmail = normalizeEmail(l.customerEmail || l.email);
-        if ((uid && lUid && lUid === uid) || (phone && lPhone && lPhone === phone) || (email && lEmail && lEmail === email)) {
+        if ((lUid && lUid === uid) || (lPhone && lPhone === phone)) {
           const nid = String(l.id || l.dedupKey || '');
           if (nid) byNotifId.set(nid, l);
         }
       }
 
-      if (uid) {
-        try {
-          const [defNotifs, namedNotifs] = await Promise.all([
-            nutrolixCore.firestoreListAllDocuments(`users/${uid}/notifications`, nutrolixCore.DEFAULT_DB_ID, 100),
-            nutrolixCore.firestoreListAllDocuments(`users/${uid}/notifications`, nutrolixCore.NAMED_DB_ID, 100)
-          ]);
-          for (const doc of [...defNotifs.docs, ...namedNotifs.docs]) {
-            const nid = String(doc.id || doc._docId || doc.dedupKey || '');
-            if (!nid) continue;
-            const cleanDoc = { ...doc, id: nid };
-            delete cleanDoc._docId;
-            delete cleanDoc._docName;
-            byNotifId.set(nid, { ...(byNotifId.get(nid) || {}), ...cleanDoc });
-          }
-        } catch (_) {}
-      }
+      try {
+        const [defNotifs, namedNotifs] = await Promise.all([
+          nutrolixCore.firestoreListAllDocuments(`users/${uid}/notifications`, nutrolixCore.DEFAULT_DB_ID, 100),
+          nutrolixCore.firestoreListAllDocuments(`users/${uid}/notifications`, nutrolixCore.NAMED_DB_ID, 100)
+        ]);
+        for (const doc of [...defNotifs.docs, ...namedNotifs.docs]) {
+          const nid = String(doc.id || doc._docId || doc.dedupKey || '');
+          if (!nid) continue;
+          const cleanDoc = { ...doc, id: nid };
+          delete cleanDoc._docId;
+          delete cleanDoc._docName;
+          byNotifId.set(nid, { ...(byNotifId.get(nid) || {}), ...cleanDoc });
+        }
+      } catch (_) {}
 
       const mergedList = Array.from(byNotifId.values()).sort((a, b) => {
         const ta = Date.parse(a.timestamp || 0) || 0;
         const tb = Date.parse(b.timestamp || 0) || 0;
         return tb - ta;
       });
-
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({
         success: true,
+        uid,
         notifications: mergedList.slice(0, 60),
         unreadCount: mergedList.filter(n => !n.read).length
       }));
     } catch (e) {
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      res.end(JSON.stringify({ success: true, notifications: [], unreadCount: 0 }));
+      res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
     }
     return;
   }
