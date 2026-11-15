@@ -1,4 +1,4 @@
-name: Build Nutrolix Customer APK
+name: Build Nutrolix Customer and Admin Debug APKs
 
 on:
   push:
@@ -17,7 +17,7 @@ permissions:
   contents: read
 
 jobs:
-  customer-apk:
+  debug-apks:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -45,17 +45,34 @@ jobs:
             -keyalg RSA -keysize 2048 -validity 10000
 
       - name: Build Customer debug APK
-        run: gradle -PappRole=customer :app:assembleDebug --no-daemon
-
-      - name: Verify APK
         run: |
-          test -s app/build/outputs/apk/debug/app-debug.apk
-          ls -lh app/build/outputs/apk/debug/app-debug.apk
+          gradle -PappRole=customer :app:assembleDebug --no-daemon
+          mkdir -p artifacts
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/Nutrolix-Customer-debug.apk
+
+      - name: Build Admin debug APK
+        run: |
+          gradle -PappRole=admin :app:assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk artifacts/Nutrolix-Admin-debug.apk
+
+      - name: Verify APK artifacts
+        run: |
+          test -s artifacts/Nutrolix-Customer-debug.apk
+          test -s artifacts/Nutrolix-Admin-debug.apk
+          ls -lh artifacts/*.apk
 
       - name: Upload Customer APK
         uses: actions/upload-artifact@v4
         with:
           name: Nutrolix-Customer-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: artifacts/Nutrolix-Customer-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload Admin APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Nutrolix-Admin-debug-apk
+          path: artifacts/Nutrolix-Admin-debug.apk
           if-no-files-found: error
           retention-days: 14
