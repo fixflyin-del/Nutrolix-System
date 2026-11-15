@@ -3467,8 +3467,13 @@ const server = http.createServer(async (req, res) => {
   // PHASE 2 API: PUSH NOTIFICATIONS (RFC 8291 Web Push & FCM)
   // -------------------------------------------------------------
   if (reqPath === '/api/notifications/vapid-key' && req.method === 'GET') {
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    res.end(JSON.stringify({ publicKey: VAPID_PUBLIC_KEY }));
+    const configured = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && webpush);
+    res.writeHead(configured ? 200 : 503, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.end(JSON.stringify({
+      success: configured,
+      publicKey: configured ? VAPID_PUBLIC_KEY : '',
+      error: configured ? undefined : 'Web Push VAPID keys are not configured on the server.'
+    }));
     return;
   }
 
