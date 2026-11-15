@@ -2089,6 +2089,19 @@
         confirmedOrder.id = finalOrdId;
         confirmedOrder.orderId = finalOrdId;
 
+        // Dispatch status alerts separately so push-provider latency cannot block
+        // the success screen or keep the Place Order button spinning.
+        try {
+          const notifyHost = window.NUTROLIX_API_HOST || '';
+          fetch(notifyHost + '/api/notifications/order-placed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: finalOrdId })
+          }).catch((notifyError) => console.warn('[Cart] Order notification dispatch queued:', notifyError));
+        } catch (notifyError) {
+          console.warn('[Cart] Order notification dispatch could not start:', notifyError);
+        }
+
         let existingLocal = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
         const prevCustomerOrders = existingLocal.filter(o => o.customer && (o.customer.phone === phone || (email && o.customer.email === email))).length;
         const orderSequenceNumber = confirmedOrder.orderSequence || (prevCustomerOrders + 1);
