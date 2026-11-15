@@ -188,13 +188,29 @@
       const db = this.getDb();
       const targetUid = String(uid || (userData && userData.uid) || '').trim();
       if (!db || !targetUid) return null;
-      const payload = {
-        ...(userData || {}),
-        uid: targetUid,
-        id: targetUid,
-        updatedAt: new Date().toISOString(),
-        updatedAtMillis: Date.now()
-      };
+      // Keep the client payload aligned with firestore.rules isValidUserProfile().
+      // Auth-only UI flags (authSession/authProvider/verified) belong in local storage,
+      // not in the Firestore profile document.
+      const source = userData || {};
+      const allowedFields = [
+        'name', 'email', 'phone', 'verifiedPhone', 'whatsappNumber', 'photo',
+        'phoneVerified', 'googleLinked', 'linkedFromUid', 'currentAddress',
+        'savedAddresses', 'lastAddress', 'lastOrderId', 'lastOrderNumber',
+        'lastOrderAmount', 'lastOrderTime', 'nutriPoints', 'createdAt',
+        'createdAtTs', 'updatedAtTs'
+      ];
+      const payload = { uid: targetUid, id: targetUid };
+      allowedFields.forEach(key => {
+        if (source[key] !== undefined && source[key] !== null) payload[key] = source[key];
+      });
+      const providers = Array.isArray(source.authProviders)
+        ? source.authProviders
+        : (Array.isArray(source.providers) ? source.providers : []);
+      if (providers.length <= 10 && providers.every(item => typeof item === 'string')) {
+        payload.authProviders = providers;
+      }
+      payload.updatedAt = new Date().toISOString();
+      payload.updatedAtMillis = Date.now();
       try {
         await db.collection('users').doc(targetUid).set(payload, { merge: true });
       } catch (e) {
