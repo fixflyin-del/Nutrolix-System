@@ -220,104 +220,55 @@
     return 'nutrolix-global-recaptcha';
   }
 
+  const FAST2SMS_AUTH_API_BASE = (window.location && window.location.protocol === 'file:')
+    ? 'https://nutrolixweb.vercel.app'
+    : (window.NUTROLIX_API_HOST || '');
+
   window.startNutrolixPhoneOtp = async function(rawPhone, opts = {}) {
-    const e164 = toE164India(rawPhone);
-    if (!e164) {
-      throw new Error('Please enter a valid 10-digit WhatsApp mobile number.');
+    const digits = clean10Phone(rawPhone);
+    if (digits.length !== 10 || !/^[6-9]\\d{9}$/.test(digits)) {
+      throw new Error('Please enter a valid 10-digit Indian WhatsApp number.');
     }
-
-    // Native Android Bridge path (avoids WebView file:// Recaptcha failures)
-    if (window.AndroidNative && typeof window.AndroidNative.startPhoneOtp === 'function') {
-      return new Promise((resolve, reject) => {
-        pendingNativePhoneCallbacks = {
-          onSent: (res) => {
-            nativeVerificationId = res.verificationId || '';
-            resolve({ mode: 'native', verificationId: nativeVerificationId, phoneE164: e164 });
-          },
-          onInstant: async (userPayload) => {
-            const prof = await handleNativePhoneSuccess(userPayload);
-            resolve({ mode: 'instant', profile: prof });
-          },
-          onError: (err) => {
-            reject(new Error((err && err.message) || 'Failed to send OTP.'));
-          }
-        };
-        window.AndroidNative.startPhoneOtp(e164, Boolean(opts.isResend));
-      });
+    localStorage.setItem('nutrolix_pending_otp_phone', JSON.stringify(digits));
+    const response = await fetch(FAST2SMS_AUTH_API_BASE + '/api/auth/whatsapp/send-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile: digits })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.success !== true) {
+      throw new Error(result.error || 'Unable to send WhatsApp OTP. Please try again.');
     }
-
-    // Web Browser path (Firebase Phone Auth + invisible reCAPTCHA)
-    if (typeof firebase === 'undefined' || !firebase.auth) {
-      throw new Error('Firebase Auth SDK not loaded.');
-    }
-    if (window.location && window.location.protocol === 'file:') {
-      throw new Error('Phone OTP on Android must use native Play Services.');
-    }
-
-    const auth = firebase.auth();
-    const containerId = opts.recaptchaContainerId || ensureRecaptchaContainer();
-    if (!webRecaptchaVerifier) {
-      webRecaptchaVerifier = new firebase.auth.RecaptchaVerifier(containerId, {
-        size: 'invisible',
-        callback: () => {}
-      });
-    }
-
-    try {
-      webConfirmationResult = await auth.signInWithPhoneNumber(e164, webRecaptchaVerifier);
-      return { mode: 'web', phoneE164: e164, confirmationResult: webConfirmationResult };
-    } catch (err) {
-      try { webRecaptchaVerifier.clear(); } catch (_) {}
-      webRecaptchaVerifier = null;
-      if (err.code === 'auth/credential-already-in-use') {
-        webConfirmationResult = await auth.signInWithPhoneNumber(
-          e164,
-          new firebase.auth.RecaptchaVerifier(containerId, { size: 'invisible' })
-        );
-        return { mode: 'web', phoneE164: e164, confirmationResult: webConfirmationResult };
-      }
-      throw err;
-    }
+    return { mode: 'fast2sms', phoneE164: '+91' + digits, requestId: result.requestId || '' };
   };
 
   window.verifyNutrolixPhoneOtp = async function(otpCode) {
-    const cleanOtp = String(otpCode || '').replace(/\D/g, '');
-    if (cleanOtp.length !== 6) {
-      throw new Error('Please enter the 6-digit OTP code.');
+    const cleanOtp = String(otpCode || '').replace(/\\D/g, '');
+    if (cleanOtp.length !== 6) throw new Error('Please enter the 6-digit OTP code.');
+    const saved = JSON.parse(localStorage.getItem('nutrolix_pending_otp_phone') || 'null');
+    const phone = clean10Phone(saved || '');
+    if (phone.length !== 10) throw new Error('OTP session expired. Please request a new OTP.');
+    const response = await fetch(FAST2SMS_AUTH_API_BASE + '/api/auth/whatsapp/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mobile: phone, otp: cleanOtp })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || result.success !== true || !result.customToken) {
+      throw new Error(result.error || 'Incorrect or expired OTP. Please try again.');
     }
-
-    if (window.AndroidNative && typeof window.AndroidNative.verifyPhoneOtp === 'function' && nativeVerificationId) {
-      return new Promise((resolve, reject) => {
-        pendingNativeOtpCallbacks = { resolve, reject };
-        window.AndroidNative.verifyPhoneOtp(nativeVerificationId, cleanOtp);
-      });
+    if (typeof firebase === 'undefined' || !firebase.auth) {
+      throw new Error('Firebase Auth SDK is not loaded. Please refresh and try again.');
     }
-
-    if (!webConfirmationResult) {
-      throw new Error('OTP session expired. Please tap Resend OTP.');
-    }
-
-    const auth = firebase.auth();
-    const prevUid = auth.currentUser ? auth.currentUser.uid : '';
-    let result = null;
-    try {
-      result = await webConfirmationResult.confirm(cleanOtp);
-    } catch (err) {
-      if ((err.code === 'auth/credential-already-in-use' || err.code === 'auth/account-exists-with-different-credential') && err.credential) {
-        result = await auth.signInWithCredential(err.credential);
-      } else {
-        throw err;
-      }
-    }
-
-    const u = result && result.user;
-    if (!u) throw new Error('Verification returned empty user.');
-    const prevUidToMerge = (prevUid && prevUid !== u.uid) ? prevUid : '';
-    const profile = firebaseUserToProfile(u, { previousUid: prevUidToMerge });
-    if (prevUidToMerge && window.NutrolixFirebase) {
-      await window.NutrolixFirebase.mergeAccountDataToUid(prevUidToMerge, u.uid, profile);
-    }
-    await hydrateFromFirestore(u.uid);
+    const authResult = await firebase.auth().signInWithCustomToken(result.customToken);
+    const profile = firebaseUserToProfile(authResult.user, {
+      name: 'Nutrolix Customer',
+      phone,
+      verifiedPhone: phone,
+      whatsappNumber: phone
+    });
+    localStorage.removeItem('nutrolix_pending_otp_phone');
+    await hydrateFromFirestore(authResult.user.uid);
     if (typeof window.onAuthSuccessCallback === 'function') window.onAuthSuccessCallback(profile);
     return profile;
   };
@@ -331,12 +282,8 @@
       verifiedPhone: phoneDigits,
       whatsappNumber: phoneDigits,
       photo: u.photo || '',
-      providers: ['phone'],
-      linkedFromUid: u.previousUid || ''
+      providers: ['phone']
     });
-    if (u.previousUid && u.uid && u.previousUid !== u.uid && window.NutrolixFirebase) {
-      await window.NutrolixFirebase.mergeAccountDataToUid(u.previousUid, u.uid, profile);
-    }
     await hydrateFromFirestore(u.uid);
     if (typeof window.onAuthSuccessCallback === 'function') window.onAuthSuccessCallback(profile);
     return profile;
@@ -380,6 +327,7 @@
       reject(new Error((err && err.message) || 'OTP verification failed.'));
     }
   };
+
 
   // Sign out
   window.handleNutrolixSignOut = function() {
