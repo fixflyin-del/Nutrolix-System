@@ -2660,6 +2660,150 @@ const server = http.createServer((req, res) => {
   }
 
   // -------------------------------------------------------------
+  // FAST2SMS SMART OTP: WhatsApp-first authentication
+  // Secrets must exist only in server environment variables.
+  // Required: FAST2SMS_API_KEY, FAST2SMS_OTP_ID, FIREBASE_SERVICE_ACCOUNT_JSON
+  // -------------------------------------------------------------
+  if (reqPath === '/api/auth/whatsapp/send-otp' || reqPath === '/api/auth/whatsapp/verify-otp') {
+    const isVerify = reqPath.endsWith('/verify-otp');
+    if (req.method !== 'POST') {
+      res.writeHead(405, { 'Content-Type': 'application/json', 'Allow': 'POST' });
+      res.end(JSON.stringify({ success: false, error: 'Method not allowed.' }));
+      return;
+    }
+    let bodyData = '';
+    req.on('data', chunk => {
+      bodyData += chunk;
+      if (bodyData.length > 8192) req.destroy();
+    });
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(bodyData || '{}');
+        const mobile = normalizePhone(payload.mobile || payload.phone || '');
+        if (mobile.length !== 10 || !/^[6-9]\d{9}$/.test(mobile)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Enter a valid 10-digit Indian mobile number.' }));
+          return;
+        }
+        const apiKey = String(process.env.FAST2SMS_API_KEY || '').trim();
+        const otpId = String(process.env.FAST2SMS_OTP_ID || '').trim();
+        if (!apiKey || !otpId) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, code: 'FAST2SMS_NOT_CONFIGURED', error: 'WhatsApp OTP service is not configured yet.' }));
+          return;
+        }
+        const endpoint = isVerify ? 'https://www.fast2sms.com/dev/otp/verify' : 'https://www.fast2sms.com/dev/otp/send';
+        const requestBody = isVerify ? { mobile, otp: String(payload.otp || '').replace(/\D/g, '').slice(0, 10) } : { otp_id: otpId, mobile };
+        if (isVerify && (requestBody.otp.length < 4 || requestBody.otp.length > 10)) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Enter the OTP received on WhatsApp.' }));
+          return;
+        }
+        const providerResponse = await new Promise((resolve, reject) => {
+          const request = https.request(endpoint, {
+            method: 'POST',
+            headers: {
+              'Authorization': apiKey,
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Content-Length': Buffer.byteLength(JSON.stringify(requestBody))
+            },
+            timeout: 15000
+          }, response => {
+            let raw = '';
+            response.on('data', chunk => raw += chunk);
+            response.on('end', () => {
+              try { resolve({ status: response.statusCode || 502, data: JSON.parse(raw || '{}') }); }
+              catch (_) { reject(new Error('Fast2SMS returned an invalid response.')); }
+            });
+          });
+          request.on('timeout', () => request.destroy(new Error('Fast2SMS request timed out.')));
+          request.on('error', reject);
+          request.write(JSON.stringify(requestBody));
+          request.end();
+        });
+        const providerOk = providerResponse.data && providerResponse.data.return === true;
+        if (!providerOk) {
+          const status = providerResponse.status >= 400 ? providerResponse.status : 400;
+          res.writeHead(status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: false,
+            code: 'FAST2SMS_REJECTED',
+            error: providerResponse.data.message || providerResponse.data.error || (isVerify ? 'Incorrect or expired OTP.' : 'Unable to send WhatsApp OTP.'),
+            providerStatus: providerResponse.data.status_code || providerResponse.status
+          }));
+          return;
+        }
+        if (!isVerify) {
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, sent: true, channel: 'whatsapp', message: 'OTP sent successfully on WhatsApp.', requestId: providerResponse.data.request_id || '' }));
+          return;
+        }
+
+        // Create a stable Firebase UID after Fast2SMS confirms the OTP.
+        const saRaw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
+        let sa = null;
+        try { sa = JSON.parse(saRaw.startsWith('{') ? saRaw : Buffer.from(saRaw, 'base64').toString('utf8')); } catch (_) {}
+        if (!sa || !sa.client_email || !sa.private_key || !sa.project_id) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, code: 'FIREBASE_ADMIN_NOT_CONFIGURED', error: 'Firebase server authentication is not configured.' }));
+          return;
+        }
+        const configPath = path.join(__dirname, 'app', 'google-services.json');
+        let firebaseApiKey = '';
+        try {
+          const cfg = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+          firebaseApiKey = cfg.client[0].api_key[0].current_key || '';
+        } catch (_) {}
+        if (!firebaseApiKey) {
+          res.writeHead(503, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Firebase client configuration is missing.' }));
+          return;
+        }
+        const uid = 'phone_' + mobile;
+        const now = Math.floor(Date.now() / 1000);
+        const b64 = value => Buffer.from(value).toString('base64url');
+        const unsigned = b64(JSON.stringify({ alg: 'RS256', typ: 'JWT' })) + '.' + b64(JSON.stringify({
+          iss: sa.client_email, sub: sa.client_email,
+          aud: 'https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit',
+          iat: now, exp: now + 3600, uid
+        }));
+        const signer = crypto.createSign('RSA-SHA256');
+        signer.update(unsigned);
+        const customToken = unsigned + '.' + signer.sign(sa.private_key.replace(/\\n/g, '\n'), 'base64url');
+        const identity = await new Promise((resolve, reject) => {
+          const data = JSON.stringify({ token: customToken, returnSecureToken: true });
+          const request = https.request('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + encodeURIComponent(firebaseApiKey), {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }, timeout: 15000
+          }, response => {
+            let raw = '';
+            response.on('data', chunk => raw += chunk);
+            response.on('end', () => {
+              let parsed = {};
+              try { parsed = JSON.parse(raw || '{}'); } catch (_) {}
+              if (response.statusCode >= 200 && response.statusCode < 300 && parsed.idToken) resolve(parsed);
+              else reject(new Error(parsed.error && parsed.error.message ? parsed.error.message : 'Firebase custom sign-in failed.'));
+            });
+          });
+          request.on('timeout', () => request.destroy(new Error('Firebase sign-in timed out.')));
+          request.on('error', reject);
+          request.write(data); request.end();
+        });
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({
+          success: true, verified: true, customToken, uid,
+          profile: { uid, id: uid, name: 'Nutrolix Customer', phone: mobile, verifiedPhone: mobile, whatsappNumber: mobile, phoneVerified: true, verified: true, authProvider: 'phone', providers: ['phone'], googleLinked: false }
+        }));
+      } catch (error) {
+        console.error('Fast2SMS WhatsApp OTP error:', error.message);
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: error.message || 'OTP service temporarily unavailable.' }));
+      }
+    });
+    return;
+  }
+
+  // -------------------------------------------------------------
   // PHASE 2 API: PUSH NOTIFICATIONS (RFC 8291 Web Push & FCM)
   // -------------------------------------------------------------
   if (reqPath === '/api/notifications/vapid-key' && req.method === 'GET') {
