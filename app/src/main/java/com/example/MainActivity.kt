@@ -231,7 +231,7 @@ fun NutrolixSupplementBrandApp(
               } catch (_: Throwable) {}
             }
             try {
-              val endpoint = LIVE_SERVER_URL.trimEnd('/') + "/api/notifications/register-token"
+              val endpoint = MainActivity.LIVE_SERVER_URL.trimEnd('/') + "/api/notifications/register-token"
               val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 connectTimeout = 10000
