@@ -205,25 +205,42 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
   let localTokens = safeReadJson(tokensFile, []);
   if (!Array.isArray(localTokens)) localTokens = [];
 
-  // Pull additional FCM tokens registered in Firestore when Service Account is available
+  // FCM tokens are registered in both the top-level collection and user subcollection.
+  // Read both stores: older/native APK registrations may have a different Firebase UID,
+  // while the verified phone number remains the stable customer match key.
   const firestoreTokens = [];
-  if (uid) {
-    try {
-      const [defaultUserTokens, namedUserTokens] = await Promise.all([
-        nutrolixCore.firestoreListDocuments(`users/${uid}/fcmTokens`, nutrolixCore.DEFAULT_DB_ID),
-        nutrolixCore.firestoreListDocuments(`users/${uid}/fcmTokens`, nutrolixCore.NAMED_DB_ID)
+  const dbReads = [
+    { id: nutrolixCore.DEFAULT_DB_ID },
+    { id: nutrolixCore.NAMED_DB_ID }
+  ];
+  try {
+    for (const db of dbReads) {
+      const [rootTokens, userTokens] = await Promise.all([
+        nutrolixCore.firestoreListDocuments('fcmTokens', db.id),
+        uid ? nutrolixCore.firestoreListDocuments(`users/${uid}/fcmTokens`, db.id) : Promise.resolve([])
       ]);
-      for (const doc of defaultUserTokens) {
+      for (const doc of rootTokens) {
         if (doc && (doc.token || doc.fcmToken) && doc._docId) {
-          firestoreTokens.push({ ...doc, uid, _firestorePath: `users/${uid}/fcmTokens/${doc._docId}`, _dbId: nutrolixCore.DEFAULT_DB_ID });
+          firestoreTokens.push({
+            ...doc,
+            _firestorePath: `fcmTokens/${doc._docId}`,
+            _dbId: db.id
+          });
         }
       }
-      for (const doc of namedUserTokens) {
+      for (const doc of userTokens) {
         if (doc && (doc.token || doc.fcmToken) && doc._docId) {
-          firestoreTokens.push({ ...doc, uid, _firestorePath: `users/${uid}/fcmTokens/${doc._docId}`, _dbId: nutrolixCore.NAMED_DB_ID });
+          firestoreTokens.push({
+            ...doc,
+            uid: doc.uid || uid,
+            _firestorePath: `users/${uid}/fcmTokens/${doc._docId}`,
+            _dbId: db.id
+          });
         }
       }
-    } catch (_) {}
+    }
+  } catch (err) {
+    console.warn('[Nutrolix Push] Firestore token lookup failed:', err.message);
   }
 
   const allTokens = [...localTokens, ...firestoreTokens];
