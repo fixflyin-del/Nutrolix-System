@@ -438,14 +438,16 @@
   function initOrderNotificationSync() {
     let firstPoll = true;
     setInterval(async () => {
-      const { uid, phone, email } = getCustomerInfo();
-      if (!uid && !phone && !email) return;
       try {
-        const qs = new URLSearchParams();
-        if (uid) qs.set('uid', uid);
-        if (phone) qs.set('phone', phone);
-        if (email) qs.set('email', email);
-        const res = await fetch(getApiHost() + '/api/notifications/user-history?' + qs.toString());
+        const authUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+        if (!authUser) return;
+        const idToken = await authUser.getIdToken().catch(() => '');
+        if (!idToken) return;
+        const res = await fetch(getApiHost() + '/api/notifications/user-history', {
+          method: 'GET',
+          headers: { Authorization: 'Bearer ' + idToken },
+          cache: 'no-store'
+        });
         if (!res.ok) return;
         const data = await res.json();
         const list = Array.isArray(data.notifications) ? data.notifications : [];
