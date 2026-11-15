@@ -2477,29 +2477,6 @@ const server = http.createServer(async (req, res) => {
             } catch (_) {}
           }
 
-          // Dispatch Customer Order Placed notification & Admin New Order FCM alert
-          const copy = nutrolixCore.buildOrderStatusNotificationCopy(order.orderId, order.status || 'Order Placed');
-          let pushLog = null;
-          let adminPushAttempts = [];
-          try {
-            pushLog = await dispatchPushToCustomer({
-              uid: order.uid,
-              customerPhone: order.customerPhone,
-              customerEmail: order.customerEmail,
-              orderId: order.orderId,
-              status: order.status || 'Order Placed',
-              title: copy.title,
-              message: copy.message,
-              dedupKey: copy.dedupKey
-            });
-          } catch (_) {}
-          try {
-            adminPushAttempts = await dispatchPushToAdmins({
-              orderId: order.orderId,
-              total: order.grandTotal,
-              customerName: order.customerName
-            });
-          } catch (_) {}
 
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({
@@ -2516,6 +2493,59 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
+  }
+
+
+  // Post-checkout notifications are deliberately isolated from order confirmation.
+  // A slow push provider must never leave the customer's Place Order button spinning.
+  if (reqPath === '/api/notifications/order-placed' && req.method === 'POST') {
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const orderId = String(payload.orderId || '').trim();
+        if (!orderId) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Order ID is required.' }));
+          return;
+        }
+        let order = await nutrolixCore.firestoreGetFirstAvailable(`orders/${orderId}`);
+        if (!order) {
+          const localOrders = safeReadJson(path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json'), []);
+          order = (Array.isArray(localOrders) ? localOrders : []).find(o => String(o.orderId || o.id) === orderId);
+        }
+        if (!order || String(order.orderId || order.id || '') !== orderId) {
+          res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Confirmed order not found.' }));
+          return;
+        }
+        const copy = nutrolixCore.buildOrderStatusNotificationCopy(order.orderId || order.id, order.status || 'Order Placed');
+        const [customerPush, adminPush] = await Promise.all([
+          dispatchPushToCustomer({
+            uid: order.uid,
+            customerPhone: order.customerPhone,
+            customerEmail: order.customerEmail,
+            orderId: order.orderId || order.id,
+            status: order.status || 'Order Placed',
+            title: copy.title,
+            message: copy.message,
+            dedupKey: copy.dedupKey
+          }).catch(error => ({ error: error.message, deliveryStatus: [] })),
+          dispatchPushToAdmins({
+            orderId: order.orderId || order.id,
+            total: order.grandTotal,
+            customerName: order.customerName
+          }).catch(error => ({ error: error.message }))
+        ]);
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: true, customerPush, adminPush }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: err.message || 'Notification dispatch failed.' }));
+      }
+    });
+    return;
   }
 
   // Discount Validation APIs (Part B: Healthy Food Exclusivity)
