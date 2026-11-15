@@ -49,6 +49,8 @@ import com.google.android.gms.location.Priority
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.messaging.FirebaseMessaging
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -207,7 +209,6 @@ fun NutrolixSupplementBrandApp(
   }
 
   fun fetchAndSyncFcmToken(user: FirebaseUser?) {
-    if (user == null) return
     try {
       FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
         val token = if (task.isSuccessful) task.result else {
@@ -219,12 +220,40 @@ fun NutrolixSupplementBrandApp(
             .edit().putString(NutrolixFirebaseMessagingService.KEY_FCM_TOKEN, token).apply()
 
           coroutineScope.launch(Dispatchers.IO) {
-            firestoreService.saveFcmToken(
-              uid = user.uid,
-              token = token,
-              phone = user.phoneNumber ?: "",
-              email = user.email ?: ""
-            )
+            if (user != null) {
+              try {
+                firestoreService.saveFcmToken(
+                  uid = user.uid,
+                  token = token,
+                  phone = user.phoneNumber ?: "",
+                  email = user.email ?: ""
+                )
+              } catch (_: Throwable) {}
+            }
+            try {
+              val endpoint = LIVE_SERVER_URL.trimEnd('/') + "/api/notifications/register-token"
+              val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
+                requestMethod = "POST"
+                connectTimeout = 10000
+                readTimeout = 10000
+                doOutput = true
+                setRequestProperty("Content-Type", "application/json")
+              }
+              val payload = JSONObject().apply {
+                put("uid", user?.uid ?: "")
+                put("fcmToken", token)
+                put("token", token)
+                put("customerPhone", user?.phoneNumber ?: "")
+                put("customerEmail", user?.email ?: "")
+                put("platform", "android-apk")
+              }
+              conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
+              val responseCode = conn.responseCode
+              android.util.Log.i("NutrolixFCM", "Anonymous/device token registration HTTP $responseCode")
+              conn.disconnect()
+            } catch (e: Exception) {
+              android.util.Log.w("NutrolixFCM", "Server token registration failed: ${e.message}")
+            }
           }
           activity?.runOnUiThread {
             val escaped = JSONObject.quote(token)
