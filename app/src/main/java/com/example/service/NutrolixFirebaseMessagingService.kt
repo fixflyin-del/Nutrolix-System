@@ -35,8 +35,8 @@ class NutrolixFirebaseMessagingService : FirebaseMessagingService() {
       .apply()
 
     val currentUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
-    if (currentUser != null) {
-      serviceScope.launch {
+    serviceScope.launch {
+      if (currentUser != null) {
         try {
           com.example.data.FirestoreService(applicationContext).saveFcmToken(
             uid = currentUser.uid,
@@ -47,13 +47,13 @@ class NutrolixFirebaseMessagingService : FirebaseMessagingService() {
         } catch (e: Exception) {
           Log.w(TAG, "Firestore FCM token sync error: ${e.message}")
         }
-        registerTokenOnServer(
-          uid = currentUser.uid,
-          token = token,
-          phone = currentUser.phoneNumber ?: "",
-          email = currentUser.email ?: ""
-        )
       }
+      registerTokenOnServer(
+        uid = currentUser?.uid ?: "",
+        token = token,
+        phone = currentUser?.phoneNumber ?: "",
+        email = currentUser?.email ?: ""
+      )
     }
   }
 
