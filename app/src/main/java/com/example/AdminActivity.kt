@@ -264,6 +264,7 @@ fun NutrolixAdminWebViewApp(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
           var ptrWrapper: PullToRefreshWebViewWrapper? = null
+          var isUsingOfflineFallback = false
           var hasSetInitialTab = false
           val webView = WebView(ctx).apply {
             layoutParams = ViewGroup.LayoutParams(
@@ -287,7 +288,8 @@ fun NutrolixAdminWebViewApp(
               setSupportZoom(false)
               builtInZoomControls = false
               displayZoomControls = false
-              cacheMode = WebSettings.LOAD_DEFAULT
+              // Always request current website assets; APK should not pin an old web build.
+              cacheMode = WebSettings.LOAD_NO_CACHE
               databaseEnabled = true
             }
 
@@ -371,6 +373,9 @@ fun NutrolixAdminWebViewApp(
                 super.onPageFinished(view, url)
                 isPageLoading = false
                 ptrWrapper?.finishRefreshing()
+                if (Uri.parse(url ?: "").host.equals(Uri.parse(AdminActivity.LIVE_SERVER_ADMIN_URL).host, ignoreCase = true)) {
+                  isUsingOfflineFallback = false
+                }
                 view?.evaluateJavascript("window.__nutrolixNativePtr = true;", null)
 
                 // Automatically switch to All Orders & Shipping on initial boot
@@ -400,7 +405,19 @@ fun NutrolixAdminWebViewApp(
                 if (request?.isForMainFrame == true) {
                   isPageLoading = false
                   ptrWrapper?.finishRefreshing()
-                  if (request.url?.scheme != "file") {
+                  val errorCode = error?.errorCode
+                  val isConnectivityFailure =
+                    errorCode == WebViewClient.ERROR_HOST_LOOKUP ||
+                    errorCode == WebViewClient.ERROR_CONNECT ||
+                    errorCode == WebViewClient.ERROR_TIMEOUT ||
+                    errorCode == WebViewClient.ERROR_IO
+                  val liveHost = Uri.parse(AdminActivity.LIVE_SERVER_ADMIN_URL).host
+                  val failedHost = request.url?.host
+                  if (isConnectivityFailure &&
+                    failedHost.equals(liveHost, ignoreCase = true) &&
+                    !isUsingOfflineFallback
+                  ) {
+                    isUsingOfflineFallback = true
                     view?.loadUrl(AdminActivity.PRIMARY_ADMIN_URL)
                   }
                 }
@@ -408,11 +425,16 @@ fun NutrolixAdminWebViewApp(
             }
           }
           PullToRefreshWebViewWrapper(ctx, webView) { wv ->
-            wv.clearCache(false)
-            wv.reload()
+            wv.clearCache(true)
+            if (isUsingOfflineFallback) {
+              isUsingOfflineFallback = false
+              wv.loadUrl(AdminActivity.LIVE_SERVER_ADMIN_URL)
+            } else {
+              wv.reload()
+            }
           }.also {
             ptrWrapper = it
-            webView.clearCache(false)
+            webView.clearCache(true)
             webView.loadUrl(AdminActivity.LIVE_SERVER_ADMIN_URL)
             webViewInstance = webView
           }
