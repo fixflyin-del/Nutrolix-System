@@ -94,7 +94,7 @@
         if (data && data.publicKey) return data.publicKey;
       }
     } catch (_) {}
-    return 'BNKixC3ZCYx27sN2fDJcsDhc1NVZEBQJ_-NkX9Xa1CuHB0xz9tyvCk582_j0bPaCBzn8LUeswFAZigMzzlSj5gY';
+    return '';
   }
 
   async function sendSubscriptionToBackend(subscription, extra = {}) {
@@ -177,6 +177,7 @@
     if (reg && 'pushManager' in reg) {
       try {
         const vapidKey = await getVapidPublicKey();
+        if (!vapidKey) throw new Error('Web Push VAPID public key is not configured on the server.');
         const convertedVapidKey = urlB64ToUint8Array(vapidKey);
         let subscription = await reg.pushManager.getSubscription();
         if (!subscription) {
