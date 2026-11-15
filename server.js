@@ -2256,6 +2256,43 @@ const server = http.createServer(async (req, res) => {
     const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
     if (req.method === 'GET') {
       try {
+        // Never expose the complete customer order collection or authorize by query-string phone/email.
+        // Customers must present a Firebase ID token; only a verified admin session can list all orders.
+        const authHeader = String(req.headers['authorization'] || '');
+        const adminHeader = String(req.headers['x-nutrolix-admin-token'] || '');
+        let authorizedAdmin = nutrolixCore.verifyAdminSessionToken(adminHeader || authHeader);
+        let verifiedCustomer = null;
+
+        if (!authorizedAdmin && authHeader) {
+          const decodedUser = await nutrolixCore.verifyFirebaseIdToken(authHeader, __dirname);
+          if (decodedUser && decodedUser.uid) {
+            if (String(decodedUser.email || '').toLowerCase() === 'nutrolix.in@gmail.com') {
+              authorizedAdmin = { email: decodedUser.email, role: 'ADMIN' };
+            } else {
+              const adminDoc = await nutrolixCore.firestoreGetFirstAvailable(`admins/${decodedUser.uid}`);
+              if (adminDoc && (adminDoc.role === 'admin' || adminDoc.isAdmin === true)) {
+                authorizedAdmin = { email: decodedUser.email || decodedUser.uid, role: 'ADMIN' };
+              } else {
+                const tokenUid = String(decodedUser.uid || '').trim();
+                const tokenPhone = normalizePhone(decodedUser.phoneNumber || (tokenUid.startsWith('phone_') ? tokenUid.slice(6) : ''));
+                if (nutrolixCore.isValidIndianMobile(tokenPhone)) {
+                  verifiedCustomer = {
+                    uid: nutrolixCore.canonicalCustomerUid(tokenPhone),
+                    phone: tokenPhone
+                  };
+                }
+              }
+            }
+          }
+        }
+
+        if (!authorizedAdmin && !verifiedCustomer) {
+          res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'A verified customer or admin Firebase session is required.' }));
+          return;
+        }
+
+        const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
         const localOrders = safeReadJson(ordersFile, []);
         const byOrderId = new Map();
         for (const o of Array.isArray(localOrders) ? localOrders : []) {
@@ -2263,7 +2300,7 @@ const server = http.createServer(async (req, res) => {
           if (oid) byOrderId.set(oid, o);
         }
 
-        // Pull authoritative orders from both Firestore databases
+        // Pull authoritative orders from both Firestore databases.
         try {
           const [defRes, namedRes] = await Promise.all([
             nutrolixCore.firestoreListAllDocuments('orders', nutrolixCore.DEFAULT_DB_ID, 2000),
@@ -2280,23 +2317,19 @@ const server = http.createServer(async (req, res) => {
         } catch (_) {}
 
         let data = Array.from(byOrderId.values());
+        if (!authorizedAdmin) {
+          const { uid, phone } = verifiedCustomer;
+          data = data.filter(o => {
+            const oUid = String(o.uid || '').trim();
+            const oPhone = customerSync.extractOrderPhone(o);
+            return (oUid && oUid === uid) || (oPhone && oPhone === phone);
+          });
+        }
         data.sort((a, b) => {
           const ta = Number(a.timestamp || a.orderTimeMillis || Date.parse(a.createdAt || a.orderTime || 0) || 0);
           const tb = Number(b.timestamp || b.orderTimeMillis || Date.parse(b.createdAt || b.orderTime || 0) || 0);
           return tb - ta;
         });
-
-        const qUid = String(parsedUrl.query.uid || '').trim();
-        const qPhone = normalizePhone(parsedUrl.query.phone || '') || (qUid.startsWith('phone_') ? normalizePhone(qUid.slice(6)) : '');
-        const qEmail = normalizeEmail(parsedUrl.query.email || '');
-        if (qUid || qPhone || qEmail) {
-          data = data.filter(o => {
-            const oUid = String(o.uid || '').trim();
-            const oPhone = customerSync.extractOrderPhone(o);
-            const oEmail = customerSync.extractOrderEmail(o);
-            return (qUid && oUid && oUid === qUid) || (qPhone && oPhone && oPhone === qPhone) || (qEmail && oEmail && oEmail === qEmail);
-          });
-        }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(data));
       } catch (e) {
