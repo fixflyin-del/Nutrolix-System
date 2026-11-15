@@ -1726,23 +1726,22 @@
 
       saveUserProfile();
       window.closeDeliveryDetailsModal();
+      // Ask for browser permission only when the customer is ready to place a valid order.
+      // This runs directly in the checkout click gesture; after approval, registration is automatic.
+      try {
+        if (window.NutrolixNotifications && window.NutrolixNotifications.getNotificationStatus) {
+          const notificationStatus = window.NutrolixNotifications.getNotificationStatus();
+          if ((!notificationStatus.platform || notificationStatus.platform !== 'android-apk') && notificationStatus.permission === 'default') {
+            window.NutrolixNotifications.requestPermission().catch(() => {});
+          }
+        }
+      } catch (_) {}
+
       window.executeOrderPlacement();
     };
 
     // Primary checkout button trigger (allows confirming order without Name once OTP verified)
     window.handleOrderCheckoutClick = function() {
-      // This click is a valid user gesture for the browser notification permission prompt.
-      // Once permission is granted, token registration runs automatically; no profile toggle is needed.
-      try {
-        if (window.NutrolixNotifications && window.NutrolixNotifications.getNotificationStatus) {
-          const notificationStatus = window.NutrolixNotifications.getNotificationStatus();
-          if (!notificationStatus.platform || notificationStatus.platform !== 'android-apk') {
-            if (notificationStatus.permission === 'default') {
-              window.NutrolixNotifications.requestPermission().catch(() => {});
-            }
-          }
-        }
-      } catch (_) {}
       if (cart.length === 0) {
         alert('Your cart is empty. Please add a product first.');
         return;
