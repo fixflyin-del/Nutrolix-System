@@ -51,10 +51,16 @@
     try {
       const p = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
       const phoneDigits = clean10Phone(p.verifiedPhone || p.phone || p.whatsappNumber || '');
+      // A saved checkout profile is not proof of authentication.
+      // Only profiles written after a successful Firebase custom-token sign-in
+      // may be treated as a verified customer session.
       const hasIdentity = Boolean(
         p &&
-        (p.uid || phoneDigits.length === 10) &&
-        (p.verified || p.phoneVerified || p.authProvider === 'phone')
+        p.authSession === true &&
+        p.uid &&
+        phoneDigits.length === 10 &&
+        (p.verified === true || p.phoneVerified === true) &&
+        p.authProvider === 'phone'
       );
       if (hasIdentity) {
         if (!p.phone && phoneDigits) p.phone = phoneDigits;
@@ -100,6 +106,7 @@
       googleLinked: false,
       authProvider: 'phone',
       verified: true,
+      authSession: true,
       lastLoginAt: new Date().toISOString()
     };
 
