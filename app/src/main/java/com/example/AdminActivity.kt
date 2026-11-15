@@ -43,6 +43,7 @@ import com.example.service.AdminOrderBackgroundService
 import com.example.ui.theme.MyApplicationTheme
 import com.example.util.OrderAlarmPlayer
 import com.example.util.OrderNotificationHelper
+import com.example.util.PullToRefreshWebViewWrapper
 import kotlinx.coroutines.delay
 
 class AdminActivity : ComponentActivity() {
@@ -262,7 +263,9 @@ fun NutrolixAdminWebViewApp(
       AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
-          WebView(ctx).apply {
+          var ptrWrapper: PullToRefreshWebViewWrapper? = null
+          var hasSetInitialTab = false
+          val webView = WebView(ctx).apply {
             layoutParams = ViewGroup.LayoutParams(
               ViewGroup.LayoutParams.MATCH_PARENT,
               ViewGroup.LayoutParams.MATCH_PARENT
@@ -367,20 +370,25 @@ fun NutrolixAdminWebViewApp(
               override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 isPageLoading = false
+                ptrWrapper?.finishRefreshing()
+                view?.evaluateJavascript("window.__nutrolixNativePtr = true;", null)
 
-                // Automatically switch to All Orders & Shipping by default
-                view?.evaluateJavascript(
-                  """
-                  (function() {
-                    try {
-                      if (typeof window.switchTab === 'function') {
-                        window.switchTab('packaged-orders');
-                      }
-                    } catch(e) {}
-                  })();
-                  """.trimIndent(),
-                  null
-                )
+                // Automatically switch to All Orders & Shipping on initial boot
+                if (!hasSetInitialTab) {
+                  hasSetInitialTab = true
+                  view?.evaluateJavascript(
+                    """
+                    (function() {
+                      try {
+                        if (typeof window.switchTab === 'function') {
+                          window.switchTab('packaged-orders');
+                        }
+                      } catch(e) {}
+                    })();
+                    """.trimIndent(),
+                    null
+                  )
+                }
               }
 
               override fun onReceivedError(
@@ -390,18 +398,26 @@ fun NutrolixAdminWebViewApp(
               ) {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame == true) {
-                  // Fall back gracefully to local asset
-                  view?.loadUrl(AdminActivity.PRIMARY_ADMIN_URL)
+                  isPageLoading = false
+                  ptrWrapper?.finishRefreshing()
+                  if (request.url?.scheme != "file") {
+                    view?.loadUrl(AdminActivity.PRIMARY_ADMIN_URL)
+                  }
                 }
               }
             }
-
-            // Load primary local asset with all admin features pre-bundled
-            loadUrl(AdminActivity.PRIMARY_ADMIN_URL)
-            webViewInstance = this
+          }
+          PullToRefreshWebViewWrapper(ctx, webView) { wv ->
+            wv.clearCache(false)
+            wv.reload()
+          }.also {
+            ptrWrapper = it
+            webView.clearCache(false)
+            webView.loadUrl(AdminActivity.LIVE_SERVER_ADMIN_URL)
+            webViewInstance = webView
           }
         },
-        update = { webViewInstance = it }
+        update = { wrapper -> webViewInstance = wrapper.webView }
       )
 
       // Native Lockscreen-Safe Order Bell Silence Pill whenever alarm is actively ringing

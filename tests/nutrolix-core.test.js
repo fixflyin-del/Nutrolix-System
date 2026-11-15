@@ -465,3 +465,78 @@ test('End-to-end HTTP server verification: config-status, token guardrails, orde
   }
 });
 
+test('My Orders UI removes Order Status Notifications box & Order Alerts badge while keeping internal push & PTR', () => {
+  const root = path.resolve(__dirname, '..');
+  const forbiddenOrdersPatterns = [
+    'ordersPushStatusBadge',
+    'liveNotificationsCard',
+    'Order Status Notifications',
+    'Order Alerts: Active',
+    'Order Alerts:'
+  ];
+  for (const rel of ['public/orders.html', 'app/src/main/assets/web/orders.html']) {
+    const html = fs.readFileSync(path.join(root, rel), 'utf8');
+    for (const pat of forbiddenOrdersPatterns) {
+      assert.equal(html.includes(pat), false, `Removed UI element "${pat}" still present in ${rel}`);
+    }
+    assert.ok(html.includes('nutrolix-notifications.js'), `Missing internal notifications script in ${rel}`);
+    assert.ok(html.includes('assets/pull-to-refresh.js'), `Missing pull-to-refresh.js in ${rel}`);
+  }
+});
+
+test('All customer & admin web pages include pull-to-refresh.js and APKs load live Vercel URLs with native PullToRefresh wrapper', () => {
+  const root = path.resolve(__dirname, '..');
+  const ptrPages = [
+    'public/index.html',
+    'public/food.html',
+    'public/shop.html',
+    'public/product.html',
+    'public/cart.html',
+    'public/orders.html',
+    'public/account.html',
+    'public/admin.html',
+    'public/blogs.html',
+    'public/article.html',
+    'public/about.html',
+    'public/contact.html',
+    'public/faqs.html',
+    'public/shipping.html',
+    'public/refund.html',
+    'public/cancellation.html',
+    'public/terms.html',
+    'public/privacy.html',
+    'public/download.html'
+  ];
+  for (const rel of ptrPages) {
+    const html = fs.readFileSync(path.join(root, rel), 'utf8');
+    assert.ok(html.includes('assets/pull-to-refresh.js'), `Missing assets/pull-to-refresh.js in ${rel}`);
+  }
+
+  const mainKt = fs.readFileSync(path.join(root, 'app/src/main/java/com/example/MainActivity.kt'), 'utf8');
+  const adminKt = fs.readFileSync(path.join(root, 'app/src/main/java/com/example/AdminActivity.kt'), 'utf8');
+  const ptrKt = fs.readFileSync(path.join(root, 'app/src/main/java/com/example/util/PullToRefreshWebViewWrapper.kt'), 'utf8');
+
+  assert.ok(mainKt.includes('loadUrl(deepLinkUrl ?: MainActivity.LIVE_SERVER_URL)'), 'Customer APK must boot from LIVE_SERVER_URL');
+  assert.ok(mainKt.includes('PullToRefreshWebViewWrapper'), 'Customer APK must use PullToRefreshWebViewWrapper');
+  assert.ok(mainKt.includes('window.__nutrolixNativePtr = true;'), 'Customer APK must notify web PTR script');
+
+  assert.ok(adminKt.includes('loadUrl(AdminActivity.LIVE_SERVER_ADMIN_URL)'), 'Admin APK must boot from LIVE_SERVER_ADMIN_URL');
+  assert.ok(adminKt.includes('PullToRefreshWebViewWrapper'), 'Admin APK must use PullToRefreshWebViewWrapper');
+  assert.ok(adminKt.includes('window.__nutrolixNativePtr = true;'), 'Admin APK must notify web PTR script');
+  assert.ok(ptrKt.includes('NutrolixPtrBridge'), 'PullToRefreshWebViewWrapper must expose NutrolixPtrBridge');
+});
+
+test('Cart checkout skips OTP for authenticated users and persists first-order address on client & server', () => {
+  const root = path.resolve(__dirname, '..');
+  const cartHtml = fs.readFileSync(path.join(root, 'public/cart.html'), 'utf8');
+  const authJs = fs.readFileSync(path.join(root, 'public/assets/nutrolix-auth.js'), 'utf8');
+  const serverJs = fs.readFileSync(path.join(root, 'server.js'), 'utf8');
+
+  assert.ok(cartHtml.includes('addr_primary'), 'cart.html should persist primary first-order address');
+  assert.ok(cartHtml.includes('nutrolix:addresses-updated'), 'cart.html should notify profile/address listeners on order save');
+  assert.ok(cartHtml.includes('nutrolix_saved_addresses'), 'cart.html should sync saved addresses');
+  assert.equal(authJs.includes('setTimeout(() => {\n        try {\n          const nativeRaw = window.AndroidNative.getAuthUserJson'), false, 'nutrolix-auth.js should seed native auth synchronously before DOMContentLoaded');
+  assert.ok(serverJs.includes("isFirstAddr ? 'addr_primary'"), 'server.js POST /api/nutrition-orders should auto-create primary profile address');
+});
+
+

@@ -72,26 +72,56 @@
     return window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop || 0;
   }
 
+  function hasScrolledAncestor(target) {
+    let el = target && target.nodeType === 1 ? target : null;
+    while (el && el !== document.body && el !== document.documentElement) {
+      try {
+        const style = window.getComputedStyle(el);
+        const overflowY = style ? style.overflowY : '';
+        if ((overflowY === 'auto' || overflowY === 'scroll') && el.scrollHeight > el.clientHeight && el.scrollTop > 0) {
+          return true;
+        }
+      } catch (_) {}
+      el = el.parentElement;
+    }
+    return false;
+  }
+
+  function resetIndicator() {
+    isPulling = false;
+    indicator.style.top = '-60px';
+    indicator.style.opacity = '0';
+    startY = 0;
+    currentY = 0;
+  }
+
   window.addEventListener('touchstart', (e) => {
-    if (isRefreshing) return;
-    if (getScrollTop() <= 0) {
+    const blocked = getScrollTop() > 0 || hasScrolledAncestor(e.target);
+    if (window.NutrolixPtrBridge && typeof window.NutrolixPtrBridge.setCanPull === 'function') {
+      try { window.NutrolixPtrBridge.setCanPull(!blocked); } catch (_) {}
+    }
+    if (window.__nutrolixNativePtr || isRefreshing) return;
+    if (!e.touches || e.touches.length !== 1) return;
+    if (!blocked) {
       startY = e.touches[0].clientY;
+      currentY = startY;
       isPulling = true;
     }
   }, { passive: true });
 
   window.addEventListener('touchmove', (e) => {
-    if (!isPulling || isRefreshing) return;
+    if (window.__nutrolixNativePtr || !isPulling || isRefreshing) return;
+    if (!e.touches || !e.touches.length) return;
     currentY = e.touches[0].clientY;
     const diff = currentY - startY;
 
     if (diff > 0 && getScrollTop() <= 0) {
-      // Damped pull distance
       const distance = Math.min(diff * 0.42, MAX_PULL);
       indicator.style.opacity = Math.min(distance / 30, 1);
       indicator.style.top = `${Math.max(distance - 20, 14)}px`;
       const rotation = distance * 3.5;
-      indicator.querySelector('.ptr-spinner').style.transform = `rotate(${rotation}deg)`;
+      const spinner = indicator.querySelector('.ptr-spinner');
+      if (spinner) spinner.style.transform = `rotate(${rotation}deg)`;
     } else {
       indicator.style.opacity = '0';
       indicator.style.top = '-60px';
@@ -99,13 +129,12 @@
   }, { passive: true });
 
   window.addEventListener('touchend', () => {
-    if (!isPulling || isRefreshing) return;
+    if (window.__nutrolixNativePtr || !isPulling || isRefreshing) return;
     isPulling = false;
     const diff = currentY - startY;
     const distance = diff * 0.42;
 
     if (distance >= PULL_THRESHOLD && getScrollTop() <= 0) {
-      // Trigger refresh
       isRefreshing = true;
       indicator.style.top = '24px';
       indicator.style.opacity = '1';
@@ -114,14 +143,17 @@
       }
       setTimeout(() => {
         window.location.reload();
-      }, 400);
+      }, 350);
     } else {
-      // Reset
       indicator.style.top = '-60px';
       indicator.style.opacity = '0';
     }
     startY = 0;
     currentY = 0;
+  }, { passive: true });
+
+  window.addEventListener('touchcancel', () => {
+    if (!isRefreshing) resetIndicator();
   }, { passive: true });
 
 })();

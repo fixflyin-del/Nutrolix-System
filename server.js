@@ -2381,6 +2381,15 @@ const server = http.createServer(async (req, res) => {
             try {
               const existingUser = await nutrolixCore.firestoreGetFirstAvailable(`users/${order.uid}`);
               const bestName = nutrolixCore.pickBestCustomerName(existingUser && existingUser.name, order.customerName);
+              const addr = order.deliveryAddress && typeof order.deliveryAddress === 'object' ? order.deliveryAddress : {};
+              const addrLine = String(addr.address1 || addr.street || '').trim();
+              const addrCity = String(addr.city || '').trim();
+              const addrState = String(addr.state || '').trim();
+              const addrPin = String(addr.pincode || '').replace(/\D/g, '').slice(0, 6);
+              const formattedFullAddr = [addrLine, addrCity, addrState, addrPin].filter(Boolean).join(', ');
+              const nowIso = new Date().toISOString();
+              const nowMs = Date.now();
+
               await nutrolixCore.firestorePatchBothDbs(`users/${order.uid}`, {
                 uid: order.uid,
                 id: order.uid,
@@ -2391,12 +2400,51 @@ const server = http.createServer(async (req, res) => {
                 email: order.customerEmail || (existingUser && existingUser.email) || '',
                 lastOrderId: order.orderId,
                 lastOrderAmount: order.grandTotal,
-                city: (order.deliveryAddress && order.deliveryAddress.city) || (existingUser && existingUser.city) || '',
-                state: (order.deliveryAddress && order.deliveryAddress.state) || (existingUser && existingUser.state) || '',
-                pincode: (order.deliveryAddress && order.deliveryAddress.pincode) || (existingUser && existingUser.pincode) || '',
-                updatedAt: new Date().toISOString(),
-                updatedAtMillis: Date.now()
+                defaultAddress: addrLine || (existingUser && existingUser.defaultAddress) || '',
+                currentAddress: formattedFullAddr || (existingUser && existingUser.currentAddress) || '',
+                lastAddress: formattedFullAddr || (existingUser && existingUser.lastAddress) || '',
+                city: addrCity || (existingUser && existingUser.city) || '',
+                state: addrState || (existingUser && existingUser.state) || '',
+                pincode: addrPin || (existingUser && existingUser.pincode) || '',
+                updatedAt: nowIso,
+                updatedAtMillis: nowMs
               });
+
+              if (addrLine && addrPin.length === 6) {
+                const existingAddrsDefault = await nutrolixCore.firestoreListDocuments(`users/${order.uid}/addresses`, nutrolixCore.DEFAULT_DB_ID);
+                const existingAddrsNamed = await nutrolixCore.firestoreListDocuments(`users/${order.uid}/addresses`, nutrolixCore.NAMED_DB_ID);
+                const allExistingAddrs = [...existingAddrsDefault, ...existingAddrsNamed];
+                const normKey = (a) => `${String(a.pincode || '').replace(/\D/g, '').slice(0, 6)}_${String(a.address1 || a.street || '').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+                const targetKey = normKey({ address1: addrLine, pincode: addrPin });
+                const matchedExisting = allExistingAddrs.find((a) => normKey(a) === targetKey);
+                const isFirstAddr = allExistingAddrs.length === 0;
+                const addrId = matchedExisting
+                  ? String(matchedExisting.id || matchedExisting._docId || 'addr_primary')
+                  : (isFirstAddr ? 'addr_primary' : ('addr_' + require('crypto').createHash('sha1').update(targetKey).digest('hex').slice(0, 10)));
+
+                const addressRecord = {
+                  id: addrId,
+                  uid: order.uid,
+                  tag: (matchedExisting && matchedExisting.tag) || 'Home',
+                  name: bestName,
+                  fullName: bestName,
+                  phone: order.customerPhone,
+                  whatsappNumber: order.whatsappNumber || order.customerPhone,
+                  street: addrLine,
+                  address1: addrLine,
+                  city: addrCity,
+                  state: addrState,
+                  pincode: addrPin,
+                  isDefault: matchedExisting ? Boolean(matchedExisting.isDefault) : isFirstAddr,
+                  updatedAt: nowIso,
+                  updatedAtMillis: nowMs
+                };
+                if (Number.isFinite(Number(addr.gpsLat)) && Number.isFinite(Number(addr.gpsLon))) {
+                  addressRecord.lat = Number(addr.gpsLat);
+                  addressRecord.lon = Number(addr.gpsLon);
+                }
+                await nutrolixCore.firestorePatchBothDbs(`users/${order.uid}/addresses/${addrId}`, addressRecord);
+              }
             } catch (_) {}
           }
 

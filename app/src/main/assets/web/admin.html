@@ -5033,7 +5033,8 @@
           },
           body: JSON.stringify({
             dryRun: Boolean(dryRun),
-            confirmPhrase: dryRun ? '' : phrase
+            confirmPhrase: dryRun ? '' : phrase,
+            deleteLocalFiles: !dryRun
           })
         });
         const data = await res.json().catch(() => ({}));
@@ -5085,5 +5086,6 @@
       }, 20);
     }
   </script>
+  <script src="assets/pull-to-refresh.js"></script>
 </body>
 </html>

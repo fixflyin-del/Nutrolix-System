@@ -304,9 +304,9 @@
               </div>
             </div>
             <div class="pt-1 flex items-center justify-between gap-2">
-              <div id="accountPushStatusBadge" onclick="window.handleAccountNotificationStatusAction()" class="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-default">
-                <i id="accountPushIcon" class="fa-solid fa-bell"></i>
-                <span id="accountPushLabel">Order Alerts: Active</span>
+              <div id="accountPushStatusBadge" onclick="window.handleAccountNotificationStatusAction()" class="hidden text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-pointer">
+                <i id="accountPushIcon" class="fa-solid fa-bell-slash"></i>
+                <span id="accountPushLabel">Notifications Blocked</span>
               </div>
               <button onclick="window.handleNutrolixSignOut()" class="text-xs text-rose-600 font-extrabold hover:underline flex items-center space-x-1 py-1 px-2 rounded-lg hover:bg-rose-50 transition">
                 <i class="fa-solid fa-arrow-right-from-bracket"></i>
@@ -775,9 +775,36 @@
           : `<button type="button" onclick="document.getElementById('linkPhoneInlineBox').classList.toggle('hidden')" class="px-2.5 py-1 rounded-lg bg-emerald-700 text-white font-bold">Verify Mobile</button>`;
 
         if (profile.uid && window.NutrolixFirebase && typeof window.NutrolixFirebase.fetchUserAddresses === 'function') {
-          const remote = await window.NutrolixFirebase.fetchUserAddresses(profile.uid);
+          let remote = await window.NutrolixFirebase.fetchUserAddresses(profile.uid);
+          if ((!Array.isArray(remote) || remote.length === 0) && typeof window.hydrateNutrolixCustomerSession === 'function') {
+            await window.hydrateNutrolixCustomerSession(profile.uid);
+            remote = await window.NutrolixFirebase.fetchUserAddresses(profile.uid);
+          }
           if (Array.isArray(remote) && remote.length > 0) {
             localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(remote));
+          } else {
+            let localSaved = [];
+            try { localSaved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]'); } catch (_) {}
+            const fallbackLine = profile.defaultAddress || profile.address1 || '';
+            if ((!Array.isArray(localSaved) || localSaved.length === 0) && fallbackLine && profile.pincode) {
+              const fallbackAddr = {
+                id: 'addr_primary',
+                uid: profile.uid,
+                tag: 'Home',
+                name: profile.name || 'Customer',
+                phone: profile.verifiedPhone || profile.phone || '',
+                street: fallbackLine,
+                address1: fallbackLine,
+                city: profile.city || '',
+                state: profile.state || '',
+                pincode: profile.pincode,
+                isDefault: true
+              };
+              localStorage.setItem('nutrolix_saved_addresses', JSON.stringify([fallbackAddr]));
+              if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveUserAddress === 'function') {
+                window.NutrolixFirebase.saveUserAddress(profile.uid, fallbackAddr).catch(() => {});
+              }
+            }
           }
         }
         renderAddresses();
@@ -1022,17 +1049,12 @@
       if (!badge || !lbl || !window.NutrolixNotifications || typeof window.NutrolixNotifications.getNotificationStatus !== 'function') return;
       const st = window.NutrolixNotifications.getNotificationStatus();
       if (st.permission === 'denied') {
+        badge.classList.remove('hidden');
         lbl.textContent = 'Notifications Blocked — Chrome Settings';
         badge.className = 'text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-pointer hover:bg-rose-100 transition';
         if (icon) icon.className = 'fa-solid fa-bell-slash';
-      } else if (st.active) {
-        lbl.textContent = 'Order Alerts: Active';
-        badge.className = 'text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-default';
-        if (icon) icon.className = 'fa-solid fa-bell';
       } else {
-        lbl.textContent = 'Allow Order Alerts';
-        badge.className = 'text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-pointer hover:bg-amber-100 transition';
-        if (icon) icon.className = 'fa-regular fa-bell';
+        badge.classList.add('hidden');
       }
     };
 

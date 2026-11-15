@@ -307,32 +307,31 @@
     });
   }
 
-  // If running inside Android APK, seed from native FirebaseAuth/SharedPrefs if WebView localStorage was empty
-  setTimeout(() => {
-    try {
-      if (!window.getNutrolixUser() && window.AndroidNative && typeof window.AndroidNative.getAuthUserJson === 'function') {
-        const raw = window.AndroidNative.getAuthUserJson();
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          const phoneDigits = clean10Phone(
-            parsed.verifiedPhone || parsed.phone || (String(parsed.uid || '').startsWith('phone_') ? String(parsed.uid).slice(6) : '')
-          );
-          if (parsed && (parsed.uid || phoneDigits.length === 10) && phoneDigits.length === 10) {
-            const canonicalUid = toCanonicalUid(parsed.uid, phoneDigits);
-            window.saveNutrolixUser({
-              uid: canonicalUid,
-              name: pickBestName(parsed.name),
-              phone: phoneDigits,
-              verifiedPhone: phoneDigits,
-              photo: parsed.photo || '',
-              providers: ['phone']
-            }, { skipRemoteSync: true });
-            hydrateFromFirestore(canonicalUid);
-          }
+  // If running inside Android APK, seed synchronously from native FirebaseAuth/SharedPrefs so pages see session immediately
+  try {
+    if (!window.getNutrolixUser() && window.AndroidNative && typeof window.AndroidNative.getAuthUserJson === 'function') {
+      const raw = window.AndroidNative.getAuthUserJson();
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const phoneDigits = clean10Phone(
+          parsed.verifiedPhone || parsed.phone || (String(parsed.uid || '').startsWith('phone_') ? String(parsed.uid).slice(6) : '')
+        );
+        if (parsed && (parsed.uid || phoneDigits.length === 10) && phoneDigits.length === 10) {
+          const canonicalUid = toCanonicalUid(parsed.uid, phoneDigits);
+          window.saveNutrolixUser({
+            uid: canonicalUid,
+            name: pickBestName(parsed.name),
+            phone: phoneDigits,
+            verifiedPhone: phoneDigits,
+            whatsappNumber: phoneDigits,
+            photo: parsed.photo || '',
+            providers: ['phone']
+          }, { skipRemoteSync: true });
+          hydrateFromFirestore(canonicalUid);
         }
       }
-    } catch (_) {}
-  }, 50);
+    }
+  } catch (_) {}
 
   // -------------------------------------------------------------
   // WHATSAPP MOBILE NUMBER + OTP (FAST2SMS + FIREBASE CUSTOM AUTH)

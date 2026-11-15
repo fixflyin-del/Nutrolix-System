@@ -278,27 +278,11 @@
           </div>
         </div>
         <div class="flex items-center space-x-3">
-          <div id="ordersPushStatusBadge" onclick="window.handleOrdersNotificationStatusAction()" class="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-default">
-            <i id="ordersPushIcon" class="fa-solid fa-bell text-[11px]"></i>
-            <span id="ordersPushLabel">Order Alerts: Active</span>
-          </div>
           <button onclick="window.handleNutrolixSignOut()" class="text-xs text-rose-600 font-bold hover:underline px-3 py-1.5 rounded-lg hover:bg-rose-50 transition flex items-center space-x-1">
             <i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i>
             <span>Sign Out</span>
           </button>
         </div>
-      </div>
-
-      <!-- Live Order Notification History Center -->
-      <div id="liveNotificationsCard" class="hidden bg-white rounded-2xl p-4 border border-emerald-200 shadow-sm space-y-2.5">
-        <div class="flex items-center justify-between">
-          <span class="text-xs font-black text-slate-900 flex items-center space-x-1.5">
-            <i class="fa-solid fa-bell text-emerald-600"></i>
-            <span>Order Status Notifications</span>
-          </span>
-          <span id="liveNotifCountBadge" class="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">0 updates</span>
-        </div>
-        <div id="liveNotificationsList" class="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar"></div>
       </div>
 
       <!-- VIEW A: ORDER HISTORY LIST ONLY (Default View Requested by User) -->
@@ -630,63 +614,6 @@
       }
     };
 
-    function renderLiveNotifications(list) {
-      const card = document.getElementById('liveNotificationsCard');
-      const container = document.getElementById('liveNotificationsList');
-      const badge = document.getElementById('liveNotifCountBadge');
-      if (!card || !container || !Array.isArray(list) || list.length === 0) {
-        if (card) card.classList.add('hidden');
-        return;
-      }
-      card.classList.remove('hidden');
-      const unreadCount = list.filter(n => !n.read).length;
-      if (badge) badge.textContent = unreadCount > 0 ? `${unreadCount} unread` : `${list.length} updates`;
-
-      container.innerHTML = list.slice(0, 10).map(n => `
-        <div onclick="window.handleNotificationClick('${n.id || ''}', '${n.orderId || ''}')" class="p-2.5 rounded-xl border ${n.read ? 'bg-slate-50 border-slate-100' : 'bg-emerald-50 border-emerald-200'} cursor-pointer hover:border-emerald-400 transition flex items-start justify-between gap-2 text-xs">
-          <div class="min-w-0">
-            <div class="font-extrabold text-slate-900 truncate">${n.title || 'Order Update'}</div>
-            <div class="text-[11px] text-slate-600 leading-snug">${n.message || ''}</div>
-          </div>
-          <span class="text-[10px] font-bold text-emerald-700 shrink-0">${n.orderId ? '#' + n.orderId : 'View'}</span>
-        </div>
-      `).join('');
-    }
-
-    window.handleNotificationClick = async function(notifId, orderId) {
-      const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
-      if (user && user.uid && notifId && window.NutrolixFirebase) {
-        window.NutrolixFirebase.markNotificationRead(user.uid, notifId);
-      }
-      try {
-        const host = window.NUTROLIX_API_HOST || '';
-        fetch(host + '/api/notifications/mark-read', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: user?.uid || '', notifId })
-        }).catch(() => {});
-      } catch (_) {}
-      if (orderId) window.showOrderDetail(orderId);
-    };
-
-    async function loadUserNotificationHistory(user) {
-      if (!user) return;
-      try {
-        const host = window.NUTROLIX_API_HOST || '';
-        const qs = new URLSearchParams();
-        if (user.uid) qs.set('uid', user.uid);
-        if (user.verifiedPhone || user.phone) qs.set('phone', user.verifiedPhone || user.phone);
-        if (user.email) qs.set('email', user.email);
-        const res = await fetch(host + '/api/notifications/user-history?' + qs.toString());
-        if (res.ok) {
-          const data = await res.json();
-          if (Array.isArray(data.notifications) && data.notifications.length > 0) {
-            renderLiveNotifications(data.notifications);
-          }
-        }
-      } catch (_) {}
-    }
-
     function checkAuthAndLoadOrders() {
       const user = window.getNutrolixUser();
       const authGate = document.getElementById('authGateContainer');
@@ -717,12 +644,7 @@
       }
 
       loadUserOrders();
-      loadUserNotificationHistory(user);
     }
-
-    window.addEventListener('nutrolix:notifications-updated', (e) => {
-      if (Array.isArray(e.detail)) renderLiveNotifications(e.detail);
-    });
 
     window.addEventListener('nutrolix:order-push', () => {
       loadUserOrders(true);
@@ -1013,44 +935,6 @@
       window.closeReviewModal();
     };
 
-    window.updateOrdersPushStatusUi = function() {
-      const badge = document.getElementById('ordersPushStatusBadge');
-      const lbl = document.getElementById('ordersPushLabel');
-      const icon = document.getElementById('ordersPushIcon');
-      if (!badge || !lbl || !window.NutrolixNotifications || typeof window.NutrolixNotifications.getNotificationStatus !== 'function') return;
-      const st = window.NutrolixNotifications.getNotificationStatus();
-      if (st.permission === 'denied') {
-        lbl.textContent = 'Notifications Blocked — Chrome Settings';
-        badge.className = 'text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-pointer hover:bg-rose-100 transition';
-        if (icon) icon.className = 'fa-solid fa-bell-slash text-[11px]';
-      } else if (st.active) {
-        lbl.textContent = 'Order Alerts: Active';
-        badge.className = 'text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-default';
-        if (icon) icon.className = 'fa-solid fa-bell text-[11px]';
-      } else {
-        lbl.textContent = 'Allow Order Alerts';
-        badge.className = 'text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-pointer hover:bg-amber-100 transition';
-        if (icon) icon.className = 'fa-regular fa-bell text-[11px]';
-      }
-    };
-
-    window.handleOrdersNotificationStatusAction = async function() {
-      if (!window.NutrolixNotifications) return;
-      const st = window.NutrolixNotifications.getNotificationStatus();
-      if (st.permission === 'denied') {
-        alert(st.settingsHelp || 'Push notifications are blocked in Chrome/device settings. Please allow notifications for this site and reload.');
-        return;
-      }
-      if (!st.active && typeof window.NutrolixNotifications.requestPermission === 'function') {
-        await window.NutrolixNotifications.requestPermission();
-        window.updateOrdersPushStatusUi();
-      }
-    };
-
-    window.addEventListener('nutrolix:notification-status-changed', () => {
-      window.updateOrdersPushStatusUi();
-    });
-
     window.addEventListener('nutrolix:auth-changed', () => {
       checkAuthAndLoadOrders();
     });
@@ -1058,8 +942,6 @@
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
         loadUserOrders(true);
-        const u = window.getNutrolixUser ? window.getNutrolixUser() : null;
-        if (u) loadUserNotificationHistory(u);
       }
     });
 
@@ -1073,8 +955,8 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       checkAuthAndLoadOrders();
-      window.updateOrdersPushStatusUi();
     });
   </script>
+  <script src="assets/pull-to-refresh.js"></script>
 </body>
 </html>

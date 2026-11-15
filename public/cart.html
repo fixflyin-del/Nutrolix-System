@@ -309,9 +309,9 @@
             <div>
               <h3 class="text-base sm:text-lg font-black text-slate-900 flex items-center space-x-2">
                 <i class="fa-solid fa-location-dot text-emerald-600"></i>
-                <span>Delivery &amp; WhatsApp Checkout</span>
+                <span>Delivery &amp; Checkout</span>
               </h3>
-              <p class="text-[11px] text-slate-500">Verify WhatsApp number &amp; enter your one-line address</p>
+              <p id="checkoutCardSubtitle" class="text-[11px] text-slate-500">Verify WhatsApp number &amp; enter your one-line address</p>
             </div>
             <div id="cartAuthStatusBar">
               <!-- Injected by checkCartAuthStatus() -->
@@ -1362,20 +1362,38 @@
 
     function loadUserProfile() {
       try {
+        const authUser = (typeof window.getNutrolixUser === 'function') ? window.getNutrolixUser() : null;
         const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-        if (profile.name && profile.name !== 'Nutrolix Customer' && profile.name !== 'Nutrolix Member') {
-          document.getElementById('custName').value = profile.name;
+        const resolvedName = (profile.name && profile.name !== 'Nutrolix Customer' && profile.name !== 'Nutrolix Member')
+          ? profile.name
+          : ((authUser && authUser.name && authUser.name !== 'Nutrolix Customer' && authUser.name !== 'Nutrolix Member') ? authUser.name : '');
+        if (resolvedName && !document.getElementById('custName').value.trim()) {
+          document.getElementById('custName').value = resolvedName;
         }
-        if (profile.whatsappNumber || profile.phone || profile.whatsapp) {
-          document.getElementById('custPhone').value = String(profile.whatsappNumber || profile.phone || profile.whatsapp).replace(/\D/g, '').slice(-10);
+        const resolvedPhone = String(
+          (authUser && (authUser.verifiedPhone || authUser.phone || authUser.whatsappNumber)) ||
+          profile.verifiedPhone || profile.whatsappNumber || profile.phone || profile.whatsapp || ''
+        ).replace(/\D/g, '').slice(-10);
+        if (resolvedPhone && !document.getElementById('custPhone').value.trim()) {
+          document.getElementById('custPhone').value = resolvedPhone;
         }
-        if (profile.email) document.getElementById('custEmail').value = profile.email;
-        if (profile.address1 || profile.defaultAddress) {
-          document.getElementById('custAddress1').value = profile.address1 || profile.defaultAddress;
+        if (profile.email || (authUser && authUser.email)) {
+          document.getElementById('custEmail').value = profile.email || authUser.email;
         }
-        if (profile.city) document.getElementById('custCity').value = profile.city;
-        if (profile.state) document.getElementById('custState').value = profile.state;
-        if (profile.pincode) document.getElementById('custPincode').value = profile.pincode;
+        if (profile.address1 || profile.defaultAddress || (authUser && authUser.defaultAddress)) {
+          if (!document.getElementById('custAddress1').value.trim()) {
+            document.getElementById('custAddress1').value = profile.address1 || profile.defaultAddress || authUser.defaultAddress;
+          }
+        }
+        if ((profile.city || (authUser && authUser.city)) && !document.getElementById('custCity').value.trim()) {
+          document.getElementById('custCity').value = profile.city || authUser.city;
+        }
+        if ((profile.state || (authUser && authUser.state)) && !document.getElementById('custState').value.trim()) {
+          document.getElementById('custState').value = profile.state || authUser.state;
+        }
+        if ((profile.pincode || (authUser && authUser.pincode)) && !document.getElementById('custPincode').value.trim()) {
+          document.getElementById('custPincode').value = profile.pincode || authUser.pincode;
+        }
       } catch (_) {}
       window.refreshLocationSummaryText();
     }
@@ -1384,12 +1402,18 @@
       try {
         const existing = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
         const typedName = document.getElementById('custName').value.trim();
+        const typedPhone = document.getElementById('custPhone').value.replace(/\D/g, '').slice(-10);
+        const isAuthed = Boolean(existing && existing.authSession === true && existing.uid);
+        const preservedVerifiedPhone = isAuthed
+          ? String(existing.verifiedPhone || existing.phone || (String(existing.uid).startsWith('phone_') ? String(existing.uid).slice(6) : '') || '').replace(/\D/g, '').slice(-10)
+          : '';
         const profile = {
           ...existing,
           name: typedName || existing.name || '',
-          whatsappNumber: document.getElementById('custPhone').value.replace(/\D/g, '').slice(-10),
-          phone: existing.verifiedPhone || document.getElementById('custPhone').value.replace(/\D/g, '').slice(-10),
-          whatsapp: document.getElementById('custPhone').value.replace(/\D/g, '').slice(-10),
+          whatsappNumber: typedPhone || existing.whatsappNumber || preservedVerifiedPhone || '',
+          phone: preservedVerifiedPhone || typedPhone || existing.phone || '',
+          verifiedPhone: preservedVerifiedPhone || existing.verifiedPhone || '',
+          whatsapp: typedPhone || existing.whatsapp || preservedVerifiedPhone || '',
           email: document.getElementById('custEmail').value.trim() || (existing.email || ''),
           address1: document.getElementById('custAddress1').value.trim(),
           defaultAddress: document.getElementById('custAddress1').value.trim(),
@@ -1411,22 +1435,35 @@
 
     window.updateCartPhoneOkButtonState = function() {
       const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
-      const digits = (document.getElementById('custPhone')?.value || '').replace(/\D/g, '').slice(-10);
-      const verifiedDigits = user ? String(user.verifiedPhone || user.phone || '').replace(/\D/g, '').slice(-10) : '';
-      const isMatch = Boolean(user && digits.length === 10 && digits === verifiedDigits);
+      const phoneEl = document.getElementById('custPhone');
+      const verifiedDigits = user ? String(user.verifiedPhone || user.phone || (String(user.uid || '').startsWith('phone_') ? String(user.uid).slice(6) : '')).replace(/\D/g, '').slice(-10) : '';
+      const isAuthed = Boolean(user && user.uid && /^[6-9]\d{9}$/.test(verifiedDigits));
+      if (isAuthed && phoneEl && !phoneEl.value.trim()) {
+        phoneEl.value = verifiedDigits;
+      }
+      const digits = (phoneEl?.value || '').replace(/\D/g, '').slice(-10);
+      const isMatch = Boolean(isAuthed && digits.length === 10 && digits === verifiedDigits);
 
       const okBtn = document.getElementById('cartPhoneOkBtn');
       const tagEl = document.getElementById('cartPhoneVerifiedTag');
+      const otpBox = document.getElementById('cartInlineOtpBox');
       if (okBtn) {
-        if (isMatch) {
-          okBtn.innerHTML = '<i class="fa-solid fa-check text-[10px]"></i><span>OK</span>';
-          okBtn.className = 'shrink-0 h-8 px-2.5 rounded-full bg-emerald-700 text-white font-black text-[11px] shadow-sm flex items-center justify-center space-x-1 transition cursor-pointer';
+        if (isAuthed) {
+          // Already logged-in user does NOT need an OTP trigger button
+          okBtn.classList.add('hidden');
         } else {
+          okBtn.classList.remove('hidden');
           okBtn.innerHTML = '<span>OK</span><i class="fa-solid fa-arrow-right text-[10px]"></i>';
           okBtn.className = 'shrink-0 h-8 px-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] shadow-sm flex items-center justify-center space-x-1 transition active:scale-95 cursor-pointer';
         }
       }
-      if (tagEl) tagEl.classList.toggle('hidden', !isMatch);
+      if (tagEl) {
+        tagEl.textContent = isAuthed ? (isMatch ? 'WhatsApp Verified ✓' : `Logged in (+91 ${verifiedDigits}) ✓`) : 'OTP Verified ✓';
+        tagEl.classList.toggle('hidden', !isAuthed);
+      }
+      if (isAuthed && otpBox) {
+        otpBox.classList.add('hidden');
+      }
     };
 
     window.handleCartInlinePhoneOk = async function(isResend = false) {
@@ -1518,6 +1555,7 @@
     window.checkCartAuthStatus = function() {
       const user = window.getNutrolixUser();
       const bar = document.getElementById('cartAuthStatusBar');
+      const subtitle = document.getElementById('checkoutCardSubtitle');
       if (!bar) return;
 
       if (user) {
@@ -1531,6 +1569,7 @@
             <span class="text-[9px] bg-emerald-600 text-white font-black px-1.5 py-0.5 rounded-full">Verified</span>
           </div>
         `;
+        if (subtitle) subtitle.textContent = 'Signed in with WhatsApp • Confirm your delivery address below';
         if (!document.getElementById('custName').value && user.name && user.name !== 'Nutrolix Customer' && user.name !== 'Nutrolix Member') {
           document.getElementById('custName').value = user.name;
         }
@@ -1540,6 +1579,7 @@
       } else {
         // Checkout authentication is handled inline beside the WhatsApp number field.
         bar.innerHTML = '';
+        if (subtitle) subtitle.textContent = 'Verify WhatsApp number & enter your one-line address';
       }
       window.updateCartPhoneOkButtonState();
     };
@@ -1730,35 +1770,54 @@
       window.executeOrderPlacement();
     };
 
-    // Primary checkout button trigger (allows confirming order without Name once OTP verified)
+    // Primary checkout button trigger (already-logged-in users NEVER get asked for OTP again)
     window.handleOrderCheckoutClick = function() {
       if (cart.length === 0) {
         alert('Your cart is empty. Please add a product first.');
         return;
       }
 
-      // Require the checkout phone field first; never open a separate login/signup modal.
-      const phoneInput = document.getElementById('custPhone');
-      const phone = (phoneInput?.value || '').replace(/\D/g, '').slice(-10);
-      if (!/^[6-9]\d{9}$/.test(phone)) {
-        alert('Please fill all details. Enter your 10-digit WhatsApp number first.');
-        phoneInput?.focus();
-        return;
-      }
+      const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
+      const verifiedPhone = user
+        ? String(user.verifiedPhone || user.phone || (String(user.uid || '').startsWith('phone_') ? String(user.uid).slice(6) : '')).replace(/\D/g, '').slice(-10)
+        : '';
+      const isAlreadyLoggedIn = Boolean(user && user.uid && /^[6-9]\d{9}$/.test(verifiedPhone));
 
-      const user = window.getNutrolixUser();
-      const verifiedPhone = user ? String(user.verifiedPhone || user.phone || '').replace(/\D/g, '').slice(-10) : '';
-      if (!user || verifiedPhone !== phone) {
+      const phoneInput = document.getElementById('custPhone');
+      let phone = (phoneInput?.value || '').replace(/\D/g, '').slice(-10);
+
+      if (isAlreadyLoggedIn) {
+        if (!/^[6-9]\d{9}$/.test(phone)) {
+          phone = verifiedPhone;
+          if (phoneInput) phoneInput.value = verifiedPhone;
+        }
+      } else {
+        if (!/^[6-9]\d{9}$/.test(phone)) {
+          alert('Please fill all details. Enter your 10-digit WhatsApp number first.');
+          phoneInput?.focus();
+          return;
+        }
         window.handleCartInlinePhoneOk(false);
         return;
       }
 
-      // Validate delivery address and PIN after WhatsApp verification.
+      // Validate delivery address and PIN for already-authenticated user.
       const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-      const address = (document.getElementById('custAddress1')?.value || profile.address1 || (selectedSavedAddress ? selectedSavedAddress.address1 : '') || '').trim();
-      const pincode = (document.getElementById('custPincode')?.value || profile.pincode || (selectedSavedAddress ? selectedSavedAddress.pincode : '') || '').replace(/\D/g, '').slice(0, 6);
+      const address = (
+        (selectedSavedAddress ? selectedSavedAddress.address1 : '') ||
+        document.getElementById('custAddress1')?.value ||
+        profile.address1 ||
+        profile.defaultAddress ||
+        ''
+      ).trim();
+      const pincode = (
+        (selectedSavedAddress ? selectedSavedAddress.pincode : '') ||
+        document.getElementById('custPincode')?.value ||
+        profile.pincode ||
+        ''
+      ).replace(/\D/g, '').slice(0, 6);
 
-      if (phone.length !== 10 || !address || address.length < 4 || pincode.length !== 6) {
+      if (!address || address.length < 4 || pincode.length !== 6) {
         window.openDeliveryDetailsModal();
         return;
       }
@@ -1771,18 +1830,21 @@
     window.executeOrderPlacement = async function() {
       if (cart.length === 0) return alert('Your cart is empty');
 
-      const user = window.getNutrolixUser() || {};
+      const user = (window.getNutrolixUser ? window.getNutrolixUser() : null) || {};
       const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
 
       let name, phone, email, address1, city, state, pincode, gpsLat, gpsLon, googleMapsLink;
       const storeCoordsAllowed = Boolean(locationConsentGranted);
       const fallbackDisplayName = (user.name && user.name !== 'Nutrolix Customer' && user.name !== 'Nutrolix Member') ? user.name : 'Nutrolix Customer';
+      const verifiedPhone = String(
+        user.verifiedPhone || user.phone || (String(user.uid || '').startsWith('phone_') ? String(user.uid).slice(6) : '')
+      ).replace(/\D/g, '').slice(-10);
 
       if (selectedSavedAddress) {
         name = selectedSavedAddress.name || document.getElementById('custName').value.trim() || fallbackDisplayName;
-        phone = selectedSavedAddress.phone || document.getElementById('custPhone').value.trim() || profile.whatsappNumber || user.verifiedPhone || '';
+        phone = selectedSavedAddress.phone || document.getElementById('custPhone').value.trim() || verifiedPhone || profile.whatsappNumber || '';
         email = user.email || profile.email || '';
-        address1 = selectedSavedAddress.address1;
+        address1 = selectedSavedAddress.address1 || selectedSavedAddress.street || '';
         city = selectedSavedAddress.city || '';
         state = selectedSavedAddress.state || '';
         pincode = selectedSavedAddress.pincode || '';
@@ -1790,21 +1852,23 @@
         gpsLon = storeCoordsAllowed ? selectedSavedAddress.gpsLon : null;
       } else {
         name = document.getElementById('custName').value.trim() || fallbackDisplayName;
-        phone = document.getElementById('custPhone').value.trim() || profile.whatsappNumber || user.verifiedPhone || '';
+        phone = document.getElementById('custPhone').value.trim() || verifiedPhone || profile.whatsappNumber || '';
         email = user.email || document.getElementById('custEmail').value.trim() || profile.email || '';
-        address1 = document.getElementById('custAddress1').value.trim() || profile.address1 || '';
-        pincode = document.getElementById('custPincode').value.trim() || '';
-        city = document.getElementById('custCity').value.trim() || '';
-        state = document.getElementById('custState').value.trim() || '';
+        address1 = document.getElementById('custAddress1').value.trim() || profile.address1 || profile.defaultAddress || '';
+        pincode = document.getElementById('custPincode').value.trim() || profile.pincode || '';
+        city = document.getElementById('custCity').value.trim() || profile.city || '';
+        state = document.getElementById('custState').value.trim() || profile.state || '';
         gpsLat = storeCoordsAllowed ? (document.getElementById('custGpsLat').value || null) : null;
         gpsLon = storeCoordsAllowed ? (document.getElementById('custGpsLon').value || null) : null;
       }
 
-      phone = String(phone || '').replace(/\D/g, '').slice(-10);
-      const verifiedPhone = String(user.verifiedPhone || user.phone || '').replace(/\D/g, '').slice(-10);
-      if (!user.uid || phone.length !== 10 || phone !== verifiedPhone || !address1 || address1.trim().length < 4 || String(pincode || '').replace(/\D/g, '').length !== 6 || !city) {
-        alert('Please fill all details and verify your WhatsApp number before placing the order.');
-        document.getElementById('custPhone')?.focus();
+      phone = String(phone || verifiedPhone || '').replace(/\D/g, '').slice(-10) || verifiedPhone;
+      if (!user.uid || verifiedPhone.length !== 10) {
+        window.handleCartInlinePhoneOk(false);
+        return;
+      }
+      if (!address1 || address1.trim().length < 4 || String(pincode || '').replace(/\D/g, '').length !== 6 || !city) {
+        window.openDeliveryDetailsModal();
         return;
       }
 
@@ -1829,11 +1893,11 @@
         orderNumber: generatedOrderId,
         idempotencyKey,
         uid: user.uid || '',
-        customer: { name, phone, email, whatsappNumber: phone, verifiedPhone: verifiedPhone || phone },
+        customer: { name, phone: verifiedPhone, contactPhone: phone, email, whatsappNumber: verifiedPhone, verifiedPhone },
         customerName: name,
-        customerPhone: phone,
-        whatsappNumber: phone,
-        verifiedPhone: verifiedPhone || phone,
+        customerPhone: verifiedPhone,
+        whatsappNumber: verifiedPhone,
+        verifiedPhone,
         customerEmail: email,
         deliveryAddress: {
           address1,
@@ -1862,30 +1926,70 @@
         orderTimeMillis: nowMs
       };
 
-      // Persist address & customer profile into Firestore for cross-device sync
-      if (user.uid && window.NutrolixFirebase) {
-        const addrToSave = {
-          id: selectedSavedAddress?.id || 'addr_primary',
-          tag: selectedSavedAddress?.tag || 'Home',
-          name,
-          phone,
-          street: address1,
+      // Immediately save first-time/new delivery address locally & await Firestore write before any redirect
+      const existingSavedList = (() => {
+        try {
+          const parsed = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (_) { return []; }
+      })();
+      const isFirstAddress = existingSavedList.length === 0;
+      const addrToSave = {
+        id: selectedSavedAddress?.id || (isFirstAddress ? 'addr_primary' : ('addr_' + nowMs.toString(36))),
+        uid: user.uid || '',
+        tag: selectedSavedAddress?.tag || 'Home',
+        name,
+        fullName: name,
+        phone: verifiedPhone || phone,
+        whatsappNumber: verifiedPhone || phone,
+        street: address1,
+        address1,
+        city,
+        state,
+        pincode,
+        isDefault: selectedSavedAddress ? Boolean(selectedSavedAddress.isDefault) : isFirstAddress,
+        updatedAt: nowIso,
+        updatedAtMillis: nowMs
+      };
+
+      try {
+        const normLine = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const alreadyInLocal = existingSavedList.some((a) =>
+          normLine(a.address1 || a.street) === normLine(address1) && String(a.pincode || '').trim() === String(pincode).trim()
+        );
+        if (!alreadyInLocal) {
+          existingSavedList.unshift(addrToSave);
+          localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(existingSavedList));
+          window.dispatchEvent(new CustomEvent('nutrolix:addresses-updated', { detail: existingSavedList }));
+        }
+        const curProf = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+        localStorage.setItem('nutrolix_user_profile', JSON.stringify({
+          ...curProf,
+          defaultAddress: address1,
           address1,
           city,
           state,
-          pincode
-        };
-        window.NutrolixFirebase.saveUserAddress(user.uid, addrToSave).catch(() => {});
-        window.NutrolixFirebase.saveUserProfile(user.uid, {
-          name,
-          email,
-          whatsappNumber: phone,
-          verifiedPhone: verifiedPhone || phone,
-          defaultAddress: address1,
-          city,
-          state,
-          pincode
-        }).catch(() => {});
+          pincode,
+          name: (name && name !== 'Nutrolix Customer') ? name : (curProf.name || '')
+        }));
+      } catch (_) {}
+
+      if (user.uid && window.NutrolixFirebase) {
+        const persistOps = [
+          window.NutrolixFirebase.saveUserAddress(user.uid, addrToSave).catch(() => {}),
+          window.NutrolixFirebase.saveUserProfile(user.uid, {
+            name,
+            email,
+            whatsappNumber: verifiedPhone || phone,
+            verifiedPhone,
+            defaultAddress: address1,
+            currentAddress: [address1, city, state, pincode].filter(Boolean).join(', '),
+            city,
+            state,
+            pincode
+          }).catch(() => {})
+        ];
+        await Promise.race([Promise.allSettled(persistOps), new Promise((r) => setTimeout(r, 1500))]);
       }
 
       const btn = document.getElementById('placeOrderBtn');
@@ -2056,5 +2160,6 @@
       });
     });
   </script>
+  <script src="assets/pull-to-refresh.js"></script>
 </body>
 </html>

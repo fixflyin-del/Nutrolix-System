@@ -41,6 +41,7 @@ import com.example.data.FirestoreService
 import com.example.service.NutrolixFirebaseMessagingService
 import com.example.ui.theme.MyApplicationTheme
 import com.example.util.OrderNotificationHelper
+import com.example.util.PullToRefreshWebViewWrapper
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
@@ -128,12 +129,12 @@ class MainActivity : ComponentActivity() {
     val openUrl = intent.getStringExtra("open_url") ?: ""
 
     return when {
-      orderId.isNotBlank() -> "file:///android_asset/web/orders.html?orderId=${Uri.encode(orderId)}"
+      orderId.isNotBlank() -> "${LIVE_SERVER_URL.trimEnd('/')}/orders.html?orderId=${Uri.encode(orderId)}"
       openUrl.contains("orders.html") -> {
         val q = openUrl.substringAfter("?", "")
-        "file:///android_asset/web/orders.html" + if (q.isNotBlank()) "?$q" else ""
+        "${LIVE_SERVER_URL.trimEnd('/')}/orders.html" + if (q.isNotBlank()) "?$q" else ""
       }
-      navigateTo == "orders" || navigateTo == "review_dialog" -> "file:///android_asset/web/orders.html"
+      navigateTo == "orders" || navigateTo == "review_dialog" -> "${LIVE_SERVER_URL.trimEnd('/')}/orders.html"
       else -> null
     }
   }
@@ -389,7 +390,8 @@ fun NutrolixSupplementBrandApp(
       AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
-          WebView(ctx).apply {
+          var ptrWrapper: PullToRefreshWebViewWrapper? = null
+          val webView = WebView(ctx).apply {
             layoutParams = ViewGroup.LayoutParams(
               ViewGroup.LayoutParams.MATCH_PARENT,
               ViewGroup.LayoutParams.MATCH_PARENT
@@ -755,6 +757,12 @@ fun NutrolixSupplementBrandApp(
                 return true
               }
 
+              override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                ptrWrapper?.finishRefreshing()
+                view?.evaluateJavascript("window.__nutrolixNativePtr = true;", null)
+              }
+
               override fun shouldOverrideUrlLoading(
                 view: WebView?,
                 request: WebResourceRequest?
@@ -777,79 +785,6 @@ fun NutrolixSupplementBrandApp(
                   }
                 }
 
-                if (url == "file:///" || url == "file:///android_asset/web/" || url.endsWith("/index.html") || url.endsWith("/") || url.endsWith("/#")) {
-                  view?.loadUrl(MainActivity.PRIMARY_APP_URL)
-                  return true
-                }
-                if (url.contains("food.html") || url.endsWith("/food") || url.startsWith("file:///food")) {
-                  val query = Uri.parse(url).query
-                  val target = "file:///android_asset/web/food.html" + (if (query != null) "?$query" else "")
-                  view?.loadUrl(target)
-                  return true
-                }
-                if (url.contains("shop.html") || url.endsWith("/shop") || url.startsWith("file:///shop")) {
-                  val query = Uri.parse(url).query
-                  val target = "file:///android_asset/web/shop.html" + (if (query != null) "?$query" else "")
-                  view?.loadUrl(target)
-                  return true
-                }
-                if (url.contains("cart.html") || url.endsWith("/cart") || url.startsWith("file:///cart")) {
-                  view?.loadUrl("file:///android_asset/web/cart.html")
-                  return true
-                }
-                if (url.contains("orders.html") || url.endsWith("/orders") || url.startsWith("file:///orders") || url.contains("track")) {
-                  val query = Uri.parse(url).query
-                  val target = "file:///android_asset/web/orders.html" + (if (query != null) "?$query" else "")
-                  view?.loadUrl(target)
-                  return true
-                }
-                if (url.contains("account.html") || url.endsWith("/account") || url.startsWith("file:///account")) {
-                  view?.loadUrl("file:///android_asset/web/account.html")
-                  return true
-                }
-                if (url.contains("blogs.html") || url.endsWith("/blogs") || url.startsWith("file:///blogs")) {
-                  view?.loadUrl("file:///android_asset/web/blogs.html")
-                  return true
-                }
-                if (url.contains("about.html") || url.endsWith("/about") || url.startsWith("file:///about")) {
-                  view?.loadUrl("file:///android_asset/web/about.html")
-                  return true
-                }
-                if (url.contains("contact.html") || url.endsWith("/contact") || url.startsWith("file:///contact")) {
-                  view?.loadUrl("file:///android_asset/web/contact.html")
-                  return true
-                }
-                if (url.contains("faqs.html") || url.endsWith("/faqs") || url.startsWith("file:///faqs")) {
-                  view?.loadUrl("file:///android_asset/web/faqs.html")
-                  return true
-                }
-                if (url.contains("shipping.html") || url.endsWith("/shipping") || url.startsWith("file:///shipping")) {
-                  view?.loadUrl("file:///android_asset/web/shipping.html")
-                  return true
-                }
-                if (url.contains("refund.html") || url.endsWith("/refund") || url.startsWith("file:///refund")) {
-                  view?.loadUrl("file:///android_asset/web/refund.html")
-                  return true
-                }
-                if (url.contains("cancellation.html") || url.endsWith("/cancellation") || url.startsWith("file:///cancellation")) {
-                  view?.loadUrl("file:///android_asset/web/cancellation.html")
-                  return true
-                }
-                if (url.contains("terms.html") || url.endsWith("/terms") || url.startsWith("file:///terms")) {
-                  view?.loadUrl("file:///android_asset/web/terms.html")
-                  return true
-                }
-                if (url.contains("privacy.html") || url.endsWith("/privacy") || url.startsWith("file:///privacy")) {
-                  view?.loadUrl("file:///android_asset/web/privacy.html")
-                  return true
-                }
-                if (url.contains("product") || url.contains("/product?id=") || url.contains("/product.html?id=")) {
-                  val query = Uri.parse(url).query
-                  val target = "file:///android_asset/web/product.html" + (if (query != null) "?$query" else "")
-                  view?.loadUrl(target)
-                  return true
-                }
-
                 if (url.endsWith(".apk") || url.endsWith(".pdf")) {
                   try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
@@ -862,6 +797,35 @@ fun NutrolixSupplementBrandApp(
                   }
                 }
 
+                // Offline local asset fallback navigation routing only when running from file://
+                if (url.startsWith("file://")) {
+                  val query = Uri.parse(url).query
+                  val suffix = if (!query.isNullOrBlank()) "?$query" else ""
+                  val mapped = when {
+                    url == "file:///" || url == "file:///android_asset/web/" || url.endsWith("/index.html") || url.endsWith("/#") -> MainActivity.PRIMARY_APP_URL
+                    url.startsWith("file:///food") -> "file:///android_asset/web/food.html$suffix"
+                    url.startsWith("file:///shop") -> "file:///android_asset/web/shop.html$suffix"
+                    url.startsWith("file:///cart") -> "file:///android_asset/web/cart.html$suffix"
+                    url.startsWith("file:///orders") -> "file:///android_asset/web/orders.html$suffix"
+                    url.startsWith("file:///account") -> "file:///android_asset/web/account.html$suffix"
+                    url.startsWith("file:///blogs") -> "file:///android_asset/web/blogs.html$suffix"
+                    url.startsWith("file:///about") -> "file:///android_asset/web/about.html$suffix"
+                    url.startsWith("file:///contact") -> "file:///android_asset/web/contact.html$suffix"
+                    url.startsWith("file:///faqs") -> "file:///android_asset/web/faqs.html$suffix"
+                    url.startsWith("file:///shipping") -> "file:///android_asset/web/shipping.html$suffix"
+                    url.startsWith("file:///refund") -> "file:///android_asset/web/refund.html$suffix"
+                    url.startsWith("file:///cancellation") -> "file:///android_asset/web/cancellation.html$suffix"
+                    url.startsWith("file:///terms") -> "file:///android_asset/web/terms.html$suffix"
+                    url.startsWith("file:///privacy") -> "file:///android_asset/web/privacy.html$suffix"
+                    url.startsWith("file:///product") -> "file:///android_asset/web/product.html$suffix"
+                    else -> null
+                  }
+                  if (mapped != null && mapped != url) {
+                    view?.loadUrl(mapped)
+                    return true
+                  }
+                }
+
                 return false
               }
 
@@ -871,17 +835,26 @@ fun NutrolixSupplementBrandApp(
                 error: WebResourceError?
               ) {
                 if (request?.isForMainFrame == true) {
-                  view?.loadUrl(MainActivity.PRIMARY_APP_URL)
+                  ptrWrapper?.finishRefreshing()
+                  if (request.url?.scheme != "file") {
+                    view?.loadUrl(MainActivity.PRIMARY_APP_URL)
+                  }
                 }
               }
             }
-
-            loadUrl(deepLinkUrl ?: MainActivity.PRIMARY_APP_URL)
-            webViewInstance = this
+          }
+          PullToRefreshWebViewWrapper(ctx, webView) { wv ->
+            wv.clearCache(false)
+            wv.reload()
+          }.also {
+            ptrWrapper = it
+            webView.clearCache(false)
+            webView.loadUrl(deepLinkUrl ?: MainActivity.LIVE_SERVER_URL)
+            webViewInstance = webView
           }
         },
-        update = { webView ->
-          webViewInstance = webView
+        update = { wrapper ->
+          webViewInstance = wrapper.webView
         }
       )
     }
