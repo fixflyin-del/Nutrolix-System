@@ -2411,9 +2411,7 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({
             success: true,
             order,
-            firestorePersisted: fsWrite.anySuccess,
-            pushDelivery: pushLog ? pushLog.deliveryStatus : [],
-            adminPushAttempts
+            firestorePersisted: fsWrite.anySuccess
           }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
