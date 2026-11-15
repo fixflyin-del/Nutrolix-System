@@ -460,7 +460,7 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
             body: message,
             orderId,
             url: targetUrl,
-            channelId: 'nutrolix_orders_channel',
+            channelId: 'nutrolix_orders_channel_v2',
             data: {
               type: 'ORDER_UPDATE',
               status: status || '',
@@ -655,7 +655,7 @@ async function dispatchPushToAdmins({ orderId = '', title = '', message = '', to
         body: finalBody,
         orderId,
         url: '/admin.html',
-        channelId: 'nutrolix_orders_channel',
+        channelId: 'nutrolix_orders_channel_v2',
         data: {
           type: 'ADMIN_NEW_ORDER',
           orderId: String(orderId || '')
@@ -4008,7 +4008,7 @@ const server = http.createServer(async (req, res) => {
                 body: message,
                 orderId: notif.orderId || '',
                 url: targetUrl,
-                channelId: 'nutrolix_orders_channel',
+                channelId: 'nutrolix_orders_channel_v2',
                 data: { type: notif.type || 'PROMOTIONAL' }
               });
               if (fcmRes.sent) deliveredCount++;
