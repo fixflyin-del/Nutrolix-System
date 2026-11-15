@@ -2623,7 +2623,13 @@
 
       await Promise.all(endpoints.map(async ep => {
         try {
-          const res = await fetch(ep.url, { cache: 'no-store' });
+          const adminToken = sessionStorage.getItem('nutrolix_admin_token') || '';
+          const firebaseAdminUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+          const firebaseAdminIdToken = !adminToken && firebaseAdminUser ? await firebaseAdminUser.getIdToken().catch(() => '') : '';
+          const headers = adminToken
+            ? { 'X-Nutrolix-Admin-Token': adminToken }
+            : (firebaseAdminIdToken ? { Authorization: 'Bearer ' + firebaseAdminIdToken } : {});
+          const res = await fetch(ep.url, { headers, cache: 'no-store' });
           if (res && res.ok) {
             const data = await res.json();
             if (Array.isArray(data)) {

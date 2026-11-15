@@ -657,12 +657,16 @@
         window.NutrolixFirebase.markNotificationRead(user.uid, notifId);
       }
       try {
-        const host = window.NUTROLIX_API_HOST || '';
-        fetch(host + '/api/notifications/mark-read', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uid: user?.uid || '', notifId })
-        }).catch(() => {});
+        const authUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+        const idToken = authUser ? await authUser.getIdToken().catch(() => '') : '';
+        if (idToken) {
+          const host = window.NUTROLIX_API_HOST || '';
+          await fetch(host + '/api/notifications/mark-read', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+            body: JSON.stringify({ notifId })
+          });
+        }
       } catch (_) {}
       if (orderId) window.showOrderDetail(orderId);
     };
@@ -670,12 +674,15 @@
     async function loadUserNotificationHistory(user) {
       if (!user) return;
       try {
+        const authUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+        const idToken = authUser ? await authUser.getIdToken().catch(() => '') : '';
+        if (!idToken) return;
         const host = window.NUTROLIX_API_HOST || '';
-        const qs = new URLSearchParams();
-        if (user.uid) qs.set('uid', user.uid);
-        if (user.verifiedPhone || user.phone) qs.set('phone', user.verifiedPhone || user.phone);
-        if (user.email) qs.set('email', user.email);
-        const res = await fetch(host + '/api/notifications/user-history?' + qs.toString());
+        const res = await fetch(host + '/api/notifications/user-history', {
+          method: 'GET',
+          headers: { Authorization: 'Bearer ' + idToken },
+          cache: 'no-store'
+        });
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data.notifications) && data.notifications.length > 0) {
@@ -765,11 +772,14 @@
         // 3. Server scoped orders API
         try {
           const host = window.NUTROLIX_API_HOST || '';
-          const qs = new URLSearchParams();
-          if (user.uid) qs.set('uid', user.uid);
-          if (user.verifiedPhone || user.phone) qs.set('phone', user.verifiedPhone || user.phone);
-          if (user.email) qs.set('email', user.email);
-          const res = await fetch(host + '/api/nutrition-orders?' + qs.toString());
+          const authUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+          const idToken = authUser ? await authUser.getIdToken().catch(() => '') : '';
+          if (!idToken) throw new Error('Verified customer session is required to load order history.');
+          const res = await fetch(host + '/api/nutrition-orders', {
+            method: 'GET',
+            headers: { Authorization: 'Bearer ' + idToken },
+            cache: 'no-store'
+          });
           if (res.ok) {
             const serverOrders = await res.json();
             if (Array.isArray(serverOrders)) {

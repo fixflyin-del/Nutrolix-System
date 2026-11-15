@@ -39,19 +39,20 @@ try {
   console.warn('Notice: web-push initialization error:', e.message);
 }
 
-const VAPID_PUBLIC_KEY = 'BNKixC3ZCYx27sN2fDJcsDhc1NVZEBQJ_-NkX9Xa1CuHB0xz9tyvCk582_j0bPaCBzn8LUeswFAZigMzzlSj5gY';
-const VAPID_PRIVATE_KEY = 'zFrl89pn0HV8jrf5JyPvY4y28s4l6iyHk2vt67bdHG4';
+// VAPID private keys must be configured as deployment environment variables.
+// The previously embedded private key was committed to source control and must be rotated.
+const VAPID_PUBLIC_KEY = String(process.env.VAPID_PUBLIC_KEY || '').trim();
+const VAPID_PRIVATE_KEY = String(process.env.VAPID_PRIVATE_KEY || '').trim();
 
-if (webpush) {
+if (webpush && VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   try {
-    webpush.setVapidDetails(
-      'mailto:support@nutrolix.in',
-      VAPID_PUBLIC_KEY,
-      VAPID_PRIVATE_KEY
-    );
+    webpush.setVapidDetails('mailto:support@nutrolix.in', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
   } catch (err) {
     console.warn('VAPID setup warning:', err.message);
+    webpush = null;
   }
+} else {
+  console.warn('Web Push is not configured: set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in the server environment.');
 }
 
 // Global in-memory cache and safe JSON helpers for serverless / read-only filesystem environments (e.g. Vercel)
@@ -2255,6 +2256,43 @@ const server = http.createServer(async (req, res) => {
     const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
     if (req.method === 'GET') {
       try {
+        // Never expose the complete customer order collection or authorize by query-string phone/email.
+        // Customers must present a Firebase ID token; only a verified admin session can list all orders.
+        const authHeader = String(req.headers['authorization'] || '');
+        const adminHeader = String(req.headers['x-nutrolix-admin-token'] || '');
+        let authorizedAdmin = nutrolixCore.verifyAdminSessionToken(adminHeader || authHeader);
+        let verifiedCustomer = null;
+
+        if (!authorizedAdmin && authHeader) {
+          const decodedUser = await nutrolixCore.verifyFirebaseIdToken(authHeader, __dirname);
+          if (decodedUser && decodedUser.uid) {
+            if (String(decodedUser.email || '').toLowerCase() === 'nutrolix.in@gmail.com') {
+              authorizedAdmin = { email: decodedUser.email, role: 'ADMIN' };
+            } else {
+              const adminDoc = await nutrolixCore.firestoreGetFirstAvailable(`admins/${decodedUser.uid}`);
+              if (adminDoc && (adminDoc.role === 'admin' || adminDoc.isAdmin === true)) {
+                authorizedAdmin = { email: decodedUser.email || decodedUser.uid, role: 'ADMIN' };
+              } else {
+                const tokenUid = String(decodedUser.uid || '').trim();
+                const tokenPhone = normalizePhone(decodedUser.phoneNumber || (tokenUid.startsWith('phone_') ? tokenUid.slice(6) : ''));
+                if (nutrolixCore.isValidIndianMobile(tokenPhone)) {
+                  verifiedCustomer = {
+                    uid: nutrolixCore.canonicalCustomerUid(tokenPhone),
+                    phone: tokenPhone
+                  };
+                }
+              }
+            }
+          }
+        }
+
+        if (!authorizedAdmin && !verifiedCustomer) {
+          res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'A verified customer or admin Firebase session is required.' }));
+          return;
+        }
+
+        const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
         const localOrders = safeReadJson(ordersFile, []);
         const byOrderId = new Map();
         for (const o of Array.isArray(localOrders) ? localOrders : []) {
@@ -2262,7 +2300,7 @@ const server = http.createServer(async (req, res) => {
           if (oid) byOrderId.set(oid, o);
         }
 
-        // Pull authoritative orders from both Firestore databases
+        // Pull authoritative orders from both Firestore databases.
         try {
           const [defRes, namedRes] = await Promise.all([
             nutrolixCore.firestoreListAllDocuments('orders', nutrolixCore.DEFAULT_DB_ID, 2000),
@@ -2279,23 +2317,19 @@ const server = http.createServer(async (req, res) => {
         } catch (_) {}
 
         let data = Array.from(byOrderId.values());
+        if (!authorizedAdmin) {
+          const { uid, phone } = verifiedCustomer;
+          data = data.filter(o => {
+            const oUid = String(o.uid || '').trim();
+            const oPhone = customerSync.extractOrderPhone(o);
+            return (oUid && oUid === uid) || (oPhone && oPhone === phone);
+          });
+        }
         data.sort((a, b) => {
           const ta = Number(a.timestamp || a.orderTimeMillis || Date.parse(a.createdAt || a.orderTime || 0) || 0);
           const tb = Number(b.timestamp || b.orderTimeMillis || Date.parse(b.createdAt || b.orderTime || 0) || 0);
           return tb - ta;
         });
-
-        const qUid = String(parsedUrl.query.uid || '').trim();
-        const qPhone = normalizePhone(parsedUrl.query.phone || '') || (qUid.startsWith('phone_') ? normalizePhone(qUid.slice(6)) : '');
-        const qEmail = normalizeEmail(parsedUrl.query.email || '');
-        if (qUid || qPhone || qEmail) {
-          data = data.filter(o => {
-            const oUid = String(o.uid || '').trim();
-            const oPhone = customerSync.extractOrderPhone(o);
-            const oEmail = customerSync.extractOrderEmail(o);
-            return (qUid && oUid && oUid === qUid) || (qPhone && oPhone && oPhone === qPhone) || (qEmail && oEmail && oEmail === qEmail);
-          });
-        }
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(data));
       } catch (e) {
@@ -2381,6 +2415,7 @@ const server = http.createServer(async (req, res) => {
           // Dispatch Customer Order Placed notification & Admin New Order FCM alert
           const copy = nutrolixCore.buildOrderStatusNotificationCopy(order.orderId, order.status || 'Order Placed');
           let pushLog = null;
+          let pushError = '';
           let adminPushAttempts = [];
           try {
             pushLog = await dispatchPushToCustomer({
@@ -2393,7 +2428,10 @@ const server = http.createServer(async (req, res) => {
               message: copy.message,
               dedupKey: copy.dedupKey
             });
-          } catch (_) {}
+          } catch (pushErr) {
+            pushError = String(pushErr && pushErr.message || pushErr || 'Unknown push dispatch error');
+            console.error('[Nutrolix Push] Customer order push failed:', pushError);
+          }
           try {
             adminPushAttempts = await dispatchPushToAdmins({
               orderId: order.orderId,
@@ -2408,6 +2446,8 @@ const server = http.createServer(async (req, res) => {
             order,
             firestorePersisted: fsWrite.anySuccess,
             pushDelivery: pushLog ? pushLog.deliveryStatus : [],
+            pushTargetedDevices: pushLog ? pushLog.targetedDevices : 0,
+            pushError,
             adminPushAttempts
           }));
         } catch (err) {
@@ -3262,12 +3302,12 @@ const server = http.createServer(async (req, res) => {
 
         const tokenUid = String(verifiedUser.uid);
         const tokenPhone = normalizePhone(verifiedUser.phoneNumber || (tokenUid.startsWith('phone_') ? tokenUid.slice(6) : ''));
-        const bodyPhone = normalizePhone(payload.phone || '');
-        const cleanPhone = tokenPhone || bodyPhone;
+        // Never trust a phone number supplied in the request body as proof of identity.
+        const cleanPhone = tokenPhone;
 
         if (!nutrolixCore.isValidIndianMobile(cleanPhone)) {
-          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: false, error: 'Verified 10-digit mobile number is required.' }));
+          res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'The authenticated Firebase account does not contain a verified Indian phone identity.' }));
           return;
         }
 
@@ -3460,8 +3500,13 @@ const server = http.createServer(async (req, res) => {
   // PHASE 2 API: PUSH NOTIFICATIONS (RFC 8291 Web Push & FCM)
   // -------------------------------------------------------------
   if (reqPath === '/api/notifications/vapid-key' && req.method === 'GET') {
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    res.end(JSON.stringify({ publicKey: VAPID_PUBLIC_KEY }));
+    const configured = Boolean(VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY && webpush);
+    res.writeHead(configured ? 200 : 503, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.end(JSON.stringify({
+      success: configured,
+      publicKey: configured ? VAPID_PUBLIC_KEY : '',
+      error: configured ? undefined : 'Web Push VAPID keys are not configured on the server.'
+    }));
     return;
   }
 
@@ -3557,14 +3602,15 @@ const server = http.createServer(async (req, res) => {
           firestorePersisted = results.some(r => r && r.anySuccess);
         } catch (_) {}
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(firestorePersisted ? 200 : 503, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({
-          success: true,
-          registered: true,
+          success: firestorePersisted,
+          registered: firestorePersisted,
           uid: resolvedUid,
           role,
           firestorePersisted,
-          storage: firestorePersisted ? 'firestore' : 'local_only'
+          storage: firestorePersisted ? 'firestore' : 'unavailable',
+          error: firestorePersisted ? undefined : 'Notification token could not be persisted to Firestore. Configure and verify server Firestore credentials.'
         }));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -3606,61 +3652,64 @@ const server = http.createServer(async (req, res) => {
   if (reqPath === '/api/notifications/user-history' && req.method === 'GET') {
     const logFile = path.join(PUBLIC_DIR, 'data', 'notifications_log.json');
     try {
-      const qUid = String(parsedUrl.query.uid || '').trim();
-      const phone = normalizePhone(parsedUrl.query.phone || '') || (qUid.startsWith('phone_') ? normalizePhone(qUid.slice(6)) : '');
-      const uid = nutrolixCore.canonicalCustomerUid(phone) || qUid;
-      const email = normalizeEmail(parsedUrl.query.email || '');
-
-      if (!uid && !phone && !email) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ success: true, notifications: [], unreadCount: 0 }));
+      const authHeader = String(req.headers['authorization'] || '');
+      const decodedUser = await nutrolixCore.verifyFirebaseIdToken(authHeader, __dirname);
+      if (!decodedUser || !decodedUser.uid) {
+        res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: 'A verified Firebase customer session is required.' }));
         return;
       }
+      const tokenUid = String(decodedUser.uid);
+      const phone = normalizePhone(decodedUser.phoneNumber || (tokenUid.startsWith('phone_') ? tokenUid.slice(6) : ''));
+      if (!nutrolixCore.isValidIndianMobile(phone)) {
+        res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: 'Verified customer phone identity is required.' }));
+        return;
+      }
+      const uid = nutrolixCore.canonicalCustomerUid(phone);
+      const email = normalizeEmail(decodedUser.email || '');
 
       const byNotifId = new Map();
       const localLogs = safeReadJson(logFile, []);
       for (const l of Array.isArray(localLogs) ? localLogs : []) {
         const lUid = String(l.uid || '').trim();
         const lPhone = normalizePhone(l.customerPhone || l.phone || l.target);
-        const lEmail = normalizeEmail(l.customerEmail || l.email);
-        if ((uid && lUid && lUid === uid) || (phone && lPhone && lPhone === phone) || (email && lEmail && lEmail === email)) {
+        if ((lUid && lUid === uid) || (lPhone && lPhone === phone)) {
           const nid = String(l.id || l.dedupKey || '');
           if (nid) byNotifId.set(nid, l);
         }
       }
 
-      if (uid) {
-        try {
-          const [defNotifs, namedNotifs] = await Promise.all([
-            nutrolixCore.firestoreListAllDocuments(`users/${uid}/notifications`, nutrolixCore.DEFAULT_DB_ID, 100),
-            nutrolixCore.firestoreListAllDocuments(`users/${uid}/notifications`, nutrolixCore.NAMED_DB_ID, 100)
-          ]);
-          for (const doc of [...defNotifs.docs, ...namedNotifs.docs]) {
-            const nid = String(doc.id || doc._docId || doc.dedupKey || '');
-            if (!nid) continue;
-            const cleanDoc = { ...doc, id: nid };
-            delete cleanDoc._docId;
-            delete cleanDoc._docName;
-            byNotifId.set(nid, { ...(byNotifId.get(nid) || {}), ...cleanDoc });
-          }
-        } catch (_) {}
-      }
+      try {
+        const [defNotifs, namedNotifs] = await Promise.all([
+          nutrolixCore.firestoreListAllDocuments(`users/${uid}/notifications`, nutrolixCore.DEFAULT_DB_ID, 100),
+          nutrolixCore.firestoreListAllDocuments(`users/${uid}/notifications`, nutrolixCore.NAMED_DB_ID, 100)
+        ]);
+        for (const doc of [...defNotifs.docs, ...namedNotifs.docs]) {
+          const nid = String(doc.id || doc._docId || doc.dedupKey || '');
+          if (!nid) continue;
+          const cleanDoc = { ...doc, id: nid };
+          delete cleanDoc._docId;
+          delete cleanDoc._docName;
+          byNotifId.set(nid, { ...(byNotifId.get(nid) || {}), ...cleanDoc });
+        }
+      } catch (_) {}
 
       const mergedList = Array.from(byNotifId.values()).sort((a, b) => {
         const ta = Date.parse(a.timestamp || 0) || 0;
         const tb = Date.parse(b.timestamp || 0) || 0;
         return tb - ta;
       });
-
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
       res.end(JSON.stringify({
         success: true,
+        uid,
         notifications: mergedList.slice(0, 60),
         unreadCount: mergedList.filter(n => !n.read).length
       }));
     } catch (e) {
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      res.end(JSON.stringify({ success: true, notifications: [], unreadCount: 0 }));
+      res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ success: false, error: e.message }));
     }
     return;
   }
@@ -3670,47 +3719,60 @@ const server = http.createServer(async (req, res) => {
     req.on('data', chunk => body += chunk);
     req.on('end', async () => {
       try {
-        const { id, notifId, uid, phone, email, markAll } = JSON.parse(body || '{}');
-        const targetId = id || notifId;
+        const authHeader = String(req.headers['authorization'] || '');
+        const decodedUser = await nutrolixCore.verifyFirebaseIdToken(authHeader, __dirname);
+        if (!decodedUser || !decodedUser.uid) {
+          res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'A verified Firebase customer session is required.' }));
+          return;
+        }
+        const tokenUid = String(decodedUser.uid);
+        const phone = normalizePhone(decodedUser.phoneNumber || (tokenUid.startsWith('phone_') ? tokenUid.slice(6) : ''));
+        if (!nutrolixCore.isValidIndianMobile(phone)) {
+          res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Verified customer phone identity is required.' }));
+          return;
+        }
+        const resolvedUid = nutrolixCore.canonicalCustomerUid(phone);
+        const payload = JSON.parse(body || '{}');
+        const targetId = String(payload.id || payload.notifId || '').trim();
+        const markAll = Boolean(payload.markAll);
+        if (!targetId && !markAll) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Notification id or markAll is required.' }));
+          return;
+        }
+
         const logFile = path.join(PUBLIC_DIR, 'data', 'notifications_log.json');
         const logs = safeReadJson(logFile, []);
-        const cleanPhone = normalizePhone(phone || '');
-        const resolvedUid = nutrolixCore.canonicalCustomerUid(cleanPhone) || String(uid || '').trim();
-        const cleanEmail = normalizeEmail(email || '');
         let updated = 0;
-
-        for (const l of logs) {
+        for (const l of Array.isArray(logs) ? logs : []) {
+          const ownerUid = String(l.uid || '').trim();
+          const ownerPhone = normalizePhone(l.customerPhone || l.phone);
+          const isOwner = (ownerUid && ownerUid === resolvedUid) || (ownerPhone && ownerPhone === phone);
           const matchesId = targetId && (l.id === targetId || l.dedupKey === targetId);
-          const matchesOwner = markAll && (
-            (resolvedUid && l.uid === resolvedUid) ||
-            (cleanPhone && normalizePhone(l.customerPhone || l.phone) === cleanPhone) ||
-            (cleanEmail && normalizeEmail(l.customerEmail || l.email) === cleanEmail)
-          );
-          if (matchesId || matchesOwner) {
+          if (isOwner && (matchesId || markAll)) {
             l.read = true;
             updated++;
           }
         }
         if (updated > 0) safeWriteJson(logFile, logs);
 
-        if (resolvedUid) {
-          if (targetId) {
-            await nutrolixCore.firestorePatchBothDbs(`users/${resolvedUid}/notifications/${targetId}`, { read: true });
-          } else if (markAll) {
-            const fsNotifs = await nutrolixCore.firestoreListDocuments(`users/${resolvedUid}/notifications`, nutrolixCore.DEFAULT_DB_ID);
-            await Promise.all(
-              fsNotifs
-                .filter((n) => !n.read && (n._docId || n.id))
-                .map((n) => nutrolixCore.firestorePatchBothDbs(`users/${resolvedUid}/notifications/${n._docId || n.id}`, { read: true }))
-            );
+        if (targetId) {
+          await nutrolixCore.firestorePatchBothDbs(`users/${resolvedUid}/notifications/${targetId}`, { read: true });
+        } else if (markAll) {
+          for (const dbId of nutrolixCore.BOTH_DB_IDS) {
+            const fsNotifs = await nutrolixCore.firestoreListDocuments(`users/${resolvedUid}/notifications`, dbId);
+            await Promise.all(fsNotifs
+              .filter(n => !n.read && (n._docId || n.id))
+              .map(n => nutrolixCore.firestorePatchDocument(`users/${resolvedUid}/notifications/${n._docId || n.id}`, { read: true }, dbId)));
           }
         }
-
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true, updated }));
       } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
       }
     });
     return;
