@@ -449,44 +449,47 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
   const deadFcmTokens = [];
   const deadFirestoreDocs = [];
 
-  for (const tokenRec of matchingTokens) {
+  await Promise.all(matchingTokens.map(async (tokenRec) => {
     const fcmTok = tokenRec.fcmToken || ((!tokenRec.subscription || !tokenRec.subscription.endpoint) && tokenRec.token && !String(tokenRec.token).startsWith('http') ? tokenRec.token : '');
+    const tasks = [];
     if (fcmTok) {
-      try {
-        const fcmRes = await nutrolixCore.sendFcmV1Message(fcmTok, {
-          title,
-          body: message,
-          orderId,
-          url: targetUrl,
-          channelId: 'nutrolix_orders_channel',
-          data: {
-            type: 'ORDER_UPDATE',
-            status: status || '',
-            dedupKey: dedupKey || ''
+      tasks.push((async () => {
+        try {
+          const fcmRes = await nutrolixCore.sendFcmV1Message(fcmTok, {
+            title,
+            body: message,
+            orderId,
+            url: targetUrl,
+            channelId: 'nutrolix_orders_channel',
+            data: {
+              type: 'ORDER_UPDATE',
+              status: status || '',
+              dedupKey: dedupKey || ''
+            }
+          });
+          deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
+            channel: 'fcm_v1',
+            targetId: fcmTok,
+            sent: Boolean(fcmRes.sent),
+            permanentFailure: Boolean(fcmRes.permanentFailure),
+            statusCode: Number(fcmRes.statusCode || (fcmRes.sent ? 200 : 0)),
+            detail: fcmRes.status || fcmRes.error || ''
+          }));
+          if (fcmRes.permanentFailure) {
+            deadFcmTokens.push(fcmTok);
+            firestoreTokens
+              .filter((ft) => (ft.fcmToken || ft.token) === fcmTok && ft._firestorePath)
+              .forEach((ft) => deadFirestoreDocs.push({ path: ft._firestorePath, dbId: ft._dbId }));
           }
-        });
-        deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
-          channel: 'fcm_v1',
-          targetId: fcmTok,
-          sent: Boolean(fcmRes.sent),
-          permanentFailure: Boolean(fcmRes.permanentFailure),
-          statusCode: Number(fcmRes.statusCode || (fcmRes.sent ? 200 : 0)),
-          detail: fcmRes.status || fcmRes.error || ''
-        }));
-        if (fcmRes.permanentFailure) {
-          deadFcmTokens.push(fcmTok);
-          firestoreTokens
-            .filter((ft) => (ft.fcmToken || ft.token) === fcmTok && ft._firestorePath)
-            .forEach((ft) => deadFirestoreDocs.push({ path: ft._firestorePath, dbId: ft._dbId }));
+        } catch (err) {
+          deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
+            channel: 'fcm_v1',
+            targetId: fcmTok,
+            sent: false,
+            detail: 'FAILED: ' + err.message
+          }));
         }
-      } catch (err) {
-        deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
-          channel: 'fcm_v1',
-          targetId: fcmTok,
-          sent: false,
-          detail: 'FAILED: ' + err.message
-        }));
-      }
+      })());
     }
 
     const sub = tokenRec.subscription && tokenRec.subscription.endpoint
@@ -494,19 +497,18 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
       : (tokenRec.endpoint && tokenRec.keys ? { endpoint: tokenRec.endpoint, keys: tokenRec.keys } : null);
 
     if (sub && sub.endpoint) {
-      if (!webpush) {
-        deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
-          channel: 'web_push',
-          targetId: sub.endpoint,
-          sent: false,
-          detail: 'WEBPUSH_UNAVAILABLE'
-        }));
-      } else {
+      tasks.push((async () => {
+        if (!webpush) {
+          deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
+            channel: 'web_push',
+            targetId: sub.endpoint,
+            sent: false,
+            detail: 'WEBPUSH_UNAVAILABLE'
+          }));
+          return;
+        }
         try {
-          const wpRes = await webpush.sendNotification(sub, payloadStr, {
-            TTL: 86400,
-            urgency: 'high'
-          });
+          const wpRes = await webpush.sendNotification(sub, payloadStr, { TTL: 86400, urgency: 'high' });
           const statusCode = (wpRes && wpRes.statusCode) || 201;
           deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
             channel: 'web_push',
@@ -533,10 +535,10 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
             detail: isGone ? 'EXPIRED_SUBSCRIPTION_REMOVED' : ('FAILED: ' + err.message)
           }));
         }
-      }
+      })());
     }
-  }
-
+    await Promise.all(tasks);
+  }));
   if (deliveryAttempts.length === 0) {
     deliveryAttempts.push(customerSync.classifyDeliveryAttempt({
       channel: 'in_app_inbox',
