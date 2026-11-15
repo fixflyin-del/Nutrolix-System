@@ -226,7 +226,7 @@
 
   window.startNutrolixPhoneOtp = async function(rawPhone, opts = {}) {
     const digits = clean10Phone(rawPhone);
-    if (digits.length !== 10 || !/^[6-9]\\d{9}$/.test(digits)) {
+    if (digits.length !== 10 || !/^[6-9]\d{9}$/.test(digits)) {
       throw new Error('Please enter a valid 10-digit Indian WhatsApp number.');
     }
     localStorage.setItem('nutrolix_pending_otp_phone', JSON.stringify(digits));
@@ -243,7 +243,7 @@
   };
 
   window.verifyNutrolixPhoneOtp = async function(otpCode) {
-    const cleanOtp = String(otpCode || '').replace(/\\D/g, '');
+    const cleanOtp = String(otpCode || '').replace(/\D/g, '');
     if (cleanOtp.length !== 6) throw new Error('Please enter the 6-digit OTP code.');
     const saved = JSON.parse(localStorage.getItem('nutrolix_pending_otp_phone') || 'null');
     const phone = clean10Phone(saved || '');
