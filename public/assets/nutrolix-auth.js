@@ -149,39 +149,64 @@
     });
   }
 
-  // Hydrate Firestore addresses + saved profile right after auth
+  // Hydrate only the currently authenticated Firebase UID. Never merge a previous
+  // device/account profile into a different signed-in customer.
   async function hydrateFromFirestore(uid) {
-    if (!uid || !window.NutrolixFirebase) return;
+    if (!uid || !window.NutrolixFirebase) return null;
     try {
       const remoteProfile = await window.NutrolixFirebase.fetchUserProfile(uid);
-      if (remoteProfile) {
-        const local = window.getNutrolixUser() || {};
+      const current = (() => {
+        try { return JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}'); }
+        catch (_) { return {}; }
+      })();
+      const local = current.uid === uid ? current : {};
+      if (remoteProfile || Object.keys(local).length) {
         const merged = {
-          ...remoteProfile,
+          ...(remoteProfile || {}),
           ...local,
-          name: (local.name && local.name !== 'Nutrolix Customer') ? local.name : (remoteProfile.name || local.name),
-          whatsappNumber: local.whatsappNumber || remoteProfile.whatsappNumber || local.phone || '',
-          city: local.city || remoteProfile.city || '',
-          state: local.state || remoteProfile.state || '',
-          pincode: local.pincode || remoteProfile.pincode || '',
-          defaultAddress: local.defaultAddress || remoteProfile.defaultAddress || ''
+          uid,
+          name: (local.name && local.name !== 'Nutrolix Customer') ? local.name : (remoteProfile && remoteProfile.name) || local.name || 'Nutrolix Customer',
+          phone: local.phone || (remoteProfile && (remoteProfile.verifiedPhone || remoteProfile.phone)) || '',
+          verifiedPhone: local.verifiedPhone || (remoteProfile && (remoteProfile.verifiedPhone || remoteProfile.phone)) || '',
+          whatsappNumber: local.whatsappNumber || (remoteProfile && remoteProfile.whatsappNumber) || local.phone || '',
+          city: local.city || (remoteProfile && remoteProfile.city) || '',
+          state: local.state || (remoteProfile && remoteProfile.state) || '',
+          pincode: local.pincode || (remoteProfile && remoteProfile.pincode) || '',
+          defaultAddress: local.defaultAddress || (remoteProfile && remoteProfile.defaultAddress) || '',
+          authSession: true,
+          authProvider: 'phone',
+          verified: true
         };
         localStorage.setItem('nutrolix_user_profile', JSON.stringify(merged));
       }
+      // An empty remote address book is authoritative too; clear stale device data.
       const addrs = await window.NutrolixFirebase.fetchUserAddresses(uid);
-      if (Array.isArray(addrs) && addrs.length > 0) {
-        localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(addrs));
-      }
-    } catch (_) {}
+      localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(Array.isArray(addrs) ? addrs : []));
+      return remoteProfile || null;
+    } catch (_) {
+      return null;
+    }
   }
 
-  // Listen to Firebase Web Auth state automatically (Phone Auth only)
+  // Fast2SMS custom-token users have phoneNumber=null. Restore them by Firebase UID
+  // and the Firestore profile, rather than requiring a native PhoneAuth phoneNumber.
   if (typeof firebase !== 'undefined' && firebase.auth) {
     firebase.auth().onAuthStateChanged(async (u) => {
-      if (u && u.phoneNumber) {
-        const prof = firebaseUserToProfile(u);
+      if (!u) return;
+      try {
+        const stored = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+        let profileData = stored.uid === u.uid ? stored : {};
+        if (!profileData.verifiedPhone && !profileData.phone && window.NutrolixFirebase) {
+          profileData = (await window.NutrolixFirebase.fetchUserProfile(u.uid)) || profileData;
+        }
+        const verifiedPhone = clean10Phone(u.phoneNumber || profileData.verifiedPhone || profileData.phone || '');
+        if (verifiedPhone.length !== 10) return;
+        const prof = firebaseUserToProfile(u, { ...profileData, verifiedPhone });
         await hydrateFromFirestore(u.uid);
-        window.dispatchEvent(new CustomEvent('nutrolix:auth-changed', { detail: prof }));
+        const hydrated = window.getNutrolixUser() || prof;
+        window.dispatchEvent(new CustomEvent('nutrolix:auth-changed', { detail: hydrated }));
+      } catch (err) {
+        console.warn('[Nutrolix Auth] Session restore failed:', err && err.message);
       }
     });
   }
@@ -348,6 +373,10 @@
     } catch (_) {}
 
     localStorage.removeItem('nutrolix_user_profile');
+    // Customer-specific caches must never survive sign-out on a shared device.
+    localStorage.removeItem('nutrolix_saved_addresses');
+    localStorage.removeItem('nutrolix_customer_orders');
+    localStorage.removeItem('nutrolix_user');
     window.dispatchEvent(new CustomEvent('nutrolix:auth-changed', { detail: null }));
     if (typeof window.onAuthSignOutCallback === 'function') {
       window.onAuthSignOutCallback();
