@@ -31,7 +31,6 @@ self.addEventListener('push', event => {
     badge: '/assets/nutrolix-logo.png',
     vibrate: [200, 100, 200],
     silent: false,
-    renotify: true,
     tag: data.dedupKey || (orderId ? `nutrolix_order_${orderId}` : undefined),
     renotify: true,
     data: {
