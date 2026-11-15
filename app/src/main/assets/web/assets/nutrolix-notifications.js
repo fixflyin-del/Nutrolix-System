@@ -180,6 +180,24 @@
         if (!vapidKey) throw new Error('Web Push VAPID public key is not configured on the server.');
         const convertedVapidKey = urlB64ToUint8Array(vapidKey);
         let subscription = await reg.pushManager.getSubscription();
+        if (subscription) {
+          // A rotated VAPID key invalidates subscriptions created with the previous public key.
+          // Compare the browser's existing key and recreate the subscription when it differs.
+          try {
+            const existingKey = subscription.options && subscription.options.applicationServerKey;
+            const existingBytes = existingKey ? Array.from(new Uint8Array(existingKey)) : [];
+            const expectedBytes = Array.from(convertedVapidKey);
+            const sameKey = existingBytes.length === expectedBytes.length &&
+              existingBytes.every((value, index) => value === expectedBytes[index]);
+            if (!sameKey) {
+              await subscription.unsubscribe().catch(() => {});
+              subscription = null;
+            }
+          } catch (_) {
+            await subscription.unsubscribe().catch(() => {});
+            subscription = null;
+          }
+        }
         if (!subscription) {
           subscription = await reg.pushManager.subscribe({
             userVisibleOnly: true,
