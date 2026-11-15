@@ -39,19 +39,20 @@ try {
   console.warn('Notice: web-push initialization error:', e.message);
 }
 
-const VAPID_PUBLIC_KEY = 'BNKixC3ZCYx27sN2fDJcsDhc1NVZEBQJ_-NkX9Xa1CuHB0xz9tyvCk582_j0bPaCBzn8LUeswFAZigMzzlSj5gY';
-const VAPID_PRIVATE_KEY = 'zFrl89pn0HV8jrf5JyPvY4y28s4l6iyHk2vt67bdHG4';
+// VAPID private keys must be configured as deployment environment variables.
+// The previously embedded private key was committed to source control and must be rotated.
+const VAPID_PUBLIC_KEY = String(process.env.VAPID_PUBLIC_KEY || '').trim();
+const VAPID_PRIVATE_KEY = String(process.env.VAPID_PRIVATE_KEY || '').trim();
 
-if (webpush) {
+if (webpush && VAPID_PUBLIC_KEY && VAPID_PRIVATE_KEY) {
   try {
-    webpush.setVapidDetails(
-      'mailto:support@nutrolix.in',
-      VAPID_PUBLIC_KEY,
-      VAPID_PRIVATE_KEY
-    );
+    webpush.setVapidDetails('mailto:support@nutrolix.in', VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
   } catch (err) {
     console.warn('VAPID setup warning:', err.message);
+    webpush = null;
   }
+} else {
+  console.warn('Web Push is not configured: set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY in the server environment.');
 }
 
 // Global in-memory cache and safe JSON helpers for serverless / read-only filesystem environments (e.g. Vercel)
@@ -2381,6 +2382,7 @@ const server = http.createServer(async (req, res) => {
           // Dispatch Customer Order Placed notification & Admin New Order FCM alert
           const copy = nutrolixCore.buildOrderStatusNotificationCopy(order.orderId, order.status || 'Order Placed');
           let pushLog = null;
+          let pushError = '';
           let adminPushAttempts = [];
           try {
             pushLog = await dispatchPushToCustomer({
@@ -2393,7 +2395,10 @@ const server = http.createServer(async (req, res) => {
               message: copy.message,
               dedupKey: copy.dedupKey
             });
-          } catch (_) {}
+          } catch (pushErr) {
+            pushError = String(pushErr && pushErr.message || pushErr || 'Unknown push dispatch error');
+            console.error('[Nutrolix Push] Customer order push failed:', pushError);
+          }
           try {
             adminPushAttempts = await dispatchPushToAdmins({
               orderId: order.orderId,
@@ -2408,6 +2413,8 @@ const server = http.createServer(async (req, res) => {
             order,
             firestorePersisted: fsWrite.anySuccess,
             pushDelivery: pushLog ? pushLog.deliveryStatus : [],
+            pushTargetedDevices: pushLog ? pushLog.targetedDevices : 0,
+            pushError,
             adminPushAttempts
           }));
         } catch (err) {
@@ -3262,12 +3269,12 @@ const server = http.createServer(async (req, res) => {
 
         const tokenUid = String(verifiedUser.uid);
         const tokenPhone = normalizePhone(verifiedUser.phoneNumber || (tokenUid.startsWith('phone_') ? tokenUid.slice(6) : ''));
-        const bodyPhone = normalizePhone(payload.phone || '');
-        const cleanPhone = tokenPhone || bodyPhone;
+        // Never trust a phone number supplied in the request body as proof of identity.
+        const cleanPhone = tokenPhone;
 
         if (!nutrolixCore.isValidIndianMobile(cleanPhone)) {
-          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: false, error: 'Verified 10-digit mobile number is required.' }));
+          res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'The authenticated Firebase account does not contain a verified Indian phone identity.' }));
           return;
         }
 
@@ -3557,14 +3564,15 @@ const server = http.createServer(async (req, res) => {
           firestorePersisted = results.some(r => r && r.anySuccess);
         } catch (_) {}
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(firestorePersisted ? 200 : 503, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({
-          success: true,
-          registered: true,
+          success: firestorePersisted,
+          registered: firestorePersisted,
           uid: resolvedUid,
           role,
           firestorePersisted,
-          storage: firestorePersisted ? 'firestore' : 'local_only'
+          storage: firestorePersisted ? 'firestore' : 'unavailable',
+          error: firestorePersisted ? undefined : 'Notification token could not be persisted to Firestore. Configure and verify server Firestore credentials.'
         }));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
