@@ -230,3 +230,238 @@ test('Purge guardrails isolate customer collections from preserved catalog/admin
     (err) => err && err.code === 'CONFIRM_PHRASE_REQUIRED' && err.statusCode === 400
   );
 });
+
+const fs = require('node:fs');
+const path = require('node:path');
+const http = require('node:http');
+const server = require('../server');
+
+test('deduplicatePushTargets prevents double browser pushes per deviceId while keeping distinct devices', () => {
+  const targets = [
+    { deviceId: 'web_chrome_desktop', platform: 'web-fcm', fcmToken: 'fcm_desktop_1234567890', updatedAtMillis: 1000 },
+    { deviceId: 'web_chrome_desktop', platform: 'web', subscription: { endpoint: 'https://fcm.googleapis.com/wp/1', keys: { p256dh: 'a', auth: 'b' } }, updatedAtMillis: 900 },
+    { deviceId: 'web_chrome_mobile', platform: 'web', subscription: { endpoint: 'https://fcm.googleapis.com/wp/2', keys: { p256dh: 'c', auth: 'd' } }, updatedAtMillis: 1100 },
+    { deviceId: 'apk_device_1', platform: 'android-apk', fcmToken: 'fcm_android_1234567890', updatedAtMillis: 1200 },
+    { platform: 'android-apk', fcmToken: 'fcm_legacy_no_device_id' }
+  ];
+
+  const deduped = core.deduplicatePushTargets(targets);
+  assert.equal(deduped.length, 4);
+  const desktop = deduped.find(d => d.deviceId === 'web_chrome_desktop');
+  assert.equal(desktop.platform, 'web');
+  assert.ok(desktop.subscription && desktop.subscription.endpoint);
+});
+
+test('buildMergedCustomerProfile never lets stale localStorage extraProfile overwrite Firestore data unless explicit override', () => {
+  const remoteDoc = {
+    uid: 'phone_9876543210',
+    name: 'Ananya Verma',
+    email: 'ananya@example.com',
+    city: 'Mumbai',
+    state: 'Maharashtra',
+    pincode: '400703',
+    defaultAddress: 'Flat 901, Palm Greens'
+  };
+  const staleLocalProfile = {
+    name: 'Nutrolix Customer',
+    email: 'old_wrong@example.com',
+    city: 'Pune',
+    state: 'Maharashtra',
+    pincode: '411001',
+    defaultAddress: 'Old Stale Street'
+  };
+
+  const mergedHydrate = customerSync.buildMergedCustomerProfile({
+    matchedUserDocs: [remoteDoc],
+    extraProfile: staleLocalProfile,
+    cleanPhone: '9876543210',
+    resolvedUid: 'phone_9876543210',
+    allowProfileOverride: false
+  });
+  assert.equal(mergedHydrate.name, 'Ananya Verma');
+  assert.equal(mergedHydrate.city, 'Mumbai');
+  assert.equal(mergedHydrate.pincode, '400703');
+  assert.equal(mergedHydrate.defaultAddress, 'Flat 901, Palm Greens');
+  assert.equal(mergedHydrate.email, 'ananya@example.com');
+
+  const mergedExplicitEdit = customerSync.buildMergedCustomerProfile({
+    matchedUserDocs: [remoteDoc],
+    extraProfile: { city: 'Thane', pincode: '400601' },
+    cleanPhone: '9876543210',
+    resolvedUid: 'phone_9876543210',
+    allowProfileOverride: true
+  });
+  assert.equal(mergedExplicitEdit.city, 'Thane');
+  assert.equal(mergedExplicitEdit.pincode, '400601');
+  assert.equal(mergedExplicitEdit.name, 'Ananya Verma');
+});
+
+test('Manual push ON/OFF toggles are removed across web and Android assets, and COD order save normalizes NutrolixFirebase return value', () => {
+  const root = path.resolve(__dirname, '..');
+  const forbiddenPatterns = [
+    'btnAccountPushToggle',
+    'btnOrdersPushToggle',
+    'handleAccountPushToggle',
+    'handleOrdersPushToggle',
+    'setNotificationsEnabled',
+    'Enable Order Push Alerts',
+    'Enable Push Order Alert'
+  ];
+
+  const filesToCheck = [
+    'public/account.html',
+    'public/orders.html',
+    'public/assets/nutrolix-notifications.js',
+    'app/src/main/assets/web/account.html',
+    'app/src/main/assets/web/orders.html',
+    'app/src/main/assets/web/assets/nutrolix-notifications.js'
+  ];
+
+  for (const rel of filesToCheck) {
+    const content = fs.readFileSync(path.join(root, rel), 'utf8');
+    for (const pat of forbiddenPatterns) {
+      assert.equal(content.includes(pat), false, `Forbidden toggle pattern "${pat}" found in ${rel}`);
+    }
+  }
+
+  for (const relCart of ['public/cart.html', 'app/src/main/assets/web/cart.html']) {
+    const cartHtml = fs.readFileSync(path.join(root, relCart), 'utf8');
+    assert.equal(cartHtml.includes("profile.whatsapp || '9076254354'"), false, `Hardcoded customer fallback phone found in ${relCart}`);
+    assert.ok(cartHtml.includes('const resolvedOrder = (data && data.order) ? data.order : data;'), `Missing COD saveOrder normalization in ${relCart}`);
+  }
+});
+
+test('End-to-end HTTP server verification: config-status, token guardrails, order idempotency & status push dedup', async () => {
+  const root = path.resolve(__dirname, '..');
+  const dataDir = path.join(root, 'public', 'data');
+  const trackedFiles = ['notification_tokens.json', 'notifications_log.json', 'nutrition_orders.json'];
+  const originals = {};
+  for (const f of trackedFiles) {
+    const p = path.join(dataDir, f);
+    originals[f] = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
+  }
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address();
+  const port = typeof addr === 'object' && addr ? addr.port : 0;
+  assert.ok(port > 0, 'Ephemeral HTTP test port should be bound');
+
+  const httpReq = (method, reqPath, bodyObj = null, headers = {}) => new Promise((resolve, reject) => {
+    const bodyStr = bodyObj ? JSON.stringify(bodyObj) : null;
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port,
+      path: reqPath,
+      method,
+      headers: {
+        ...(bodyStr ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) } : {}),
+        ...headers
+      }
+    }, (res) => {
+      let raw = '';
+      res.on('data', c => raw += c);
+      res.on('end', () => {
+        let json = null;
+        try { json = JSON.parse(raw); } catch (_) {}
+        resolve({ status: res.statusCode, json, raw });
+      });
+    });
+    req.on('error', reject);
+    if (bodyStr) req.write(bodyStr);
+    req.end();
+  });
+
+  try {
+    const cfg = await httpReq('GET', '/api/notifications/config-status');
+    assert.equal(cfg.status, 200);
+    assert.equal(typeof cfg.json.hasFirebaseServiceAccount, 'boolean');
+    assert.equal(typeof cfg.json.hasVapidPublicKey, 'boolean');
+    assert.equal(typeof cfg.json.hasVapidPrivateKey, 'boolean');
+    assert.equal(typeof cfg.json.hasFast2Sms, 'boolean');
+
+    // 1. Canonical sync requires verified Firebase token
+    const unauthSync = await httpReq('POST', '/api/auth/sync-canonical', { phone: '9876543210' });
+    assert.equal(unauthSync.status, 401);
+
+    // 2. Register token rejects dummy tokens & invalid short tokens
+    const dummyRes = await httpReq('POST', '/api/notifications/register-token', {
+      uid: 'verify_uid_001',
+      fcmToken: 'verify_dummy_fcm_token_1234567890'
+    });
+    assert.equal(dummyRes.status, 400);
+
+    // 3. Register valid APK token + valid Web Push subscription on separate devices
+    const apkReg = await httpReq('POST', '/api/notifications/register-token', {
+      uid: 'phone_9898989898',
+      deviceId: 'apk_dev_test_1',
+      customerPhone: '9898989898',
+      fcmToken: 'fcm_real_like_token_abcdefghijklmnopqrstuvwxyz_001',
+      platform: 'android-apk'
+    });
+    assert.equal(apkReg.status, 200);
+    assert.equal(apkReg.json.success, true);
+
+    const webReg = await httpReq('POST', '/api/notifications/register-token', {
+      uid: 'phone_9898989898',
+      deviceId: 'web_dev_test_1',
+      customerPhone: '9898989898',
+      subscription: {
+        endpoint: 'https://fcm.googleapis.com/fcm/send/test-endpoint-unique-123456789',
+        keys: { p256dh: 'BNtestkey1234', auth: 'testauth1234' }
+      },
+      platform: 'web'
+    });
+    assert.equal(webReg.status, 200);
+    assert.equal(webReg.json.success, true);
+
+    // 4. Order creation + Idempotency dedup
+    const idempKey = 'idem_test_' + Date.now();
+    const ordPayload = {
+      orderId: 'NTX-TEST-' + Date.now().toString().slice(-6),
+      idempotencyKey: idempKey,
+      customerPhone: '9898989898',
+      customerName: 'Rohan Kulkarni',
+      deliveryAddress: { address1: 'Plot 12, Nerul', city: 'Navi Mumbai', state: 'Maharashtra', pincode: '400706' },
+      items: [{ id: 'p1', title: 'High Protein Atta', quantity: 1, price: 399 }],
+      grandTotal: 399
+    };
+
+    const create1 = await httpReq('POST', '/api/nutrition-orders', ordPayload);
+    assert.equal(create1.status, 200);
+    assert.equal(create1.json.success, true);
+    assert.equal(create1.json.order.uid, 'phone_9898989898');
+
+    const createDup = await httpReq('POST', '/api/nutrition-orders', { ...ordPayload, orderId: 'NTX-TEST-DIFFERENT-ID' });
+    assert.equal(createDup.status, 200);
+    assert.equal(createDup.json.deduplicated, true);
+    assert.equal(createDup.json.order.orderId, ordPayload.orderId);
+
+    // 5. Order status progression + dedup
+    for (const st of ['Order Confirmed', 'Processing', 'Packed', 'Out for Delivery', 'Delivered']) {
+      const sRes = await httpReq('POST', '/api/nutrition-orders/status', { orderId: ordPayload.orderId, status: st });
+      assert.equal(sRes.status, 200);
+      assert.equal(sRes.json.success, true);
+      assert.equal(sRes.json.notificationSent, true);
+    }
+
+    const repeatDelivered = await httpReq('POST', '/api/nutrition-orders/status', { orderId: ordPayload.orderId, status: 'Delivered' });
+    assert.equal(repeatDelivered.status, 200);
+    assert.equal(repeatDelivered.json.deduplicated, true);
+
+    // 6. Scoped order & notification history retrieval for phone_9898989898
+    const ordersRes = await httpReq('GET', '/api/nutrition-orders?uid=phone_9898989898&phone=9898989898');
+    assert.equal(ordersRes.status, 200);
+    assert.ok(Array.isArray(ordersRes.json) && ordersRes.json.some(o => o.orderId === ordPayload.orderId));
+
+    const histRes = await httpReq('GET', '/api/notifications/user-history?uid=phone_9898989898&phone=9898989898');
+    assert.equal(histRes.status, 200);
+    assert.ok(Array.isArray(histRes.json.notifications) && histRes.json.notifications.length >= 6);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    for (const f of trackedFiles) {
+      const p = path.join(dataDir, f);
+      if (originals[f] !== null) fs.writeFileSync(p, originals[f], 'utf8');
+    }
+  }
+});
+

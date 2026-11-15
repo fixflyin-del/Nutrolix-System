@@ -1,0 +1,13 @@
+[
+  {
+    "uid": "verify_uid_001",
+    "fcmToken": "verify_dummy_fcm_token_1234567890",
+    "token": "verify_dummy_fcm_token_1234567890",
+    "subscription": null,
+    "endpoint": "verify_dummy_fcm_token_1234567890",
+    "customerPhone": "9876543210",
+    "customerEmail": "",
+    "platform": "android-apk",
+    "registeredAt": "2026-11-14T12:30:56.626Z"
+  }
+]

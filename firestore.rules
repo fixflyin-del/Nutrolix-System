@@ -100,10 +100,11 @@ service cloud.firestore {
       return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
              data.token is string && data.token.size() >= 8 && data.token.size() <= 4096 &&
              data.keys().hasOnly([
-               'uid', 'token', 'fcmToken', 'platform', 'customerPhone',
+               'uid', 'token', 'fcmToken', 'platform', 'deviceId', 'customerPhone',
                'customerEmail', 'updatedAt', 'updatedAtMillis', 'updatedAtTs'
              ]) &&
              (!('platform' in data) || (data.platform is string && data.platform.size() <= 40)) &&
+             (!('deviceId' in data) || (data.deviceId is string && data.deviceId.size() <= 128)) &&
              (!('customerPhone' in data) || (data.customerPhone is string && data.customerPhone.size() <= 32)) &&
              (!('customerEmail' in data) || (data.customerEmail is string && data.customerEmail.size() <= 160));
     }
@@ -124,8 +125,8 @@ service cloud.firestore {
 
     function isAllowedOrderStatus(statusVal) {
       return statusVal is string && statusVal in [
-        'Order Placed', 'Order Confirmed', 'Processing', 'Packed',
-        'Out for Delivery', 'Delivered', 'Cancelled',
+        'Order Placed', 'Order Confirmed', 'Confirmed', 'Processing', 'Preparing',
+        'Packed', 'Dispatched', 'Shipped', 'Out for Delivery', 'Delivered', 'Cancelled',
         'PLACED', 'CONFIRMED', 'PREPARING', 'READY',
         'OUT_FOR_DELIVERY', 'DELIVERED', 'CANCELLED'
       ];

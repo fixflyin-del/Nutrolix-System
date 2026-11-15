@@ -1,0 +1,50 @@
+[
+  {
+    "id": "odGWbkDD8KU",
+    "reviewerName": "Ananya Sharma",
+    "reviewerRole": "Fitness Coach & Marathoner",
+    "rating": 5,
+    "productName": "High Protein Atta",
+    "quote": "Made the softest rotis with 46g protein! No bloating at all, real sustained energy.",
+    "youtubeUrl": "https://www.youtube.com/shorts/odGWbkDD8KU",
+    "embedUrl": "https://www.youtube.com/embed/odGWbkDD8KU?autoplay=1&mute=1&playsinline=1&loop=1&playlist=odGWbkDD8KU&controls=0&rel=0",
+    "thumbnail": "https://i.ytimg.com/vi/odGWbkDD8KU/hqdefault.jpg",
+    "verified": true
+  },
+  {
+    "id": "jWFwkjYx5UY",
+    "reviewerName": "Dr. Sameer Kulkarni",
+    "reviewerRole": "Lifestyle Physician",
+    "rating": 5,
+    "productName": "Complete Nutri Meal & Seeds",
+    "quote": "Tested on patients with continuous glucose monitors — zero post-meal spike! Pure clinical nutrition.",
+    "youtubeUrl": "https://www.youtube.com/shorts/jWFwkjYx5UY",
+    "embedUrl": "https://www.youtube.com/embed/jWFwkjYx5UY?autoplay=1&mute=1&playsinline=1&loop=1&playlist=jWFwkjYx5UY&controls=0&rel=0",
+    "thumbnail": "https://i.ytimg.com/vi/jWFwkjYx5UY/hqdefault.jpg",
+    "verified": true
+  },
+  {
+    "id": "P4hg0OFQdQI",
+    "reviewerName": "Karan Malhotra",
+    "reviewerRole": "CrossFit Athlete",
+    "rating": 5,
+    "productName": "Sprouted Ragi & Millet Muesli",
+    "quote": "High protein, natural sustained stamina. 100% clean ingredients you can feel working.",
+    "youtubeUrl": "https://www.youtube.com/shorts/P4hg0OFQdQI",
+    "embedUrl": "https://www.youtube.com/embed/P4hg0OFQdQI?autoplay=1&mute=1&playsinline=1&loop=1&playlist=P4hg0OFQdQI&controls=0&rel=0",
+    "thumbnail": "https://i.ytimg.com/vi/P4hg0OFQdQI/hqdefault.jpg",
+    "verified": true
+  },
+  {
+    "id": "wGLe-GnapA0",
+    "reviewerName": "Pooja Hegde",
+    "reviewerRole": "Yoga Instructor & Nutritionist",
+    "rating": 5,
+    "productName": "Complete Nutri Superfood Shake",
+    "quote": "70g clean protein shake. No artificial sweetener aftertaste. Replaced all synthetic powders!",
+    "youtubeUrl": "https://www.youtube.com/shorts/wGLe-GnapA0",
+    "embedUrl": "https://www.youtube.com/embed/wGLe-GnapA0?autoplay=1&mute=1&playsinline=1&loop=1&playlist=wGLe-GnapA0&controls=0&rel=0",
+    "thumbnail": "https://i.ytimg.com/vi/wGLe-GnapA0/hqdefault.jpg",
+    "verified": true
+  }
+]

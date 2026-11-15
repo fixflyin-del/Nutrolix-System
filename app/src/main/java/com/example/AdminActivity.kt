@@ -182,14 +182,10 @@ fun NutrolixAdminWebViewApp(
     }
   }
 
-  // Runtime Notification Permission launcher for Android 13+
-  val notificationPermissionLauncher = rememberLauncherForActivityResult(
-    contract = ActivityResultContracts.RequestPermission()
-  ) { /* notification access */ }
-
-  LaunchedEffect(Unit) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+  fun registerAdminFcmToken() {
+    val prefs = context.getSharedPreferences("nutrolix_admin_fcm_prefs", Context.MODE_PRIVATE)
+    val deviceId = prefs.getString("device_id", null) ?: java.util.UUID.randomUUID().toString().also {
+      prefs.edit().putString("device_id", it).apply()
     }
     try {
       com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
@@ -207,6 +203,7 @@ fun NutrolixAdminWebViewApp(
               }
               val body = org.json.JSONObject().apply {
                 put("uid", "nutrolix_admin_device")
+                put("deviceId", deviceId)
                 put("role", "admin")
                 put("platform", "android-admin-apk")
                 put("fcmToken", fcmTok)
@@ -220,6 +217,22 @@ fun NutrolixAdminWebViewApp(
         }
       }
     } catch (_: Throwable) {}
+  }
+
+  // Runtime Notification Permission launcher for Android 13+
+  val notificationPermissionLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.RequestPermission()
+  ) { granted ->
+    if (granted) {
+      registerAdminFcmToken()
+    }
+  }
+
+  LaunchedEffect(Unit) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+    }
+    registerAdminFcmToken()
   }
 
   // Handle Android hardware/gesture back press

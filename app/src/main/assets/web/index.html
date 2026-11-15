@@ -1840,15 +1840,15 @@
       } else {
         drawer.classList.remove('translate-x-full');
         backdrop.classList.remove('hidden');
-        // Update user state if saved
+        // Update user state if authenticated
         try {
-          const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-          if (profile && (profile.name || profile.email)) {
+          const profile = typeof window.getNutrolixUser === 'function' ? window.getNutrolixUser() : null;
+          if (profile) {
             const nameEl = document.getElementById('sidebarUserName');
             const subEl = document.getElementById('sidebarUserEmail');
             const avEl = document.getElementById('sidebarAvatar');
-            if (nameEl) nameEl.textContent = profile.name || 'Member';
-            if (subEl) subEl.textContent = profile.phone || profile.email || 'Verified Customer';
+            if (nameEl) nameEl.textContent = (profile.name && profile.name !== 'Nutrolix Customer') ? profile.name : (profile.verifiedPhone ? `+91 ${profile.verifiedPhone}` : 'Member');
+            if (subEl) subEl.textContent = profile.verifiedPhone ? `+91 ${profile.verifiedPhone}` : (profile.email || 'Verified Customer');
             if (avEl) avEl.innerHTML = `<span class="font-black text-sm">${(profile.name || 'U')[0].toUpperCase()}</span>`;
           }
         } catch (_) {}

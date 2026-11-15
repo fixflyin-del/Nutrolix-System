@@ -39,8 +39,12 @@ try {
   console.warn('Notice: web-push initialization error:', e.message);
 }
 
-const VAPID_PUBLIC_KEY = 'BNKixC3ZCYx27sN2fDJcsDhc1NVZEBQJ_-NkX9Xa1CuHB0xz9tyvCk582_j0bPaCBzn8LUeswFAZigMzzlSj5gY';
-const VAPID_PRIVATE_KEY = 'zFrl89pn0HV8jrf5JyPvY4y28s4l6iyHk2vt67bdHG4';
+const VAPID_PUBLIC_KEY = String(
+  process.env.VAPID_PUBLIC_KEY || 'BNKixC3ZCYx27sN2fDJcsDhc1NVZEBQJ_-NkX9Xa1CuHB0xz9tyvCk582_j0bPaCBzn8LUeswFAZigMzzlSj5gY'
+).trim();
+const VAPID_PRIVATE_KEY = String(
+  process.env.VAPID_PRIVATE_KEY || 'zFrl89pn0HV8jrf5JyPvY4y28s4l6iyHk2vt67bdHG4'
+).trim();
 
 if (webpush) {
   try {
@@ -400,11 +404,12 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
     }
   }
 
-  const { matched: matchingTokens, firestoreTokens } = await gatherCustomerTokens({
+  const { matched: rawMatchingTokens, firestoreTokens } = await gatherCustomerTokens({
     uid: resolvedUid,
     customerPhone: cleanPhone,
     customerEmail
   });
+  const matchingTokens = nutrolixCore.deduplicatePushTargets(rawMatchingTokens);
 
   const targetUrl = orderId ? `/orders.html?orderId=${encodeURIComponent(orderId)}` : '/orders.html';
   const payloadStr = JSON.stringify({
@@ -442,7 +447,7 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
           targetId: fcmTok,
           sent: Boolean(fcmRes.sent),
           permanentFailure: Boolean(fcmRes.permanentFailure),
-          statusCode: fcmRes.sent ? 200 : 0,
+          statusCode: Number(fcmRes.statusCode || (fcmRes.sent ? 200 : 0)),
           detail: fcmRes.status || fcmRes.error || ''
         }));
         if (fcmRes.permanentFailure) {
@@ -636,7 +641,7 @@ async function dispatchPushToAdmins({ orderId = '', title = '', message = '', to
         targetId: tok,
         sent: Boolean(fcmRes.sent),
         permanentFailure: Boolean(fcmRes.permanentFailure),
-        statusCode: fcmRes.sent ? 200 : 0,
+        statusCode: Number(fcmRes.statusCode || (fcmRes.sent ? 200 : 0)),
         detail: fcmRes.status || ''
       }));
       if (fcmRes.permanentFailure) deadFcm.push(tok);
@@ -2347,6 +2352,23 @@ const server = http.createServer(async (req, res) => {
             return;
           }
 
+          if (order.idempotencyKey) {
+            for (const dbId of nutrolixCore.BOTH_DB_IDS) {
+              const dupMatches = await nutrolixCore.firestoreRunQuery(
+                'orders',
+                [{ field: 'idempotencyKey', op: 'EQUAL', value: order.idempotencyKey }],
+                dbId,
+                1
+              );
+              if (dupMatches && dupMatches.length > 0) {
+                const dupOrder = dupMatches[0];
+                res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.end(JSON.stringify({ success: true, order: dupOrder, deduplicated: true }));
+                return;
+              }
+            }
+          }
+
           // Persist Healthy Food Discount redemption durably
           await recordHealthyFoodRedemption(order);
 
@@ -3263,27 +3285,26 @@ const server = http.createServer(async (req, res) => {
         const tokenUid = String(verifiedUser.uid);
         const tokenPhone = normalizePhone(verifiedUser.phoneNumber || (tokenUid.startsWith('phone_') ? tokenUid.slice(6) : ''));
         const bodyPhone = normalizePhone(payload.phone || '');
-        const cleanPhone = tokenPhone || bodyPhone;
 
-        if (!nutrolixCore.isValidIndianMobile(cleanPhone)) {
-          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: false, error: 'Verified 10-digit mobile number is required.' }));
+        if (!nutrolixCore.isValidIndianMobile(tokenPhone)) {
+          res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Verified 10-digit mobile identity is required in Firebase token.' }));
           return;
         }
 
-        const canonicalUid = nutrolixCore.canonicalCustomerUid(cleanPhone);
-        // Ensure verified token matches canonical UID or owns that verified phone number
-        if (tokenUid !== canonicalUid && tokenPhone && tokenPhone !== cleanPhone) {
+        if (bodyPhone && bodyPhone !== tokenPhone) {
           res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: false, error: 'Identity mismatch.' }));
           return;
         }
 
+        const canonicalUid = nutrolixCore.canonicalCustomerUid(tokenPhone);
         const extraProfile = payload.profile && typeof payload.profile === 'object' ? payload.profile : {};
         const merged = await customerSync.mergeLegacyCustomerAccount({
           canonicalUid,
-          phone: cleanPhone,
-          extraProfile
+          phone: tokenPhone,
+          extraProfile,
+          allowProfileOverride: Boolean(payload.allowProfileOverride)
         });
 
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -3459,6 +3480,20 @@ const server = http.createServer(async (req, res) => {
   // -------------------------------------------------------------
   // PHASE 2 API: PUSH NOTIFICATIONS (RFC 8291 Web Push & FCM)
   // -------------------------------------------------------------
+  if (reqPath === '/api/notifications/config-status' && req.method === 'GET') {
+    const sa = nutrolixCore.parseServiceAccountFromEnv();
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.end(JSON.stringify({
+      hasFirebaseServiceAccount: Boolean(sa),
+      hasVapidPublicKey: Boolean(VAPID_PUBLIC_KEY),
+      hasVapidPrivateKey: Boolean(VAPID_PRIVATE_KEY),
+      hasVapidEnvOverrides: Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY),
+      hasFast2Sms: Boolean(String(process.env.FAST2SMS_API_KEY || '').trim() && String(process.env.FAST2SMS_OTP_ID || '').trim()),
+      webPushLibraryAvailable: Boolean(webpush)
+    }));
+    return;
+  }
+
   if (reqPath === '/api/notifications/vapid-key' && req.method === 'GET') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
     res.end(JSON.stringify({ publicKey: VAPID_PUBLIC_KEY }));
@@ -3479,27 +3514,56 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
+        const authHeader = req.headers['authorization'] || '';
+        let verifiedTokenUser = null;
+        if (authHeader && authHeader.trim().toLowerCase().startsWith('bearer ')) {
+          verifiedTokenUser = await nutrolixCore.verifyFirebaseIdToken(authHeader, __dirname);
+          if (!verifiedTokenUser || !verifiedTokenUser.uid) {
+            res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid Firebase Authorization token.' }));
+            return;
+          }
+        }
+
         const fcmToken = String(sub.fcmToken || ((!sub.subscription || !sub.subscription.endpoint) && sub.token && !String(sub.token).startsWith('http') ? sub.token : '')).trim();
         const subscriptionObj = (sub.subscription && sub.subscription.endpoint)
           ? sub.subscription
           : (sub.endpoint && sub.keys ? { endpoint: sub.endpoint, keys: sub.keys } : null);
         const endpoint = String((subscriptionObj && subscriptionObj.endpoint) || sub.endpoint || fcmToken || sub.token || '').trim();
 
-        if (!endpoint) {
+        if (!endpoint || endpoint.includes('verify_dummy_') || (fcmToken && fcmToken.length < 16)) {
           res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: false, error: 'A valid FCM token or Web Push subscription endpoint is required.' }));
           return;
         }
 
-        const customerPhone = normalizePhone(sub.customerPhone || sub.phone || '');
-        const resolvedUid = nutrolixCore.canonicalCustomerUid(customerPhone) || String(sub.uid || '').trim();
-        const customerEmail = normalizeEmail(sub.customerEmail || sub.email || '');
-        const platform = String(sub.platform || 'web').trim();
+        const tokenUid = verifiedTokenUser ? String(verifiedTokenUser.uid) : '';
+        const tokenPhone = verifiedTokenUser
+          ? normalizePhone(verifiedTokenUser.phoneNumber || (tokenUid.startsWith('phone_') ? tokenUid.slice(6) : ''))
+          : '';
+        const bodyPhone = normalizePhone(sub.customerPhone || sub.phone || '');
+        const customerPhone = tokenPhone || bodyPhone;
+        const bodyUid = String(sub.uid || '').trim();
+        if (bodyUid === 'verify_uid_001' || (verifiedTokenUser && bodyPhone && tokenPhone && bodyPhone !== tokenPhone)) {
+          res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Token registration identity rejected.' }));
+          return;
+        }
+
+        const resolvedUid = nutrolixCore.canonicalCustomerUid(customerPhone) || tokenUid || bodyUid;
+        const customerEmail = normalizeEmail(sub.customerEmail || sub.email || (verifiedTokenUser && verifiedTokenUser.email) || '');
+        const platform = String(sub.platform || 'web').trim().slice(0, 40);
+        const deviceId = String(sub.deviceId || '').trim().slice(0, 128);
         const role = String(sub.role || (platform.includes('admin') ? 'admin' : 'customer')).trim().toLowerCase();
 
         const tokenFile = path.join(PUBLIC_DIR, 'data', 'notification_tokens.json');
         let tokens = safeReadJson(tokenFile, []);
         if (!Array.isArray(tokens)) tokens = [];
+        tokens = tokens.filter(t => t && t.uid !== 'verify_uid_001' && !String(t.fcmToken || t.token || '').includes('verify_dummy_'));
+
+        if (deviceId) {
+          tokens = tokens.filter(t => !(t.deviceId === deviceId && t.platform === platform && ((t.subscription && t.subscription.endpoint) || t.endpoint || t.fcmToken || t.token) !== endpoint));
+        }
 
         const existingIdx = tokens.findIndex(t => {
           const tEndpoint = (t.subscription && t.subscription.endpoint) || t.endpoint || t.fcmToken || t.token;
@@ -3517,8 +3581,10 @@ const server = http.createServer(async (req, res) => {
           customerPhone,
           customerEmail,
           platform,
+          deviceId,
           registeredAt: nowIso,
-          updatedAt: nowIso
+          updatedAt: nowIso,
+          updatedAtMillis: Date.now()
         };
 
         if (existingIdx >= 0) tokens[existingIdx] = { ...tokens[existingIdx], ...newEntry };
@@ -3535,6 +3601,7 @@ const server = http.createServer(async (req, res) => {
           endpoint,
           subscriptionJson: subscriptionObj ? JSON.stringify(subscriptionObj) : '',
           platform,
+          ...(deviceId ? { deviceId } : {}),
           customerPhone,
           customerEmail,
           updatedAt: nowIso,
@@ -3563,6 +3630,7 @@ const server = http.createServer(async (req, res) => {
           registered: true,
           uid: resolvedUid,
           role,
+          deviceId,
           firestorePersisted,
           storage: firestorePersisted ? 'firestore' : 'local_only'
         }));

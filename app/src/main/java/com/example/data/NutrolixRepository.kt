@@ -952,7 +952,10 @@ class NutrolixRepository(
     }
 
     val user = _userProfile.value
-    val customerPhone = user.phone.trim().ifBlank { "9076254354" }
+    val customerPhone = user.phone.trim()
+    require(customerPhone.isNotBlank()) {
+      "Verified mobile number is required before placing order."
+    }
     val customerName = user.name.trim().ifBlank { "Customer" }
     val customerEmail = user.email.trim()
 

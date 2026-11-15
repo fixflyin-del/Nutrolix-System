@@ -646,7 +646,6 @@
       let user = null;
       try {
         if (typeof window.getNutrolixUser === 'function') user = window.getNutrolixUser();
-        if (!user) user = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
       } catch (_) {}
 
       const phone = user ? (user.phone || '') : '';

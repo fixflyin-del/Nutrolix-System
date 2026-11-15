@@ -186,9 +186,15 @@ fun NutrolixSupplementBrandApp(
   var pendingLocationCallback by remember { mutableStateOf<((Boolean) -> Unit)?>(null) }
   var pendingWebGeolocationRequest by remember { mutableStateOf<Pair<String?, GeolocationPermissions.Callback?>?>(null) }
 
+  var triggerFcmSyncAfterPermission by remember { mutableStateOf(0) }
+
   val notificationPermissionLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.RequestPermission()
-  ) { /* handled */ }
+  ) { granted ->
+    if (granted) {
+      triggerFcmSyncAfterPermission++
+    }
+  }
 
   val locationPermissionLauncher = rememberLauncherForActivityResult(
     contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -238,6 +244,10 @@ fun NutrolixSupplementBrandApp(
             .edit().putString(NutrolixFirebaseMessagingService.KEY_FCM_TOKEN, token).apply()
 
           val (resolvedUid, resolvedPhone) = resolveCustomerIdentity(user)
+          val fcmPrefs = context.getSharedPreferences(NutrolixFirebaseMessagingService.PREFS_NAME, Context.MODE_PRIVATE)
+          val deviceId = fcmPrefs.getString("device_id", null) ?: java.util.UUID.randomUUID().toString().also {
+            fcmPrefs.edit().putString("device_id", it).apply()
+          }
           coroutineScope.launch(Dispatchers.IO) {
             if (resolvedUid.isNotBlank()) {
               try {
@@ -250,6 +260,11 @@ fun NutrolixSupplementBrandApp(
               } catch (_: Throwable) {}
             }
             try {
+              val idToken = try {
+                val cur = user ?: FirebaseAuth.getInstance().currentUser
+                if (cur != null) com.google.android.gms.tasks.Tasks.await(cur.getIdToken(false)).token ?: "" else ""
+              } catch (_: Throwable) { "" }
+
               val endpoint = MainActivity.LIVE_SERVER_URL.trimEnd('/') + "/api/notifications/register-token"
               val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
@@ -257,9 +272,13 @@ fun NutrolixSupplementBrandApp(
                 readTimeout = 10000
                 doOutput = true
                 setRequestProperty("Content-Type", "application/json")
+                if (idToken.isNotBlank()) {
+                  setRequestProperty("Authorization", "Bearer $idToken")
+                }
               }
               val payload = JSONObject().apply {
                 put("uid", resolvedUid)
+                put("deviceId", deviceId)
                 put("fcmToken", token)
                 put("token", token)
                 put("customerPhone", resolvedPhone)
@@ -286,12 +305,20 @@ fun NutrolixSupplementBrandApp(
     } catch (_: Throwable) {}
   }
 
+  LaunchedEffect(triggerFcmSyncAfterPermission) {
+    if (triggerFcmSyncAfterPermission > 0) {
+      try {
+        fetchAndSyncFcmToken(FirebaseAuth.getInstance().currentUser)
+      } catch (_: Throwable) {}
+    }
+  }
+
   LaunchedEffect(Unit) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
     try {
-      FirebaseAuth.getInstance().currentUser?.let { fetchAndSyncFcmToken(it) }
+      fetchAndSyncFcmToken(FirebaseAuth.getInstance().currentUser)
     } catch (_: Throwable) {}
   }
 

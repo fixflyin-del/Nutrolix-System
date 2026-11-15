@@ -278,10 +278,10 @@
           </div>
         </div>
         <div class="flex items-center space-x-3">
-          <button type="button" id="btnOrdersPushToggle" onclick="window.handleOrdersPushToggle()" class="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg hover:bg-emerald-100 transition flex items-center space-x-1.5">
+          <div id="ordersPushStatusBadge" onclick="window.handleOrdersNotificationStatusAction()" class="text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-default">
             <i id="ordersPushIcon" class="fa-solid fa-bell text-[11px]"></i>
-            <span id="ordersPushLabel">Order Alerts</span>
-          </button>
+            <span id="ordersPushLabel">Order Alerts: Active</span>
+          </div>
           <button onclick="window.handleNutrolixSignOut()" class="text-xs text-rose-600 font-bold hover:underline px-3 py-1.5 rounded-lg hover:bg-rose-50 transition flex items-center space-x-1">
             <i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i>
             <span>Sign Out</span>
@@ -617,8 +617,10 @@
       verifyBtn.disabled = true;
       verifyBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i><span>Verifying...</span>';
       try {
+        window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
         await window.verifyNutrolixPhoneOtp(otp);
         checkAuthAndLoadOrders();
+        window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
       } catch (e) {
         errEl.textContent = e.message || 'Incorrect OTP.';
         errEl.classList.remove('hidden');
@@ -1011,44 +1013,42 @@
       window.closeReviewModal();
     };
 
-    window.updateOrdersPushToggleUi = function() {
-      const btn = document.getElementById('btnOrdersPushToggle');
+    window.updateOrdersPushStatusUi = function() {
+      const badge = document.getElementById('ordersPushStatusBadge');
       const lbl = document.getElementById('ordersPushLabel');
       const icon = document.getElementById('ordersPushIcon');
-      if (!btn || !lbl || !window.NutrolixNotifications || typeof window.NutrolixNotifications.getNotificationStatus !== 'function') return;
+      if (!badge || !lbl || !window.NutrolixNotifications || typeof window.NutrolixNotifications.getNotificationStatus !== 'function') return;
       const st = window.NutrolixNotifications.getNotificationStatus();
       if (st.permission === 'denied') {
-        lbl.textContent = 'Alerts Blocked';
-        btn.className = 'text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5';
+        lbl.textContent = 'Notifications Blocked — Chrome Settings';
+        badge.className = 'text-xs font-bold text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-pointer hover:bg-rose-100 transition';
         if (icon) icon.className = 'fa-solid fa-bell-slash text-[11px]';
-      } else if (st.enabled) {
-        lbl.textContent = 'Alerts: On';
-        btn.className = 'text-xs font-bold text-emerald-800 bg-emerald-100 border border-emerald-300 px-3 py-1.5 rounded-lg hover:bg-emerald-200 transition flex items-center space-x-1.5';
+      } else if (st.active) {
+        lbl.textContent = 'Order Alerts: Active';
+        badge.className = 'text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-default';
         if (icon) icon.className = 'fa-solid fa-bell text-[11px]';
       } else {
-        lbl.textContent = 'Enable Alerts';
-        btn.className = 'text-xs font-bold text-slate-700 bg-slate-100 border border-slate-300 px-3 py-1.5 rounded-lg hover:bg-emerald-50 transition flex items-center space-x-1.5';
+        lbl.textContent = 'Allow Order Alerts';
+        badge.className = 'text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-lg flex items-center space-x-1.5 cursor-pointer hover:bg-amber-100 transition';
         if (icon) icon.className = 'fa-regular fa-bell text-[11px]';
       }
     };
 
-    window.handleOrdersPushToggle = async function() {
+    window.handleOrdersNotificationStatusAction = async function() {
       if (!window.NutrolixNotifications) return;
-      const st = window.NutrolixNotifications.getNotificationStatus ? window.NutrolixNotifications.getNotificationStatus() : { enabled: false };
+      const st = window.NutrolixNotifications.getNotificationStatus();
       if (st.permission === 'denied') {
-        alert('Push notifications are currently blocked in browser/device settings. Please allow notifications for Nutrolix to receive live order alerts.');
+        alert(st.settingsHelp || 'Push notifications are blocked in Chrome/device settings. Please allow notifications for this site and reload.');
         return;
       }
-      if (typeof window.NutrolixNotifications.setNotificationsEnabled === 'function') {
-        await window.NutrolixNotifications.setNotificationsEnabled(!st.enabled);
-      } else {
+      if (!st.active && typeof window.NutrolixNotifications.requestPermission === 'function') {
         await window.NutrolixNotifications.requestPermission();
+        window.updateOrdersPushStatusUi();
       }
-      window.updateOrdersPushToggleUi();
     };
 
     window.addEventListener('nutrolix:notification-status-changed', () => {
-      window.updateOrdersPushToggleUi();
+      window.updateOrdersPushStatusUi();
     });
 
     window.addEventListener('nutrolix:auth-changed', () => {
@@ -1073,7 +1073,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       checkAuthAndLoadOrders();
-      window.updateOrdersPushToggleUi();
+      window.updateOrdersPushStatusUi();
     });
   </script>
 </body>

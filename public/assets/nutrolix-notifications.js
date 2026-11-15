@@ -10,21 +10,57 @@
   }
 
   const STORAGE_KEY = 'nutrolix_notification_registered';
-  const ENABLED_KEY = 'nutrolix_notifications_enabled';
-  const DISMISSED_KEY = 'nutrolix_notification_prompt_dismissed';
+  const DEVICE_ID_KEY = 'nutrolix_device_id';
   const SHOWN_TOAST_KEYS_STORAGE = 'nutrolix_shown_notif_ids';
   let foregroundFcmAttached = false;
+  let permissionRequestInFlight = null;
 
   function getApiHost() {
     return window.NUTROLIX_API_HOST || '';
   }
 
-  function isEnabledPref() {
+  function getDeviceId() {
     try {
-      return localStorage.getItem(ENABLED_KEY) !== 'false';
+      let id = localStorage.getItem(DEVICE_ID_KEY);
+      if (!id) {
+        const rand = (window.crypto && typeof window.crypto.randomUUID === 'function')
+          ? window.crypto.randomUUID()
+          : (Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10));
+        id = (window.AndroidNative ? 'apk_' : 'web_') + rand;
+        localStorage.setItem(DEVICE_ID_KEY, id);
+      }
+      return id;
     } catch (_) {
-      return true;
+      return (window.AndroidNative ? 'apk_' : 'web_') + 'session';
     }
+  }
+
+  function getChromeSettingsHelp() {
+    const ua = String(navigator.userAgent || '').toLowerCase();
+    if (window.AndroidNative) {
+      return 'Open Phone Settings -> Apps -> Nutrolix -> Notifications and turn Allow notifications ON.';
+    }
+    if (ua.includes('android') || ua.includes('mobile')) {
+      return 'In Mobile Chrome: tap the tune/lock icon left of the address bar -> Permissions -> Notifications -> Allow, then reload.';
+    }
+    return 'In Chrome: click the site-settings/tune icon next to the URL bar -> Notifications -> Allow, then reload this page.';
+  }
+
+  function getNotificationStatus() {
+    const isNative = Boolean(window.AndroidNative);
+    const supported = isNative || ('Notification' in window);
+    const permission = isNative ? 'granted' : (supported ? Notification.permission : 'unsupported');
+    const active = isNative || permission === 'granted';
+    const registered = localStorage.getItem(STORAGE_KEY) === 'true';
+    return {
+      supported,
+      permission,
+      active,
+      enabled: active,
+      registered,
+      platform: isNative ? 'android-apk' : 'web',
+      settingsHelp: permission === 'denied' ? getChromeSettingsHelp() : ''
+    };
   }
 
   function emitStatusChanged() {
@@ -33,21 +69,6 @@
         detail: getNotificationStatus()
       }));
     } catch (_) {}
-  }
-
-  function getNotificationStatus() {
-    const isNative = Boolean(window.AndroidNative);
-    const supported = isNative || ('Notification' in window);
-    const permission = isNative ? 'granted' : (supported ? Notification.permission : 'unsupported');
-    const enabled = isEnabledPref() && (isNative || permission === 'granted');
-    const registered = localStorage.getItem(STORAGE_KEY) === 'true';
-    return {
-      supported,
-      permission,
-      enabled,
-      registered,
-      platform: isNative ? 'android-apk' : 'web'
-    };
   }
 
   function urlB64ToUint8Array(base64String) {
@@ -61,18 +82,17 @@
     return outputArray;
   }
 
+  // Strictly read ONLY verified Nutrolix customer session (never unverified localStorage)
   function getCustomerInfo() {
-    let customer = {};
+    let customer = null;
     try {
       if (typeof window.getNutrolixUser === 'function') {
-        const u = window.getNutrolixUser();
-        if (u) customer = u;
-      }
-      if (!customer.uid && !customer.phone && !customer.email) {
-        const raw = localStorage.getItem('nutrolix_user_profile') || localStorage.getItem('nutrolix_user');
-        if (raw) customer = JSON.parse(raw);
+        customer = window.getNutrolixUser();
       }
     } catch (_) {}
+    if (!customer || !customer.authSession || !customer.verified || !customer.phoneVerified) {
+      return { uid: '', phone: '', email: '' };
+    }
     return {
       uid: customer.uid || '',
       phone: customer.verifiedPhone || customer.phone || customer.whatsappNumber || '',
@@ -80,11 +100,24 @@
     };
   }
 
+  async function getFirebaseIdToken() {
+    try {
+      if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+        return await firebase.auth().currentUser.getIdToken();
+      }
+    } catch (_) {}
+    return '';
+  }
+
   async function registerServiceWorker() {
     if (!('serviceWorker' in navigator) || window.location.protocol === 'file:') return null;
     try {
       const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
-      return reg;
+      try {
+        return await navigator.serviceWorker.ready || reg;
+      } catch (_) {
+        return reg;
+      }
     } catch (_) {
       return null;
     }
@@ -102,22 +135,33 @@
   }
 
   async function sendSubscriptionToBackend(subscription, extra = {}) {
-    if (!isEnabledPref()) return false;
     try {
       const { uid, phone, email } = getCustomerInfo();
+      const role = extra.role || (String(extra.platform || '').includes('admin') ? 'admin' : 'customer');
+      if (role !== 'admin' && (!uid || !phone)) {
+        return false;
+      }
+
       const subJson = subscription && typeof subscription.toJSON === 'function' ? subscription.toJSON() : subscription;
       const fcmToken = extra.fcmToken || '';
       const platform = extra.platform || (window.AndroidNative ? 'android-apk' : 'web');
+      const deviceId = getDeviceId();
 
       if (!fcmToken && !(subJson && subJson.endpoint)) {
         return false;
       }
 
+      const headers = { 'Content-Type': 'application/json' };
+      const idToken = await getFirebaseIdToken();
+      if (idToken) headers.Authorization = 'Bearer ' + idToken;
+
       const res = await fetch(getApiHost() + '/api/notifications/register-token', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           uid,
+          role,
+          deviceId,
           fcmToken,
           token: fcmToken || (subJson && subJson.endpoint) || '',
           subscription: subJson,
@@ -134,6 +178,7 @@
         window.NutrolixFirebase.saveFcmToken(uid, {
           fcmToken,
           platform,
+          deviceId,
           customerPhone: phone,
           customerEmail: email
         }).catch(() => {});
@@ -174,7 +219,11 @@
   }
 
   async function syncWebPushSubscription() {
-    if (window.AndroidNative || !('Notification' in window) || Notification.permission !== 'granted' || !isEnabledPref()) {
+    if (window.AndroidNative || !('Notification' in window) || Notification.permission !== 'granted') {
+      return false;
+    }
+    const { uid, phone } = getCustomerInfo();
+    if (!uid || !phone) {
       return false;
     }
     const reg = await registerServiceWorker();
@@ -196,9 +245,11 @@
       } catch (_) {}
     }
 
-    if (typeof firebase !== 'undefined' && typeof firebase.messaging === 'function' && reg) {
+    attachForegroundFcmListener();
+
+    // Fall back to Web FCM token only if RFC 8291 Web Push subscription was unavailable
+    if (!synced && typeof firebase !== 'undefined' && typeof firebase.messaging === 'function' && reg) {
       try {
-        attachForegroundFcmListener();
         const messaging = firebase.messaging();
         const vapid = await getVapidPublicKey();
         const fcmTok = await messaging.getToken({ vapidKey: vapid, serviceWorkerRegistration: reg });
@@ -213,9 +264,12 @@
   }
 
   async function syncNativeAndroidToken() {
-    if (!isEnabledPref()) return;
     if (window.AndroidNative && typeof window.AndroidNative.getFcmToken === 'function') {
       try { window.AndroidNative.getFcmToken(); } catch (_) {}
+    }
+    const cachedNative = localStorage.getItem('nutrolix_native_fcm_token');
+    if (cachedNative) {
+      await sendSubscriptionToBackend(null, { fcmToken: cachedNative, platform: 'android-apk' });
     }
   }
 
@@ -226,13 +280,8 @@
   };
 
   async function requestNotificationPermission() {
-    localStorage.setItem(ENABLED_KEY, 'true');
     if (window.AndroidNative) {
       await syncNativeAndroidToken();
-      const cachedNative = localStorage.getItem('nutrolix_native_fcm_token');
-      if (cachedNative) {
-        await sendSubscriptionToBackend(null, { fcmToken: cachedNative, platform: 'android-apk' });
-      }
       emitStatusChanged();
       return true;
     }
@@ -240,112 +289,52 @@
       emitStatusChanged();
       return false;
     }
+    if (Notification.permission === 'granted') {
+      const ok = await syncWebPushSubscription();
+      emitStatusChanged();
+      return ok;
+    }
+    if (Notification.permission === 'denied') {
+      emitStatusChanged();
+      return false;
+    }
+    if (permissionRequestInFlight) return permissionRequestInFlight;
 
-    try {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        await syncWebPushSubscription();
-        hidePromptBanner();
+    permissionRequestInFlight = (async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission === 'granted') {
+          await syncWebPushSubscription();
+          emitStatusChanged();
+          return true;
+        }
         emitStatusChanged();
-        showClickableToast({
-          title: 'Live Order Alerts Activated',
-          message: 'You will receive real-time alerts for every order step.',
-          url: 'orders.html'
-        });
-        return true;
+        return false;
+      } catch (err) {
+        console.warn('[Nutrolix Notifications] Permission request notice:', err);
+        emitStatusChanged();
+        return false;
+      } finally {
+        permissionRequestInFlight = null;
       }
-      emitStatusChanged();
-      return false;
-    } catch (err) {
-      console.error('[Nutrolix Notifications] Permission request error:', err);
-      emitStatusChanged();
-      return false;
-    }
+    })();
+
+    return permissionRequestInFlight;
   }
 
-  async function setNotificationsEnabled(enable) {
-    const target = Boolean(enable);
-    localStorage.setItem(ENABLED_KEY, target ? 'true' : 'false');
-    if (target) {
-      return await requestNotificationPermission();
+  // Trigger safely inside user interactions (OTP submit, checkout Confirm Order, profile save)
+  async function ensurePermissionOnGesture() {
+    if (window.AndroidNative) {
+      return syncNativeAndroidToken();
     }
-
-    try {
-      const { uid, phone, email } = getCustomerInfo();
-      const nativeTok = localStorage.getItem('nutrolix_native_fcm_token') || '';
-      const webFcmTok = localStorage.getItem('nutrolix_web_fcm_token') || '';
-      let endpoint = '';
-
-      if ('serviceWorker' in navigator && 'PushManager' in window && window.location.protocol !== 'file:') {
-        try {
-          const reg = await navigator.serviceWorker.getRegistration();
-          const sub = reg ? await reg.pushManager.getSubscription() : null;
-          if (sub) {
-            endpoint = sub.endpoint || '';
-            await sub.unsubscribe().catch(() => {});
-          }
-        } catch (_) {}
-      }
-
-      await fetch(getApiHost() + '/api/notifications/unregister', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          uid,
-          customerPhone: phone,
-          customerEmail: email,
-          fcmToken: nativeTok || webFcmTok || '',
-          token: nativeTok || webFcmTok || endpoint || '',
-          endpoint
-        })
-      }).catch(() => {});
-      localStorage.setItem(STORAGE_KEY, 'false');
-    } catch (_) {}
-    emitStatusChanged();
+    if (!('Notification' in window)) return false;
+    if (Notification.permission === 'default') {
+      return requestNotificationPermission();
+    }
+    if (Notification.permission === 'granted') {
+      return syncWebPushSubscription();
+    }
     return false;
-  }
-
-  function showPromptBanner() {
-    if (window.AndroidNative) return;
-    if (!('Notification' in window)) return;
-    if (!isEnabledPref()) return;
-    if (Notification.permission === 'granted' || Notification.permission === 'denied') return;
-    if (sessionStorage.getItem(DISMISSED_KEY)) return;
-    if (document.getElementById('nutrolixNotificationBanner')) return;
-
-    const banner = document.createElement('div');
-    banner.id = 'nutrolixNotificationBanner';
-    banner.className = 'fixed bottom-20 left-4 right-4 md:bottom-4 md:left-auto md:right-4 md:w-96 bg-white/95 backdrop-blur-md border border-emerald-200 shadow-2xl rounded-2xl p-4 z-50';
-    banner.innerHTML = `
-      <div class="flex items-start space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg flex-shrink-0">
-          <i class="fa-solid fa-bell"></i>
-        </div>
-        <div class="flex-1">
-          <h4 class="text-xs font-black text-slate-900">Enable Live Order Updates</h4>
-          <p class="text-[11px] text-slate-600 mt-0.5 leading-snug">Get instant push alerts when your order is confirmed, packed, out for delivery, or delivered.</p>
-          <div class="flex items-center space-x-2 mt-2.5">
-            <button id="btnAllowNotifications" class="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-[11px] shadow">
-              Allow Updates
-            </button>
-            <button id="btnDismissNotifications" class="px-2.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-700 text-[11px] font-semibold">
-              Later
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(banner);
-
-    document.getElementById('btnAllowNotifications')?.addEventListener('click', requestNotificationPermission);
-    document.getElementById('btnDismissNotifications')?.addEventListener('click', () => {
-      sessionStorage.setItem(DISMISSED_KEY, 'true');
-      hidePromptBanner();
-    });
-  }
-
-  function hidePromptBanner() {
-    document.getElementById('nutrolixNotificationBanner')?.remove();
   }
 
   function markShownToastId(id) {
@@ -443,7 +432,7 @@
     let firstPoll = true;
     setInterval(async () => {
       const { uid, phone, email } = getCustomerInfo();
-      if (!uid && !phone && !email) return;
+      if (!uid && !phone) return;
       try {
         const qs = new URLSearchParams();
         if (uid) qs.set('uid', uid);
@@ -473,14 +462,10 @@
   }
 
   window.addEventListener('nutrolix:auth-changed', async () => {
-    syncNativeAndroidToken();
+    await syncNativeAndroidToken();
     attachUserNotificationListeners();
-    if (isEnabledPref()) {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       await syncWebPushSubscription();
-      const cachedNative = localStorage.getItem('nutrolix_native_fcm_token');
-      if (cachedNative) {
-        sendSubscriptionToBackend(null, { fcmToken: cachedNative, platform: 'android-apk' });
-      }
     }
     emitStatusChanged();
   });
@@ -490,16 +475,9 @@
     syncNativeAndroidToken();
     attachUserNotificationListeners();
     attachForegroundFcmListener();
-    if (isEnabledPref()) {
-      if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-        syncWebPushSubscription();
-      }
-      const cachedNative = localStorage.getItem('nutrolix_native_fcm_token');
-      if (cachedNative) {
-        sendSubscriptionToBackend(null, { fcmToken: cachedNative, platform: 'android-apk' });
-      }
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      syncWebPushSubscription();
     }
-    setTimeout(showPromptBanner, 2200);
     initOrderNotificationSync();
     emitStatusChanged();
   }
@@ -512,8 +490,9 @@
 
   window.NutrolixNotifications = {
     requestPermission: requestNotificationPermission,
-    setNotificationsEnabled,
+    ensurePermissionOnGesture,
     getNotificationStatus,
+    getChromeSettingsHelp,
     registerServiceWorker,
     sendSubscriptionToBackend,
     showClickableToast

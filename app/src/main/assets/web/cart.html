@@ -930,7 +930,6 @@
       let user = null;
       try {
         if (typeof window.getNutrolixUser === 'function') user = window.getNutrolixUser();
-        if (!user) user = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
       } catch (_) {}
 
       // Check past orders for ₹100 redemption
@@ -1052,7 +1051,7 @@
             id: 'addr_default',
             tag: 'Default Home',
             name: profile.name || 'Customer',
-            phone: profile.phone || profile.whatsapp || '9076254354',
+            phone: profile.verifiedPhone || profile.phone || profile.whatsapp || '',
             address1: profile.address1,
             city: profile.city,
             state: profile.state || 'Maharashtra',
@@ -1493,9 +1492,11 @@
       }
       pendingOrderConfirmAfterAuth = false;
       try {
+        window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
         const profile = await window.verifyNutrolixPhoneOtp(codeEl?.value || '');
         document.getElementById('cartInlineOtpBox')?.classList.add('hidden');
         window.onAuthSuccessCallback(profile);
+        window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
       } catch (e) {
         // Keep the inline OTP field visible after a failed verification so the
         // customer can correct the code or request a resend on the same screen.
@@ -1762,6 +1763,7 @@
         return;
       }
 
+      window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
       window.executeOrderPlacement();
     };
 
@@ -1960,10 +1962,11 @@
         let confirmedOrder = null;
         if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveOrder === 'function') {
           const data = await window.NutrolixFirebase.saveOrder(orderPayload);
-          if (!data || !data.success || !data.order) {
+          const resolvedOrder = (data && data.order) ? data.order : data;
+          if (!resolvedOrder || (!resolvedOrder.orderId && !resolvedOrder.id)) {
             throw new Error((data && data.error) || 'Order could not be confirmed on the server.');
           }
-          confirmedOrder = { ...orderPayload, ...data.order };
+          confirmedOrder = { ...orderPayload, ...resolvedOrder };
         } else {
           const host = window.NUTROLIX_API_HOST || '';
           const res = await fetch(host + '/api/nutrition-orders', {
@@ -2028,6 +2031,19 @@
       renderAvailableCoupons();
       window.checkCartAuthStatus();
       window.autoDetectCheckoutLocation(false);
+
+      // Reactive cross-device Firebase / Firestore sync listeners
+      window.addEventListener('nutrolix:auth-changed', () => {
+        loadUserProfile();
+        checkAndRenderSavedAddresses();
+        window.checkCartAuthStatus();
+        window.updateCartPhoneOkButtonState();
+        renderSummary();
+      });
+      window.addEventListener('nutrolix:addresses-updated', () => {
+        checkAndRenderSavedAddresses();
+        renderSummary();
+      });
 
       // Live Cross-Tab Sync with Admin Panel changes
       window.addEventListener('storage', (e) => {

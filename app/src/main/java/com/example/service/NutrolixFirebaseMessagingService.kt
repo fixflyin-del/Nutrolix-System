@@ -59,11 +59,17 @@ class NutrolixFirebaseMessagingService : FirebaseMessagingService() {
           Log.w(TAG, "Firestore FCM token sync error: ${e.message}")
         }
       }
+      val idToken = try {
+        val cur = FirebaseAuth.getInstance().currentUser
+        if (cur != null) com.google.android.gms.tasks.Tasks.await(cur.getIdToken(false)).token ?: "" else ""
+      } catch (_: Throwable) { "" }
+
       registerTokenOnServer(
         uid = resolvedUid,
         token = token,
         phone = cleanPhone,
-        email = currentUser?.email ?: ""
+        email = currentUser?.email ?: "",
+        idToken = idToken
       )
     }
   }
@@ -98,8 +104,12 @@ class NutrolixFirebaseMessagingService : FirebaseMessagingService() {
     sendBroadcast(broadcast)
   }
 
-  private fun registerTokenOnServer(uid: String, token: String, phone: String, email: String) {
+  private fun registerTokenOnServer(uid: String, token: String, phone: String, email: String, idToken: String = "") {
     try {
+      val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+      val deviceId = prefs.getString("device_id", null) ?: java.util.UUID.randomUUID().toString().also {
+        prefs.edit().putString("device_id", it).apply()
+      }
       val endpoint = MainActivity.LIVE_SERVER_URL.trimEnd('/') + "/api/notifications/register-token"
       val conn = (URL(endpoint).openConnection() as HttpURLConnection).apply {
         requestMethod = "POST"
@@ -107,9 +117,13 @@ class NutrolixFirebaseMessagingService : FirebaseMessagingService() {
         readTimeout = 8000
         doOutput = true
         setRequestProperty("Content-Type", "application/json")
+        if (idToken.isNotBlank()) {
+          setRequestProperty("Authorization", "Bearer $idToken")
+        }
       }
       val payload = JSONObject().apply {
         put("uid", uid)
+        put("deviceId", deviceId)
         put("fcmToken", token)
         put("token", token)
         put("customerPhone", phone)
