@@ -3310,6 +3310,26 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  if (req.method === 'GET' && reqPath === '/api/system/reset-state') {
+    let resetEpoch = 0;
+    try {
+      const localReset = safeReadJson(path.join(PUBLIC_DIR, 'data', 'system_reset.json'), {});
+      resetEpoch = Number(localReset && localReset.resetEpoch) || 0;
+    } catch (_) {}
+    try {
+      const fsReset = await nutrolixCore.firestoreGetFirstAvailable('settings/systemReset');
+      const fsEpoch = Number(fsReset && fsReset.resetEpoch) || 0;
+      if (fsEpoch > resetEpoch) resetEpoch = fsEpoch;
+    } catch (_) {}
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-store'
+    });
+    res.end(JSON.stringify({ success: true, resetEpoch }));
+    return;
+  }
+
   // -------------------------------------------------------------
   // CANONICAL CUSTOMER IDENTITY SYNC ENDPOINT
   // -------------------------------------------------------------

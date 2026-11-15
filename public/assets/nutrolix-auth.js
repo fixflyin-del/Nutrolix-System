@@ -149,6 +149,7 @@
     };
 
     localStorage.setItem('nutrolix_user_profile', JSON.stringify(updated));
+    try { localStorage.setItem('nutrolix_auth_at', String(Date.now())); } catch (_) {}
 
     if (!opts.skipRemoteSync) {
       try {
@@ -609,4 +610,27 @@
       }
     };
   };
+
+  // Sync with authoritative system resetEpoch so purged customer/order caches clear cleanly across browsers & APKs
+  (async function syncCustomerSystemResetEpoch() {
+    try {
+      const host = window.NUTROLIX_API_HOST || '';
+      const res = await fetch(host + '/api/system/reset-state', { cache: 'no-store' });
+      if (!res || !res.ok) return;
+      const data = await res.json().catch(() => null);
+      const srvEpoch = Number(data && data.resetEpoch) || 0;
+      const seenEpoch = Number(localStorage.getItem('nutrolix_last_reset_epoch') || 0);
+      if (srvEpoch > seenEpoch) {
+        const lastAuthAt = Number(localStorage.getItem('nutrolix_auth_at') || 0);
+        const signedInAfterReset = lastAuthAt >= srvEpoch;
+        clearCustomerLocalCaches(signedInAfterReset);
+        if (!signedInAfterReset) {
+          try { if (typeof firebase !== 'undefined' && firebase.auth) await firebase.auth().signOut(); } catch (_) {}
+          try { if (window.AndroidNative && typeof window.AndroidNative.signOut === 'function') window.AndroidNative.signOut(); } catch (_) {}
+          window.dispatchEvent(new CustomEvent('nutrolix:auth-changed', { detail: null }));
+        }
+        localStorage.setItem('nutrolix_last_reset_epoch', String(srvEpoch));
+      }
+    } catch (_) {}
+  })();
 })();

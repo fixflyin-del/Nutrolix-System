@@ -587,5 +587,46 @@ test('Admin Portal requires 4-digit PIN 9090 on entry and removes inner PIN/conf
   }
 });
 
+test('Fresh Admin Panel guarantees empty local stores, live reset-state endpoint, and never resurrects deleted localStorage orders', async () => {
+  const root = path.resolve(__dirname, '..');
+  for (const rel of [
+    'public/data/nutrition_orders.json',
+    'public/data/notification_tokens.json',
+    'public/data/notifications_log.json',
+    'app/src/main/assets/web/data/nutrition_orders.json',
+    'app/src/main/assets/web/data/notification_tokens.json',
+    'app/src/main/assets/web/data/notifications_log.json'
+  ]) {
+    const parsed = JSON.parse(fs.readFileSync(path.join(root, rel), 'utf8'));
+    assert.deepEqual(parsed, [], `${rel} must be empty array [] for fresh admin start`);
+  }
+
+  const adminHtml = fs.readFileSync(path.join(root, 'public/admin.html'), 'utf8');
+  assert.ok(adminHtml.includes('window.wipeAdminLocalOrderAndUserCaches'), 'admin.html must expose wipeAdminLocalOrderAndUserCaches');
+  assert.equal(adminHtml.includes('...localCached,'), false, 'admin.html must never resurrect stale localStorage orders into live merge');
+
+  const authJs = fs.readFileSync(path.join(root, 'public/assets/nutrolix-auth.js'), 'utf8');
+  assert.ok(authJs.includes('/api/system/reset-state'), 'nutrolix-auth.js must sync system resetEpoch');
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address();
+  const port = typeof addr === 'object' && addr ? addr.port : 0;
+  try {
+    const res = await new Promise((resolve, reject) => {
+      http.get({ hostname: '127.0.0.1', port, path: '/api/system/reset-state' }, (r) => {
+        let raw = '';
+        r.on('data', c => raw += c);
+        r.on('end', () => resolve({ status: r.statusCode, json: JSON.parse(raw) }));
+      }).on('error', reject);
+    });
+    assert.equal(res.status, 200);
+    assert.equal(res.json.success, true);
+    assert.ok(Number(res.json.resetEpoch) > 0);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+
 
 

@@ -2461,9 +2461,36 @@
       'ORD-956690', 'ord_demo_101', 'NUTRO-8921'
     ]);
 
+    window.wipeAdminLocalOrderAndUserCaches = function() {
+      ['nutrolix_orders', 'nutrolix_customer_orders', 'nutrolix_store_orders', 'nutrolix_admin_users', 'nutrolix_notifications_log', 'nutrolix_user_notifications'].forEach(k => {
+        try { localStorage.removeItem(k); } catch (_) {}
+      });
+      if (window.liveOrderBuckets) {
+        window.liveOrderBuckets.firestore = [];
+        window.liveOrderBuckets.cloudRun = [];
+        window.liveOrderBuckets.vercel = [];
+      }
+      if (window.liveUsersBucket) {
+        window.liveUsersBucket.firestore = [];
+        window.liveUsersBucket.api = [];
+      }
+      if (window.knownAdminOrderIds && typeof window.knownAdminOrderIds.clear === 'function') {
+        window.knownAdminOrderIds.clear();
+      }
+      window.packagedOrders = [];
+      window.usersList = [];
+    };
+
     window.purgeDummyCachedData = function() {
       if (window.hasPurgedDummyCache) return;
       window.hasPurgedDummyCache = true;
+      try {
+        if (localStorage.getItem('nutrolix_admin_fresh_epoch') !== 'fresh_2026_11_v3') {
+          window.wipeAdminLocalOrderAndUserCaches();
+          localStorage.setItem('nutrolix_admin_fresh_epoch', 'fresh_2026_11_v3');
+          return;
+        }
+      } catch (_) {}
       ['nutrolix_orders', 'nutrolix_customer_orders', 'nutrolix_store_orders'].forEach(storageKey => {
         try {
           const raw = JSON.parse(localStorage.getItem(storageKey) || '[]');
@@ -2548,16 +2575,9 @@
     window.mergeAndRenderAllOrders = function(triggerAlarmForNew = false) {
       window.purgeDummyCachedData();
 
-      let localCached = [];
-      try {
-        const stored = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
-        if (Array.isArray(stored)) localCached = stored;
-      } catch (_) {}
-
       const mergedMap = new Map();
-      // Merge oldest/lowest-priority first -> freshest real-time Firestore highest priority
+      // Merge only live authoritative sources (Vercel + Server + Firestore); never resurrect deleted localStorage orders
       const feedOrder = [
-        ...localCached,
         ...(window.liveOrderBuckets.vercel || []),
         ...(window.liveOrderBuckets.cloudRun || []),
         ...(window.liveOrderBuckets.firestore || [])
@@ -3661,26 +3681,27 @@
         let localLogs = [];
         try { localLogs = JSON.parse(localStorage.getItem('nutrolix_notifications_log') || '[]'); } catch(_) {}
 
-        let remoteLogs = [];
+        let remoteLogs = null;
         try {
           const host = window.NUTROLIX_API_HOST || "";
-          let res = await fetch(host + "/api/notifications/history");
+          let res = await fetch(host + "/api/notifications/history", { cache: 'no-store' });
           if (!res || !res.ok) {
-            res = await fetch("/data/notifications_log.json");
+            res = await fetch("/data/notifications_log.json", { cache: 'no-store' });
           }
           if (res && res.ok) {
             const ct = res.headers.get('content-type') || '';
             if (ct.includes('application/json')) {
-              remoteLogs = await res.json();
+              const parsed = await res.json();
+              if (Array.isArray(parsed)) remoteLogs = parsed;
             }
           }
         } catch(_) {}
 
-        // Merge local & remote logs
-        const merged = [...localLogs];
-        (remoteLogs || []).forEach(r => {
-          if (!merged.find(m => m.id === r.id)) merged.push(r);
-        });
+        // Use live server logs as authoritative when reachable so purged logs never linger in localStorage
+        const merged = Array.isArray(remoteLogs) ? [...remoteLogs] : [...localLogs];
+        if (Array.isArray(remoteLogs)) {
+          try { localStorage.setItem('nutrolix_notifications_log', JSON.stringify(remoteLogs)); } catch (_) {}
+        }
 
         const tbody = document.getElementById('notificationHistoryTableBody');
         if (!tbody) return;
@@ -4978,6 +4999,24 @@
       window.purgeDummyCachedData();
       window.switchTab('packaged-orders');
 
+      // Sync authoritative resetEpoch so deleted customer/order caches stay cleared across devices
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        fetch(host + '/api/system/reset-state', { cache: 'no-store' })
+          .then(r => r && r.ok ? r.json() : null)
+          .then(st => {
+            const srvEpoch = Number(st && st.resetEpoch) || 0;
+            const seenEpoch = Number(localStorage.getItem('nutrolix_last_reset_epoch') || 0);
+            if (srvEpoch > seenEpoch) {
+              window.wipeAdminLocalOrderAndUserCaches();
+              localStorage.setItem('nutrolix_last_reset_epoch', String(srvEpoch));
+              window.mergeAndRenderAllOrders(false);
+              window.mergeAndRenderUsers();
+              window.loadNotificationHistory();
+            }
+          }).catch(() => {});
+      } catch (_) {}
+
       window.loadPackagedProducts();
       window.loadPackagedOrders();
       window.loadFoodMenuAdmin();
@@ -5108,10 +5147,19 @@
 
         const totalMatched = (data.totals && data.totals.matched) || 0;
         const totalDeleted = (data.totals && data.totals.deleted) || 0;
+        if (!dryRun) {
+          window.wipeAdminLocalOrderAndUserCaches();
+          try {
+            localStorage.setItem('nutrolix_last_reset_epoch', String(data.resetEpoch || Date.now()));
+          } catch (_) {}
+          window.mergeAndRenderAllOrders(false);
+          window.mergeAndRenderUsers();
+          window.loadNotificationHistory();
+        }
         if (outEl) {
           outEl.innerHTML = `
             <div class="font-black ${dryRun ? 'text-amber-800' : 'text-rose-800'}">
-              ${dryRun ? '✓ DRY-RUN PREVIEW (No Data Deleted)' : '✓ LIVE PURGE COMPLETED'}
+              ${dryRun ? '✓ DRY-RUN PREVIEW (No Data Deleted)' : '✓ LIVE PURGE COMPLETED — FRESH ADMIN READY'}
               • Matched: ${totalMatched} | Deleted: ${totalDeleted}
             </div>
             ${rows}
