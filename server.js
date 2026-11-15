@@ -3719,47 +3719,60 @@ const server = http.createServer(async (req, res) => {
     req.on('data', chunk => body += chunk);
     req.on('end', async () => {
       try {
-        const { id, notifId, uid, phone, email, markAll } = JSON.parse(body || '{}');
-        const targetId = id || notifId;
+        const authHeader = String(req.headers['authorization'] || '');
+        const decodedUser = await nutrolixCore.verifyFirebaseIdToken(authHeader, __dirname);
+        if (!decodedUser || !decodedUser.uid) {
+          res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'A verified Firebase customer session is required.' }));
+          return;
+        }
+        const tokenUid = String(decodedUser.uid);
+        const phone = normalizePhone(decodedUser.phoneNumber || (tokenUid.startsWith('phone_') ? tokenUid.slice(6) : ''));
+        if (!nutrolixCore.isValidIndianMobile(phone)) {
+          res.writeHead(403, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Verified customer phone identity is required.' }));
+          return;
+        }
+        const resolvedUid = nutrolixCore.canonicalCustomerUid(phone);
+        const payload = JSON.parse(body || '{}');
+        const targetId = String(payload.id || payload.notifId || '').trim();
+        const markAll = Boolean(payload.markAll);
+        if (!targetId && !markAll) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Notification id or markAll is required.' }));
+          return;
+        }
+
         const logFile = path.join(PUBLIC_DIR, 'data', 'notifications_log.json');
         const logs = safeReadJson(logFile, []);
-        const cleanPhone = normalizePhone(phone || '');
-        const resolvedUid = nutrolixCore.canonicalCustomerUid(cleanPhone) || String(uid || '').trim();
-        const cleanEmail = normalizeEmail(email || '');
         let updated = 0;
-
-        for (const l of logs) {
+        for (const l of Array.isArray(logs) ? logs : []) {
+          const ownerUid = String(l.uid || '').trim();
+          const ownerPhone = normalizePhone(l.customerPhone || l.phone);
+          const isOwner = (ownerUid && ownerUid === resolvedUid) || (ownerPhone && ownerPhone === phone);
           const matchesId = targetId && (l.id === targetId || l.dedupKey === targetId);
-          const matchesOwner = markAll && (
-            (resolvedUid && l.uid === resolvedUid) ||
-            (cleanPhone && normalizePhone(l.customerPhone || l.phone) === cleanPhone) ||
-            (cleanEmail && normalizeEmail(l.customerEmail || l.email) === cleanEmail)
-          );
-          if (matchesId || matchesOwner) {
+          if (isOwner && (matchesId || markAll)) {
             l.read = true;
             updated++;
           }
         }
         if (updated > 0) safeWriteJson(logFile, logs);
 
-        if (resolvedUid) {
-          if (targetId) {
-            await nutrolixCore.firestorePatchBothDbs(`users/${resolvedUid}/notifications/${targetId}`, { read: true });
-          } else if (markAll) {
-            const fsNotifs = await nutrolixCore.firestoreListDocuments(`users/${resolvedUid}/notifications`, nutrolixCore.DEFAULT_DB_ID);
-            await Promise.all(
-              fsNotifs
-                .filter((n) => !n.read && (n._docId || n.id))
-                .map((n) => nutrolixCore.firestorePatchBothDbs(`users/${resolvedUid}/notifications/${n._docId || n.id}`, { read: true }))
-            );
+        if (targetId) {
+          await nutrolixCore.firestorePatchBothDbs(`users/${resolvedUid}/notifications/${targetId}`, { read: true });
+        } else if (markAll) {
+          for (const dbId of nutrolixCore.BOTH_DB_IDS) {
+            const fsNotifs = await nutrolixCore.firestoreListDocuments(`users/${resolvedUid}/notifications`, dbId);
+            await Promise.all(fsNotifs
+              .filter(n => !n.read && (n._docId || n.id))
+              .map(n => nutrolixCore.firestorePatchDocument(`users/${resolvedUid}/notifications/${n._docId || n.id}`, { read: true }, dbId)));
           }
         }
-
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true, updated }));
       } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+        res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: e.message }));
       }
     });
     return;
