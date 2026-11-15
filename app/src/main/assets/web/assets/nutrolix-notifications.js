@@ -19,13 +19,9 @@
     return window.NUTROLIX_API_HOST || '';
   }
 
-  function isEnabledPref() {
-    try {
-      return localStorage.getItem(ENABLED_KEY) !== 'false';
-    } catch (_) {
-      return true;
-    }
-  }
+  // Registration follows the platform permission. A stale local preference must not
+  // silently suppress token registration after a customer has granted permission.
+  function isEnabledPref() { return true; }
 
   function emitStatusChanged() {
     try {
@@ -102,7 +98,6 @@
   }
 
   async function sendSubscriptionToBackend(subscription, extra = {}) {
-    if (!isEnabledPref()) return false;
     try {
       const { uid, phone, email } = getCustomerInfo();
       const subJson = subscription && typeof subscription.toJSON === 'function' ? subscription.toJSON() : subscription;
