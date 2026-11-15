@@ -3728,6 +3728,8 @@ const server = http.createServer(async (req, res) => {
           if (role === 'admin') {
             writes.push(nutrolixCore.firestorePatchBothDbs(`adminTokens/${tokenDocId}`, firestoreTokenObj));
           } else if (resolvedUid) {
+            // Keep every customer endpoint, including Web Push-only subscriptions,
+            // in the canonical user's subcollection for fast, reliable order delivery.
             writes.push(nutrolixCore.firestorePatchBothDbs(`users/${resolvedUid}/fcmTokens/${tokenDocId}`, firestoreTokenObj));
           }
           const results = await Promise.all(writes);
