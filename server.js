@@ -2301,7 +2301,11 @@ const server = http.createServer(async (req, res) => {
             return (qUid && oUid && oUid === qUid) || (qPhone && oPhone && oPhone === qPhone) || (qEmail && oEmail && oEmail === qEmail);
           });
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store'
+        });
         res.end(JSON.stringify(data));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -3278,6 +3282,18 @@ const server = http.createServer(async (req, res) => {
           rootDir: __dirname
         });
 
+        if (!dryRun) {
+          safeWriteJson(path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json'), []);
+          safeWriteJson(path.join(PUBLIC_DIR, 'data', 'users.json'), []);
+          safeWriteJson(path.join(PUBLIC_DIR, 'data', 'notification_tokens.json'), []);
+          safeWriteJson(path.join(PUBLIC_DIR, 'data', 'notifications_log.json'), []);
+          safeWriteJson(path.join(PUBLIC_DIR, 'data', 'customer_discounts.json'), {});
+          safeWriteJson(path.join(PUBLIC_DIR, 'data', 'system_reset.json'), {
+            resetEpoch: summary.resetEpoch || Date.now(),
+            updatedAt: summary.timestamp
+          });
+        }
+
         // Write non-PII summary audit record
         const auditId = 'audit_purge_' + Date.now();
         const auditRecord = {
@@ -3299,7 +3315,11 @@ const server = http.createServer(async (req, res) => {
           });
         } catch (_) {}
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store'
+        });
         res.end(JSON.stringify({ success: true, ...summary }));
       } catch (err) {
         const code = err.statusCode || 500;
@@ -4253,7 +4273,11 @@ const server = http.createServer(async (req, res) => {
       }
 
       const userList = Object.values(usersMap);
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-store'
+      });
       res.end(JSON.stringify(userList));
       return;
     } else if (req.method === 'POST') {

@@ -626,7 +626,8 @@ test('Fresh Admin Panel guarantees empty local stores, live reset-state endpoint
     await new Promise((resolve) => server.close(resolve));
   }
 });
-
-
-
-
+test('encodeFirestorePath percent-encodes legacy user document IDs containing spaces and + signs', () => {
+  assert.equal(core.encodeFirestorePath('users/+91 9877666512'), 'users/%2B91%209877666512');
+  assert.equal(core.encodeFirestorePath('/users/+91 98765 43210/fcmTokens/tok_1'), 'users/%2B91%2098765%2043210/fcmTokens/tok_1');
+  assert.equal(core.encodeFirestorePath('users/phone_9931354354'), 'users/phone_9931354354');
+});
