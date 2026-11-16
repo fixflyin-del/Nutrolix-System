@@ -957,7 +957,7 @@
               <h4 class="font-bold text-sm text-slate-900">Verified Reviews Featured on Store Homepage</h4>
               <button onclick="window.openAddGoogleReviewModal()" class="px-3.5 py-1.5 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-black text-xs transition flex items-center space-x-1.5 shadow">
                 <i class="fa-solid fa-plus text-[10px]"></i>
-                <span>+ Add Google Review</span>
+                <span>Add Google Review</span>
               </button>
             </div>
             <div id="googleReviewsList" class="space-y-3">
@@ -1023,7 +1023,7 @@
             </div>
             <button onclick="window.openAddCategoryModal()" class="text-xs font-bold text-teal-700 hover:text-teal-900 flex items-center space-x-1">
               <i class="fa-solid fa-circle-plus text-xs"></i>
-              <span>+ Add New Category</span>
+              <span>Add New Category</span>
             </button>
           </div>
           <div id="healthyCategoriesOverviewGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
@@ -3026,6 +3026,7 @@
             </td>
             <td class="p-3.5 align-top max-w-xs text-[11px] text-slate-600 leading-snug">
               ${addr}
+              ${(order.deliveryAddress && (order.deliveryAddress.phone || order.deliveryPhone) && String(order.deliveryAddress.phone || order.deliveryPhone) !== String(order.customer?.phone || '')) ? `<span class="block mt-1 text-[10px] font-bold text-emerald-700">Delivery Contact: ${order.deliveryAddress.name ? order.deliveryAddress.name + ' • ' : ''}${order.deliveryAddress.phone || order.deliveryPhone}</span>` : ''}
             </td>
             <td class="p-3.5 align-top text-[11px] text-slate-800 font-semibold leading-relaxed">
               ${items}
@@ -3300,8 +3301,8 @@
           <div class="grid grid-cols-2 gap-4 text-[11px] pt-2 border-t border-slate-200">
             <div>
               <span class="font-bold text-slate-600 uppercase text-[10px]">Billed & Shipped To:</span>
-              <p class="font-black text-slate-900 mt-0.5">${order.customer?.name || 'Customer'}</p>
-              <p class="text-slate-600">${order.customer?.phone || ''}</p>
+              <p class="font-black text-slate-900 mt-0.5">${order.deliveryAddress?.name || order.customer?.name || 'Customer'}</p>
+              <p class="text-slate-600">Account: ${order.customer?.phone || ''}${(order.deliveryAddress?.phone && order.deliveryAddress.phone !== order.customer?.phone) ? ` • Delivery: ${order.deliveryAddress.phone}` : ''}</p>
               <p class="text-slate-600">${order.deliveryAddress?.address1 || ''}, ${order.deliveryAddress?.city || ''}</p>
               <p class="text-slate-600">${order.deliveryAddress?.state || ''} - ${order.deliveryAddress?.pincode || ''}</p>
             </div>

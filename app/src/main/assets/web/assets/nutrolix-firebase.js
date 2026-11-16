@@ -292,12 +292,32 @@
       }
     },
 
+    _withTimeout: function(promise, ms, fallbackVal = null) {
+      return Promise.race([
+        Promise.resolve(promise),
+        new Promise((resolve) => setTimeout(() => resolve(fallbackVal), ms))
+      ]);
+    },
+
+    _fetchWithTimeout: async function(url, options = {}, timeoutMs = 7000) {
+      if (typeof AbortController === 'function') {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+        try {
+          return await fetch(url, { ...options, signal: ctrl.signal });
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+      return await this._withTimeout(fetch(url, options), timeoutMs, null);
+    },
+
     _addressHeaders: async function() {
       const headers = { 'Content-Type': 'application/json' };
       try {
         const fbUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
         if (fbUser && typeof fbUser.getIdToken === 'function') {
-          const tok = await fbUser.getIdToken().catch(() => '');
+          const tok = await this._withTimeout(fbUser.getIdToken().catch(() => ''), 2000, '');
           if (tok) headers.Authorization = 'Bearer ' + tok;
         }
       } catch (_) {}
@@ -314,31 +334,41 @@
         updatedAt: new Date().toISOString(),
         updatedAtMillis: Date.now()
       };
-      if (db && uid) {
-        try {
-          await db.collection('users').doc(uid).collection('addresses').doc(cleanAddr.id).set(cleanAddr, { merge: true });
-        } catch (e) {
-          console.warn('Firestore saveUserAddress notice:', e.message);
-        }
-      }
+      const clientPromise = (db && uid)
+        ? this._withTimeout(
+            db.collection('users').doc(uid).collection('addresses').doc(cleanAddr.id).set(cleanAddr, { merge: true }).catch((e) => {
+              console.warn('Firestore saveUserAddress notice:', e.message);
+            }),
+            2200,
+            null
+          )
+        : Promise.resolve(null);
+
+      let serverAddr = null;
       if (uid && typeof fetch === 'function') {
         try {
           const host = (typeof window !== 'undefined' && window.NUTROLIX_API_HOST) ? window.NUTROLIX_API_HOST : '';
-          const phone = cleanAddr.phone || (String(uid).startsWith('phone_') ? String(uid).slice(6) : '');
-          const res = await fetch(host + '/api/users/addresses/save', {
-            method: 'POST',
-            headers: await this._addressHeaders(),
-            body: JSON.stringify({ uid, phone, address: cleanAddr })
-          });
-          if (res.ok) {
+          const phone = String(uid).startsWith('phone_') ? String(uid).slice(6) : (cleanAddr.phone || '');
+          const headers = await this._addressHeaders();
+          const [res] = await Promise.all([
+            this._fetchWithTimeout(host + '/api/users/addresses/save', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ uid, phone, address: cleanAddr })
+            }, 7000),
+            clientPromise
+          ]);
+          if (res && res.ok) {
             const data = await res.json().catch(() => null);
-            if (data && data.address) return data.address;
+            if (data && data.address) serverAddr = data.address;
           }
         } catch (e) {
           console.warn('Server saveUserAddress notice:', e.message);
         }
+      } else {
+        await clientPromise;
       }
-      return cleanAddr;
+      return serverAddr || cleanAddr;
     },
 
     fetchUserAddresses: async function(uid) {
@@ -348,12 +378,13 @@
         try {
           const host = (typeof window !== 'undefined' && window.NUTROLIX_API_HOST) ? window.NUTROLIX_API_HOST : '';
           const phone = String(uid).startsWith('phone_') ? String(uid).slice(6) : '';
-          const res = await fetch(host + '/api/users/addresses/list', {
+          const headers = await this._addressHeaders();
+          const res = await this._fetchWithTimeout(host + '/api/users/addresses/list', {
             method: 'POST',
-            headers: await this._addressHeaders(),
+            headers,
             body: JSON.stringify({ uid, phone })
-          });
-          if (res.ok) {
+          }, 6000);
+          if (res && res.ok) {
             const data = await res.json().catch(() => null);
             if (data && data.success && Array.isArray(data.addresses)) {
               return data.addresses;
@@ -364,7 +395,8 @@
       const db = this.getDb();
       if (!db) return [];
       try {
-        const snap = await db.collection('users').doc(uid).collection('addresses').get();
+        const snap = await this._withTimeout(db.collection('users').doc(uid).collection('addresses').get(), 3500, null);
+        if (!snap) return [];
         const list = [];
         snap.forEach(doc => list.push({ id: doc.id, ...doc.data() }));
         list.sort((a, b) => Number(b.updatedAtMillis || 0) - Number(a.updatedAtMillis || 0));
@@ -377,34 +409,45 @@
     setDefaultUserAddress: async function(uid, addrId) {
       if (!uid || !addrId) return null;
       const db = this.getDb();
-      if (db) {
-        try {
-          const snap = await db.collection('users').doc(uid).collection('addresses').get();
-          const batch = db.batch ? db.batch() : null;
-          if (batch) {
-            snap.forEach((doc) => {
-              batch.set(doc.ref, { isDefault: doc.id === addrId }, { merge: true });
-            });
-            await batch.commit();
-          } else {
-            await db.collection('users').doc(uid).collection('addresses').doc(addrId).set({ isDefault: true }, { merge: true });
-          }
-        } catch (_) {}
-      }
+      const clientPromise = db
+        ? this._withTimeout(
+            (async () => {
+              const snap = await db.collection('users').doc(uid).collection('addresses').get();
+              const batch = db.batch ? db.batch() : null;
+              if (batch) {
+                snap.forEach((doc) => {
+                  batch.set(doc.ref, { isDefault: doc.id === addrId }, { merge: true });
+                });
+                await batch.commit();
+              } else {
+                await db.collection('users').doc(uid).collection('addresses').doc(addrId).set({ isDefault: true }, { merge: true });
+              }
+            })().catch(() => {}),
+            2200,
+            null
+          )
+        : Promise.resolve(null);
+
       if (typeof fetch === 'function') {
         try {
           const host = (typeof window !== 'undefined' && window.NUTROLIX_API_HOST) ? window.NUTROLIX_API_HOST : '';
           const phone = String(uid).startsWith('phone_') ? String(uid).slice(6) : '';
-          const res = await fetch(host + '/api/users/addresses/default', {
-            method: 'POST',
-            headers: await this._addressHeaders(),
-            body: JSON.stringify({ uid, phone, addressId: addrId })
-          });
-          if (res.ok) {
+          const headers = await this._addressHeaders();
+          const [res] = await Promise.all([
+            this._fetchWithTimeout(host + '/api/users/addresses/default', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ uid, phone, addressId: addrId })
+            }, 6500),
+            clientPromise
+          ]);
+          if (res && res.ok) {
             const data = await res.json().catch(() => null);
             if (data && Array.isArray(data.addresses)) return data.addresses;
           }
         } catch (_) {}
+      } else {
+        await clientPromise;
       }
       return null;
     },
@@ -413,30 +456,41 @@
       if (!uid || !addrId) return false;
       const db = this.getDb();
       let clientOk = false;
-      if (db) {
-        try {
-          await db.collection('users').doc(uid).collection('addresses').doc(addrId).delete();
-          clientOk = true;
-        } catch (e) {
-          console.warn('Firestore deleteUserAddress notice:', e.message);
-        }
-      }
+      const clientDeletePromise = db
+        ? this._withTimeout(
+            db.collection('users').doc(uid).collection('addresses').doc(addrId).delete()
+              .then(() => { clientOk = true; return true; })
+              .catch((e) => {
+                console.warn('Firestore deleteUserAddress notice:', e.message);
+                return false;
+              }),
+            2000,
+            false
+          )
+        : Promise.resolve(false);
+
       if (typeof fetch === 'function') {
         try {
           const host = (typeof window !== 'undefined' && window.NUTROLIX_API_HOST) ? window.NUTROLIX_API_HOST : '';
           const phone = String(uid).startsWith('phone_') ? String(uid).slice(6) : '';
-          const res = await fetch(host + '/api/users/addresses/delete', {
-            method: 'POST',
-            headers: await this._addressHeaders(),
-            body: JSON.stringify({ uid, phone, addressId: addrId, addressKey })
-          });
-          if (res.ok) {
+          const headers = await this._addressHeaders();
+          const [res] = await Promise.all([
+            this._fetchWithTimeout(host + '/api/users/addresses/delete', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ uid, phone, addressId: addrId, addressKey })
+            }, 7000),
+            clientDeletePromise
+          ]);
+          if (res && res.ok) {
             const data = await res.json().catch(() => null);
             if (data && data.success) return data;
           }
         } catch (e) {
           console.warn('Server deleteUserAddress notice:', e.message);
         }
+      } else {
+        await clientDeletePromise;
       }
       return clientOk;
     },

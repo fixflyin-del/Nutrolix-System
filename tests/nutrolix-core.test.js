@@ -973,4 +973,56 @@ test('Saved address permanent deletion UI, dual-DB sync clearance, and /api/user
   }
 });
 
+test('Checkout address tick switch, default address selection, recipient phone isolation, bounded delete timeouts, and single icons', () => {
+  const rootDir = path.join(__dirname, '..');
+  const cartHtml = fs.readFileSync(path.join(rootDir, 'public', 'cart.html'), 'utf8');
+  const accountHtml = fs.readFileSync(path.join(rootDir, 'public', 'account.html'), 'utf8');
+  const ordersHtml = fs.readFileSync(path.join(rootDir, 'public', 'orders.html'), 'utf8');
+  const adminHtml = fs.readFileSync(path.join(rootDir, 'public', 'admin.html'), 'utf8');
+  const firebaseJs = fs.readFileSync(path.join(rootDir, 'public', 'assets', 'nutrolix-firebase.js'), 'utf8');
 
+  // 1. Checkout address switch & default selection
+  assert.ok(cartHtml.includes('window.isAddingNewAddress = true'), 'toggleAddNewAddressForm must activate new address mode');
+  assert.ok(cartHtml.includes('window.selectedAddressIndex = -1'), 'toggleAddNewAddressForm must deselect saved address cards');
+  assert.ok(cartHtml.includes('id="newAddressSelectedBar"'), 'cart.html must show active selection bar when New Address is selected');
+  assert.ok(cartHtml.includes('window.NutrolixFirebase.setDefaultUserAddress(user.uid, chosen.id)'), 'selectDeliveryAddress must sync default selection');
+
+  // 2. Recipient phone on deliveryAddress without clobbering logged-in verified/whatsapp number
+  assert.ok(cartHtml.includes('deliveryPhone: recipientPhone'), 'cart.html order payload must send deliveryPhone separately');
+  assert.ok(cartHtml.includes('Ordering for someone else?'), 'cart.html must clarify recipient vs login notification number');
+
+  const valRes = customerSync.validateOrderPayload({
+    orderId: 'ORD-RECIP-1',
+    uid: 'phone_9931354354',
+    customerPhone: '9931354354',
+    whatsappNumber: '9931354354',
+    customerName: 'Sk Arman',
+    deliveryPhone: '9820012345',
+    deliveryAddress: {
+      name: 'Rahul Friend',
+      phone: '9820012345',
+      address1: 'Sector 2, Taloja',
+      city: 'Taloja, Panvel',
+      state: 'Maharashtra',
+      pincode: '410208'
+    },
+    items: [{ id: 'p1', title: 'High Protein Atta', quantity: 1, price: 399 }],
+    grandTotal: 399
+  });
+  assert.equal(valRes.valid, true);
+  assert.equal(valRes.normalizedOrder.customerPhone, '9931354354');
+  assert.equal(valRes.normalizedOrder.whatsappNumber, '9931354354');
+  assert.equal(valRes.normalizedOrder.deliveryPhone, '9820012345');
+  assert.equal(valRes.normalizedOrder.deliveryAddress.phone, '9820012345');
+  assert.equal(valRes.normalizedOrder.deliveryAddress.name, 'Rahul Friend');
+
+  // 3. Delete modal bounded timeout (never stuck on Deleting...)
+  assert.ok(firebaseJs.includes('_withTimeout') && firebaseJs.includes('_fetchWithTimeout'), 'nutrolix-firebase.js must bound token/SDK/fetch operations');
+  assert.ok(accountHtml.includes('Promise.race([') && accountHtml.includes('timedOut: true'), 'confirmDeleteAddress must bound remote delete wait');
+
+  // 4. Zero duplicate icons on add/back buttons
+  assert.equal(cartHtml.includes('+ Add Different Address'), false, 'cart.html must not have double + icon');
+  assert.equal(ordersHtml.includes('← Back to Order History'), false, 'orders.html must not have double back arrow');
+  assert.equal(adminHtml.includes('+ Add Google Review'), false, 'admin.html must not have double + icon on Google Review button');
+  assert.equal(adminHtml.includes('+ Add New Category'), false, 'admin.html must not have double + icon on Add Category button');
+});

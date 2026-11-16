@@ -2591,47 +2591,55 @@ const server = http.createServer(async (req, res) => {
                       const nowIso = new Date().toISOString();
                       const nowMs = Date.now();
         
+                      const deliveryRecipientPhone =
+                        normalizePhone(addr.phone || addr.recipientPhone || order.deliveryPhone) ||
+                        order.customerPhone;
+                      const deliveryRecipientName = String(addr.name || bestName || '').trim() || bestName;
+                      const profileWhatsapp = normalizePhone(
+                        (existingUser && existingUser.whatsappNumber) || order.whatsappNumber || order.customerPhone
+                      ) || order.customerPhone;
+
                       await nutrolixCore.firestorePatchBothDbs(`users/${order.uid}`, {
                         uid: order.uid,
                         id: order.uid,
                         name: bestName,
                         phone: order.customerPhone,
                         verifiedPhone: order.customerPhone,
-                        whatsappNumber: order.whatsappNumber || order.customerPhone,
+                        whatsappNumber: profileWhatsapp,
                         email: order.customerEmail || (existingUser && existingUser.email) || '',
                         lastOrderId: order.orderId,
                         lastOrderAmount: order.grandTotal,
-                        defaultAddress: addrLine || (existingUser && existingUser.defaultAddress) || '',
-                        currentAddress: formattedFullAddr || (existingUser && existingUser.currentAddress) || '',
+                        defaultAddress: (existingUser && existingUser.defaultAddress) || addrLine || '',
+                        currentAddress: (existingUser && existingUser.currentAddress) || formattedFullAddr || '',
                         lastAddress: formattedFullAddr || (existingUser && existingUser.lastAddress) || '',
-                        city: addrCity || (existingUser && existingUser.city) || '',
-                        state: addrState || (existingUser && existingUser.state) || '',
-                        pincode: addrPin || (existingUser && existingUser.pincode) || '',
+                        city: (existingUser && existingUser.city) || addrCity || '',
+                        state: (existingUser && existingUser.state) || addrState || '',
+                        pincode: (existingUser && existingUser.pincode) || addrPin || '',
                         addressesCleared: false,
                         updatedAt: nowIso,
                         updatedAtMillis: nowMs
                       });
-        
+
                       if (addrLine && addrPin.length === 6) {
                         const existingAddrsDefault = await nutrolixCore.firestoreListDocuments(`users/${order.uid}/addresses`, nutrolixCore.DEFAULT_DB_ID);
                         const existingAddrsNamed = await nutrolixCore.firestoreListDocuments(`users/${order.uid}/addresses`, nutrolixCore.NAMED_DB_ID);
                         const allExistingAddrs = [...existingAddrsDefault, ...existingAddrsNamed];
-                        const normKey = (a) => `${String(a.pincode || '').replace(/\D/g, '').slice(0, 6)}_${String(a.address1 || a.street || '').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-                        const targetKey = normKey({ address1: addrLine, pincode: addrPin });
+                        const normKey = (a) => `${String(a.pincode || '').replace(/\D/g, '').slice(0, 6)}_${String(a.address1 || a.street || '').toLowerCase().replace(/[^a-z0-9]/g, '')}_${normalizePhone(a.phone || '')}`;
+                        const targetKey = normKey({ address1: addrLine, pincode: addrPin, phone: deliveryRecipientPhone });
                         const matchedExisting = allExistingAddrs.find((a) => normKey(a) === targetKey);
                         const isFirstAddr = allExistingAddrs.length === 0;
                         const addrId = matchedExisting
                           ? String(matchedExisting.id || matchedExisting._docId || 'addr_primary')
                           : (isFirstAddr ? 'addr_primary' : ('addr_' + require('crypto').createHash('sha1').update(targetKey).digest('hex').slice(0, 10)));
-        
+
                         const addressRecord = {
                           id: addrId,
                           uid: order.uid,
                           tag: (matchedExisting && matchedExisting.tag) || 'Home',
-                          name: bestName,
-                          fullName: bestName,
-                          phone: order.customerPhone,
-                          whatsappNumber: order.whatsappNumber || order.customerPhone,
+                          name: deliveryRecipientName,
+                          fullName: deliveryRecipientName,
+                          phone: deliveryRecipientPhone,
+                          whatsappNumber: deliveryRecipientPhone,
                           street: addrLine,
                           address1: addrLine,
                           city: addrCity,

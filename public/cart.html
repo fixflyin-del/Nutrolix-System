@@ -289,9 +289,9 @@
               </h3>
               <p class="text-[11px] text-slate-500">Select one of your saved delivery addresses from your profile</p>
             </div>
-            <button type="button" onclick="window.toggleAddNewAddressForm()" class="text-xs text-emerald-700 font-extrabold hover:underline flex items-center space-x-1">
-              <i class="fa-solid fa-plus text-[10px]"></i>
-              <span>+ Add Different Address</span>
+            <button type="button" id="btnToggleNewAddress" onclick="window.toggleAddNewAddressForm()" class="text-xs text-emerald-700 font-extrabold hover:underline flex items-center space-x-1 cursor-pointer">
+              <i id="btnToggleNewAddressIcon" class="fa-solid fa-plus text-[10px]"></i>
+              <span id="btnToggleNewAddressText">Add Different Address</span>
             </button>
           </div>
 
@@ -305,11 +305,19 @@
         <!-- STREAMLINED CHECKOUT FORM (WHATSAPP OTP + AUTO-LOCATION) -->
         <!-- ======================================================== -->
         <div id="newAddressFormCard" class="bg-white rounded-2xl p-5 sm:p-6 shadow-sm border border-slate-200 space-y-4">
+          <div id="newAddressSelectedBar" class="hidden px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-between gap-2 text-xs">
+            <div class="flex items-center space-x-2 min-w-0">
+              <i class="fa-solid fa-circle-check text-emerald-600 text-sm shrink-0"></i>
+              <span class="font-black text-emerald-950 truncate">New Delivery Address Selected for This Order</span>
+            </div>
+            <button type="button" onclick="window.useSavedAddressInstead()" class="text-[11px] font-black text-emerald-800 hover:underline shrink-0 cursor-pointer">Use Saved</button>
+          </div>
+
           <div class="flex flex-wrap items-center justify-between pb-3 border-b border-slate-100 gap-2">
             <div>
               <h3 class="text-base sm:text-lg font-black text-slate-900 flex items-center space-x-2">
                 <i class="fa-solid fa-location-dot text-emerald-600"></i>
-                <span>Delivery &amp; Checkout</span>
+                <span id="checkoutCardTitle">Delivery &amp; Checkout</span>
               </h3>
               <p id="checkoutCardSubtitle" class="text-[11px] text-slate-500">Verify WhatsApp number &amp; enter your one-line address</p>
             </div>
@@ -319,12 +327,12 @@
           </div>
 
           <form id="addressForm" class="space-y-4" onsubmit="event.preventDefault()">
-            <!-- 1. WhatsApp Number Login (10-digit + inline round OK button inside right side) -->
+            <!-- 1. WhatsApp Number Login (or Recipient Delivery Number when logged in) -->
             <div>
-              <label class="block text-xs font-black text-slate-800 mb-1 flex items-center justify-between">
+              <label class="block text-xs font-black text-slate-800 mb-1 flex items-center justify-between gap-2">
                 <span class="flex items-center space-x-1.5">
                   <i class="fa-brands fa-whatsapp text-emerald-600 text-sm"></i>
-                  <span>WhatsApp Number *</span>
+                  <span id="custPhoneFieldLabel">WhatsApp Number *</span>
                 </span>
                 <span id="cartPhoneVerifiedTag" class="hidden text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">OTP Verified ✓</span>
               </label>
@@ -336,6 +344,9 @@
                   <i class="fa-solid fa-arrow-right text-[10px]"></i>
                 </button>
               </div>
+              <p id="custPhoneRecipientHint" class="hidden text-[10px] text-slate-500 mt-1 font-medium">
+                Ordering for someone else? Edit this recipient number for this delivery address — order updates still go to your verified login number.
+              </p>
 
               <!-- Inline OTP Entry Box (Revealed when OK is tapped) -->
               <div id="cartInlineOtpBox" class="hidden mt-2.5 p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-2">
@@ -1079,38 +1090,65 @@
       const addresses = getSavedAddresses();
       const section = document.getElementById('savedAddressesSection');
       const formCard = document.getElementById('newAddressFormCard');
+      const selectedBar = document.getElementById('newAddressSelectedBar');
       const container = document.getElementById('savedAddressCardsList');
+      const toggleBtnText = document.getElementById('btnToggleNewAddressText');
+      const toggleBtnIcon = document.getElementById('btnToggleNewAddressIcon');
 
       if (!addresses || addresses.length === 0) {
+        window.isAddingNewAddress = false;
+        window.selectedAddressIndex = -1;
+        selectedSavedAddress = null;
         section.classList.add('hidden');
         formCard.classList.remove('hidden');
+        formCard.classList.remove('border-emerald-600', 'border-2');
+        formCard.classList.add('border-slate-200', 'border');
+        if (selectedBar) selectedBar.classList.add('hidden');
         return;
       }
 
-      // If user has saved addresses, display them as selectable cards
       section.classList.remove('hidden');
-      formCard.classList.add('hidden');
 
-      // Default select the first or previously selected address
-      if (typeof window.selectedAddressIndex === 'undefined' || window.selectedAddressIndex === null || window.selectedAddressIndex >= addresses.length) {
-        window.selectedAddressIndex = 0;
+      if (window.isAddingNewAddress) {
+        window.selectedAddressIndex = -1;
+        selectedSavedAddress = null;
+        formCard.classList.remove('hidden', 'border-slate-200', 'border');
+        formCard.classList.add('border-2', 'border-emerald-600');
+        if (selectedBar) selectedBar.classList.remove('hidden');
+        if (toggleBtnText) toggleBtnText.textContent = 'Use Saved Address';
+        if (toggleBtnIcon) toggleBtnIcon.className = 'fa-solid fa-check text-[10px]';
+      } else {
+        let chosenIdx = Number(window.selectedAddressIndex);
+        if (!Number.isInteger(chosenIdx) || chosenIdx < 0 || chosenIdx >= addresses.length) {
+          const defIdx = addresses.findIndex((a) => Boolean(a && a.isDefault));
+          chosenIdx = defIdx >= 0 ? defIdx : 0;
+        }
+        window.selectedAddressIndex = chosenIdx;
+        selectedSavedAddress = addresses[chosenIdx];
+        formCard.classList.add('hidden');
+        formCard.classList.remove('border-emerald-600', 'border-2');
+        formCard.classList.add('border-slate-200', 'border');
+        if (selectedBar) selectedBar.classList.add('hidden');
+        if (toggleBtnText) toggleBtnText.textContent = 'Add Different Address';
+        if (toggleBtnIcon) toggleBtnIcon.className = 'fa-solid fa-plus text-[10px]';
       }
-      selectedSavedAddress = addresses[window.selectedAddressIndex];
 
       container.innerHTML = addresses.map((addr, idx) => {
-        const isSelected = (idx === window.selectedAddressIndex);
+        const isSelected = (!window.isAddingNewAddress && idx === window.selectedAddressIndex);
+        const addrLine = [addr.address1 || addr.street || '', addr.city, addr.state].filter(Boolean).join(', ');
         return `
           <div onclick="window.selectDeliveryAddress(${idx})" class="p-4 rounded-2xl border-2 transition cursor-pointer flex items-start justify-between gap-3 ${isSelected ? 'border-emerald-600 bg-emerald-50/50' : 'border-slate-200 bg-white hover:border-slate-300'}">
             <div class="flex items-start space-x-3">
               <input type="radio" name="chosenSavedAddress" ${isSelected ? 'checked' : ''} class="mt-1 text-emerald-600 focus:ring-emerald-500">
               <div>
-                <div class="flex items-center space-x-2">
+                <div class="flex flex-wrap items-center gap-1.5">
                   <span class="text-xs font-black text-slate-900">${addr.name || 'Recipient'}</span>
                   <span class="text-[9px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold">${addr.tag || ('Address ' + (idx + 1))}</span>
+                  ${addr.isDefault ? '<span class="text-[9px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-black">Default</span>' : ''}
                   ${isSelected ? '<span class="text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">Selected</span>' : ''}
                 </div>
-                <p class="text-xs text-slate-600 mt-1 font-semibold">${[addr.address1 || addr.street || '', addr.city, addr.state].filter(Boolean).join(', ')}${addr.pincode ? ' - ' + addr.pincode : ''}</p>
-                <p class="text-[11px] text-emerald-700 font-bold mt-0.5"><i class="fa-solid fa-phone mr-1"></i>${addr.phone}</p>
+                <p class="text-xs text-slate-600 mt-1 font-semibold">${addrLine}${addr.pincode ? ' - ' + addr.pincode : ''}</p>
+                ${addr.phone ? `<p class="text-[11px] text-emerald-700 font-bold mt-0.5"><i class="fa-solid fa-phone mr-1"></i>${addr.phone}</p>` : ''}
               </div>
             </div>
             <i class="fa-solid fa-circle-check text-base ${isSelected ? 'text-emerald-600' : 'text-slate-200'}"></i>
@@ -1120,21 +1158,75 @@
     }
 
     window.selectDeliveryAddress = function(index) {
-      window.selectedAddressIndex = index;
       const addresses = getSavedAddresses();
-      if (addresses[index]) {
-        selectedSavedAddress = addresses[index];
-        checkAndRenderSavedAddresses();
-      }
+      if (!addresses || !addresses[index]) return;
+
+      window.isAddingNewAddress = false;
+      window.selectedAddressIndex = index;
+      addresses.forEach((a, i) => { a.isDefault = (i === index); });
+      const chosen = addresses[index];
+      selectedSavedAddress = chosen;
+
+      try {
+        localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(addresses));
+        const curProf = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+        localStorage.setItem('nutrolix_user_profile', JSON.stringify({
+          ...curProf,
+          defaultAddress: chosen.address1 || chosen.street || '',
+          address1: chosen.address1 || chosen.street || '',
+          city: chosen.city || '',
+          state: chosen.state || '',
+          pincode: chosen.pincode || '',
+          addressesCleared: false
+        }));
+      } catch (_) {}
+
+      checkAndRenderSavedAddresses();
+
+      try {
+        const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
+        if (user && user.uid && chosen.id && window.NutrolixFirebase && typeof window.NutrolixFirebase.setDefaultUserAddress === 'function') {
+          window.NutrolixFirebase.setDefaultUserAddress(user.uid, chosen.id).catch(() => {});
+        }
+      } catch (_) {}
+    };
+
+    window.useSavedAddressInstead = function() {
+      const addresses = getSavedAddresses();
+      if (!addresses || addresses.length === 0) return;
+      const defIdx = addresses.findIndex((a) => Boolean(a && a.isDefault));
+      window.selectDeliveryAddress(defIdx >= 0 ? defIdx : 0);
     };
 
     window.toggleAddNewAddressForm = function() {
-      const formCard = document.getElementById('newAddressFormCard');
-      selectedSavedAddress = null;
-      formCard.classList.toggle('hidden');
-      if (!formCard.classList.contains('hidden')) {
-        formCard.scrollIntoView({ behavior: 'smooth' });
+      const addresses = getSavedAddresses();
+      if (window.isAddingNewAddress && addresses.length > 0) {
+        window.useSavedAddressInstead();
+        return;
       }
+
+      window.isAddingNewAddress = true;
+      window.selectedAddressIndex = -1;
+      selectedSavedAddress = null;
+
+      // Clear street line if it holds an existing saved street so user types the new address cleanly
+      const addrInput = document.getElementById('custAddress1');
+      if (addrInput) {
+        const curLine = addrInput.value.trim().toLowerCase();
+        const matchesSaved = addresses.some((a) => String(a.address1 || a.street || '').trim().toLowerCase() === curLine);
+        if (matchesSaved || addresses.length > 0) {
+          addrInput.value = '';
+        }
+      }
+
+      checkAndRenderSavedAddresses();
+      window.updateCartPhoneOkButtonState();
+
+      const formCard = document.getElementById('newAddressFormCard');
+      if (formCard) {
+        formCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      setTimeout(() => document.getElementById('custAddress1')?.focus(), 180);
     };
 
     // Instant Pincode Database for accurate Navi Mumbai & Maharashtra resolution (ZERO KURLA)
@@ -1455,19 +1547,26 @@
         const preservedVerifiedPhone = isAuthed
           ? String(existing.verifiedPhone || existing.phone || (String(existing.uid).startsWith('phone_') ? String(existing.uid).slice(6) : '') || '').replace(/\D/g, '').slice(-10)
           : '';
+        // When an authenticated user is adding a different delivery address / recipient phone,
+        // keep their verified profile login phone, whatsappNumber & existing defaultAddress untouched.
+        const preserveExistingDefault = Boolean(window.isAddingNewAddress);
         const profile = {
           ...existing,
-          name: typedName || existing.name || '',
-          whatsappNumber: typedPhone || existing.whatsappNumber || preservedVerifiedPhone || '',
-          phone: preservedVerifiedPhone || typedPhone || existing.phone || '',
+          name: (!preserveExistingDefault && typedName) ? typedName : (existing.name || typedName || ''),
+          whatsappNumber: isAuthed
+            ? (existing.whatsappNumber || preservedVerifiedPhone || '')
+            : (typedPhone || existing.whatsappNumber || ''),
+          phone: preservedVerifiedPhone || (isAuthed ? existing.phone : typedPhone) || '',
           verifiedPhone: preservedVerifiedPhone || existing.verifiedPhone || '',
-          whatsapp: typedPhone || existing.whatsapp || preservedVerifiedPhone || '',
+          whatsapp: isAuthed
+            ? (existing.whatsapp || existing.whatsappNumber || preservedVerifiedPhone || '')
+            : (typedPhone || existing.whatsapp || ''),
           email: document.getElementById('custEmail').value.trim() || (existing.email || ''),
-          address1: document.getElementById('custAddress1').value.trim(),
-          defaultAddress: document.getElementById('custAddress1').value.trim(),
-          city: document.getElementById('custCity').value.trim(),
-          state: document.getElementById('custState').value.trim(),
-          pincode: document.getElementById('custPincode').value.trim()
+          address1: preserveExistingDefault ? (existing.address1 || '') : document.getElementById('custAddress1').value.trim(),
+          defaultAddress: preserveExistingDefault ? (existing.defaultAddress || '') : document.getElementById('custAddress1').value.trim(),
+          city: preserveExistingDefault ? (existing.city || '') : document.getElementById('custCity').value.trim(),
+          state: preserveExistingDefault ? (existing.state || '') : document.getElementById('custState').value.trim(),
+          pincode: preserveExistingDefault ? (existing.pincode || '') : document.getElementById('custPincode').value.trim()
         };
         localStorage.setItem('nutrolix_user_profile', JSON.stringify(profile));
       } catch (_) {}
@@ -1495,6 +1594,17 @@
       const okBtn = document.getElementById('cartPhoneOkBtn');
       const tagEl = document.getElementById('cartPhoneVerifiedTag');
       const otpBox = document.getElementById('cartInlineOtpBox');
+      const labelEl = document.getElementById('custPhoneFieldLabel');
+      const hintEl = document.getElementById('custPhoneRecipientHint');
+      if (labelEl) {
+        labelEl.textContent = isAuthed ? 'Delivery / Recipient WhatsApp *' : 'WhatsApp Number *';
+      }
+      if (hintEl) {
+        hintEl.classList.toggle('hidden', !isAuthed);
+        if (isAuthed) {
+          hintEl.textContent = `Ordering for someone else? Edit this recipient number for this delivery address — order updates still go to your login number (+91 ${verifiedDigits}).`;
+        }
+      }
       if (okBtn) {
         if (isAuthed) {
           // Already logged-in user does NOT need an OTP trigger button
@@ -1506,7 +1616,9 @@
         }
       }
       if (tagEl) {
-        tagEl.textContent = isAuthed ? (isMatch ? 'WhatsApp Verified ✓' : `Logged in (+91 ${verifiedDigits}) ✓`) : 'OTP Verified ✓';
+        tagEl.textContent = isAuthed
+          ? (isMatch ? 'Profile Verified ✓' : `Recipient Contact • Updates to +91 ${verifiedDigits}`)
+          : 'OTP Verified ✓';
         tagEl.classList.toggle('hidden', !isAuthed);
       }
       if (isAuthed && otpBox) {
@@ -1861,18 +1973,17 @@
 
       // Validate delivery address and PIN for already-authenticated user.
       const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+      const useSaved = Boolean(!window.isAddingNewAddress && selectedSavedAddress);
+      const allowProfileFallback = (!window.isAddingNewAddress && getSavedAddresses().length === 0);
       const address = (
-        (selectedSavedAddress ? selectedSavedAddress.address1 : '') ||
-        document.getElementById('custAddress1')?.value ||
-        profile.address1 ||
-        profile.defaultAddress ||
-        ''
+        useSaved
+          ? (selectedSavedAddress.address1 || selectedSavedAddress.street || '')
+          : (document.getElementById('custAddress1')?.value || (allowProfileFallback ? (profile.address1 || profile.defaultAddress) : '') || '')
       ).trim();
       const pincode = (
-        (selectedSavedAddress ? selectedSavedAddress.pincode : '') ||
-        document.getElementById('custPincode')?.value ||
-        profile.pincode ||
-        ''
+        useSaved
+          ? (selectedSavedAddress.pincode || '')
+          : (document.getElementById('custPincode')?.value || (allowProfileFallback ? profile.pincode : '') || '')
       ).replace(/\D/g, '').slice(0, 6);
 
       if (!address || address.length < 4 || pincode.length !== 6) {
@@ -1897,16 +2008,19 @@
       const user = (window.getNutrolixUser ? window.getNutrolixUser() : null) || {};
       const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
 
-      let name, phone, email, address1, city, state, pincode, gpsLat, gpsLon, googleMapsLink;
+      let name, recipientPhone, email, address1, city, state, pincode, gpsLat, gpsLon, googleMapsLink;
       const storeCoordsAllowed = Boolean(locationConsentGranted);
       const fallbackDisplayName = (user.name && user.name !== 'Nutrolix Customer' && user.name !== 'Nutrolix Member') ? user.name : 'Nutrolix Customer';
       const verifiedPhone = String(
         user.verifiedPhone || user.phone || (String(user.uid || '').startsWith('phone_') ? String(user.uid).slice(6) : '')
       ).replace(/\D/g, '').slice(-10);
 
-      if (selectedSavedAddress) {
+      const useSaved = Boolean(!window.isAddingNewAddress && selectedSavedAddress);
+      const allowProfileFallback = (!window.isAddingNewAddress && getSavedAddresses().length === 0);
+
+      if (useSaved) {
         name = selectedSavedAddress.name || document.getElementById('custName').value.trim() || fallbackDisplayName;
-        phone = selectedSavedAddress.phone || document.getElementById('custPhone').value.trim() || verifiedPhone || profile.whatsappNumber || '';
+        recipientPhone = selectedSavedAddress.phone || document.getElementById('custPhone').value.trim() || verifiedPhone || '';
         email = user.email || profile.email || '';
         address1 = selectedSavedAddress.address1 || selectedSavedAddress.street || '';
         city = selectedSavedAddress.city || '';
@@ -1916,17 +2030,19 @@
         gpsLon = storeCoordsAllowed ? selectedSavedAddress.gpsLon : null;
       } else {
         name = document.getElementById('custName').value.trim() || fallbackDisplayName;
-        phone = document.getElementById('custPhone').value.trim() || verifiedPhone || profile.whatsappNumber || '';
+        recipientPhone = document.getElementById('custPhone').value.trim() || verifiedPhone || '';
         email = user.email || document.getElementById('custEmail').value.trim() || profile.email || '';
-        address1 = document.getElementById('custAddress1').value.trim() || profile.address1 || profile.defaultAddress || '';
-        pincode = document.getElementById('custPincode').value.trim() || profile.pincode || '';
-        city = document.getElementById('custCity').value.trim() || profile.city || '';
-        state = document.getElementById('custState').value.trim() || profile.state || '';
+        address1 = document.getElementById('custAddress1').value.trim() || (allowProfileFallback ? (profile.address1 || profile.defaultAddress || '') : '');
+        pincode = document.getElementById('custPincode').value.trim() || (allowProfileFallback ? (profile.pincode || '') : '');
+        city = document.getElementById('custCity').value.trim() || (allowProfileFallback ? (profile.city || '') : '');
+        state = document.getElementById('custState').value.trim() || (allowProfileFallback ? (profile.state || '') : '');
         gpsLat = storeCoordsAllowed ? (document.getElementById('custGpsLat').value || null) : null;
         gpsLon = storeCoordsAllowed ? (document.getElementById('custGpsLon').value || null) : null;
       }
 
-      phone = String(phone || verifiedPhone || '').replace(/\D/g, '').slice(-10) || verifiedPhone;
+      const rawRecipientDigits = String(recipientPhone || '').replace(/\D/g, '').slice(-10);
+      recipientPhone = /^[6-9]\d{9}$/.test(rawRecipientDigits) ? rawRecipientDigits : (rawRecipientDigits.length === 10 ? rawRecipientDigits : verifiedPhone);
+      const phone = recipientPhone;
       if (!user.uid || verifiedPhone.length !== 10) {
         window.handleCartInlinePhoneOk(false);
         return;
@@ -1951,19 +2067,32 @@
       const idempotencyKey = idemInfo.key;
       const nowIso = new Date().toISOString();
       const nowMs = Date.now();
+      const accountCustomerName = (user.name && user.name !== 'Nutrolix Customer' && user.name !== 'Nutrolix Member') ? user.name : name;
       const orderPayload = {
         id: generatedOrderId,
         orderId: generatedOrderId,
         orderNumber: generatedOrderId,
         idempotencyKey,
         uid: user.uid || '',
-        customer: { name, phone: verifiedPhone, contactPhone: phone, email, whatsappNumber: verifiedPhone, verifiedPhone },
-        customerName: name,
+        customer: {
+          name: accountCustomerName,
+          phone: verifiedPhone,
+          contactPhone: recipientPhone,
+          email,
+          whatsappNumber: verifiedPhone,
+          verifiedPhone
+        },
+        customerName: accountCustomerName,
         customerPhone: verifiedPhone,
         whatsappNumber: verifiedPhone,
         verifiedPhone,
+        deliveryPhone: recipientPhone,
         customerEmail: email,
         deliveryAddress: {
+          name,
+          phone: recipientPhone,
+          recipientPhone,
+          whatsappNumber: recipientPhone,
           address1,
           city,
           state,
@@ -1999,27 +2128,30 @@
       })();
       const isFirstAddress = existingSavedList.length === 0;
       const addrToSave = {
-        id: selectedSavedAddress?.id || (isFirstAddress ? 'addr_primary' : ('addr_' + nowMs.toString(36))),
+        id: useSaved && selectedSavedAddress?.id ? selectedSavedAddress.id : (isFirstAddress ? 'addr_primary' : ('addr_' + nowMs.toString(36))),
         uid: user.uid || '',
-        tag: selectedSavedAddress?.tag || 'Home',
+        tag: (useSaved && selectedSavedAddress?.tag) ? selectedSavedAddress.tag : 'Home',
         name,
         fullName: name,
-        phone: verifiedPhone || phone,
-        whatsappNumber: verifiedPhone || phone,
+        phone: recipientPhone,
+        whatsappNumber: recipientPhone,
         street: address1,
         address1,
         city,
         state,
         pincode,
-        isDefault: selectedSavedAddress ? Boolean(selectedSavedAddress.isDefault) : isFirstAddress,
+        isDefault: useSaved ? true : isFirstAddress,
         updatedAt: nowIso,
         updatedAtMillis: nowMs
       };
 
       try {
         const normLine = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const cleanDigits = (v) => String(v || '').replace(/\D/g, '').slice(-10);
         const alreadyInLocal = existingSavedList.some((a) =>
-          normLine(a.address1 || a.street) === normLine(address1) && String(a.pincode || '').trim() === String(pincode).trim()
+          normLine(a.address1 || a.street) === normLine(address1) &&
+          String(a.pincode || '').trim() === String(pincode).trim() &&
+          cleanDigits(a.phone) === cleanDigits(recipientPhone)
         );
         if (!alreadyInLocal) {
           existingSavedList.unshift(addrToSave);
@@ -2029,13 +2161,16 @@
         const curProf = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
         localStorage.setItem('nutrolix_user_profile', JSON.stringify({
           ...curProf,
-          defaultAddress: address1,
-          address1,
-          city,
-          state,
-          pincode,
+          whatsappNumber: curProf.whatsappNumber || verifiedPhone,
+          verifiedPhone,
+          phone: verifiedPhone,
+          defaultAddress: addrToSave.isDefault ? address1 : (curProf.defaultAddress || address1),
+          address1: addrToSave.isDefault ? address1 : (curProf.address1 || address1),
+          city: addrToSave.isDefault ? city : (curProf.city || city),
+          state: addrToSave.isDefault ? state : (curProf.state || state),
+          pincode: addrToSave.isDefault ? pincode : (curProf.pincode || pincode),
           addressesCleared: false,
-          name: (name && name !== 'Nutrolix Customer') ? name : (curProf.name || '')
+          name: (accountCustomerName && accountCustomerName !== 'Nutrolix Customer') ? accountCustomerName : (curProf.name || '')
         }));
       } catch (_) {}
 
@@ -2043,15 +2178,18 @@
         const persistOps = [
           window.NutrolixFirebase.saveUserAddress(user.uid, addrToSave).catch(() => {}),
           window.NutrolixFirebase.saveUserProfile(user.uid, {
-            name,
+            name: accountCustomerName,
             email,
-            whatsappNumber: verifiedPhone || phone,
+            whatsappNumber: verifiedPhone,
             verifiedPhone,
-            defaultAddress: address1,
-            currentAddress: [address1, city, state, pincode].filter(Boolean).join(', '),
-            city,
-            state,
-            pincode
+            phone: verifiedPhone,
+            ...(addrToSave.isDefault ? {
+              defaultAddress: address1,
+              currentAddress: [address1, city, state, pincode].filter(Boolean).join(', '),
+              city,
+              state,
+              pincode
+            } : {})
           }).catch(() => {})
         ];
         await Promise.race([Promise.allSettled(persistOps), new Promise((r) => setTimeout(r, 1500))]);

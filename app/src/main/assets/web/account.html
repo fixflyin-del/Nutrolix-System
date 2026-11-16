@@ -464,6 +464,17 @@
 
         <div class="grid grid-cols-2 gap-3">
           <div>
+            <label class="block font-bold text-slate-700 mb-1">Recipient Name</label>
+            <input type="text" id="newAddrRecipientName" placeholder="Recipient Name" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+          <div>
+            <label class="block font-bold text-slate-700 mb-1">Delivery Phone / WhatsApp</label>
+            <input type="tel" id="newAddrRecipientPhone" maxlength="10" inputmode="numeric" placeholder="10-digit number" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
             <label class="block font-bold text-slate-700 mb-1">PIN Code (6 digits) *</label>
             <input type="text" id="newAddrPincode" required maxlength="6" inputmode="numeric" placeholder="e.g. 400001" oninput="window.handleModalPincodeInput(this.value)" class="w-full p-2.5 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500">
           </div>
@@ -904,12 +915,13 @@
       container.innerHTML = saved.map((addr, idx) => `
         <div class="p-3.5 bg-slate-50 border ${addr.isDefault ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-200'} rounded-2xl flex items-center justify-between text-xs gap-2">
           <div class="space-y-0.5 min-w-0">
-            <div class="flex items-center space-x-2">
+            <div class="flex flex-wrap items-center gap-1.5">
               <span class="px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-black text-[10px]">${addr.tag || 'Address'}</span>
+              ${addr.name ? `<span class="font-black text-slate-800 text-[11px]">${addr.name}</span>` : ''}
               ${addr.isDefault ? '<span class="text-[9px] font-black text-emerald-700 uppercase">Default</span>' : ''}
             </div>
             <p class="font-bold text-slate-900 mt-1 break-words">${addr.street || addr.address1 || ''}</p>
-            <p class="text-slate-500 text-[11px]">${addr.city || ''} • PIN: ${addr.pincode || ''}</p>
+            <p class="text-slate-500 text-[11px]">${addr.city || ''} • PIN: ${addr.pincode || ''}${addr.phone ? ` • +91 ${String(addr.phone).replace(/\D/g, '').slice(-10)}` : ''}</p>
           </div>
           <div class="flex items-center space-x-2 shrink-0">
             ${!addr.isDefault ? `<button type="button" onclick="window.setDefaultAddress(${idx})" class="text-[10px] text-emerald-700 hover:underline font-bold">Set Default</button>` : ''}
@@ -1030,15 +1042,27 @@
         const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
         if (user && user.uid && removed && window.NutrolixFirebase && typeof window.NutrolixFirebase.deleteUserAddress === 'function') {
           const normKey = `${String(removed.pincode || '').replace(/\D/g, '').slice(0, 6)}_${String(removed.address1 || removed.street || '').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
-          const srvRes = await window.NutrolixFirebase.deleteUserAddress(user.uid, removed.id || 'addr_primary', normKey);
-          if (srvRes && Array.isArray(srvRes.addresses)) {
-            saved = srvRes.addresses;
-            localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
+          try {
+            const deletePromise = window.NutrolixFirebase.deleteUserAddress(user.uid, removed.id || 'addr_primary', normKey);
+            const srvRes = await Promise.race([
+              deletePromise,
+              new Promise((resolve) => setTimeout(() => resolve({ timedOut: true }), 6500))
+            ]);
+            if (srvRes && srvRes.success && Array.isArray(srvRes.addresses)) {
+              saved = srvRes.addresses;
+              localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
+            }
+          } catch (delErr) {
+            console.warn('Address delete remote sync notice:', delErr && delErr.message);
           }
         }
 
         window.closeDeleteAddressModal();
         window.dispatchEvent(new CustomEvent('nutrolix:addresses-updated', { detail: saved }));
+        renderAddresses();
+      } catch (outerErr) {
+        console.warn('confirmDeleteAddress error:', outerErr);
+        window.closeDeleteAddressModal();
         renderAddresses();
       } finally {
         if (confirmBtn) {
@@ -1050,14 +1074,19 @@
 
     window.openAddressModal = function() {
       modalDetectedCoords = null;
+      const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
       const streetEl = document.getElementById('newAddrStreet');
       const pinEl = document.getElementById('newAddrPincode');
       const cityEl = document.getElementById('newAddrCity');
+      const recNameEl = document.getElementById('newAddrRecipientName');
+      const recPhoneEl = document.getElementById('newAddrRecipientPhone');
       const coordsChk = document.getElementById('chkModalStoreCoords');
       const gpsText = document.getElementById('modalGpsBtnText');
       if (streetEl) streetEl.value = '';
       if (pinEl) pinEl.value = '';
       if (cityEl) cityEl.value = '';
+      if (recNameEl) recNameEl.value = (user && user.name && user.name !== 'Nutrolix Customer' && user.name !== 'Nutrolix Member') ? user.name : '';
+      if (recPhoneEl) recPhoneEl.value = (user && (user.verifiedPhone || user.phone)) ? String(user.verifiedPhone || user.phone).replace(/\D/g, '').slice(-10) : '';
       if (coordsChk) coordsChk.checked = false;
       if (gpsText) gpsText.textContent = 'Use My Current Location';
       window.setModalTag('Home');
@@ -1209,12 +1238,17 @@
       if (!Array.isArray(saved)) saved = [];
 
       const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
+      const recName = (document.getElementById('newAddrRecipientName')?.value || '').trim() || (user && user.name) || 'Customer';
+      const recPhoneRaw = (document.getElementById('newAddrRecipientPhone')?.value || '').replace(/\D/g, '').slice(-10);
+      const recPhone = recPhoneRaw.length === 10 ? recPhoneRaw : ((user && (user.verifiedPhone || user.phone)) || '');
       const newAddr = {
         id: 'addr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
         uid: (user && user.uid) || '',
         tag: document.getElementById('newAddrTag').value.trim() || 'Home',
-        name: (user && user.name) || 'Customer',
-        phone: (user && (user.verifiedPhone || user.phone)) || '',
+        name: recName,
+        fullName: recName,
+        phone: recPhone,
+        whatsappNumber: recPhone,
         street,
         address1: street,
         city,
