@@ -2647,6 +2647,15 @@ const server = http.createServer(async (req, res) => {
         if (!existingOrder) {
           existingOrder = await nutrolixCore.firestoreGetFirstAvailable(`orders/${orderId}`);
         }
+        const paymentMethod = String((existingOrder && existingOrder.paymentMethod) || '').toLowerCase();
+        const paymentStatus = String((existingOrder && existingOrder.paymentStatus) || '').toLowerCase();
+        const requiresOnlinePayment = Boolean(existingOrder && existingOrder.txnid) ||
+          /payu|online|upi|card|net.?bank/i.test(paymentMethod);
+        if (requiresOnlinePayment && !/^(paid|success|successful|completed|captured)(\b|\s)/i.test(paymentStatus)) {
+          res.writeHead(409, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Payment is not confirmed. Order tracking cannot be started.' }));
+          return;
+        }
 
         const nowIso = new Date().toISOString();
         const targetPhone = customerSync.extractOrderPhone({
