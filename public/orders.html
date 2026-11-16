@@ -555,6 +555,16 @@
       return p ? String(p).replace(/\D/g, '').slice(-10) : '';
     }
 
+    function isPaidCustomerOrder(order) {
+      if (!order) return false;
+      const method = String(order.paymentMethod || '').toLowerCase();
+      const paymentStatus = String(order.paymentStatus || '').trim().toLowerCase();
+      const isOnlinePayment = Boolean(order.txnid) ||
+        /payu|online|upi|card|net.?bank/i.test(method);
+      if (!isOnlinePayment) return true;
+      return /^(paid|success|successful|completed|captured)(\b|\s)/i.test(paymentStatus);
+    }
+
     function orderBelongsToUser(order, user) {
       if (!order || !user) return false;
       if (user.uid && order.uid && order.uid === user.uid) return true;
@@ -707,7 +717,8 @@
           }
         } catch (_) {}
 
-        const unique = Array.from(orderMap.values()).sort((a, b) => {
+        // Never show an online order or tracking until the gateway confirms payment.
+        const unique = Array.from(orderMap.values()).filter(isPaidCustomerOrder).sort((a, b) => {
           const ta = Number(a.timestamp || a.orderTimeMillis || Date.parse(a.createdAt || a.orderTime || 0) || 0);
           const tb = Number(b.timestamp || b.orderTimeMillis || Date.parse(b.createdAt || b.orderTime || 0) || 0);
           return tb - ta;
