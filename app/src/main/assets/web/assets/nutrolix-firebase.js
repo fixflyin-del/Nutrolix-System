@@ -43,6 +43,16 @@
     return String(p).replace(/\D/g, '').slice(-10);
   }
 
+  function isPaidCustomerOrder(order) {
+    if (!order) return false;
+    const method = String(order.paymentMethod || '').toLowerCase();
+    const paymentStatus = String(order.paymentStatus || '').trim().toLowerCase();
+    const isOnlinePayment = Boolean(order.txnid) ||
+      /payu|online|upi|card|net.?bank/i.test(method);
+    if (!isOnlinePayment) return true; // COD and other offline orders remain valid.
+    return /^(paid|success|successful|completed|captured)(\b|\s)/i.test(paymentStatus);
+  }
+
   function canonicalUid(uid, phone) {
     const cleanP = cleanPhone(phone);
     if (cleanP.length === 10 && /^[6-9]\d{9}$/.test(cleanP)) {
@@ -166,7 +176,7 @@
             snapshot.forEach(doc => {
               const data = doc.data() || {};
               const oid = data.orderId || data.id || doc.id;
-              orders.push({ ...data, id: oid, orderId: oid });
+              const normalizedOrder = { ...data, id: oid, orderId: oid };\n              if (isPaidCustomerOrder(normalizedOrder)) orders.push(normalizedOrder);
             });
             orders.sort((a, b) => {
               const ta = Number(a.timestamp || a.orderTimeMillis || Date.parse(a.createdAt || a.orderTime || 0) || 0);
