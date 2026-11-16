@@ -990,6 +990,8 @@ test('Checkout address tick switch, default address selection, recipient phone i
   // 2. Recipient phone on deliveryAddress without clobbering logged-in verified/whatsapp number
   assert.ok(cartHtml.includes('deliveryPhone: recipientPhone'), 'cart.html order payload must send deliveryPhone separately');
   assert.ok(cartHtml.includes('Ordering for someone else?'), 'cart.html must clarify recipient vs login notification number');
+  assert.ok(cartHtml.includes('window.cartPhoneUserEdited = true'), 'cart.html must track user phone editing so clearing field does not snap back to registered phone');
+  assert.equal(cartHtml.includes('if (isAuthed && phoneEl && !phoneEl.value.trim()) {\n        phoneEl.value = verifiedDigits;'), false, 'updateCartPhoneOkButtonState must never refill registered phone while user edits');
 
   const valRes = customerSync.validateOrderPayload({
     orderId: 'ORD-RECIP-1',

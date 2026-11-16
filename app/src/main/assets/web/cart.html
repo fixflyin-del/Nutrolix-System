@@ -1510,12 +1510,13 @@
         if (resolvedName && !document.getElementById('custName').value.trim()) {
           document.getElementById('custName').value = resolvedName;
         }
+        const phoneEl = document.getElementById('custPhone');
         const resolvedPhone = String(
           (authUser && (authUser.verifiedPhone || authUser.phone || authUser.whatsappNumber)) ||
           profile.verifiedPhone || profile.whatsappNumber || profile.phone || profile.whatsapp || ''
         ).replace(/\D/g, '').slice(-10);
-        if (resolvedPhone && !document.getElementById('custPhone').value.trim()) {
-          document.getElementById('custPhone').value = resolvedPhone;
+        if (resolvedPhone && phoneEl && !phoneEl.value.trim() && !window.cartPhoneUserEdited && document.activeElement !== phoneEl) {
+          phoneEl.value = resolvedPhone;
         }
         if (profile.email || (authUser && authUser.email)) {
           document.getElementById('custEmail').value = profile.email || authUser.email;
@@ -1573,7 +1574,13 @@
     };
 
     window.handleCartPhoneTyping = function(rawVal) {
-      const digits = String(rawVal || '').replace(/\D/g, '').slice(-10);
+      window.cartPhoneUserEdited = true;
+      let digits = String(rawVal || '').replace(/\D/g, '');
+      if (digits.length === 12 && digits.startsWith('91')) {
+        digits = digits.slice(2);
+      } else {
+        digits = digits.slice(0, 10);
+      }
       const phoneEl = document.getElementById('custPhone');
       if (phoneEl && phoneEl.value !== digits) phoneEl.value = digits;
       window.saveUserProfile();
@@ -1585,10 +1592,7 @@
       const phoneEl = document.getElementById('custPhone');
       const verifiedDigits = user ? String(user.verifiedPhone || user.phone || (String(user.uid || '').startsWith('phone_') ? String(user.uid).slice(6) : '')).replace(/\D/g, '').slice(-10) : '';
       const isAuthed = Boolean(user && user.uid && /^[6-9]\d{9}$/.test(verifiedDigits));
-      if (isAuthed && phoneEl && !phoneEl.value.trim()) {
-        phoneEl.value = verifiedDigits;
-      }
-      const digits = (phoneEl?.value || '').replace(/\D/g, '').slice(-10);
+      const digits = (phoneEl?.value || '').replace(/\D/g, '').slice(0, 10);
       const isMatch = Boolean(isAuthed && digits.length === 10 && digits === verifiedDigits);
 
       const okBtn = document.getElementById('cartPhoneOkBtn');
@@ -1736,8 +1740,9 @@
         if (!document.getElementById('custName').value && user.name && user.name !== 'Nutrolix Customer' && user.name !== 'Nutrolix Member') {
           document.getElementById('custName').value = user.name;
         }
-        if (!document.getElementById('custPhone').value && (user.whatsappNumber || user.verifiedPhone || user.phone)) {
-          document.getElementById('custPhone').value = String(user.whatsappNumber || user.verifiedPhone || user.phone).replace(/\D/g, '').slice(-10);
+        const phoneEl = document.getElementById('custPhone');
+        if (phoneEl && !phoneEl.value && !window.cartPhoneUserEdited && document.activeElement !== phoneEl && (user.whatsappNumber || user.verifiedPhone || user.phone)) {
+          phoneEl.value = String(user.whatsappNumber || user.verifiedPhone || user.phone).replace(/\D/g, '').slice(-10);
         }
       } else {
         // Checkout authentication is handled inline beside the WhatsApp number field.
@@ -1846,7 +1851,10 @@
       }
       if (userProfile && (userProfile.verifiedPhone || userProfile.whatsappNumber)) {
         const ph = String(userProfile.whatsappNumber || userProfile.verifiedPhone).replace(/\D/g, '').slice(-10);
-        if (ph) document.getElementById('custPhone').value = ph;
+        const phoneEl = document.getElementById('custPhone');
+        if (ph && phoneEl && !phoneEl.value.trim() && !window.cartPhoneUserEdited && document.activeElement !== phoneEl) {
+          phoneEl.value = ph;
+        }
       }
       window.updateCartPhoneOkButtonState();
       saveUserProfile();
@@ -1954,10 +1962,18 @@
       const isAlreadyLoggedIn = Boolean(user && user.uid && /^[6-9]\d{9}$/.test(verifiedPhone));
 
       const phoneInput = document.getElementById('custPhone');
-      let phone = (phoneInput?.value || '').replace(/\D/g, '').slice(-10);
+      let phone = (phoneInput?.value || '').replace(/\D/g, '').slice(0, 10);
 
       if (isAlreadyLoggedIn) {
-        if (!/^[6-9]\d{9}$/.test(phone)) {
+        if (!phone) {
+          phone = verifiedPhone;
+          if (phoneInput) phoneInput.value = verifiedPhone;
+        } else if (!/^[6-9]\d{9}$/.test(phone)) {
+          if (window.isAddingNewAddress && window.cartPhoneUserEdited) {
+            alert('Please enter a valid 10-digit recipient WhatsApp/mobile number.');
+            phoneInput?.focus();
+            return;
+          }
           phone = verifiedPhone;
           if (phoneInput) phoneInput.value = verifiedPhone;
         }
