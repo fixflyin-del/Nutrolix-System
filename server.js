@@ -2778,9 +2778,6 @@ const server = http.createServer(async (req, res) => {
         const surl = `${baseUrl}/api/payu/response`;
         const furl = `${baseUrl}/api/payu/response`;
 
-        const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
-        let orders = safeReadJson(ordersFile, []);
-        if (!Array.isArray(orders)) orders = [];
         const pendingOrder = {
           ...orderData,
           id: orderId,
@@ -2800,14 +2797,10 @@ const server = http.createServer(async (req, res) => {
           timestamp: Number(orderData.timestamp) || Date.now(),
           orderTimeMillis: Number(orderData.orderTimeMillis) || Date.now()
         };
-        const existingIdx = orders.findIndex(o => o.orderId === orderId || o.id === orderId);
-        if (existingIdx >= 0) orders[existingIdx] = { ...orders[existingIdx], ...pendingOrder };
-        else orders.unshift(pendingOrder);
-        safeWriteJson(ordersFile, orders.slice(0, 150));
-
-        // Persist pending order & txnid lookup durably to both Firestore DBs so cold Vercel callbacks find it
-        await Promise.all([
-          nutrolixCore.firestorePatchBothDbs(`orders/${orderId}`, pendingOrder),
+        // Keep unpaid checkout attempts outside the customer/admin orders collection.
+        // They become real orders only after a verified PayU success callback.
+        const persistResults = await Promise.all([
+          nutrolixCore.firestorePatchBothDbs(`payuPendingOrders/${orderId}`, pendingOrder),
           nutrolixCore.firestorePatchBothDbs(`payuTransactions/${txnid}`, {
             txnid,
             orderId,
@@ -2819,6 +2812,9 @@ const server = http.createServer(async (req, res) => {
             createdAt: pendingOrder.createdAt
           })
         ]);
+        if (!persistResults.every(result => result && result.anySuccess)) {
+          throw new Error('Unable to securely save pending payment. Please retry payment.');
+        }
 
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({
@@ -2870,17 +2866,31 @@ const server = http.createServer(async (req, res) => {
         if (!Array.isArray(orders)) orders = [];
         const orderIdx = orders.findIndex(o => o.txnid === txnid);
         let orderId = txnid && txnid.includes('_') ? txnid.split('_')[1] : '';
-        let targetOrder = orderIdx >= 0 ? orders[orderIdx] : null;
-
-        if (!targetOrder && txnid) {
-          const txnDoc = await nutrolixCore.firestoreGetFirstAvailable(`payuTransactions/${txnid}`);
-          if (txnDoc && txnDoc.orderId) orderId = txnDoc.orderId;
+        let targetOrder = null;
+        let txnDoc = null;
+        if (txnid) {
+          txnDoc = await nutrolixCore.firestoreGetFirstAvailable(`payuTransactions/${txnid}`);
+          if (txnDoc && txnDoc.orderId) orderId = String(txnDoc.orderId);
         }
+        if (orderId) {
+          targetOrder = await nutrolixCore.firestoreGetFirstAvailable(`payuPendingOrders/${orderId}`);
+        }
+        // Backward compatibility for payments initiated before this fix.
+        if (!targetOrder && orderIdx >= 0) targetOrder = orders[orderIdx];
         if (!targetOrder && orderId) {
-          targetOrder = await nutrolixCore.firestoreGetFirstAvailable(`orders/${orderId}`);
+          const legacyOrder = await nutrolixCore.firestoreGetFirstAvailable(`orders/${orderId}`);
+          if (legacyOrder && legacyOrder.txnid === txnid &&
+              String(legacyOrder.paymentStatus || '').toUpperCase().includes('PENDING')) {
+            targetOrder = legacyOrder;
+          }
         }
+        const amountMatches = targetOrder &&
+          Number(targetOrder.amount || targetOrder.grandTotal || targetOrder.total).toFixed(2) === Number(amount).toFixed(2);
+        const verifiedSuccess = status === 'success' &&
+          receivedHash === calculatedHash &&
+          Boolean(txnid && orderId && targetOrder && targetOrder.txnid === txnid && amountMatches);
 
-        if (status === 'success' && receivedHash === calculatedHash) {
+        if (verifiedSuccess) {
           const confirmedOrder = {
             ...(targetOrder || {}),
             id: orderId || (targetOrder && targetOrder.orderId),
@@ -2894,7 +2904,8 @@ const server = http.createServer(async (req, res) => {
           delete confirmedOrder._docId;
           delete confirmedOrder._docName;
 
-          if (orderIdx >= 0) orders[orderIdx] = confirmedOrder;
+          const confirmedIdx = orders.findIndex(o => o.orderId === confirmedOrder.orderId || o.id === confirmedOrder.orderId);
+          if (confirmedIdx >= 0) orders[confirmedIdx] = confirmedOrder;
           else if (confirmedOrder.orderId) orders.unshift(confirmedOrder);
           safeWriteJson(ordersFile, orders);
 
@@ -2906,6 +2917,7 @@ const server = http.createServer(async (req, res) => {
                 payuPaymentId: mihpayid,
                 updatedAt: confirmedOrder.statusUpdatedAt
               }),
+              nutrolixCore.firestoreDeleteBothDbs(`payuPendingOrders/${confirmedOrder.orderId}`),
               recordHealthyFoodRedemption(confirmedOrder)
             ]);
 
@@ -2931,15 +2943,33 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(302, { 'Location': `/orders.html?orderId=${encodeURIComponent(confirmedOrder.orderId || orderId)}&payment=success` });
           res.end();
         } else {
-          if (orderId) {
-            if (orderIdx >= 0) {
+          if (orderId && txnid) {
+            const failedAt = new Date().toISOString();
+            await Promise.all([
+              nutrolixCore.firestorePatchBothDbs(`payuTransactions/${txnid}`, {
+                paymentStatus: 'PAYMENT_FAILED',
+                failureReason: String(params.error_Message || params.error || 'Payment cancelled or failed').slice(0, 240),
+                updatedAt: failedAt
+              }),
+              nutrolixCore.firestorePatchBothDbs(`payuPendingOrders/${orderId}`, {
+                paymentStatus: 'PAYMENT_FAILED',
+                status: 'Payment Failed',
+                statusUpdatedAt: failedAt
+              })
+            ]);
+            // Only update an old legacy pending record if it was created before
+            // pending payments were moved into their own collection.
+            if (orderIdx >= 0 && String(orders[orderIdx].paymentStatus || '').toUpperCase().includes('PENDING')) {
               orders[orderIdx].paymentStatus = 'PAYMENT_FAILED';
+              orders[orderIdx].status = 'Payment Failed';
+              orders[orderIdx].statusUpdatedAt = failedAt;
               safeWriteJson(ordersFile, orders);
+              await nutrolixCore.firestorePatchBothDbs(`orders/${orderId}`, {
+                paymentStatus: 'PAYMENT_FAILED',
+                status: 'Payment Failed',
+                statusUpdatedAt: failedAt
+              });
             }
-            await nutrolixCore.firestorePatchBothDbs(`orders/${orderId}`, {
-              paymentStatus: 'PAYMENT_FAILED',
-              statusUpdatedAt: new Date().toISOString()
-            });
           }
           res.writeHead(302, { 'Location': `/cart.html?payment=failed&reason=${encodeURIComponent(params.error_Message || 'Payment cancelled or failed')}` });
           res.end();
