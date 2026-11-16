@@ -1263,7 +1263,7 @@
         geocode && geocode.neighborhood,
         geocode && geocode.formattedAddress
       ].filter(Boolean).join(' ').toLowerCase();
-      if (/\\btaloja\\b|\\btaloje\\b/.test(localityText)) {
+      if (/\btaloja\b|\btaloje\b/.test(localityText)) {
         return { pincode: '410208', city: 'Taloja, Panvel', state: 'Maharashtra' };
       }
       return null;
