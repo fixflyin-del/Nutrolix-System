@@ -1254,6 +1254,21 @@
       }
     };
 
+    // India Post PIN overrides for localities where free reverse geocoders
+    // commonly return a broad/incorrect neighbouring postal code.
+    // Taloja A.V. and Taloja B.O. are served by PIN 410208.
+    function resolveKnownIndianPostalCode(geocode) {
+      const localityText = [
+        geocode && geocode.city,
+        geocode && geocode.neighborhood,
+        geocode && geocode.formattedAddress
+      ].filter(Boolean).join(' ').toLowerCase();
+      if (/\\btaloja\\b|\\btaloje\\b/.test(localityText)) {
+        return { pincode: '410208', city: 'Taloja, Panvel', state: 'Maharashtra' };
+      }
+      return null;
+    }
+
     async function applyReverseGeocodedCoords(lat, lon, nativeGeocoder = null) {
       locationConsentGranted = true;
       document.getElementById('custGpsLat').value = lat;
@@ -1278,9 +1293,13 @@
       }
 
       if (resolved) {
-        if (resolved.pincode) document.getElementById('custPincode').value = resolved.pincode;
-        if (resolved.city) document.getElementById('custCity').value = resolved.city;
-        if (resolved.state) document.getElementById('custState').value = resolved.state;
+        // Prefer a verified India Post locality-to-PIN mapping over a broad
+        // reverse-geocoder postcode when its postcode conflicts with locality.
+        const knownPostal = resolveKnownIndianPostalCode(resolved);
+        const finalPostal = knownPostal || resolved;
+        if (finalPostal.pincode) document.getElementById('custPincode').value = finalPostal.pincode;
+        if (finalPostal.city) document.getElementById('custCity').value = finalPostal.city;
+        if (finalPostal.state) document.getElementById('custState').value = finalPostal.state;
       }
       window.refreshLocationSummaryText();
       saveUserProfile();
