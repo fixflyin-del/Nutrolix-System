@@ -745,6 +745,27 @@ test('Product reviews and single-time delivered popup state persist across HTTP 
     assert.equal(stateRes.status, 200);
     assert.ok(stateRes.json.dismissed.includes('NTX-DISMISS-1'));
     assert.ok(stateRes.json.reviewed.includes(testOrderId));
+
+    // Re-submitting / editing the same delivered order MUST update in-place, never create a duplicate
+    const editRev = await httpReq('POST', '/api/product-reviews', {
+      orderId: testOrderId,
+      productId: 'high-protein-atta',
+      rating: 4,
+      comment: 'Edited: Great packaging and taste after trying for a week!',
+      customerName: 'Aarav Sharma',
+      isEdit: true
+    });
+    assert.equal(editRev.status, 200);
+    assert.equal(editRev.json.success, true);
+    assert.equal(editRev.json.updated, true);
+    assert.equal(editRev.json.review.id, postRev.json.review.id);
+    assert.equal(editRev.json.review.rating, 4);
+    assert.equal(editRev.json.review.edited, true);
+
+    const byOrderRes = await httpReq('GET', `/api/product-reviews?orderId=${encodeURIComponent(testOrderId)}`);
+    assert.equal(byOrderRes.status, 200);
+    assert.equal(byOrderRes.json.length, 1, 'Same delivered order must strictly have at most 1 review');
+    assert.equal(byOrderRes.json[0].comment, 'Edited: Great packaging and taste after trying for a week!');
   } finally {
     await new Promise((resolve) => server.close(resolve));
     for (const f of tracked) {
@@ -754,3 +775,50 @@ test('Product reviews and single-time delivered popup state persist across HTTP 
     }
   }
 });
+
+test('Single-review Edit UI & Chrome lockscreen/background Web Push guarantees are wired', async () => {
+  const http = require('http');
+  const rootDir = path.join(__dirname, '..');
+  const ordersHtml = fs.readFileSync(path.join(rootDir, 'public', 'orders.html'), 'utf8');
+  const reviewsJs = fs.readFileSync(path.join(rootDir, 'public', 'assets', 'nutrolix-reviews.js'), 'utf8');
+  const prodHtml = fs.readFileSync(path.join(rootDir, 'public', 'product.html'), 'utf8');
+  const notifJs = fs.readFileSync(path.join(rootDir, 'public', 'assets', 'nutrolix-notifications.js'), 'utf8');
+  const cartHtml = fs.readFileSync(path.join(rootDir, 'public', 'cart.html'), 'utf8');
+  const swJs = fs.readFileSync(path.join(rootDir, 'public', 'sw.js'), 'utf8');
+  const vercelJson = fs.readFileSync(path.join(rootDir, 'vercel.json'), 'utf8');
+
+  // Issue 1 UI & client deduplication checks
+  assert.ok(ordersHtml.includes('Edit Review'), 'orders.html must render Edit Review when order already reviewed');
+  assert.ok(ordersHtml.includes('hasReviewForOrder'), 'orders.html must check hasReviewForOrder');
+  assert.ok(reviewsJs.includes('Edit Your Review'), 'nutrolix-reviews.js must switch modal to Edit Your Review mode');
+  assert.ok(reviewsJs.includes('rev_ord_'), 'nutrolix-reviews.js must use deterministic per-order ID');
+  assert.ok(prodHtml.includes("'order_' + String(raw.orderId)"), 'product.html must deduplicate merged reviews by orderId');
+
+  // Issue 2 Chrome Web Push & lockscreen checks
+  assert.ok(notifJs.includes('ensureWebPushSynced'), 'nutrolix-notifications.js must expose ensureWebPushSynced');
+  assert.ok(notifJs.includes('keysMatch'), 'nutrolix-notifications.js must detect and replace mismatched VAPID subscriptions');
+  assert.ok(notifJs.includes('attachLoggedInGestureAutoPrompt'), 'nutrolix-notifications.js must prompt logged-in Chrome users on first gesture');
+  assert.ok(cartHtml.includes('await window.NutrolixNotifications?.ensureWebPushSynced'), 'cart.html must await Web Push sync before order-placed/PayU');
+  assert.ok(swJs.includes('silent: false') && swJs.includes('requireInteraction: true') && swJs.includes('pushsubscriptionchange'), 'sw.js must emit audible lockscreen notifications and handle pushsubscriptionchange');
+  assert.ok(vercelJson.includes('firebase-messaging-sw.js') && vercelJson.includes('Service-Worker-Allowed'), 'vercel.json must serve sw.js & firebase-messaging-sw.js uncached');
+
+  const server = require(path.join(rootDir, 'server.js'));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address();
+  const port = typeof addr === 'object' && addr ? addr.port : 0;
+  try {
+    const swRes = await new Promise((resolve, reject) => {
+      http.get({ hostname: '127.0.0.1', port, path: '/firebase-messaging-sw.js' }, (res) => {
+        let raw = '';
+        res.on('data', c => raw += c);
+        res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: raw }));
+      }).on('error', reject);
+    });
+    assert.equal(swRes.status, 200);
+    assert.equal(swRes.headers['service-worker-allowed'], '/');
+    assert.ok(swRes.body.includes('pushsubscriptionchange'));
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+

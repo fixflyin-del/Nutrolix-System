@@ -366,15 +366,19 @@
     saveFcmToken: async function(uid, tokenObj) {
       const db = this.getDb();
       if (!db || !uid || !tokenObj) return false;
-      const rawTok = tokenObj.fcmToken || tokenObj.token || tokenObj.endpoint;
+      const subObj = tokenObj.subscription && tokenObj.subscription.endpoint ? tokenObj.subscription : null;
+      const rawTok = tokenObj.fcmToken || tokenObj.token || (subObj && subObj.endpoint) || tokenObj.endpoint;
       if (!rawTok) return false;
       const docId = hashTokenId(rawTok);
       try {
         await db.collection('users').doc(uid).collection('fcmTokens').doc(docId).set({
           uid,
           token: rawTok,
-          fcmToken: tokenObj.fcmToken || rawTok,
+          fcmToken: tokenObj.fcmToken || (subObj ? '' : rawTok),
+          endpoint: (subObj && subObj.endpoint) || tokenObj.endpoint || rawTok,
+          subscriptionJson: subObj ? JSON.stringify(subObj) : (tokenObj.subscriptionJson || ''),
           platform: tokenObj.platform || 'web',
+          ...(tokenObj.deviceId ? { deviceId: tokenObj.deviceId } : {}),
           customerPhone: cleanPhone(tokenObj.customerPhone || tokenObj.phone || ''),
           customerEmail: String(tokenObj.customerEmail || tokenObj.email || '').toLowerCase().trim(),
           updatedAt: new Date().toISOString(),

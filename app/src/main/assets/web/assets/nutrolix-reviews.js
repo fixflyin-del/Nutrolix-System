@@ -17,9 +17,11 @@
   };
 
   let activeReviewOrder = null;
+  let activeExistingReview = null;
   let activeStarRating = 5;
   let checkInFlight = false;
   let modalOpenNow = false;
+  const cachedReviewsByOrderId = new Map();
 
   function getApiHost() {
     return window.NUTROLIX_API_HOST || '';
@@ -45,6 +47,83 @@
     } catch (_) {
       return [];
     }
+  }
+
+  function ingestServerReviews(list) {
+    if (!Array.isArray(list)) return;
+    const reviewed = getReviewedOrderIds();
+    let reviewedChanged = false;
+    list.forEach((rev) => {
+      if (!rev || typeof rev !== 'object') return;
+      const oid = String(rev.orderId || '').trim();
+      if (oid) {
+        cachedReviewsByOrderId.set(oid, rev);
+        if (!reviewed.includes(oid)) {
+          reviewed.push(oid);
+          reviewedChanged = true;
+        }
+      }
+    });
+    if (reviewedChanged) {
+      try {
+        localStorage.setItem('nutrolix_reviewed_orders', JSON.stringify(reviewed));
+      } catch (_) {}
+    }
+  }
+
+  function getStoredReviewForOrder(orderId) {
+    const oid = String(orderId || '').trim();
+    if (!oid) return null;
+    if (cachedReviewsByOrderId.has(oid)) return cachedReviewsByOrderId.get(oid);
+    try {
+      const saved = JSON.parse(localStorage.getItem('nutrolix_product_reviews') || '[]');
+      if (Array.isArray(saved)) {
+        const found = saved.find((r) => r && String(r.orderId || '').trim() === oid);
+        if (found) {
+          cachedReviewsByOrderId.set(oid, found);
+          return found;
+        }
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  async function syncOrderReviewsFromServer() {
+    try {
+      const res = await fetch(getApiHost() + '/api/product-reviews', { cache: 'no-store' });
+      if (res.ok) {
+        const revs = await res.json();
+        if (Array.isArray(revs)) {
+          ingestServerReviews(revs);
+          return revs;
+        }
+      }
+    } catch (_) {}
+    return [];
+  }
+
+  async function fetchReviewForOrder(orderId) {
+    const oid = String(orderId || '').trim();
+    if (!oid) return null;
+    const cached = getStoredReviewForOrder(oid);
+    try {
+      const res = await fetch(getApiHost() + '/api/product-reviews?orderId=' + encodeURIComponent(oid), { cache: 'no-store' });
+      if (res.ok) {
+        const revs = await res.json();
+        if (Array.isArray(revs) && revs.length > 0) {
+          ingestServerReviews(revs);
+          return revs[0];
+        }
+      }
+    } catch (_) {}
+    return cached;
+  }
+
+  function hasReviewForOrder(orderId) {
+    const oid = String(orderId || '').trim();
+    if (!oid) return false;
+    if (getStoredReviewForOrder(oid)) return true;
+    return getReviewedOrderIds().includes(oid);
   }
 
   function markOrderAsReviewed(orderId) {
@@ -168,7 +247,8 @@
 
     const [userOrders, remoteState] = await Promise.all([
       collectUserOrders(user),
-      fetchRemoteReviewState()
+      fetchRemoteReviewState(),
+      syncOrderReviewsFromServer()
     ]);
 
     if (!userOrders || userOrders.length === 0) {
@@ -187,7 +267,7 @@
       const oid = ord.id || ord.orderId;
       if (!oid) continue;
       if (!isDeliveredOrderStatus(ord.status)) continue;
-      if (reviewed.includes(oid)) continue;
+      if (reviewed.includes(oid) || hasReviewForOrder(oid)) continue;
       if (isOrderDismissedOrShown(oid, remoteState)) continue;
       return ord;
     }
@@ -266,7 +346,7 @@
     document.body.appendChild(div.firstElementChild);
   }
 
-  function renderStars(rating) {
+  function renderStars(rating, preserveText = false) {
     activeStarRating = rating;
     const container = document.getElementById('reviewStarsContainer');
     if (!container) return;
@@ -288,16 +368,29 @@
     const labelEl = document.getElementById('reviewStarLabel');
     if (labelEl) labelEl.textContent = labels[rating] || (rating + ".0 / 5.0");
 
-    const feedbackEl = document.getElementById('reviewFeedbackText');
-    if (feedbackEl && (!feedbackEl.value.trim() || Object.values(PRESET_SUGGESTIONS).includes(feedbackEl.value.trim()))) {
-      feedbackEl.value = PRESET_SUGGESTIONS[rating] || "";
+    if (!preserveText && !activeExistingReview) {
+      const feedbackEl = document.getElementById('reviewFeedbackText');
+      if (feedbackEl && (!feedbackEl.value.trim() || Object.values(PRESET_SUGGESTIONS).includes(feedbackEl.value.trim()))) {
+        feedbackEl.value = PRESET_SUGGESTIONS[rating] || "";
+      }
     }
   }
 
   function saveReviewLocally(savedReview) {
     try {
+      if (savedReview && savedReview.orderId) {
+        cachedReviewsByOrderId.set(String(savedReview.orderId).trim(), savedReview);
+      }
       const savedReviews = JSON.parse(localStorage.getItem('nutrolix_product_reviews') || '[]');
-      const deduped = [savedReview, ...savedReviews.filter(r => r && r.id !== savedReview.id)];
+      const deduped = [
+        savedReview,
+        ...savedReviews.filter(r => {
+          if (!r) return false;
+          if (r.id === savedReview.id) return false;
+          if (savedReview.orderId && r.orderId && String(r.orderId).trim() === String(savedReview.orderId).trim()) return false;
+          return true;
+        })
+      ];
       localStorage.setItem('nutrolix_product_reviews', JSON.stringify(deduped.slice(0, 200)));
 
       const allIds = Array.from(new Set([
@@ -310,31 +403,66 @@
         const nextList = [
           {
             id: savedReview.id,
+            orderId: savedReview.orderId || '',
             name: savedReview.customerName,
             customerName: savedReview.customerName,
             rating: savedReview.rating,
-            date: 'Just now',
+            date: savedReview.edited ? 'Edited just now' : 'Just now',
             createdAt: savedReview.createdAt,
+            updatedAt: savedReview.updatedAt || savedReview.createdAt,
             text: savedReview.comment,
             comment: savedReview.comment,
             verified: true
           },
-          ...perProd.filter(r => r && r.id !== savedReview.id)
+          ...perProd.filter(r => {
+            if (!r) return false;
+            if (r.id === savedReview.id) return false;
+            if (savedReview.orderId && r.orderId && String(r.orderId).trim() === String(savedReview.orderId).trim()) return false;
+            return true;
+          })
         ];
         localStorage.setItem(key, JSON.stringify(nextList.slice(0, 100)));
       });
     } catch (_) {}
   }
 
+  function applyModalEditOrCreateState(existingRev) {
+    activeExistingReview = existingRev || null;
+    const titleEl = document.getElementById('reviewModalTitle');
+    const badgeEl = document.querySelector('#nutrolixReviewModalCard span');
+    const btnEl = document.getElementById('nutrolixReviewSubmitBtn');
+    const feedbackEl = document.getElementById('reviewFeedbackText');
+
+    if (existingRev) {
+      if (titleEl) titleEl.textContent = 'Edit Your Review';
+      if (badgeEl) badgeEl.innerHTML = '<i class="fa-solid fa-pen-to-square text-emerald-600"></i><span>Review Submitted • Edit Anytime</span>';
+      if (btnEl) btnEl.innerHTML = '<i class="fa-solid fa-check"></i><span>Update Verified Review</span>';
+      const existingRating = Math.min(5, Math.max(1, Number(existingRev.rating || 5) || 5));
+      if (feedbackEl) feedbackEl.value = String(existingRev.comment || existingRev.text || '');
+      renderStars(existingRating, true);
+    } else {
+      if (titleEl) titleEl.textContent = 'How was your Nutrolix order?';
+      if (badgeEl) badgeEl.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-600"></i><span>Order Delivered • Verified Purchase</span>';
+      if (btnEl) btnEl.innerHTML = '<i class="fa-solid fa-check"></i><span>Submit Verified Review</span>';
+      if (feedbackEl) feedbackEl.value = PRESET_SUGGESTIONS[5];
+      renderStars(5, false);
+    }
+  }
+
   window.NutrolixReviews = {
     setRating: function(r) {
-      renderStars(r);
+      renderStars(r, Boolean(activeExistingReview));
     },
 
     applySuggestion: function() {
       const feedbackEl = document.getElementById('reviewFeedbackText');
       if (feedbackEl) feedbackEl.value = PRESET_SUGGESTIONS[activeStarRating] || "";
     },
+
+    hasReviewForOrder: hasReviewForOrder,
+    getReviewForOrder: getStoredReviewForOrder,
+    ingestServerReviews: ingestServerReviews,
+    syncOrderReviewsFromServer: syncOrderReviewsFromServer,
 
     openReviewModalForOrder: function(order, isAutoPopup = false) {
       if (!order) return;
@@ -362,15 +490,14 @@
       const varEl = document.getElementById('reviewProductVariant');
       const imgEl = document.getElementById('reviewProductImg');
       const tagEl = document.getElementById('reviewOrderIdTag');
-      const feedbackEl = document.getElementById('reviewFeedbackText');
 
       if (nameEl) nameEl.textContent = pName;
       if (varEl) varEl.textContent = pVariant;
       if (imgEl) imgEl.src = pImg;
       if (tagEl) tagEl.textContent = 'Order #' + oid;
-      if (feedbackEl) feedbackEl.value = PRESET_SUGGESTIONS[5];
 
-      renderStars(5);
+      const cachedExisting = getStoredReviewForOrder(oid);
+      applyModalEditOrCreateState(cachedExisting);
 
       const backdrop = document.getElementById('nutrolixReviewModalBackdrop');
       if (backdrop) {
@@ -379,6 +506,14 @@
           const card = document.getElementById('nutrolixReviewModalCard');
           if (card) card.classList.remove('scale-95');
         }, 20);
+      }
+
+      if (!isAutoPopup) {
+        fetchReviewForOrder(oid).then((remoteExisting) => {
+          if (remoteExisting && activeReviewOrder && (activeReviewOrder.id === oid || activeReviewOrder.orderId === oid)) {
+            applyModalEditOrCreateState(remoteExisting);
+          }
+        }).catch(() => {});
       }
     },
 
@@ -392,6 +527,7 @@
       const backdrop = document.getElementById('nutrolixReviewModalBackdrop');
       if (backdrop) backdrop.classList.add('hidden');
       activeReviewOrder = null;
+      activeExistingReview = null;
       modalOpenNow = false;
     },
 
@@ -409,9 +545,14 @@
       const productIds = Array.from(new Set(items.map(it => it && (it.id || it.productId || it.mealId)).filter(Boolean).map(String)));
       const productNames = Array.from(new Set(items.map(it => it && (it.title || it.name || it.mealName)).filter(Boolean).map(String)));
 
+      const isEdit = Boolean(activeExistingReview);
+      const deterministicId = oid
+        ? ('rev_ord_' + String(oid).replace(/[^a-zA-Z0-9_-]/g, '_'))
+        : ('rev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6));
       const newReview = {
-        id: 'rev_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+        id: (activeExistingReview && activeExistingReview.id) || deterministicId,
         orderId: oid,
+        isEdit,
         productName: productNames[0] || firstItem.title || firstItem.name || 'Nutrolix Product',
         productNames: productNames,
         productId: productIds[0] || firstItem.id || 'nutrolix_prod',
@@ -424,7 +565,9 @@
         customerEmail: user ? (user.email || '') : '',
         customerPhone: user ? (user.verifiedPhone || user.phone || '') : '',
         uid: user ? (user.uid || '') : '',
-        createdAt: new Date().toISOString(),
+        createdAt: (activeExistingReview && activeExistingReview.createdAt) || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        edited: isEdit,
         verified: true
       };
 
@@ -458,13 +601,14 @@
       const backdrop = document.getElementById('nutrolixReviewModalBackdrop');
       if (backdrop) backdrop.classList.add('hidden');
       activeReviewOrder = null;
+      activeExistingReview = null;
       modalOpenNow = false;
 
       window.dispatchEvent(new CustomEvent('nutrolix:reviews-updated', { detail: persistedRev }));
 
       const toast = document.createElement('div');
       toast.className = 'fixed top-5 right-5 z-50 bg-emerald-800 text-white px-4 py-3 rounded-2xl shadow-xl flex items-center space-x-2 text-xs font-bold transition-transform';
-      toast.innerHTML = `<i class="fa-solid fa-circle-check text-amber-400 text-base"></i><span>Thank you! Your verified review has been saved permanently.</span>`;
+      toast.innerHTML = `<i class="fa-solid fa-circle-check text-amber-400 text-base"></i><span>${isEdit ? 'Your verified review has been updated!' : 'Thank you! Your verified review has been saved permanently.'}</span>`;
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 4000);
     },

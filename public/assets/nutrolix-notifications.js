@@ -90,20 +90,21 @@
         customer = window.getNutrolixUser();
       }
     } catch (_) {}
-    if (!customer || !customer.authSession || !customer.verified || !customer.phoneVerified) {
+    if (!customer || !customer.authSession || (!customer.verified && !customer.phoneVerified)) {
       return { uid: '', phone: '', email: '' };
     }
+    const uidPhone = String(customer.uid || '').startsWith('phone_') ? String(customer.uid).slice(6) : '';
     return {
       uid: customer.uid || '',
-      phone: customer.verifiedPhone || customer.phone || customer.whatsappNumber || '',
+      phone: customer.verifiedPhone || customer.phone || customer.whatsappNumber || uidPhone || '',
       email: customer.email || ''
     };
   }
 
-  async function getFirebaseIdToken() {
+  async function getFirebaseIdToken(forceRefresh = false) {
     try {
       if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
-        return await firebase.auth().currentUser.getIdToken();
+        return await firebase.auth().currentUser.getIdToken(forceRefresh);
       }
     } catch (_) {}
     return '';
@@ -112,9 +113,14 @@
   async function registerServiceWorker() {
     if (!('serviceWorker' in navigator) || window.location.protocol === 'file:') return null;
     try {
-      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+      const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/', updateViaCache: 'none' });
+      try { reg.update().catch(() => {}); } catch (_) {}
       try {
-        return await navigator.serviceWorker.ready || reg;
+        const readyReg = await Promise.race([
+          navigator.serviceWorker.ready,
+          new Promise((resolve) => setTimeout(() => resolve(reg), 2500))
+        ]);
+        return readyReg || reg;
       } catch (_) {
         return reg;
       }
@@ -125,13 +131,28 @@
 
   async function getVapidPublicKey() {
     try {
-      const res = await fetch(getApiHost() + '/api/notifications/vapid-key');
+      const res = await fetch(getApiHost() + '/api/notifications/vapid-key', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         if (data && data.publicKey) return data.publicKey;
       }
     } catch (_) {}
     return 'BNKixC3ZCYx27sN2fDJcsDhc1NVZEBQJ_-NkX9Xa1CuHB0xz9tyvCk582_j0bPaCBzn8LUeswFAZigMzzlSj5gY';
+  }
+
+  function keysMatch(a, b) {
+    if (!a || !b) return false;
+    try {
+      const ua = a instanceof Uint8Array ? a : new Uint8Array(a);
+      const ub = b instanceof Uint8Array ? b : new Uint8Array(b);
+      if (ua.length !== ub.length) return false;
+      for (let i = 0; i < ua.length; i++) {
+        if (ua[i] !== ub[i]) return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   async function sendSubscriptionToBackend(subscription, extra = {}) {
@@ -151,38 +172,51 @@
         return false;
       }
 
-      const headers = { 'Content-Type': 'application/json' };
-      const idToken = await getFirebaseIdToken();
-      if (idToken) headers.Authorization = 'Bearer ' + idToken;
-
-      const res = await fetch(getApiHost() + '/api/notifications/register-token', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          uid,
-          role,
-          deviceId,
-          fcmToken,
-          token: fcmToken || (subJson && subJson.endpoint) || '',
-          subscription: subJson,
-          customerPhone: phone,
-          customerEmail: email,
-          platform,
-          userAgent: navigator.userAgent
-        })
+      const payloadBody = JSON.stringify({
+        uid,
+        role,
+        deviceId,
+        fcmToken,
+        token: fcmToken || (subJson && subJson.endpoint) || '',
+        subscription: subJson,
+        customerPhone: phone,
+        customerEmail: email,
+        platform,
+        userAgent: navigator.userAgent
       });
 
-      if (!res.ok) return false;
+      const doRegister = async (idTok) => {
+        const headers = { 'Content-Type': 'application/json' };
+        if (idTok) headers.Authorization = 'Bearer ' + idTok;
+        return fetch(getApiHost() + '/api/notifications/register-token', {
+          method: 'POST',
+          headers,
+          body: payloadBody,
+          keepalive: true
+        });
+      };
 
-      if (uid && fcmToken && window.NutrolixFirebase && typeof window.NutrolixFirebase.saveFcmToken === 'function') {
-        window.NutrolixFirebase.saveFcmToken(uid, {
+      const idToken = await getFirebaseIdToken(false);
+      let res = await doRegister(idToken);
+      if (res.status === 401 && idToken) {
+        const refreshedToken = await getFirebaseIdToken(true);
+        res = await doRegister(refreshedToken && refreshedToken !== idToken ? refreshedToken : '');
+      }
+
+      let firestoreBackupOk = false;
+      if (uid && (fcmToken || (subJson && subJson.endpoint)) && window.NutrolixFirebase && typeof window.NutrolixFirebase.saveFcmToken === 'function') {
+        firestoreBackupOk = await window.NutrolixFirebase.saveFcmToken(uid, {
           fcmToken,
+          subscription: subJson,
+          endpoint: (subJson && subJson.endpoint) || '',
           platform,
           deviceId,
           customerPhone: phone,
           customerEmail: email
-        }).catch(() => {});
+        }).catch(() => false);
       }
+
+      if (!res.ok && !firestoreBackupOk) return false;
 
       localStorage.setItem(STORAGE_KEY, 'true');
       emitStatusChanged();
@@ -218,6 +252,8 @@
     } catch (_) {}
   }
 
+  let syncInFlightPromise = null;
+
   async function syncWebPushSubscription() {
     if (window.AndroidNative || !('Notification' in window) || Notification.permission !== 'granted') {
       return false;
@@ -226,41 +262,71 @@
     if (!uid || !phone) {
       return false;
     }
-    const reg = await registerServiceWorker();
-    let synced = false;
-    if (reg && 'pushManager' in reg) {
-      try {
-        const vapidKey = await getVapidPublicKey();
-        const convertedVapidKey = urlB64ToUint8Array(vapidKey);
-        let subscription = await reg.pushManager.getSubscription();
-        if (!subscription) {
-          subscription = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: convertedVapidKey
-          });
-        }
-        if (subscription) {
-          synced = await sendSubscriptionToBackend(subscription, { platform: 'web' });
-        }
-      } catch (_) {}
-    }
+    if (syncInFlightPromise) return syncInFlightPromise;
 
-    attachForegroundFcmListener();
-
-    // Fall back to Web FCM token only if RFC 8291 Web Push subscription was unavailable
-    if (!synced && typeof firebase !== 'undefined' && typeof firebase.messaging === 'function' && reg) {
-      try {
-        const messaging = firebase.messaging();
-        const vapid = await getVapidPublicKey();
-        const fcmTok = await messaging.getToken({ vapidKey: vapid, serviceWorkerRegistration: reg });
-        if (fcmTok) {
-          localStorage.setItem('nutrolix_web_fcm_token', fcmTok);
-          const okFcm = await sendSubscriptionToBackend(null, { fcmToken: fcmTok, platform: 'web-fcm' });
-          synced = synced || okFcm;
+    syncInFlightPromise = (async () => {
+      const reg = await registerServiceWorker();
+      let synced = false;
+      if (reg && 'pushManager' in reg) {
+        try {
+          const vapidKey = await getVapidPublicKey();
+          const convertedVapidKey = urlB64ToUint8Array(vapidKey);
+          let subscription = await reg.pushManager.getSubscription();
+          if (subscription && subscription.options && subscription.options.applicationServerKey) {
+            if (!keysMatch(subscription.options.applicationServerKey, convertedVapidKey)) {
+              try { await subscription.unsubscribe(); } catch (_) {}
+              subscription = null;
+            }
+          }
+          if (!subscription) {
+            subscription = await reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: convertedVapidKey
+            });
+          }
+          if (subscription) {
+            synced = await sendSubscriptionToBackend(subscription, { platform: 'web' });
+          }
+        } catch (subErr) {
+          console.warn('[Nutrolix Notifications] Web Push subscribe notice:', subErr && subErr.message);
         }
-      } catch (_) {}
+      }
+
+      attachForegroundFcmListener();
+
+      // Fall back to Web FCM token only if RFC 8291 Web Push subscription was unavailable
+      if (!synced && typeof firebase !== 'undefined' && typeof firebase.messaging === 'function' && reg) {
+        try {
+          const messaging = firebase.messaging();
+          const vapid = await getVapidPublicKey();
+          const fcmTok = await messaging.getToken({ vapidKey: vapid, serviceWorkerRegistration: reg });
+          if (fcmTok) {
+            localStorage.setItem('nutrolix_web_fcm_token', fcmTok);
+            const okFcm = await sendSubscriptionToBackend(null, { fcmToken: fcmTok, platform: 'web-fcm' });
+            synced = synced || okFcm;
+          }
+        } catch (_) {}
+      }
+      return synced;
+    })();
+
+    try {
+      return await syncInFlightPromise;
+    } finally {
+      syncInFlightPromise = null;
     }
-    return synced;
+  }
+
+  async function ensureWebPushSynced(timeoutMs = 3000) {
+    if (window.AndroidNative) {
+      await Promise.race([syncNativeAndroidToken(), new Promise((r) => setTimeout(r, timeoutMs))]);
+      return true;
+    }
+    if (!('Notification' in window) || Notification.permission !== 'granted') return false;
+    return Promise.race([
+      syncWebPushSubscription(),
+      new Promise((resolve) => setTimeout(() => resolve(false), timeoutMs))
+    ]);
   }
 
   async function syncNativeAndroidToken() {
@@ -531,11 +597,39 @@
     emitStatusChanged();
   });
 
+  // Ensure logged-in Chrome mobile/desktop users automatically get prompted on their first tap
+  let webAutoPromptTried = false;
+  function attachLoggedInGestureAutoPrompt() {
+    if (window.AndroidNative || !('Notification' in window)) return;
+    const onFirstTap = () => {
+      if (webAutoPromptTried || Notification.permission !== 'default') return;
+      const { uid, phone } = getCustomerInfo();
+      if (!uid || !phone) return;
+      if (sessionStorage.getItem('nutrolix_web_perm_prompted') === '1') return;
+      webAutoPromptTried = true;
+      try { sessionStorage.setItem('nutrolix_web_perm_prompted', '1'); } catch (_) {}
+      ensurePermissionOnGesture().catch(() => {});
+    };
+    window.addEventListener('click', onFirstTap, { passive: true, capture: true });
+    window.addEventListener('touchend', onFirstTap, { passive: true, capture: true });
+  }
+
+  if ('serviceWorker' in navigator) {
+    try {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event && event.data && event.data.type === 'NUTROLIX_PUSH_SUBSCRIPTION_CHANGED' && event.data.subscription) {
+          sendSubscriptionToBackend(event.data.subscription, { platform: 'web' });
+        }
+      });
+    } catch (_) {}
+  }
+
   function boot() {
     registerServiceWorker();
     syncNativeAndroidToken();
     attachUserNotificationListeners();
     attachForegroundFcmListener();
+    attachLoggedInGestureAutoPrompt();
     if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
       syncWebPushSubscription();
     }
@@ -552,6 +646,7 @@
   window.NutrolixNotifications = {
     requestPermission: requestNotificationPermission,
     ensurePermissionOnGesture,
+    ensureWebPushSynced,
     getNotificationStatus,
     getChromeSettingsHelp,
     registerServiceWorker,

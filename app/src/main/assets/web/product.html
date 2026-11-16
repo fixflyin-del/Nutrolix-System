@@ -776,7 +776,9 @@
         const name = String(raw.customerName || raw.name || 'Verified Customer').trim();
         const text = String(raw.comment || raw.text || '').trim();
         if (!text) return;
-        const key = String(raw.id || `${name.toLowerCase()}::${text.toLowerCase().slice(0, 60)}`);
+        const key = raw.orderId
+          ? ('order_' + String(raw.orderId).trim())
+          : String(raw.id || `${name.toLowerCase()}::${text.toLowerCase().slice(0, 60)}`);
         if (seenKey.has(key)) return;
         seenKey.add(key);
         verifiedLive.push({

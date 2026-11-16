@@ -331,6 +331,35 @@ async function gatherCustomerTokens({ uid = '', customerPhone = '', customerEmai
     }
     const legacyLists = await Promise.all(legacyReads);
     for (const list of legacyLists) firestoreTokens.push(...list);
+  } else if (canonicalUid || uid) {
+    // Also check top-level notificationTokens by canonical UID so Chrome Web Push
+    // registrations are never masked when an Android APK token already exists.
+    const uidTarget = canonicalUid || String(uid || '').trim();
+    const webQuery = {
+      from: [{ collectionId: 'notificationTokens' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'uid' },
+          op: 'EQUAL',
+          value: { stringValue: uidTarget }
+        }
+      },
+      limit: 50
+    };
+    const webTokenLists = await Promise.all(
+      nutrolixCore.BOTH_DB_IDS.map((dbId) =>
+        nutrolixCore.firestoreRunQuery(webQuery, '', dbId)
+          .then((docs) => docs.map((d) => {
+            let subscription = d.subscription || null;
+            if (!subscription && d.subscriptionJson) {
+              try { subscription = JSON.parse(d.subscriptionJson); } catch (_) {}
+            }
+            return { ...d, subscription, _firestorePath: `notificationTokens/${d._docId}`, _dbId: dbId };
+          }))
+          .catch(() => [])
+      )
+    );
+    for (const list of webTokenLists) firestoreTokens.push(...list);
   }
 
   const allTokens = [...localTokens, ...firestoreTokens];
@@ -519,7 +548,7 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
           }));
         } catch (err) {
           const code = Number(err.statusCode || 0);
-          const isGone = code === 410 || code === 404;
+          const isGone = code === 410 || code === 404 || code === 401 || code === 403;
           if (isGone) {
             deadEndpoints.push(sub.endpoint);
             firestoreTokens
@@ -4239,11 +4268,16 @@ const server = http.createServer(async (req, res) => {
         const reqUrl = new URL(req.url, 'http://localhost');
         const qProductId = reqUrl.searchParams.get('productId') || '';
         const qProductName = reqUrl.searchParams.get('productName') || '';
+        const qOrderId = reqUrl.searchParams.get('orderId') || '';
         const includeHidden = reqUrl.searchParams.get('includeHidden') === '1';
 
         let revs = await loadAllMergedReviews();
         if (!includeHidden) {
           revs = revs.filter(r => r.approved !== false);
+        }
+        if (qOrderId) {
+          const targetOrd = String(qOrderId).trim();
+          revs = revs.filter(r => String(r.orderId || '').trim() === targetOrd);
         }
         if (qProductId || qProductName) {
           revs = revs.filter(r => reviewMatchesProductQuery(r, qProductId, qProductName));
@@ -4272,37 +4306,66 @@ const server = http.createServer(async (req, res) => {
           const rawRev = JSON.parse(body || '{}');
           const cleanRating = Math.min(5, Math.max(1, Number(rawRev.rating || 5) || 5));
           const nowIso = new Date().toISOString();
-          const revId = String(rawRev.id || ('rev_' + Date.now() + '_' + crypto.randomBytes(2).toString('hex'))).trim();
+          const nowMs = Date.now();
+          const orderIdClean = String(rawRev.orderId || '').trim();
+
+          const existing = await loadAllMergedReviews();
+          const existingForOrder = orderIdClean
+            ? existing.filter(r => r && String(r.orderId || '').trim() === orderIdClean)
+            : [];
+          const primaryExisting = existingForOrder[0] || existing.find(r => rawRev.id && r && r.id === rawRev.id) || null;
+          const isEdit = Boolean(primaryExisting);
+
+          const revId = primaryExisting
+            ? String(primaryExisting.id)
+            : (orderIdClean
+              ? ('rev_ord_' + orderIdClean.replace(/[^a-zA-Z0-9_-]/g, '_'))
+              : String(rawRev.id || ('rev_' + nowMs + '_' + crypto.randomBytes(2).toString('hex'))).trim());
+
           const rev = {
             id: revId,
-            orderId: String(rawRev.orderId || '').trim(),
-            productId: String(rawRev.productId || '').trim(),
-            productIds: Array.isArray(rawRev.productIds)
+            orderId: orderIdClean,
+            productId: String(rawRev.productId || (primaryExisting && primaryExisting.productId) || '').trim(),
+            productIds: Array.isArray(rawRev.productIds) && rawRev.productIds.length
               ? rawRev.productIds.filter(Boolean).map(String)
-              : (rawRev.productId ? [String(rawRev.productId)] : []),
-            productName: String(rawRev.productName || 'Nutrolix Product').trim(),
-            productNames: Array.isArray(rawRev.productNames)
+              : (rawRev.productId ? [String(rawRev.productId)] : (primaryExisting && Array.isArray(primaryExisting.productIds) ? primaryExisting.productIds : [])),
+            productName: String(rawRev.productName || (primaryExisting && primaryExisting.productName) || 'Nutrolix Product').trim(),
+            productNames: Array.isArray(rawRev.productNames) && rawRev.productNames.length
               ? rawRev.productNames.filter(Boolean).map(String)
-              : (rawRev.productName ? [String(rawRev.productName)] : []),
+              : (rawRev.productName ? [String(rawRev.productName)] : (primaryExisting && Array.isArray(primaryExisting.productNames) ? primaryExisting.productNames : [])),
             rating: cleanRating,
             comment: String(rawRev.comment || rawRev.text || '').trim(),
             text: String(rawRev.text || rawRev.comment || '').trim(),
-            customerName: String(rawRev.customerName || rawRev.name || 'Verified Customer').trim(),
-            name: String(rawRev.name || rawRev.customerName || 'Verified Customer').trim(),
-            customerEmail: normalizeEmail(rawRev.customerEmail || ''),
-            customerPhone: normalizePhone(rawRev.customerPhone || ''),
-            uid: String(rawRev.uid || '').trim(),
+            customerName: String(rawRev.customerName || rawRev.name || (primaryExisting && primaryExisting.customerName) || 'Verified Customer').trim(),
+            name: String(rawRev.name || rawRev.customerName || (primaryExisting && primaryExisting.name) || 'Verified Customer').trim(),
+            customerEmail: normalizeEmail(rawRev.customerEmail || (primaryExisting && primaryExisting.customerEmail) || ''),
+            customerPhone: normalizePhone(rawRev.customerPhone || (primaryExisting && primaryExisting.customerPhone) || ''),
+            uid: String(rawRev.uid || (primaryExisting && primaryExisting.uid) || '').trim(),
             verified: rawRev.verified !== false,
-            approved: true,
-            createdAt: nowIso,
-            createdAtMillis: Date.now()
+            approved: primaryExisting ? (primaryExisting.approved !== false) : true,
+            edited: isEdit,
+            createdAt: (primaryExisting && primaryExisting.createdAt) || nowIso,
+            createdAtMillis: Number((primaryExisting && primaryExisting.createdAtMillis) || nowMs),
+            updatedAt: nowIso,
+            updatedAtMillis: nowMs
           };
 
-          const existing = await loadAllMergedReviews();
-          const updated = [rev, ...existing.filter(r => r.id !== rev.id)].slice(0, 500);
+          // Enforce strictly 1 review per delivered orderId across local store & Firestore
+          const duplicateIds = existingForOrder
+            .map(r => r && r.id)
+            .filter(id => id && id !== rev.id);
+
+          const filteredExisting = existing.filter(r => {
+            if (!r) return false;
+            if (r.id === rev.id) return false;
+            if (orderIdClean && String(r.orderId || '').trim() === orderIdClean) return false;
+            return true;
+          });
+          const updated = [rev, ...filteredExisting].slice(0, 500);
           await Promise.all([
             writeCatalogDocAndLocal('product_reviews', reviewsFile, updated),
-            nutrolixCore.firestorePatchBothDbs(`productReviews/${rev.id}`, rev)
+            nutrolixCore.firestorePatchBothDbs(`productReviews/${rev.id}`, rev),
+            ...duplicateIds.map((dupId) => nutrolixCore.firestoreDeleteBothDbs(`productReviews/${dupId}`).catch(() => false))
           ]);
 
           // Keep review_state in sync if review came from a delivered order
@@ -4321,7 +4384,7 @@ const server = http.createServer(async (req, res) => {
             'Access-Control-Allow-Origin': '*',
             'Cache-Control': 'no-store'
           });
-          res.end(JSON.stringify({ success: true, review: rev }));
+          res.end(JSON.stringify({ success: true, updated: isEdit, review: rev }));
         } catch (err) {
           res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ error: err.message }));
@@ -4686,6 +4749,8 @@ const server = http.createServer(async (req, res) => {
     reqPath = '/privacy.html';
   } else if (reqPath === '/admin' || reqPath === '/admin/') {
     reqPath = '/admin.html';
+  } else if (reqPath === '/firebase-messaging-sw.js') {
+    reqPath = '/sw.js';
   } else if (reqPath === '/app' || reqPath === '/app/' || reqPath === '/app.html' || reqPath === '/customer' || reqPath === '/customer/' || reqPath === '/customer.html') {
     res.writeHead(302, { 'Location': '/', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
     res.end();
@@ -4744,6 +4809,9 @@ const server = http.createServer(async (req, res) => {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Access-Control-Allow-Origin': '*'
       };
+      if (path.basename(filePath) === 'sw.js') {
+        headers['Service-Worker-Allowed'] = '/';
+      }
       if (ext === '.apk' || ext === '.dat' || ext === '.zip') {
         const downloadName = ext === '.dat' ? path.basename(filePath).replace(/\.dat$/, '') : path.basename(filePath);
         headers['Content-Disposition'] = `attachment; filename="${downloadName}"`;

@@ -1522,9 +1522,11 @@
       }
       pendingOrderConfirmAfterAuth = false;
       try {
+        window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
         const res = await window.startNutrolixPhoneOtp(digits, { isResend });
         if (res.mode === 'instant' && res.profile) {
           if (otpBox) otpBox.classList.add('hidden');
+          window.NutrolixNotifications?.ensureWebPushSynced?.(2000).catch?.(() => {});
           window.onAuthSuccessCallback(res.profile);
           return;
         }
@@ -1554,11 +1556,12 @@
       }
       pendingOrderConfirmAfterAuth = false;
       try {
-        window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
+        const permPromise = window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
         const profile = await window.verifyNutrolixPhoneOtp(codeEl?.value || '');
         document.getElementById('cartInlineOtpBox')?.classList.add('hidden');
+        if (permPromise) await Promise.race([permPromise, new Promise((r) => setTimeout(r, 1500))]);
+        await window.NutrolixNotifications?.ensureWebPushSynced?.(2500).catch?.(() => {});
         window.onAuthSuccessCallback(profile);
-        window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
       } catch (e) {
         // Keep the inline OTP field visible after a failed verification so the
         // customer can correct the code or request a resend on the same screen.
@@ -1792,7 +1795,14 @@
 
       saveUserProfile();
       window.closeDeliveryDetailsModal();
-      window.executeOrderPlacement();
+      const permPromise = window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => false);
+      if (permPromise) {
+        Promise.race([permPromise, new Promise((r) => setTimeout(r, 6000))])
+          .then(() => window.executeOrderPlacement())
+          .catch(() => window.executeOrderPlacement());
+      } else {
+        window.executeOrderPlacement();
+      }
     };
 
     // Primary checkout button trigger (already-logged-in users NEVER get asked for OTP again)
@@ -1847,8 +1857,14 @@
         return;
       }
 
-      window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
-      window.executeOrderPlacement();
+      const permPromise = window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => false);
+      if (permPromise) {
+        Promise.race([permPromise, new Promise((r) => setTimeout(r, 6000))])
+          .then(() => window.executeOrderPlacement())
+          .catch(() => window.executeOrderPlacement());
+      } else {
+        window.executeOrderPlacement();
+      }
     };
 
     // Final Order Placement Execution (Cash on Delivery or PayU Online)
@@ -2071,6 +2087,7 @@
               form.appendChild(input);
             }
             document.body.appendChild(form);
+            await window.NutrolixNotifications?.ensureWebPushSynced?.(2500).catch?.(() => {});
             form.submit();
             return;
           } else {
@@ -2113,6 +2130,9 @@
         const finalOrdId = confirmedOrder.id || confirmedOrder.orderId || generatedOrderId;
         confirmedOrder.id = finalOrdId;
         confirmedOrder.orderId = finalOrdId;
+
+        // Guarantee Chrome Web Push subscription is persisted before dispatching order-placed
+        await window.NutrolixNotifications?.ensureWebPushSynced?.(2500).catch?.(() => {});
 
         // Dispatch status alerts separately so push-provider latency cannot block
         // the success screen or keep the Place Order button spinning.

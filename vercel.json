@@ -31,9 +31,17 @@
     { "source": "/cancellation", "destination": "/cancellation.html" },
     { "source": "/faqs", "destination": "/faqs.html" },
     { "source": "/app", "destination": "/index.html" },
-    { "source": "/customer", "destination": "/index.html" }
+    { "source": "/customer", "destination": "/index.html" },
+    { "source": "/firebase-messaging-sw.js", "destination": "/sw.js" }
   ],
   "headers": [
+    {
+      "source": "/(sw\\.js|firebase-messaging-sw\\.js)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
+        { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [
