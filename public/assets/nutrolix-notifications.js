@@ -354,9 +354,70 @@
     return String(str || '').replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
   }
 
+  let customerAudioCtx = null;
+  let customerAudioUnlocked = false;
+
+  function unlockCustomerAudio() {
+    if (window.AndroidNative) return;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      if (!customerAudioCtx) customerAudioCtx = new AudioContextClass();
+      if (customerAudioCtx.state === 'suspended') {
+        customerAudioCtx.resume().then(() => { customerAudioUnlocked = true; }).catch(() => {});
+      } else {
+        customerAudioUnlocked = true;
+      }
+      if (!customerAudioUnlocked && customerAudioCtx.state === 'running') {
+        const buf = customerAudioCtx.createBuffer(1, 1, 22050);
+        const src = customerAudioCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(customerAudioCtx.destination);
+        src.start(0);
+        customerAudioUnlocked = true;
+      }
+    } catch (_) {}
+  }
+
+  ['pointerdown', 'touchstart', 'click', 'keydown'].forEach((evt) => {
+    window.addEventListener(evt, unlockCustomerAudio, { passive: true, capture: true });
+  });
+
+  function playCustomerNotificationTone() {
+    if (window.AndroidNative) return;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      if (!customerAudioCtx) customerAudioCtx = new AudioContextClass();
+      if (customerAudioCtx.state === 'suspended') {
+        customerAudioCtx.resume().catch(() => {});
+      }
+      if (customerAudioCtx.state !== 'running') return;
+
+      const now = customerAudioCtx.currentTime;
+      const playNote = (freq, startOffset, duration) => {
+        const osc = customerAudioCtx.createOscillator();
+        const gain = customerAudioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + startOffset);
+        gain.gain.setValueAtTime(0.001, now + startOffset);
+        gain.gain.exponentialRampToValueAtTime(0.25, now + startOffset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + startOffset + duration);
+        osc.connect(gain);
+        gain.connect(customerAudioCtx.destination);
+        osc.start(now + startOffset);
+        osc.stop(now + startOffset + duration + 0.02);
+      };
+      playNote(880, 0, 0.18);
+      playNote(1174.66, 0.16, 0.28);
+    } catch (_) {}
+  }
+
   function showClickableToast({ title, message, orderId, url }) {
     const existing = document.getElementById('nutrolixOrderLiveToast');
     if (existing) existing.remove();
+
+    playCustomerNotificationTone();
 
     let targetHref = orderId ? `orders.html?orderId=${encodeURIComponent(orderId)}` : 'orders.html';
     if (url) {

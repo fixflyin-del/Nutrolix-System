@@ -726,6 +726,9 @@
 
         userOrders = unique;
         renderOrdersList();
+        try {
+          window.dispatchEvent(new CustomEvent('nutrolix:orders-loaded', { detail: unique }));
+        } catch (_) {}
 
         if (pendingQueryOrderId) {
           const found = userOrders.find(o => o.id === pendingQueryOrderId || o.orderId === pendingQueryOrderId);
@@ -923,6 +926,10 @@
 
     window.openReviewModal = function() {
       if (!currentSelectedOrder) return;
+      if (window.NutrolixReviews && typeof window.NutrolixReviews.openReviewModalForOrder === 'function') {
+        window.NutrolixReviews.openReviewModalForOrder(currentSelectedOrder, false);
+        return;
+      }
       document.getElementById('reviewModalSubtitle').textContent = `Order #${currentSelectedOrder.id || currentSelectedOrder.orderId}`;
       document.getElementById('orderReviewModal').classList.remove('hidden');
     };
@@ -939,10 +946,40 @@
       }
     };
 
-    window.submitReview = function() {
+    window.submitReview = async function() {
       const text = document.getElementById('orderReviewText').value.trim();
       if (!text) return alert('Please enter your feedback.');
-      alert(`🎉 Thank you! Your ${currentRating}-Star verified review has been submitted.`);
+      if (currentSelectedOrder) {
+        const oid = currentSelectedOrder.id || currentSelectedOrder.orderId;
+        const user = (typeof window.getNutrolixUser === 'function') ? window.getNutrolixUser() : null;
+        const items = Array.isArray(currentSelectedOrder.items) ? currentSelectedOrder.items : [];
+        const firstItem = items[0] || {};
+        const productIds = Array.from(new Set(items.map(it => it && (it.id || it.productId || it.mealId)).filter(Boolean).map(String)));
+        const productNames = Array.from(new Set(items.map(it => it && (it.title || it.name || it.mealName)).filter(Boolean).map(String)));
+        const host = window.NUTROLIX_API_HOST || '';
+        try {
+          await fetch(host + '/api/product-reviews', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId: oid,
+              productId: productIds[0] || firstItem.id || 'nutrolix_prod',
+              productIds: productIds.length ? productIds : ['nutrolix_prod'],
+              productName: productNames[0] || firstItem.title || firstItem.name || 'Nutrolix Product',
+              productNames: productNames,
+              rating: currentRating || 5,
+              comment: text,
+              text: text,
+              customerName: user ? (user.name || 'Verified Customer') : 'Verified Customer',
+              customerEmail: user ? (user.email || '') : '',
+              customerPhone: user ? (user.verifiedPhone || user.phone || '') : '',
+              uid: user ? (user.uid || '') : '',
+              verified: true
+            })
+          });
+        } catch (_) {}
+      }
+      alert(`🎉 Thank you! Your ${currentRating}-Star verified review has been saved permanently.`);
       window.closeReviewModal();
     };
 

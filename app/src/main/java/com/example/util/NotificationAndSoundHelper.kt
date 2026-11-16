@@ -27,7 +27,7 @@ import com.example.service.AdminOrderBackgroundService
 import kotlinx.coroutines.*
 
 object OrderNotificationHelper {
-  private const val CHANNEL_ID = "nutrolix_orders_channel_v2"
+  private const val CHANNEL_ID = "nutrolix_orders_channel_v3"
   private const val CHANNEL_NAME = "Nutrolix Order Notifications"
   // Bumped channel ID (v3) so Android discards older cached channels that used TYPE_RINGTONE.
   // Sound is set to null on this visual channel so OrderAlarmPlayer alone plays the single custom order chime.
@@ -48,6 +48,8 @@ object OrderNotificationHelper {
         description = "Order status and confirmation notifications"
         enableVibration(true)
         vibrationPattern = longArrayOf(0, 250, 150, 250)
+        enableLights(true)
+        lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
         setSound(
           android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION),
           AudioAttributes.Builder()
@@ -90,6 +92,7 @@ object OrderNotificationHelper {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
+    val soundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
     val builder = NotificationCompat.Builder(context, CHANNEL_ID)
       .setSmallIcon(R.drawable.nutrolix_app_icon)
       .setContentTitle("Nutrolix Order Confirmed")
@@ -100,6 +103,10 @@ object OrderNotificationHelper {
       )
       .setContentIntent(pendingIntent)
       .setPriority(NotificationCompat.PRIORITY_HIGH)
+      .setCategory(NotificationCompat.CATEGORY_STATUS)
+      .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+      .setSound(soundUri)
+      .setSilent(false)
       .setAutoCancel(true)
       .setDefaults(NotificationCompat.DEFAULT_ALL)
 
@@ -144,6 +151,7 @@ object OrderNotificationHelper {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
+    val soundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
     val builder = NotificationCompat.Builder(context, CHANNEL_ID)
       .setSmallIcon(R.drawable.nutrolix_app_icon)
       .setContentTitle(title)
@@ -151,6 +159,10 @@ object OrderNotificationHelper {
       .setStyle(NotificationCompat.BigTextStyle().bigText(body))
       .setContentIntent(pendingIntent)
       .setPriority(NotificationCompat.PRIORITY_MAX)
+      .setCategory(NotificationCompat.CATEGORY_STATUS)
+      .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+      .setSound(soundUri)
+      .setSilent(false)
       .setVibrate(longArrayOf(0, 300, 200, 300))
       .setAutoCancel(true)
       .setDefaults(NotificationCompat.DEFAULT_ALL)
@@ -184,6 +196,7 @@ object OrderNotificationHelper {
       PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
     )
 
+    val soundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
     val builder = NotificationCompat.Builder(context, CHANNEL_ID)
       .setSmallIcon(R.drawable.nutrolix_app_icon)
       .setContentTitle(title)
@@ -191,6 +204,10 @@ object OrderNotificationHelper {
       .setStyle(NotificationCompat.BigTextStyle().bigText(body))
       .setContentIntent(pendingIntent)
       .setPriority(NotificationCompat.PRIORITY_MAX)
+      .setCategory(NotificationCompat.CATEGORY_STATUS)
+      .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+      .setSound(soundUri)
+      .setSilent(false)
       .setVibrate(longArrayOf(0, 300, 150, 300))
       .setAutoCancel(true)
       .setDefaults(NotificationCompat.DEFAULT_ALL)

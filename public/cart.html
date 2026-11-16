@@ -413,30 +413,37 @@
           </form>
         </div>
 
-        <!-- Payment Method Selection -->
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-3">
-          <h3 class="text-base font-black text-slate-900 flex items-center space-x-2">
-            <i class="fa-solid fa-credit-card text-emerald-600"></i>
+        <!-- Payment Method Selection (Compact Horizontal Stylish Button Pills) -->
+        <div class="bg-white rounded-2xl p-3.5 sm:p-4 shadow-sm border border-slate-200 space-y-2.5">
+          <h3 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
+            <i class="fa-solid fa-credit-card text-emerald-600 text-xs"></i>
             <span>Select Payment Method</span>
           </h3>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-bold">
-            <label class="p-3.5 rounded-xl border-2 border-emerald-500 bg-emerald-50/50 flex items-center space-x-3 cursor-pointer">
-              <input type="radio" name="paymentMethod" value="Cash on Delivery" checked class="text-emerald-600 focus:ring-emerald-500">
-              <div>
-                <span class="block text-slate-900 font-black">Cash on Delivery (COD)</span>
-                <span class="text-[10px] text-slate-500">Pay when your order arrives</span>
+          <div class="grid grid-cols-2 gap-2 text-xs font-bold">
+            <label class="relative cursor-pointer block">
+              <input type="radio" name="paymentMethod" value="Cash on Delivery" checked class="peer sr-only">
+              <div class="h-full px-3 py-2.5 rounded-xl border-2 border-slate-200 bg-slate-50/70 hover:border-emerald-300 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 peer-checked:shadow-sm transition flex items-center space-x-2">
+                <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 text-xs">
+                  <i class="fa-solid fa-money-bill-wave"></i>
+                </span>
+                <div class="min-w-0">
+                  <span class="block text-slate-900 font-black text-[11px] sm:text-xs leading-tight truncate">Cash on Delivery</span>
+                  <span class="block text-[9px] text-slate-500 truncate">Pay on arrival</span>
+                </div>
               </div>
             </label>
 
-            <label class="p-3.5 rounded-xl border-2 border-slate-200 hover:border-emerald-400 bg-white flex items-center space-x-3 cursor-pointer">
-              <input type="radio" name="paymentMethod" value="PayU Online Payment" class="text-emerald-600 focus:ring-emerald-500">
-              <div>
-                <span class="block text-slate-900 font-black flex items-center space-x-1.5">
-                  <span>PayU Live Payment</span>
-                  <span class="bg-emerald-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded uppercase">Live Gateway</span>
+            <label class="relative cursor-pointer block">
+              <input type="radio" name="paymentMethod" value="PayU Online Payment" class="peer sr-only">
+              <div class="h-full px-3 py-2.5 rounded-xl border-2 border-slate-200 bg-slate-50/70 hover:border-emerald-300 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 peer-checked:shadow-sm transition flex items-center space-x-2">
+                <span class="w-7 h-7 rounded-lg bg-slate-900 text-emerald-400 flex items-center justify-center shrink-0 text-xs">
+                  <i class="fa-solid fa-bolt"></i>
                 </span>
-                <span class="text-[10px] text-slate-500">UPI, GPay, PhonePe, Cards, NetBanking</span>
+                <div class="min-w-0">
+                  <span class="block text-slate-900 font-black text-[11px] sm:text-xs leading-tight truncate">Online Pay</span>
+                  <span class="block text-[9px] text-emerald-700 font-bold truncate">UPI • Cards • Net</span>
+                </div>
               </div>
             </label>
           </div>
@@ -447,15 +454,14 @@
       <!-- Right 1 Col: Summary & Checkout -->
       <div class="space-y-6">
         
-        <!-- Coupon Card -->
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200">
-          <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Have a Promo Code?</h4>
-          <div class="flex space-x-2">
-            <input type="text" id="couponInput" placeholder="Try NUTRO10 or NUTRO20" class="flex-1 uppercase font-bold text-sm bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
-            <button onclick="applyCoupon()" class="px-4 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition">Apply</button>
+        <!-- Coupon Card (Compact Horizontal Layout) -->
+        <div class="bg-white rounded-2xl p-3.5 sm:p-4 shadow-sm border border-slate-200">
+          <div class="flex items-center gap-2">
+            <input type="text" id="couponInput" placeholder="Promo Code (NUTRO10 / NUTRO20)" class="flex-1 min-w-0 uppercase font-bold text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+            <button onclick="applyCoupon()" class="px-4 py-2 rounded-xl bg-slate-900 text-white font-black text-xs hover:bg-slate-800 transition shrink-0">Apply</button>
           </div>
-          <div id="couponMessage" class="mt-2 text-xs"></div>
-          <div id="couponSuggestionsContainer" class="mt-3 flex flex-wrap gap-2">
+          <div id="couponMessage" class="mt-1.5 text-[11px]"></div>
+          <div id="couponSuggestionsContainer" class="mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5 whitespace-nowrap">
             <!-- Dynamically populated from getStoreCoupons() -->
           </div>
         </div>
@@ -796,12 +802,12 @@
       }
       container.innerHTML = coupons.map(c => {
         const discountLabel = c.type === 'flat' ? `₹${c.value} OFF` : `${c.value}% OFF`;
-        const minOrderLabel = c.minOrder > 0 ? ` > ₹${c.minOrder}` : '';
+        const minOrderLabel = c.minOrder > 0 ? ` • Min ₹${c.minOrder}` : '';
         return `
-          <button type="button" onclick="setCoupon('${c.code}')" class="cursor-pointer text-[11px] font-bold px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition shadow-xs flex items-center space-x-1">
+          <button type="button" onclick="setCoupon('${c.code}')" class="shrink-0 cursor-pointer text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 transition inline-flex items-center space-x-1 whitespace-nowrap">
             <span>🎟️</span>
-            <span class="font-extrabold">${c.code}</span>
-            <span class="text-[10px] text-emerald-600 font-semibold">(${discountLabel}${minOrderLabel})</span>
+            <span class="font-black">${c.code}</span>
+            <span class="text-[9px] text-emerald-700 font-semibold">${discountLabel}${minOrderLabel}</span>
           </button>
         `;
       }).join('');

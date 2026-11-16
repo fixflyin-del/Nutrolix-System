@@ -2317,40 +2317,149 @@
     let soundAlertEnabled = true;
     let audioCtx = null;
     let ringInterval = null;
+    let adminAudioUnlocked = false;
+    let adminWavAudioEl = null;
     window.acknowledgedOrderIds = window.acknowledgedOrderIds || new Set();
     window.knownAdminOrderIds = window.knownAdminOrderIds || new Set();
 
+    function buildAdminSirenWavDataUri() {
+      try {
+        const sampleRate = 8000;
+        const durationSec = 0.65;
+        const numSamples = Math.floor(sampleRate * durationSec);
+        const buffer = new ArrayBuffer(44 + numSamples * 2);
+        const view = new DataView(buffer);
+        const writeStr = (offset, str) => {
+          for (let i = 0; i < str.length; i++) view.setUint8(offset + i, str.charCodeAt(i));
+        };
+        writeStr(0, 'RIFF');
+        view.setUint32(4, 36 + numSamples * 2, true);
+        writeStr(8, 'WAVE');
+        writeStr(12, 'fmt ');
+        view.setUint32(16, 16, true);
+        view.setUint16(20, 1, true);
+        view.setUint16(22, 1, true);
+        view.setUint32(24, sampleRate, true);
+        view.setUint32(28, sampleRate * 2, true);
+        view.setUint16(32, 2, true);
+        view.setUint16(34, 16, true);
+        writeStr(36, 'data');
+        view.setUint32(40, numSamples * 2, true);
+        for (let i = 0; i < numSamples; i++) {
+          const t = i / sampleRate;
+          const freq = (t < 0.22) ? 980 : (t < 0.44 ? 1320 : 980);
+          const env = Math.sin((Math.PI * i) / numSamples);
+          const sample = Math.sin(2 * Math.PI * freq * t) * 0.65 * env;
+          view.setInt16(44 + i * 2, Math.max(-32767, Math.min(32767, Math.floor(sample * 32767))), true);
+        }
+        let binary = '';
+        const bytes = new Uint8Array(buffer);
+        for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+        return 'data:audio/wav;base64,' + btoa(binary);
+      } catch (_) {
+        return '';
+      }
+    }
+
+    function ensureAdminWavElement() {
+      if (adminWavAudioEl) return adminWavAudioEl;
+      try {
+        const uri = buildAdminSirenWavDataUri();
+        if (!uri) return null;
+        adminWavAudioEl = new Audio(uri);
+        adminWavAudioEl.preload = 'auto';
+        adminWavAudioEl.volume = 1.0;
+        return adminWavAudioEl;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    window.unlockAdminAudio = function() {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          if (!audioCtx) audioCtx = new AudioContextClass();
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume().catch(() => {});
+          }
+          if (!adminAudioUnlocked && audioCtx.state === 'running') {
+            const buf = audioCtx.createBuffer(1, 1, 22050);
+            const src = audioCtx.createBufferSource();
+            src.buffer = buf;
+            src.connect(audioCtx.destination);
+            src.start(0);
+          }
+        }
+        const wavEl = ensureAdminWavElement();
+        if (wavEl && !adminAudioUnlocked) {
+          wavEl.muted = true;
+          const p = wavEl.play();
+          if (p && typeof p.then === 'function') {
+            p.then(() => {
+              wavEl.pause();
+              wavEl.currentTime = 0;
+              wavEl.muted = false;
+              adminAudioUnlocked = true;
+            }).catch(() => { wavEl.muted = false; });
+          } else {
+            wavEl.muted = false;
+          }
+        }
+        if (audioCtx && audioCtx.state === 'running') {
+          adminAudioUnlocked = true;
+        }
+      } catch (_) {}
+    };
+
+    ['pointerdown', 'touchstart', 'click', 'keydown'].forEach((evt) => {
+      window.addEventListener(evt, () => { window.unlockAdminAudio(); }, { passive: true, capture: true });
+    });
+
     function playUrgentTone() {
+      let playedWebAudio = false;
       try {
         if (!audioCtx) {
           const AudioContextClass = window.AudioContext || window.webkitAudioContext;
           if (AudioContextClass) audioCtx = new AudioContextClass();
         }
         if (audioCtx && audioCtx.state === 'suspended') {
-          audioCtx.resume();
+          audioCtx.resume().catch(() => {});
         }
-        if (!audioCtx) return;
+        if (audioCtx && audioCtx.state === 'running') {
+          const now = audioCtx.currentTime;
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
 
-        const now = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
+          // Urgent two-stage siren tone
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(850, now);
+          osc.frequency.linearRampToValueAtTime(1300, now + 0.25);
+          osc.frequency.linearRampToValueAtTime(850, now + 0.5);
 
-        // Urgent two-stage siren tone
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(850, now);
-        osc.frequency.linearRampToValueAtTime(1300, now + 0.25);
-        osc.frequency.linearRampToValueAtTime(850, now + 0.5);
+          gain.gain.setValueAtTime(0.45, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
 
-        gain.gain.setValueAtTime(0.4, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
 
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-
-        osc.start(now);
-        osc.stop(now + 0.7);
+          osc.start(now);
+          osc.stop(now + 0.7);
+          playedWebAudio = true;
+        }
       } catch (e) {
         console.warn('Audio tone error:', e);
+      }
+
+      if (!playedWebAudio) {
+        try {
+          const wavEl = ensureAdminWavElement();
+          if (wavEl) {
+            wavEl.muted = false;
+            wavEl.currentTime = 0;
+            wavEl.play().catch(() => {});
+          }
+        } catch (_) {}
       }
     }
 
@@ -2359,6 +2468,56 @@
       if (window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.playAlarm === "function") return;
       playUrgentTone();
     }
+
+    window.registerAdminBrowserPush = async function() {
+      if (window.NutrolixAdminNativeBridge || window.AndroidNative) return;
+      if (!('Notification' in window) || !('serviceWorker' in navigator) || window.location.protocol === 'file:') return;
+      try {
+        let perm = Notification.permission;
+        if (perm === 'default') {
+          perm = await Notification.requestPermission();
+        }
+        if (perm !== 'granted') return;
+        const reg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+        const readyReg = (await navigator.serviceWorker.ready) || reg;
+        if (!readyReg || !('pushManager' in readyReg)) return;
+        let vapidKey = 'BNKixC3ZCYx27sN2fDJcsDhc1NVZEBQJ_-NkX9Xa1CuHB0xz9tyvCk582_j0bPaCBzn8LUeswFAZigMzzlSj5gY';
+        try {
+          const kRes = await fetch('/api/notifications/vapid-key');
+          if (kRes.ok) {
+            const kd = await kRes.json();
+            if (kd && kd.publicKey) vapidKey = kd.publicKey;
+          }
+        } catch (_) {}
+        let sub = await readyReg.pushManager.getSubscription();
+        if (!sub) {
+          const padding = '='.repeat((4 - vapidKey.length % 4) % 4);
+          const base64 = (vapidKey + padding).replace(/-/g, '+').replace(/_/g, '/');
+          const raw = window.atob(base64);
+          const keyArr = new Uint8Array(raw.length);
+          for (let i = 0; i < raw.length; i++) keyArr[i] = raw.charCodeAt(i);
+          sub = await readyReg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyArr });
+        }
+        if (sub) {
+          let devId = localStorage.getItem('nutrolix_admin_web_dev_id');
+          if (!devId) {
+            devId = 'web_admin_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 8);
+            localStorage.setItem('nutrolix_admin_web_dev_id', devId);
+          }
+          await fetch('/api/notifications/register-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid: 'nutrolix_admin_device',
+              role: 'admin',
+              platform: 'web-admin',
+              deviceId: devId,
+              subscription: typeof sub.toJSON === 'function' ? sub.toJSON() : sub
+            })
+          });
+        }
+      } catch (_) {}
+    };
 
     window.playNativeOrderAlarm = function(order) {
       const hasNativeBridge = !!(window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.playAlarm === "function");
@@ -2395,7 +2554,7 @@
       if (!soundAlertEnabled) return;
 
       // In Admin APK, native OrderAlarmPlayer exclusively handles the single clean order chime & vibration
-      // so two overlapping tones never play at the same time. Web browsers play WebAudio chime below.
+      // so two overlapping tones never play at the same time. Web browsers play WebAudio/WAV chime below.
       if (hasNativeBridge) {
         return;
       }
@@ -2422,6 +2581,7 @@
     };
 
     window.acknowledgeActiveAlarm = function() {
+      window.unlockAdminAudio();
       if (ringInterval) {
         clearInterval(ringInterval);
         ringInterval = null;
@@ -2435,12 +2595,15 @@
     };
 
     window.toggleSoundAlert = function() {
+      window.unlockAdminAudio();
       soundAlertEnabled = !soundAlertEnabled;
       const icon = document.getElementById('soundIcon');
       const text = document.getElementById('soundText');
       if (icon) icon.className = soundAlertEnabled ? 'fa-solid fa-volume-high text-amber-400' : 'fa-solid fa-volume-xmark text-slate-400';
       if (text) text.innerText = soundAlertEnabled ? 'Order Ring: Active' : 'Order Ring: Muted';
-      if (!soundAlertEnabled && ringInterval) {
+      if (soundAlertEnabled && !window.NutrolixAdminNativeBridge) {
+        playUrgentTone();
+      } else if (!soundAlertEnabled && ringInterval) {
         clearInterval(ringInterval);
         ringInterval = null;
         if (window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.stopAlarm === "function") {
@@ -5093,10 +5256,12 @@
         return false;
       }
 
+      window.unlockAdminAudio();
       try { sessionStorage.setItem('nutrolix_admin_portal_unlocked', '1'); } catch (_) {}
       if (overlay) overlay.classList.add('hidden');
       document.body.classList.remove('overflow-hidden');
       if (pinEl) pinEl.value = '';
+      window.registerAdminBrowserPush().catch(() => {});
       await window.ensureAdminSessionToken();
       return true;
     };

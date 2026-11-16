@@ -431,6 +431,10 @@ test('End-to-end HTTP server verification: config-status, token guardrails, orde
     assert.equal(create1.json.success, true);
     assert.equal(create1.json.order.uid, 'phone_9898989898');
 
+    const placedPush = await httpReq('POST', '/api/notifications/order-placed', { orderId: ordPayload.orderId });
+    assert.equal(placedPush.status, 200);
+    assert.equal(placedPush.json.success, true);
+
     const createDup = await httpReq('POST', '/api/nutrition-orders', { ...ordPayload, orderId: 'NTX-TEST-DIFFERENT-ID' });
     assert.equal(createDup.status, 200);
     assert.equal(createDup.json.deduplicated, true);
@@ -630,4 +634,123 @@ test('encodeFirestorePath percent-encodes legacy user document IDs containing sp
   assert.equal(core.encodeFirestorePath('users/+91 9877666512'), 'users/%2B91%209877666512');
   assert.equal(core.encodeFirestorePath('/users/+91 98765 43210/fcmTokens/tok_1'), 'users/%2B91%2098765%2043210/fcmTokens/tok_1');
   assert.equal(core.encodeFirestorePath('users/phone_9931354354'), 'users/phone_9931354354');
+});
+
+test('Checkout horizontal Payment & Promo UI and Healthy Food Nutrition Facts heading match requirements', () => {
+  const root = path.resolve(__dirname, '..');
+  for (const rel of ['public/cart.html', 'app/src/main/assets/web/cart.html']) {
+    const cartHtml = fs.readFileSync(path.join(root, rel), 'utf8');
+    assert.ok(cartHtml.includes('grid-cols-2 gap-2'), `${rel} must use compact 2-column horizontal payment selector`);
+    assert.ok(cartHtml.includes('overflow-x-auto') && cartHtml.includes('whitespace-nowrap'), `${rel} must lay out promo chips in compact horizontal row`);
+  }
+  for (const rel of ['public/food.html', 'app/src/main/assets/web/food.html']) {
+    const foodHtml = fs.readFileSync(path.join(root, rel), 'utf8');
+    const nutritionIdx = foodHtml.indexOf('Nutrition Facts (Per Serving)');
+    assert.ok(nutritionIdx > 0, `${rel} should keep Nutrition Facts (Per Serving) heading`);
+    const headingSlice = foodHtml.slice(nutritionIdx, nutritionIdx + 220);
+    assert.equal(headingSlice.includes('100% Lab Verified'), false, `${rel} must not contain 100% Lab Verified inside Nutrition Facts heading`);
+  }
+});
+
+test('Customer notification v3 sound channel, Admin APK data-only alarm routing, and Mobile Admin audio unlocker are wired', () => {
+  const root = path.resolve(__dirname, '..');
+  const helperKt = fs.readFileSync(path.join(root, 'app/src/main/java/com/example/util/NotificationAndSoundHelper.kt'), 'utf8');
+  const fcmKt = fs.readFileSync(path.join(root, 'app/src/main/java/com/example/service/NutrolixFirebaseMessagingService.kt'), 'utf8');
+  const adminSvcKt = fs.readFileSync(path.join(root, 'app/src/main/java/com/example/service/AdminOrderBackgroundService.kt'), 'utf8');
+  const notifJs = fs.readFileSync(path.join(root, 'public/assets/nutrolix-notifications.js'), 'utf8');
+  const adminHtml = fs.readFileSync(path.join(root, 'public/admin.html'), 'utf8');
+  const swJs = fs.readFileSync(path.join(root, 'public/sw.js'), 'utf8');
+
+  assert.ok(helperKt.includes('CHANNEL_ID = "nutrolix_orders_channel_v3"'), 'Customer Android channel must bump to v3 with sound');
+  assert.ok(helperKt.includes('RingtoneManager.TYPE_NOTIFICATION'), 'Customer notification must use default notification tone');
+  assert.ok(fcmKt.includes('OrderAlarmPlayer.playOrderAlarm(applicationContext)'), 'FCM service must ring OrderAlarmPlayer on ADMIN_NEW_ORDER');
+  assert.ok(fcmKt.includes('OrderNotificationHelper.sendAdminNewOrderNotification'), 'FCM service must post Admin lockscreen notification');
+  assert.ok(adminSvcKt.includes('OrderStatus.PLACED || order.status == OrderStatus.CONFIRMED'), 'Admin background service must ring on CONFIRMED and PLACED orders');
+  assert.ok(notifJs.includes('playCustomerNotificationTone'), 'Browser notifications must play Web Audio chime');
+  assert.ok(swJs.includes('silent: false'), 'Service Worker Web Push notifications must set silent: false');
+  assert.ok(adminHtml.includes('unlockAdminAudio') && adminHtml.includes('buildAdminSirenWavDataUri'), 'Mobile Admin web must unlock Web Audio + WAV fallback');
+  assert.ok(adminHtml.includes('registerAdminBrowserPush'), 'Admin web portal must register admin Web Push subscription');
+});
+
+test('Product reviews and single-time delivered popup state persist across HTTP API and sync to product/food pages', async () => {
+  const root = path.resolve(__dirname, '..');
+  const dataDir = path.join(root, 'public', 'data');
+  const tracked = ['product_reviews.json', 'review_state.json'];
+  const backups = {};
+  for (const f of tracked) {
+    const p = path.join(dataDir, f);
+    backups[f] = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
+  }
+
+  const prodHtml = fs.readFileSync(path.join(root, 'public/product.html'), 'utf8');
+  const foodHtml = fs.readFileSync(path.join(root, 'public/food.html'), 'utf8');
+  const ordersHtml = fs.readFileSync(path.join(root, 'public/orders.html'), 'utf8');
+  const reviewsJs = fs.readFileSync(path.join(root, 'public/assets/nutrolix-reviews.js'), 'utf8');
+
+  assert.ok(prodHtml.includes('/api/product-reviews?'), 'product.html must load permanent server reviews');
+  assert.ok(foodHtml.includes('/api/product-reviews'), 'food.html modal must load permanent server reviews');
+  assert.ok(ordersHtml.includes('nutrolix:orders-loaded'), 'orders.html must notify NutrolixReviews when live orders load');
+  assert.ok(ordersHtml.includes('window.NutrolixReviews.openReviewModalForOrder'), 'orders.html must use NutrolixReviews modal');
+  assert.ok(reviewsJs.includes('nutrolix_review_shown_'), 'nutrolix-reviews.js must mark popup shown for single-time behavior');
+  assert.ok(reviewsJs.includes('/api/nutrition-orders?'), 'nutrolix-reviews.js must fetch live orders to detect Delivered status');
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address();
+  const port = typeof addr === 'object' && addr ? addr.port : 0;
+
+  const httpReq = (method, reqPath, bodyObj = null) => new Promise((resolve, reject) => {
+    const bodyStr = bodyObj ? JSON.stringify(bodyObj) : null;
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port,
+      path: reqPath,
+      method,
+      headers: bodyStr ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) } : {}
+    }, (res) => {
+      let raw = '';
+      res.on('data', c => raw += c);
+      res.on('end', () => resolve({ status: res.statusCode, json: JSON.parse(raw) }));
+    });
+    req.on('error', reject);
+    if (bodyStr) req.write(bodyStr);
+    req.end();
+  });
+
+  try {
+    const testOrderId = 'NTX-REV-TEST-' + Date.now();
+    const postRev = await httpReq('POST', '/api/product-reviews', {
+      orderId: testOrderId,
+      productId: 'high-protein-atta',
+      productIds: ['high-protein-atta', 'paneer-tikka-bowl'],
+      productName: 'High Protein Atta',
+      productNames: ['High Protein Atta', 'Paneer Tikka Bowl'],
+      rating: 5,
+      comment: 'Amazing protein quality and fresh packaging!',
+      customerName: 'Aarav Sharma',
+      verified: true
+    });
+    assert.equal(postRev.status, 200);
+    assert.equal(postRev.json.success, true);
+    assert.equal(postRev.json.review.orderId, testOrderId);
+
+    const getProdRev = await httpReq('GET', '/api/product-reviews?productId=paneer-tikka-bowl');
+    assert.equal(getProdRev.status, 200);
+    assert.ok(Array.isArray(getProdRev.json) && getProdRev.json.some(r => r.orderId === testOrderId));
+
+    const dismissRes = await httpReq('POST', '/api/reviews/dismiss', { orderId: 'NTX-DISMISS-1' });
+    assert.equal(dismissRes.status, 200);
+    assert.ok(dismissRes.json.dismissed.includes('NTX-DISMISS-1'));
+
+    const stateRes = await httpReq('GET', '/api/reviews/state');
+    assert.equal(stateRes.status, 200);
+    assert.ok(stateRes.json.dismissed.includes('NTX-DISMISS-1'));
+    assert.ok(stateRes.json.reviewed.includes(testOrderId));
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    for (const f of tracked) {
+      const p = path.join(dataDir, f);
+      if (backups[f] !== null) fs.writeFileSync(p, backups[f], 'utf8');
+      else if (fs.existsSync(p)) fs.unlinkSync(p);
+    }
+  }
 });

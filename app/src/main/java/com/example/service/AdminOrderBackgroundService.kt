@@ -429,7 +429,9 @@ class AdminOrderBackgroundService : Service() {
         val conn = (url.openConnection() as HttpURLConnection).apply {
           connectTimeout = 5000
           readTimeout = 5000
+          useCaches = false
           setRequestProperty("Accept", "application/json")
+          setRequestProperty("Cache-Control", "no-cache")
         }
         if (conn.responseCode == 200) {
           val text = conn.inputStream.bufferedReader().use { it.readText() }
@@ -454,7 +456,9 @@ class AdminOrderBackgroundService : Service() {
           val conn = (url.openConnection() as HttpURLConnection).apply {
             connectTimeout = 5000
             readTimeout = 5000
+            useCaches = false
             setRequestProperty("Accept", "application/json")
+            setRequestProperty("Cache-Control", "no-cache")
           }
           if (conn.responseCode == 200) {
             val text = conn.inputStream.bufferedReader().use { it.readText() }
@@ -589,8 +593,8 @@ class AdminOrderBackgroundService : Service() {
         knownOrderIds.add(order.id)
         addedAny = true
 
-        // Only alert for newly placed active orders (never historical/completed ones)
-        val isActiveNewOrder = order.status == OrderStatus.PLACED
+        // Alert for newly placed or freshly confirmed active orders (never historical/completed ones)
+        val isActiveNewOrder = (order.status == OrderStatus.PLACED || order.status == OrderStatus.CONFIRMED)
         val isRecent = (order.orderTimeMillis <= 0L) || (now - order.orderTimeMillis < 45 * 60 * 1000L)
         if (isActiveNewOrder && isRecent) {
           freshlyTriggered.add(order)

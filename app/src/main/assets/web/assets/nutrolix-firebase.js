@@ -176,7 +176,8 @@
             snapshot.forEach(doc => {
               const data = doc.data() || {};
               const oid = data.orderId || data.id || doc.id;
-              const normalizedOrder = { ...data, id: oid, orderId: oid };\n              if (isPaidCustomerOrder(normalizedOrder)) orders.push(normalizedOrder);
+              const normalizedOrder = { ...data, id: oid, orderId: oid };
+              if (isPaidCustomerOrder(normalizedOrder)) orders.push(normalizedOrder);
             });
             orders.sort((a, b) => {
               const ta = Number(a.timestamp || a.orderTimeMillis || Date.parse(a.createdAt || a.orderTime || 0) || 0);

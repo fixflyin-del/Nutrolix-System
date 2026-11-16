@@ -460,7 +460,7 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
             body: message,
             orderId,
             url: targetUrl,
-            channelId: 'nutrolix_orders_channel_v2',
+            channelId: 'nutrolix_orders_channel_v3',
             data: {
               type: 'ORDER_UPDATE',
               status: status || '',
@@ -620,12 +620,14 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
   return logEntry;
 }
 
-async function dispatchPushToAdmins({ orderId = '', title = '', message = '', total = 0, customerName = '' } = {}) {
+async function dispatchPushToAdmins({ orderId = '', title = '', message = '', total = 0, customerName = '', customerPhone = '', paymentMethod = '' } = {}) {
   const tokensFile = path.join(PUBLIC_DIR, 'data', 'notification_tokens.json');
   const localTokens = safeReadJson(tokensFile, []);
   const candidates = [];
   if (Array.isArray(localTokens)) {
-    localTokens.filter((t) => t.role === 'admin' || t.platform === 'android-admin-apk').forEach((t) => candidates.push(t));
+    localTokens
+      .filter((t) => t && (t.role === 'admin' || String(t.platform || '').includes('admin')))
+      .forEach((t) => candidates.push(t));
   }
   try {
     const [defDocs, namedDocs] = await Promise.all([
@@ -633,54 +635,116 @@ async function dispatchPushToAdmins({ orderId = '', title = '', message = '', to
       nutrolixCore.firestoreListAllDocuments('adminTokens', nutrolixCore.NAMED_DB_ID, 200)
     ]);
     for (const d of [...defDocs.docs, ...namedDocs.docs]) {
-      if (d && (d.fcmToken || d.token)) {
-        candidates.push({ ...d, _firestorePath: `adminTokens/${d._docId}` });
+      if (!d) continue;
+      let parsedSub = d.subscription || null;
+      if (!parsedSub && d.subscriptionJson) {
+        try { parsedSub = JSON.parse(d.subscriptionJson); } catch (_) {}
+      }
+      if (d.fcmToken || d.token || (parsedSub && parsedSub.endpoint)) {
+        candidates.push({
+          ...d,
+          subscription: parsedSub,
+          _firestorePath: `adminTokens/${d._docId}`
+        });
       }
     }
   } catch (_) {}
 
-  const seen = new Set();
+  const seenFcm = new Set();
+  const seenEndpoints = new Set();
   const attempts = [];
   const deadFcm = [];
+  const deadEndpoints = [];
   const finalTitle = title || `New Order #${orderId}!`;
   const finalBody = message || `${customerName || 'Customer'} placed an order of ₹${Number(total || 0).toFixed(0)}.`;
+  const webPushPayloadStr = JSON.stringify({
+    title: finalTitle,
+    body: finalBody,
+    orderId: String(orderId || ''),
+    type: 'ADMIN_NEW_ORDER',
+    role: 'admin',
+    url: '/admin.html'
+  });
 
-  for (const rec of candidates) {
-    const tok = rec.fcmToken || rec.token;
-    if (!tok || seen.has(tok)) continue;
-    seen.add(tok);
-    try {
-      const fcmRes = await nutrolixCore.sendFcmV1Message(tok, {
-        title: finalTitle,
-        body: finalBody,
-        orderId,
-        url: '/admin.html',
-        channelId: 'nutrolix_orders_channel_v2',
-        data: {
-          type: 'ADMIN_NEW_ORDER',
-          orderId: String(orderId || '')
-        }
-      });
-      attempts.push(customerSync.classifyDeliveryAttempt({
-        channel: 'admin_fcm_v1',
-        targetId: tok,
-        sent: Boolean(fcmRes.sent),
-        permanentFailure: Boolean(fcmRes.permanentFailure),
-        statusCode: Number(fcmRes.statusCode || (fcmRes.sent ? 200 : 0)),
-        detail: fcmRes.status || ''
-      }));
-      if (fcmRes.permanentFailure) deadFcm.push(tok);
-    } catch (err) {
-      attempts.push(customerSync.classifyDeliveryAttempt({
-        channel: 'admin_fcm_v1',
-        targetId: tok,
-        sent: false,
-        detail: 'FAILED: ' + err.message
-      }));
+  await Promise.all(candidates.map(async (rec) => {
+    const sub = (rec.subscription && rec.subscription.endpoint)
+      ? rec.subscription
+      : (rec.endpoint && rec.keys ? { endpoint: rec.endpoint, keys: rec.keys } : null);
+    const fcmTok = rec.fcmToken || ((!sub || !sub.endpoint) && rec.token && !String(rec.token).startsWith('http') ? rec.token : '');
+    const isWebTarget = String(rec.platform || '').toLowerCase().includes('web');
+
+    if (fcmTok && !seenFcm.has(fcmTok)) {
+      seenFcm.add(fcmTok);
+      try {
+        const fcmRes = await nutrolixCore.sendFcmV1Message(fcmTok, {
+          title: finalTitle,
+          body: finalBody,
+          orderId,
+          url: '/admin.html',
+          channelId: 'nutrolix_admin_orders_channel_v3',
+          dataOnlyAndroid: !isWebTarget,
+          data: {
+            type: 'ADMIN_NEW_ORDER',
+            role: 'admin',
+            orderId: String(orderId || ''),
+            orderNumber: String(orderId || ''),
+            customerName: String(customerName || 'Customer'),
+            customerPhone: String(customerPhone || ''),
+            paymentMethod: String(paymentMethod || 'Online'),
+            total: String(Number(total || 0)),
+            title: finalTitle,
+            body: finalBody
+          }
+        });
+        attempts.push(customerSync.classifyDeliveryAttempt({
+          channel: 'admin_fcm_v1',
+          targetId: fcmTok,
+          sent: Boolean(fcmRes.sent),
+          permanentFailure: Boolean(fcmRes.permanentFailure),
+          statusCode: Number(fcmRes.statusCode || (fcmRes.sent ? 200 : 0)),
+          detail: fcmRes.status || ''
+        }));
+        if (fcmRes.permanentFailure) deadFcm.push(fcmTok);
+      } catch (err) {
+        attempts.push(customerSync.classifyDeliveryAttempt({
+          channel: 'admin_fcm_v1',
+          targetId: fcmTok,
+          sent: false,
+          detail: 'FAILED: ' + err.message
+        }));
+      }
     }
-  }
-  if (deadFcm.length > 0) {
-    await pruneDeadNotificationTargets([], deadFcm, []);
+
+    if (webpush && sub && sub.endpoint && !seenEndpoints.has(sub.endpoint)) {
+      seenEndpoints.add(sub.endpoint);
+      try {
+        const wpRes = await webpush.sendNotification(sub, webPushPayloadStr, { TTL: 86400, urgency: 'high' });
+        const statusCode = (wpRes && wpRes.statusCode) || 201;
+        attempts.push(customerSync.classifyDeliveryAttempt({
+          channel: 'admin_web_push',
+          targetId: sub.endpoint,
+          accepted: true,
+          statusCode,
+          detail: `PUSH_SERVICE_ACCEPTED_${statusCode}`
+        }));
+      } catch (err) {
+        const code = Number(err.statusCode || 0);
+        const isGone = code === 410 || code === 404;
+        if (isGone) deadEndpoints.push(sub.endpoint);
+        attempts.push(customerSync.classifyDeliveryAttempt({
+          channel: 'admin_web_push',
+          targetId: sub.endpoint,
+          sent: false,
+          permanentFailure: isGone,
+          statusCode: code,
+          detail: isGone ? 'EXPIRED_SUBSCRIPTION_REMOVED' : ('FAILED: ' + err.message)
+        }));
+      }
+    }
+  }));
+
+  if (deadFcm.length > 0 || deadEndpoints.length > 0) {
+    await pruneDeadNotificationTargets(deadEndpoints, deadFcm, []);
   }
   return attempts;
 }
@@ -2532,7 +2596,9 @@ const server = http.createServer(async (req, res) => {
           dispatchPushToAdmins({
             orderId: order.orderId || order.id,
             total: order.grandTotal,
-            customerName: order.customerName
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            paymentMethod: order.paymentMethod
           }).catch(error => ({ error: error.message }))
         ]);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -4044,7 +4110,7 @@ const server = http.createServer(async (req, res) => {
                 body: message,
                 orderId: notif.orderId || '',
                 url: targetUrl,
-                channelId: 'nutrolix_orders_channel_v2',
+                channelId: 'nutrolix_orders_channel_v3',
                 data: { type: notif.type || 'PROMOTIONAL' }
               });
               if (fcmRes.sent) deliveredCount++;
@@ -4111,36 +4177,153 @@ const server = http.createServer(async (req, res) => {
   }
 
   // -------------------------------------------------------------
-  // PHASE 2 API: PRODUCT REVIEWS MODERATION
+  // PHASE 2 API: DURABLE FIRESTORE-BACKED PRODUCT REVIEWS
   // -------------------------------------------------------------
+  async function loadAllMergedReviews() {
+    const reviewsFile = path.join(PUBLIC_DIR, 'data', 'product_reviews.json');
+    const [catalogReviews, defCol, namedCol] = await Promise.all([
+      readCatalogDocOrFallback('product_reviews', reviewsFile, []),
+      nutrolixCore.firestoreListAllDocuments('productReviews', nutrolixCore.DEFAULT_DB_ID, 500).catch(() => ({ docs: [] })),
+      nutrolixCore.firestoreListAllDocuments('productReviews', nutrolixCore.NAMED_DB_ID, 500).catch(() => ({ docs: [] }))
+    ]);
+    const localRevs = safeReadJson(reviewsFile, []);
+    const mergedMap = new Map();
+
+    const addRev = (raw) => {
+      if (!raw || typeof raw !== 'object') return;
+      const rid = String(raw.id || raw._docId || '').trim();
+      if (!rid) return;
+      const prev = mergedMap.get(rid) || {};
+      mergedMap.set(rid, { ...prev, ...raw, id: rid });
+    };
+
+    (Array.isArray(localRevs) ? localRevs : []).forEach(addRev);
+    (Array.isArray(catalogReviews) ? catalogReviews : []).forEach(addRev);
+    [...(defCol.docs || []), ...(namedCol.docs || [])].forEach(addRev);
+
+    return Array.from(mergedMap.values()).sort((a, b) => {
+      const ta = Number(a.createdAtMillis || Date.parse(a.createdAt || 0) || 0);
+      const tb = Number(b.createdAtMillis || Date.parse(b.createdAt || 0) || 0);
+      return tb - ta;
+    });
+  }
+
+  function reviewMatchesProductQuery(rev, qProductId, qProductName) {
+    if (!qProductId && !qProductName) return true;
+    const pidTarget = String(qProductId || '').trim().toLowerCase();
+    const pnameTarget = String(qProductName || '').trim().toLowerCase();
+
+    const revIds = [
+      rev.productId,
+      ...(Array.isArray(rev.productIds) ? rev.productIds : [])
+    ].filter(Boolean).map(x => String(x).trim().toLowerCase());
+
+    const revNames = [
+      rev.productName,
+      ...(Array.isArray(rev.productNames) ? rev.productNames : [])
+    ].filter(Boolean).map(x => String(x).trim().toLowerCase());
+
+    if (pidTarget && revIds.some(id => id === pidTarget || id.includes(pidTarget) || pidTarget.includes(id))) {
+      return true;
+    }
+    if (pnameTarget && revNames.some(nm => nm === pnameTarget || nm.includes(pnameTarget) || pnameTarget.includes(nm))) {
+      return true;
+    }
+    return false;
+  }
+
   if (reqPath === '/api/product-reviews' || reqPath === '/api/product-reviews/') {
     const reviewsFile = path.join(PUBLIC_DIR, 'data', 'product_reviews.json');
     if (req.method === 'GET') {
       try {
-        const revs = safeReadJson(reviewsFile, []);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        const reqUrl = new URL(req.url, 'http://localhost');
+        const qProductId = reqUrl.searchParams.get('productId') || '';
+        const qProductName = reqUrl.searchParams.get('productName') || '';
+        const includeHidden = reqUrl.searchParams.get('includeHidden') === '1';
+
+        let revs = await loadAllMergedReviews();
+        if (!includeHidden) {
+          revs = revs.filter(r => r.approved !== false);
+        }
+        if (qProductId || qProductName) {
+          revs = revs.filter(r => reviewMatchesProductQuery(r, qProductId, qProductName));
+        }
+
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store'
+        });
         res.end(JSON.stringify(revs));
       } catch (e) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store'
+        });
         res.end(JSON.stringify([]));
       }
       return;
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
-          const rev = JSON.parse(body || '{}');
-          let revs = safeReadJson(reviewsFile, []);
-          if (!rev.id) rev.id = 'rev_' + Date.now();
-          rev.createdAt = new Date().toISOString();
-          rev.approved = true;
-          revs.unshift(rev);
-          safeWriteJson(reviewsFile, revs);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          const rawRev = JSON.parse(body || '{}');
+          const cleanRating = Math.min(5, Math.max(1, Number(rawRev.rating || 5) || 5));
+          const nowIso = new Date().toISOString();
+          const revId = String(rawRev.id || ('rev_' + Date.now() + '_' + crypto.randomBytes(2).toString('hex'))).trim();
+          const rev = {
+            id: revId,
+            orderId: String(rawRev.orderId || '').trim(),
+            productId: String(rawRev.productId || '').trim(),
+            productIds: Array.isArray(rawRev.productIds)
+              ? rawRev.productIds.filter(Boolean).map(String)
+              : (rawRev.productId ? [String(rawRev.productId)] : []),
+            productName: String(rawRev.productName || 'Nutrolix Product').trim(),
+            productNames: Array.isArray(rawRev.productNames)
+              ? rawRev.productNames.filter(Boolean).map(String)
+              : (rawRev.productName ? [String(rawRev.productName)] : []),
+            rating: cleanRating,
+            comment: String(rawRev.comment || rawRev.text || '').trim(),
+            text: String(rawRev.text || rawRev.comment || '').trim(),
+            customerName: String(rawRev.customerName || rawRev.name || 'Verified Customer').trim(),
+            name: String(rawRev.name || rawRev.customerName || 'Verified Customer').trim(),
+            customerEmail: normalizeEmail(rawRev.customerEmail || ''),
+            customerPhone: normalizePhone(rawRev.customerPhone || ''),
+            uid: String(rawRev.uid || '').trim(),
+            verified: rawRev.verified !== false,
+            approved: true,
+            createdAt: nowIso,
+            createdAtMillis: Date.now()
+          };
+
+          const existing = await loadAllMergedReviews();
+          const updated = [rev, ...existing.filter(r => r.id !== rev.id)].slice(0, 500);
+          await Promise.all([
+            writeCatalogDocAndLocal('product_reviews', reviewsFile, updated),
+            nutrolixCore.firestorePatchBothDbs(`productReviews/${rev.id}`, rev)
+          ]);
+
+          // Keep review_state in sync if review came from a delivered order
+          if (rev.orderId) {
+            const stateFile = path.join(PUBLIC_DIR, 'data', 'review_state.json');
+            const state = await readCatalogDocOrFallback('review_state', stateFile, { dismissed: [], reviewed: [] });
+            if (!Array.isArray(state.reviewed)) state.reviewed = [];
+            if (!state.reviewed.includes(rev.orderId)) {
+              state.reviewed.push(rev.orderId);
+              await writeCatalogDocAndLocal('review_state', stateFile, state);
+            }
+          }
+
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'no-store'
+          });
           res.end(JSON.stringify({ success: true, review: rev }));
         } catch (err) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ error: err.message }));
         }
       });
@@ -4151,49 +4334,67 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && reqPath === '/api/product-reviews/moderate') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { reviewId, action } = JSON.parse(body || '{}');
         const reviewsFile = path.join(PUBLIC_DIR, 'data', 'product_reviews.json');
-        let revs = safeReadJson(reviewsFile, []);
+        let revs = await loadAllMergedReviews();
+        const target = revs.find(r => (r.id === reviewId || r.orderId === reviewId));
+
         if (action === 'delete') {
           revs = revs.filter(r => (r.id !== reviewId && r.orderId !== reviewId));
+          if (target && target.id) {
+            await nutrolixCore.firestoreDeleteBothDbs(`productReviews/${target.id}`);
+          }
         } else if (action === 'hide') {
-          const idx = revs.findIndex(r => (r.id === reviewId || r.orderId === reviewId));
-          if (idx >= 0) revs[idx].approved = false;
+          if (target) {
+            target.approved = false;
+            await nutrolixCore.firestorePatchBothDbs(`productReviews/${target.id}`, { approved: false });
+          }
         } else if (action === 'approve') {
-          const idx = revs.findIndex(r => (r.id === reviewId || r.orderId === reviewId));
-          if (idx >= 0) revs[idx].approved = true;
+          if (target) {
+            target.approved = true;
+            await nutrolixCore.firestorePatchBothDbs(`productReviews/${target.id}`, { approved: true });
+          }
         }
-        safeWriteJson(reviewsFile, revs);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        await writeCatalogDocAndLocal('product_reviews', reviewsFile, revs);
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store'
+        });
         res.end(JSON.stringify({ success: true, reviews: revs }));
       } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ error: err.message }));
       }
     });
     return;
   }
 
-  // Persistent Review State Tracking (Dismissals & Completed Reviews)
+  // Persistent Review State Tracking (Dismissals & Completed Reviews in Firestore)
   if (reqPath === '/api/reviews/dismiss' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { orderId } = JSON.parse(body || '{}');
         const stateFile = path.join(PUBLIC_DIR, 'data', 'review_state.json');
-        let state = safeReadJson(stateFile, { dismissed: [], reviewed: [] });
-        if (!state.dismissed) state.dismissed = [];
+        let state = await readCatalogDocOrFallback('review_state', stateFile, { dismissed: [], reviewed: [] });
+        if (!Array.isArray(state.dismissed)) state.dismissed = [];
+        if (!Array.isArray(state.reviewed)) state.reviewed = [];
         if (orderId && !state.dismissed.includes(orderId)) {
           state.dismissed.push(orderId);
-          safeWriteJson(stateFile, state);
+          await writeCatalogDocAndLocal('review_state', stateFile, state);
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store'
+        });
         res.end(JSON.stringify({ success: true, dismissed: state.dismissed }));
       } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ error: e.message }));
       }
     });
@@ -4203,20 +4404,25 @@ const server = http.createServer(async (req, res) => {
   if (reqPath === '/api/reviews/mark-reviewed' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { orderId } = JSON.parse(body || '{}');
         const stateFile = path.join(PUBLIC_DIR, 'data', 'review_state.json');
-        let state = safeReadJson(stateFile, { dismissed: [], reviewed: [] });
-        if (!state.reviewed) state.reviewed = [];
+        let state = await readCatalogDocOrFallback('review_state', stateFile, { dismissed: [], reviewed: [] });
+        if (!Array.isArray(state.dismissed)) state.dismissed = [];
+        if (!Array.isArray(state.reviewed)) state.reviewed = [];
         if (orderId && !state.reviewed.includes(orderId)) {
           state.reviewed.push(orderId);
-          safeWriteJson(stateFile, state);
+          await writeCatalogDocAndLocal('review_state', stateFile, state);
         }
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+          'Cache-Control': 'no-store'
+        });
         res.end(JSON.stringify({ success: true, reviewed: state.reviewed }));
       } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ error: e.message }));
       }
     });
@@ -4225,9 +4431,16 @@ const server = http.createServer(async (req, res) => {
 
   if (reqPath === '/api/reviews/state' && req.method === 'GET') {
     const stateFile = path.join(PUBLIC_DIR, 'data', 'review_state.json');
-    const state = safeReadJson(stateFile, { dismissed: [], reviewed: [] });
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    res.end(JSON.stringify(state));
+    const state = await readCatalogDocOrFallback('review_state', stateFile, { dismissed: [], reviewed: [] });
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-store'
+    });
+    res.end(JSON.stringify({
+      dismissed: Array.isArray(state.dismissed) ? state.dismissed : [],
+      reviewed: Array.isArray(state.reviewed) ? state.reviewed : []
+    }));
     return;
   }
 

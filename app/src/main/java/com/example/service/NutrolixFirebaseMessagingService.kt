@@ -3,6 +3,9 @@ package com.example.service
 import android.content.Intent
 import android.util.Log
 import com.example.MainActivity
+import com.example.model.Order
+import com.example.model.OrderStatus
+import com.example.util.OrderAlarmPlayer
 import com.example.util.OrderNotificationHelper
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.messaging.FirebaseMessagingService
@@ -34,20 +37,21 @@ class NutrolixFirebaseMessagingService : FirebaseMessagingService() {
       .putString(KEY_FCM_TOKEN, token)
       .apply()
 
+    val isAdminApp = applicationContext.packageName.contains("admin", ignoreCase = true)
     val currentUser = try { FirebaseAuth.getInstance().currentUser } catch (_: Throwable) { null }
     val authPrefs = getSharedPreferences(MainActivity.PREFS_AUTH, MODE_PRIVATE)
     val prefUid = authPrefs.getString(MainActivity.KEY_AUTH_UID, "") ?: ""
     val prefPhone = authPrefs.getString(MainActivity.KEY_AUTH_PHONE, "") ?: ""
     val rawPhone = (currentUser?.phoneNumber ?: "").ifBlank { prefPhone }
     val cleanPhone = rawPhone.filter { it.isDigit() }.takeLast(10)
-    val resolvedUid = if (cleanPhone.length == 10 && cleanPhone.first() in '6'..'9') {
-      "phone_$cleanPhone"
-    } else {
-      (currentUser?.uid ?: "").ifBlank { prefUid }
+    val resolvedUid = when {
+      isAdminApp -> "nutrolix_admin_device"
+      cleanPhone.length == 10 && cleanPhone.first() in '6'..'9' -> "phone_$cleanPhone"
+      else -> (currentUser?.uid ?: "").ifBlank { prefUid }
     }
 
     serviceScope.launch {
-      if (resolvedUid.isNotBlank()) {
+      if (!isAdminApp && resolvedUid.isNotBlank()) {
         try {
           com.example.data.FirestoreService(applicationContext).saveFcmToken(
             uid = resolvedUid,
@@ -67,9 +71,10 @@ class NutrolixFirebaseMessagingService : FirebaseMessagingService() {
       registerTokenOnServer(
         uid = resolvedUid,
         token = token,
-        phone = cleanPhone,
-        email = currentUser?.email ?: "",
-        idToken = idToken
+        phone = if (isAdminApp) "" else cleanPhone,
+        email = if (isAdminApp) "" else (currentUser?.email ?: ""),
+        idToken = idToken,
+        isAdminApp = isAdminApp
       )
     }
   }
@@ -77,9 +82,43 @@ class NutrolixFirebaseMessagingService : FirebaseMessagingService() {
   override fun onMessageReceived(remoteMessage: RemoteMessage) {
     super.onMessageReceived(remoteMessage)
     val data = remoteMessage.data
+    val msgType = data["type"] ?: ""
+    val targetRole = data["role"] ?: ""
+    val orderId = data["orderId"] ?: ""
+    val isAdminOrderPush = msgType == "ADMIN_NEW_ORDER" || targetRole == "admin" ||
+      (applicationContext.packageName.contains("admin", ignoreCase = true) && orderId.isNotBlank())
+
+    if (isAdminOrderPush) {
+      val resolvedOrderId = orderId.ifBlank { "LIVE_${System.currentTimeMillis()}" }
+      val custName = data["customerName"]?.takeIf { it.isNotBlank() } ?: "Customer"
+      val custPhone = data["customerPhone"] ?: ""
+      val paymentMethod = data["paymentMethod"]?.takeIf { it.isNotBlank() } ?: "Online"
+      val totalAmount = data["total"]?.toDoubleOrNull() ?: 0.0
+      val adminOrder = Order(
+        id = resolvedOrderId,
+        orderNumber = data["orderNumber"]?.takeIf { it.isNotBlank() } ?: resolvedOrderId,
+        customerPhone = custPhone,
+        customerName = custName,
+        items = emptyList(),
+        subtotal = totalAmount,
+        discount = 0.0,
+        deliveryFee = 0.0,
+        tax = 0.0,
+        tip = 0.0,
+        total = totalAmount,
+        status = OrderStatus.CONFIRMED,
+        paymentMethod = paymentMethod,
+        paymentStatus = "PAID",
+        orderTimeMillis = System.currentTimeMillis(),
+        deliveryAddress = data["deliveryAddress"] ?: ""
+      )
+      OrderAlarmPlayer.playOrderAlarm(applicationContext)
+      OrderNotificationHelper.sendAdminNewOrderNotification(applicationContext, adminOrder)
+      return
+    }
+
     val title = remoteMessage.notification?.title ?: data["title"] ?: "Nutrolix Order Update"
     val body = remoteMessage.notification?.body ?: data["message"] ?: data["body"] ?: "Your order status has been updated."
-    val orderId = data["orderId"] ?: ""
     val status = data["status"] ?: ""
     val openUrl = data["url"] ?: if (orderId.isNotBlank()) "/orders.html?orderId=$orderId" else "/orders.html"
 
@@ -104,7 +143,14 @@ class NutrolixFirebaseMessagingService : FirebaseMessagingService() {
     sendBroadcast(broadcast)
   }
 
-  private fun registerTokenOnServer(uid: String, token: String, phone: String, email: String, idToken: String = "") {
+  private fun registerTokenOnServer(
+    uid: String,
+    token: String,
+    phone: String,
+    email: String,
+    idToken: String = "",
+    isAdminApp: Boolean = false
+  ) {
     try {
       val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
       val deviceId = prefs.getString("device_id", null) ?: java.util.UUID.randomUUID().toString().also {
@@ -124,11 +170,12 @@ class NutrolixFirebaseMessagingService : FirebaseMessagingService() {
       val payload = JSONObject().apply {
         put("uid", uid)
         put("deviceId", deviceId)
+        put("role", if (isAdminApp) "admin" else "customer")
         put("fcmToken", token)
         put("token", token)
         put("customerPhone", phone)
         put("customerEmail", email)
-        put("platform", "android-apk")
+        put("platform", if (isAdminApp) "android-admin-apk" else "android-apk")
       }
       conn.outputStream.use { it.write(payload.toString().toByteArray(Charsets.UTF_8)) }
       conn.responseCode

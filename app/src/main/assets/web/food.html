@@ -378,7 +378,6 @@
               <i class="fa-solid fa-chart-pie text-emerald-400 text-sm"></i>
               <h4 class="text-xs font-black uppercase tracking-wider">Nutrition Facts (Per Serving)</h4>
             </div>
-            <span class="text-[10px] text-slate-300 font-bold">100% Lab Verified</span>
           </div>
           <div id="modalDishNutritionGrid" class="grid grid-cols-2 sm:grid-cols-3 divide-x divide-y divide-slate-100 bg-white text-xs">
             <!-- Dynamic facts -->
@@ -1212,19 +1211,48 @@
         </div>
       `).join('');
 
-      // Populate Customer Reviews Section (Requirement 1)
-      const reviewsList = document.getElementById('modalDishReviewsList');
-      reviewsList.innerHTML = (dish.reviews || []).map(r => `
-        <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
-          <div class="flex items-center justify-between">
-            <span class="font-bold text-xs text-slate-900">${r.name}</span>
-            <div class="flex text-amber-400 text-[10px]">
-              ${Array(r.rating).fill('<i class="fa-solid fa-star"></i>').join('')}
+      // Populate Customer Reviews Section (Requirement 1 + Live Verified Reviews)
+      const renderModalReviews = (liveRevs = []) => {
+        const reviewsList = document.getElementById('modalDishReviewsList');
+        if (!reviewsList) return;
+        const dishNameNorm = String(dish.name || '').toLowerCase().trim();
+        const dishIdNorm = String(dish.id || '').toLowerCase().trim();
+        const matchingLive = (Array.isArray(liveRevs) ? liveRevs : []).filter(r => {
+          if (!r || r.approved === false) return false;
+          const ids = Array.isArray(r.productIds) ? r.productIds.map(x => String(x || '').toLowerCase().trim()) : [];
+          const names = Array.isArray(r.productNames) ? r.productNames.map(x => String(x || '').toLowerCase().trim()) : [];
+          const rid = String(r.productId || '').toLowerCase().trim();
+          const rname = String(r.productName || '').toLowerCase().trim();
+          return (dishIdNorm && (rid === dishIdNorm || ids.includes(dishIdNorm))) ||
+                 (dishNameNorm && (rname === dishNameNorm || names.includes(dishNameNorm)));
+        }).map(r => ({
+          name: r.customerName || r.name || 'Verified Customer',
+          rating: Number(r.rating || 5),
+          comment: r.comment || r.text || ''
+        }));
+
+        const combined = [...matchingLive, ...(dish.reviews || [])];
+        reviewsList.innerHTML = combined.map(r => `
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
+            <div class="flex items-center justify-between">
+              <span class="font-bold text-xs text-slate-900">${r.name}</span>
+              <div class="flex text-amber-400 text-[10px]">
+                ${Array(r.rating || 5).fill('<i class="fa-solid fa-star"></i>').join('')}
+              </div>
             </div>
+            <p class="text-xs text-slate-600 leading-snug font-medium">${r.comment}</p>
           </div>
-          <p class="text-xs text-slate-600 leading-snug font-medium">${r.comment}</p>
-        </div>
-      `).join('');
+        `).join('');
+      };
+
+      let cachedLocalRevs = [];
+      try { cachedLocalRevs = JSON.parse(localStorage.getItem('nutrolix_product_reviews') || '[]'); } catch (_) {}
+      renderModalReviews(cachedLocalRevs);
+      const revHost = window.NUTROLIX_API_HOST || '';
+      fetch(revHost + '/api/product-reviews?productId=' + encodeURIComponent(dish.id || '') + '&productName=' + encodeURIComponent(dish.name || ''), { cache: 'no-store' })
+        .then(r => r && r.ok ? r.json() : null)
+        .then(data => { if (Array.isArray(data)) renderModalReviews(data); })
+        .catch(() => {});
 
       updateModalPriceAndQty();
 
