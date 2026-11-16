@@ -435,28 +435,42 @@
       };
     }
 
+    window.NUTROLIX_STORE_CATEGORIES = [
+      'Protein Atta',
+      'Protein Snacks',
+      'Nutrition Meal',
+      'Nutrition Drink',
+      'Healthy Flakes',
+      'Body Building & Strength'
+    ];
+
     window.mapToPackagedCategory = function(p) {
       if (!p) return 'Protein Atta';
-      const cat = (p.category || '').toLowerCase();
-      const title = (p.name || p.title || '').toLowerCase();
+      const rawCat = String(p.category || '').trim();
+      const cat = rawCat.toLowerCase();
+      for (const canonical of window.NUTROLIX_STORE_CATEGORIES) {
+        if (canonical.toLowerCase() === cat) return canonical;
+      }
+
+      const title = String(p.name || p.title || '').toLowerCase();
       const combined = cat + ' ' + title;
 
-      if (combined.includes('atta') || combined.includes('flour') || combined.includes('wheat') || (cat.includes('high protein') && title.includes('atta'))) {
+      if (cat.includes('flour') || cat.includes('atta') || combined.includes('atta') || combined.includes('flour') || combined.includes('wheat')) {
         return 'Protein Atta';
       }
-      if (combined.includes('snack') || combined.includes('chia') || combined.includes('flax') || combined.includes('omega') || combined.includes('seed')) {
+      if (cat.includes('snack') || combined.includes('snack') || combined.includes('chia') || combined.includes('flax') || combined.includes('omega') || combined.includes('seed')) {
         return 'Protein Snacks';
       }
-      if (combined.includes('drink') || combined.includes('oil') || combined.includes('black seed') || combined.includes('kalonji') || combined.includes('elixir') || combined.includes('shake') || combined.includes('liquid')) {
+      if (cat.includes('drink') || cat.includes('cold-pressed') || cat.includes('oil') || combined.includes('drink') || combined.includes('black seed') || combined.includes('kalonji') || combined.includes('elixir') || combined.includes('shake') || combined.includes('liquid')) {
         return 'Nutrition Drink';
       }
-      if (combined.includes('flake') || combined.includes('cereal') || combined.includes('millet flakes') || combined.includes('crisp')) {
+      if (cat.includes('flake') || cat.includes('millet') || combined.includes('flake') || combined.includes('cereal') || combined.includes('crisp')) {
         return 'Healthy Flakes';
       }
-      if (combined.includes('strength') || combined.includes('body building') || combined.includes('shilajit') || combined.includes('protein powder') || combined.includes('sprouted moong') || combined.includes('muscle')) {
+      if (cat.includes('plant protein') || cat.includes('strength') || cat.includes('body building') || combined.includes('strength') || combined.includes('body building') || combined.includes('shilajit') || combined.includes('protein powder') || combined.includes('sprouted moong') || combined.includes('muscle')) {
         return 'Body Building & Strength';
       }
-      if (combined.includes('meal') || combined.includes('talbeenah') || combined.includes('porridge') || combined.includes('superfood')) {
+      if (cat.includes('meal') || cat.includes('breakfast') || cat.includes('prophetic') || cat.includes('superfood') || combined.includes('meal') || combined.includes('talbeenah') || combined.includes('porridge') || combined.includes('superfood')) {
         return 'Nutrition Meal';
       }
       return 'Protein Atta';

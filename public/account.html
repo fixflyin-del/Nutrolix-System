@@ -487,6 +487,26 @@
     </div>
   </div>
 
+  <!-- Delete Address Confirmation Popup -->
+  <div id="deleteAddressConfirmModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+      <div class="flex items-start space-x-3">
+        <div class="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+          <i class="fa-solid fa-trash-can text-base"></i>
+        </div>
+        <div>
+          <h4 class="font-black text-base text-slate-900">Delete Address?</h4>
+          <p class="text-xs text-slate-600 mt-1">Are you sure you want to delete this address? It will be permanently removed from your account.</p>
+          <p id="deleteAddrPreviewText" class="text-[11px] font-bold text-slate-800 bg-slate-50 border border-slate-200 rounded-xl p-2 mt-2 break-words"></p>
+        </div>
+      </div>
+      <div class="flex items-center justify-end space-x-2 pt-1">
+        <button type="button" onclick="window.closeDeleteAddressModal()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">Cancel</button>
+        <button type="button" id="confirmDeleteAddressBtn" onclick="window.confirmDeleteAddress()" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs transition shadow-sm">OK, Delete</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Product Review Modal -->
   <div id="reviewModal" class="hidden fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
@@ -775,40 +795,83 @@
           : `<button type="button" onclick="document.getElementById('linkPhoneInlineBox').classList.toggle('hidden')" class="px-2.5 py-1 rounded-lg bg-emerald-700 text-white font-bold">Verify Mobile</button>`;
 
         if (profile.uid && window.NutrolixFirebase && typeof window.NutrolixFirebase.fetchUserAddresses === 'function') {
+          const hasClearedFlag = Boolean(profile.addressesCleared);
           let remote = await window.NutrolixFirebase.fetchUserAddresses(profile.uid);
-          if ((!Array.isArray(remote) || remote.length === 0) && typeof window.hydrateNutrolixCustomerSession === 'function') {
+          if (!Array.isArray(remote) && typeof window.hydrateNutrolixCustomerSession === 'function') {
             await window.hydrateNutrolixCustomerSession(profile.uid);
             remote = await window.NutrolixFirebase.fetchUserAddresses(profile.uid);
           }
-          if (Array.isArray(remote) && remote.length > 0) {
-            localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(remote));
-          } else {
-            let localSaved = [];
-            try { localSaved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]'); } catch (_) {}
-            const fallbackLine = profile.defaultAddress || profile.address1 || '';
-            if ((!Array.isArray(localSaved) || localSaved.length === 0) && fallbackLine && profile.pincode) {
-              const fallbackAddr = {
-                id: 'addr_primary',
-                uid: profile.uid,
-                tag: 'Home',
-                name: profile.name || 'Customer',
-                phone: profile.verifiedPhone || profile.phone || '',
-                street: fallbackLine,
-                address1: fallbackLine,
-                city: profile.city || '',
-                state: profile.state || '',
-                pincode: profile.pincode,
-                isDefault: true
-              };
-              localStorage.setItem('nutrolix_saved_addresses', JSON.stringify([fallbackAddr]));
-              if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveUserAddress === 'function') {
-                window.NutrolixFirebase.saveUserAddress(profile.uid, fallbackAddr).catch(() => {});
+          if (Array.isArray(remote)) {
+            if (remote.length > 0) {
+              localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(remote));
+            } else {
+              // Respect permanent deletion: never resurrect from profile.defaultAddress when server returns empty
+              localStorage.setItem('nutrolix_saved_addresses', '[]');
+              if (hasClearedFlag && (profile.defaultAddress || profile.address1 || profile.pincode)) {
+                const cleaned = {
+                  ...profile,
+                  defaultAddress: '',
+                  address1: '',
+                  currentAddress: '',
+                  lastAddress: '',
+                  city: '',
+                  state: '',
+                  pincode: ''
+                };
+                localStorage.setItem('nutrolix_user_profile', JSON.stringify(cleaned));
               }
             }
           }
         }
         renderAddresses();
       } catch (_) {}
+    }
+
+    let pendingDeleteAddressIdx = null;
+
+    function resolveKnownIndianPostalCodeClient(geocode) {
+      if (!geocode || typeof geocode !== 'object') return null;
+      const localityText = [
+        geocode.neighborhood,
+        geocode.city,
+        geocode.locality,
+        geocode.district,
+        geocode.formattedAddress
+      ].filter(Boolean).join(' ').toLowerCase();
+      if (/\btaloja\b|\btaloje\b|\bnavde\b|\bpendhar\b/.test(localityText)) {
+        return { pincode: '410208', city: 'Taloja, Panvel', state: 'Maharashtra' };
+      }
+      if (/\bkharghar\b/.test(localityText)) {
+        return { pincode: '410210', city: 'Kharghar, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bkalamboli\b|\broadpali\b/.test(localityText)) {
+        return { pincode: '410218', city: 'Kalamboli, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bulwe\b|\bulwa\b/.test(localityText)) {
+        return { pincode: '410206', city: 'Ulwe, Panvel', state: 'Maharashtra' };
+      }
+      if (/\bcbd belapur\b|\bbelapur\b/.test(localityText)) {
+        return { pincode: '400614', city: 'CBD Belapur, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bvashi\b/.test(localityText)) {
+        return { pincode: '400703', city: 'Vashi, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bsanpada\b/.test(localityText)) {
+        return { pincode: '400705', city: 'Sanpada, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bnerul\b|\bseawoods\b/.test(localityText)) {
+        return { pincode: '400706', city: 'Nerul, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bairoli\b/.test(localityText)) {
+        return { pincode: '400708', city: 'Airoli, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bghansoli\b/.test(localityText)) {
+        return { pincode: '400701', city: 'Ghansoli, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bkopar ?khairane\b|\bkoparkhairane\b/.test(localityText)) {
+        return { pincode: '400709', city: 'Kopar Khairane, Navi Mumbai', state: 'Maharashtra' };
+      }
+      return null;
     }
 
     function renderAddresses() {
@@ -821,9 +884,18 @@
       if (!container) return;
       if (!Array.isArray(saved) || saved.length === 0) {
         container.innerHTML = `
-          <div class="p-4 rounded-2xl bg-slate-50 border border-dashed border-slate-300 text-center text-xs text-slate-500 space-y-2">
-            <p class="font-bold text-slate-700">No saved delivery addresses yet</p>
-            <p class="text-[11px]">Add your delivery address or detect it cleanly from checkout.</p>
+          <div class="p-5 rounded-2xl bg-slate-50 border border-dashed border-slate-300 text-center text-xs text-slate-500 space-y-3">
+            <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center mx-auto">
+              <i class="fa-solid fa-location-dot text-base"></i>
+            </div>
+            <div class="space-y-1">
+              <p class="font-black text-slate-800 text-sm">No saved delivery addresses yet</p>
+              <p class="text-[11px] text-slate-500">Add your delivery address for fast 1-tap checkout.</p>
+            </div>
+            <button type="button" onclick="window.openAddressModal()" class="inline-flex items-center space-x-1.5 px-4 py-2.5 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-black text-xs shadow-sm transition active:scale-95">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>Add New Address</span>
+            </button>
           </div>
         `;
         return;
@@ -840,8 +912,8 @@
             <p class="text-slate-500 text-[11px]">${addr.city || ''} • PIN: ${addr.pincode || ''}</p>
           </div>
           <div class="flex items-center space-x-2 shrink-0">
-            ${!addr.isDefault ? `<button onclick="window.setDefaultAddress(${idx})" class="text-[10px] text-emerald-700 hover:underline font-bold">Set Default</button>` : ''}
-            <button onclick="window.deleteAddress(${idx})" class="text-slate-400 hover:text-rose-600 p-1" title="Delete">
+            ${!addr.isDefault ? `<button type="button" onclick="window.setDefaultAddress(${idx})" class="text-[10px] text-emerald-700 hover:underline font-bold">Set Default</button>` : ''}
+            <button type="button" onclick="window.deleteAddress(${idx})" class="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 transition" title="Delete Address">
               <i class="fa-solid fa-trash text-xs"></i>
             </button>
           </div>
@@ -850,31 +922,145 @@
     }
 
     window.setDefaultAddress = async function(idx) {
-      let saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
+      let saved = [];
+      try { saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]'); } catch (_) {}
+      if (!Array.isArray(saved) || !saved[idx]) return;
       const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
       saved.forEach((a, i) => a.isDefault = (i === idx));
       localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
-      if (user && user.uid && window.NutrolixFirebase && saved[idx]) {
-        await window.NutrolixFirebase.saveUserAddress(user.uid, saved[idx]);
+      const chosen = saved[idx];
+      try {
+        const curProf = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+        localStorage.setItem('nutrolix_user_profile', JSON.stringify({
+          ...curProf,
+          defaultAddress: chosen.street || chosen.address1 || '',
+          address1: chosen.street || chosen.address1 || '',
+          city: chosen.city || '',
+          pincode: chosen.pincode || '',
+          addressesCleared: false
+        }));
+      } catch (_) {}
+      if (user && user.uid && window.NutrolixFirebase) {
+        if (typeof window.NutrolixFirebase.setDefaultUserAddress === 'function') {
+          await window.NutrolixFirebase.setDefaultUserAddress(user.uid, chosen.id);
+        } else {
+          await window.NutrolixFirebase.saveUserAddress(user.uid, chosen);
+        }
       }
+      window.dispatchEvent(new CustomEvent('nutrolix:addresses-updated', { detail: saved }));
       renderAddresses();
     };
 
-    window.deleteAddress = async function(idx) {
-      let saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
-      const removed = saved[idx];
-      saved.splice(idx, 1);
-      if (saved.length && !saved.some(a => a.isDefault)) saved[0].isDefault = true;
-      localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
-      const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
-      if (user && user.uid && removed && removed.id && window.NutrolixFirebase) {
-        await window.NutrolixFirebase.deleteUserAddress(user.uid, removed.id);
+    window.deleteAddress = function(idx) {
+      let saved = [];
+      try { saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]'); } catch (_) {}
+      if (!Array.isArray(saved) || !saved[idx]) return;
+      pendingDeleteAddressIdx = idx;
+      const target = saved[idx];
+      const previewEl = document.getElementById('deleteAddrPreviewText');
+      if (previewEl) {
+        const line = target.street || target.address1 || '';
+        const meta = [target.city, target.pincode ? ('PIN ' + target.pincode) : ''].filter(Boolean).join(' • ');
+        previewEl.textContent = `[${target.tag || 'Address'}] ${line}${meta ? ' (' + meta + ')' : ''}`;
       }
-      renderAddresses();
+      const modal = document.getElementById('deleteAddressConfirmModal');
+      if (modal) modal.classList.remove('hidden');
+    };
+
+    window.closeDeleteAddressModal = function() {
+      pendingDeleteAddressIdx = null;
+      const modal = document.getElementById('deleteAddressConfirmModal');
+      if (modal) modal.classList.add('hidden');
+    };
+
+    window.confirmDeleteAddress = async function() {
+      const idx = pendingDeleteAddressIdx;
+      if (idx === null || idx === undefined) {
+        window.closeDeleteAddressModal();
+        return;
+      }
+
+      const confirmBtn = document.getElementById('confirmDeleteAddressBtn');
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = 'Deleting...';
+      }
+
+      try {
+        let saved = [];
+        try { saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]'); } catch (_) {}
+        if (!Array.isArray(saved) || !saved[idx]) {
+          window.closeDeleteAddressModal();
+          return;
+        }
+
+        const removed = saved[idx];
+        saved.splice(idx, 1);
+        if (saved.length && !saved.some(a => a.isDefault)) saved[0].isDefault = true;
+        localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
+
+        try {
+          const curProf = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+          if (saved.length === 0) {
+            localStorage.setItem('nutrolix_user_profile', JSON.stringify({
+              ...curProf,
+              defaultAddress: '',
+              address1: '',
+              currentAddress: '',
+              lastAddress: '',
+              city: '',
+              state: '',
+              pincode: '',
+              addressesCleared: true
+            }));
+          } else {
+            const def = saved.find(a => a.isDefault) || saved[0];
+            localStorage.setItem('nutrolix_user_profile', JSON.stringify({
+              ...curProf,
+              defaultAddress: def.street || def.address1 || '',
+              address1: def.street || def.address1 || '',
+              city: def.city || '',
+              state: def.state || '',
+              pincode: def.pincode || '',
+              addressesCleared: false
+            }));
+          }
+        } catch (_) {}
+
+        const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
+        if (user && user.uid && removed && window.NutrolixFirebase && typeof window.NutrolixFirebase.deleteUserAddress === 'function') {
+          const normKey = `${String(removed.pincode || '').replace(/\D/g, '').slice(0, 6)}_${String(removed.address1 || removed.street || '').toLowerCase().replace(/[^a-z0-9]/g, '')}`;
+          const srvRes = await window.NutrolixFirebase.deleteUserAddress(user.uid, removed.id || 'addr_primary', normKey);
+          if (srvRes && Array.isArray(srvRes.addresses)) {
+            saved = srvRes.addresses;
+            localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
+          }
+        }
+
+        window.closeDeleteAddressModal();
+        window.dispatchEvent(new CustomEvent('nutrolix:addresses-updated', { detail: saved }));
+        renderAddresses();
+      } finally {
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = 'OK, Delete';
+        }
+      }
     };
 
     window.openAddressModal = function() {
       modalDetectedCoords = null;
+      const streetEl = document.getElementById('newAddrStreet');
+      const pinEl = document.getElementById('newAddrPincode');
+      const cityEl = document.getElementById('newAddrCity');
+      const coordsChk = document.getElementById('chkModalStoreCoords');
+      const gpsText = document.getElementById('modalGpsBtnText');
+      if (streetEl) streetEl.value = '';
+      if (pinEl) pinEl.value = '';
+      if (cityEl) cityEl.value = '';
+      if (coordsChk) coordsChk.checked = false;
+      if (gpsText) gpsText.textContent = 'Use My Current Location';
+      window.setModalTag('Home');
       document.getElementById('modalConsentBox').classList.add('hidden');
       document.getElementById('addressModal').classList.remove('hidden');
     };
@@ -900,6 +1086,18 @@
       const pinEl = document.getElementById('newAddrPincode');
       if (pinEl && pinEl.value !== pin) pinEl.value = pin;
       if (pin.length !== 6) return;
+      const cityEl = document.getElementById('newAddrCity');
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const srvRes = await fetch(host + `/api/location/pincode?pin=${encodeURIComponent(pin)}`);
+        if (srvRes.ok) {
+          const srvData = await srvRes.json();
+          if (srvData && srvData.success && srvData.city && cityEl && !cityEl.value.trim()) {
+            cityEl.value = srvData.city;
+            return;
+          }
+        }
+      } catch (_) {}
       try {
         const res = await fetch(`https://api.zippopotam.us/in/${pin}`);
         if (res.ok) {
@@ -907,7 +1105,6 @@
           if (data && Array.isArray(data.places) && data.places.length > 0) {
             const place = data.places[0];
             const cityVal = place['place name'] || place.state || '';
-            const cityEl = document.getElementById('newAddrCity');
             if (cityVal && cityEl && !cityEl.value.trim()) {
               cityEl.value = cityVal;
             }
@@ -923,34 +1120,49 @@
 
       const applyReverseGeocode = async (lat, lon, fallbackObj = null) => {
         modalDetectedCoords = { lat, lon, lng: lon };
+        const nativeGeo = (fallbackObj && fallbackObj.nativeGeocoder) ? fallbackObj.nativeGeocoder : fallbackObj;
         try {
           const host = window.NUTROLIX_API_HOST || '';
           const res = await fetch(host + '/api/location/reverse-geocode', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ lat, lon })
+            body: JSON.stringify({ lat, lon, nativeGeocoder: nativeGeo || null })
           });
           if (res.ok) {
             const data = await res.json();
             if (data && data.success) {
-              const fallbackLine = [data.city, data.state, data.pincode].filter(Boolean).join(', ');
-              if (data.formattedAddress || fallbackLine) {
-                document.getElementById('newAddrStreet').value = data.formattedAddress || fallbackLine;
+              const knownOverride = resolveKnownIndianPostalCodeClient(data);
+              const resolvedPin = (knownOverride && knownOverride.pincode) || data.pincode || '';
+              const resolvedCity = data.city || (knownOverride && knownOverride.city) || '';
+              const fallbackLine = [resolvedCity, data.state, resolvedPin].filter(Boolean).join(', ');
+              let line = data.formattedAddress || fallbackLine;
+              if (data.pincode && resolvedPin && data.pincode !== resolvedPin && line.includes(data.pincode)) {
+                line = line.replace(new RegExp('\\b' + data.pincode + '\\b', 'g'), resolvedPin);
               }
-              if (data.city) document.getElementById('newAddrCity').value = data.city;
-              if (data.pincode) document.getElementById('newAddrPincode').value = data.pincode;
+              if (line) {
+                document.getElementById('newAddrStreet').value = line;
+              }
+              if (resolvedCity) document.getElementById('newAddrCity').value = resolvedCity;
+              if (resolvedPin) document.getElementById('newAddrPincode').value = resolvedPin;
               if (btn) btn.textContent = '✓ Location Filled — Review Below';
               return;
             }
           }
         } catch (_) {}
 
-        const geo = (fallbackObj && fallbackObj.nativeGeocoder) ? fallbackObj.nativeGeocoder : fallbackObj;
+        const geo = nativeGeo;
         const geoAddress = geo ? (geo.formattedAddress || geo.address || '') : '';
         if (geo && (geoAddress || geo.city || geo.pincode)) {
-          if (geoAddress) document.getElementById('newAddrStreet').value = geoAddress;
-          if (geo.city) document.getElementById('newAddrCity').value = geo.city;
-          if (geo.pincode) document.getElementById('newAddrPincode').value = geo.pincode;
+          const knownOverride = resolveKnownIndianPostalCodeClient(geo);
+          const resolvedPin = (knownOverride && knownOverride.pincode) || geo.pincode || '';
+          const resolvedCity = geo.city || (knownOverride && knownOverride.city) || '';
+          let finalAddr = geoAddress;
+          if (geo.pincode && resolvedPin && geo.pincode !== resolvedPin && finalAddr.includes(geo.pincode)) {
+            finalAddr = finalAddr.replace(new RegExp('\\b' + geo.pincode + '\\b', 'g'), resolvedPin);
+          }
+          if (finalAddr) document.getElementById('newAddrStreet').value = finalAddr;
+          if (resolvedCity) document.getElementById('newAddrCity').value = resolvedCity;
+          if (resolvedPin) document.getElementById('newAddrPincode').value = resolvedPin;
           if (btn) btn.textContent = '✓ Location Filled — Review Below';
           return;
         }
@@ -992,28 +1204,51 @@
       const pincode = document.getElementById('newAddrPincode').value.replace(/\D/g, '').slice(0, 6);
       if (pincode.length !== 6) return alert('Please enter a valid 6-digit PIN code.');
 
+      let saved = [];
+      try { saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]'); } catch (_) {}
+      if (!Array.isArray(saved)) saved = [];
+
+      const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
       const newAddr = {
-        id: 'addr_' + Date.now().toString(36),
+        id: 'addr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
+        uid: (user && user.uid) || '',
         tag: document.getElementById('newAddrTag').value.trim() || 'Home',
+        name: (user && user.name) || 'Customer',
+        phone: (user && (user.verifiedPhone || user.phone)) || '',
         street,
         address1: street,
         city,
+        state: 'Maharashtra',
         pincode,
-        isDefault: false,
+        isDefault: saved.length === 0,
+        updatedAt: new Date().toISOString(),
+        updatedAtMillis: Date.now(),
         deliveryCoordinates: (storeCoords && modalDetectedCoords)
           ? { lat: modalDetectedCoords.lat, lng: modalDetectedCoords.lng, consentGranted: true }
           : null
       };
 
-      let saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
-      if (!saved.length) newAddr.isDefault = true;
-      saved.push(newAddr);
+      saved.unshift(newAddr);
       localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(saved));
 
-      const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
-      if (user && user.uid && window.NutrolixFirebase) {
+      if (newAddr.isDefault) {
+        try {
+          const curProf = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+          localStorage.setItem('nutrolix_user_profile', JSON.stringify({
+            ...curProf,
+            defaultAddress: street,
+            address1: street,
+            city,
+            pincode,
+            addressesCleared: false
+          }));
+        } catch (_) {}
+      }
+
+      if (user && user.uid && window.NutrolixFirebase && typeof window.NutrolixFirebase.saveUserAddress === 'function') {
         await window.NutrolixFirebase.saveUserAddress(user.uid, newAddr);
       }
+      window.dispatchEvent(new CustomEvent('nutrolix:addresses-updated', { detail: saved }));
       closeAddressModal();
       renderAddresses();
       alert('✓ Address saved to your account!');

@@ -822,3 +822,155 @@ test('Single-review Edit UI & Chrome lockscreen/background Web Push guarantees a
   }
 });
 
+test('Admin Storefront category dropdown matches User Webapp Store categories identically', () => {
+  const rootDir = path.join(__dirname, '..');
+  const adminHtml = fs.readFileSync(path.join(rootDir, 'public', 'admin.html'), 'utf8');
+  const shopHtml = fs.readFileSync(path.join(rootDir, 'public', 'shop.html'), 'utf8');
+
+  const pkgMatch = adminHtml.match(/<select id="pkgCategory"[^>]*>([\s\S]*?)<\/select>/);
+  assert.ok(pkgMatch, 'admin.html must contain #pkgCategory select');
+  const adminCategories = Array.from(pkgMatch[1].matchAll(/<option value="([^"]+)"/g)).map(m => m[1]);
+
+  const shopCatMatch = shopHtml.match(/id="packagedCategoryTabs"[\s\S]*?<\/div>\s*<\/div>/);
+  assert.ok(shopCatMatch, 'shop.html must contain #packagedCategoryTabs');
+  const shopCategories = Array.from(shopCatMatch[0].matchAll(/window\.selectCategory\('([^']+)'/g))
+    .map(m => m[1])
+    .filter(c => c !== 'All');
+
+  assert.deepEqual(adminCategories, core.STORE_CATEGORIES);
+  assert.deepEqual(shopCategories, core.STORE_CATEGORIES);
+
+  // Explicit canonical categories must NEVER be overwritten by product title keywords
+  assert.equal(core.normalizeStoreCategory('Nutrition Meal', 'High Protein Atta Meal'), 'Nutrition Meal');
+  assert.equal(core.normalizeStoreCategory('Protein Snacks', 'Healthy Oat Milk Drink'), 'Protein Snacks');
+  assert.equal(core.normalizeStoreCategory('Body Building & Strength', 'Atta Muscle Blend'), 'Body Building & Strength');
+  assert.equal(core.normalizeStoreCategory('High-Protein Flours', 'Nutrolix Flour'), 'Protein Atta');
+  assert.equal(core.normalizeStoreCategory('Cold-Pressed Oils', 'Kalonji Oil'), 'Nutrition Drink');
+});
+
+test('verifyAndResolveIndianPincode rejects bogus OSM postcodes (400010 for Taloja, Panvel) and resolves accurate India Post PINs', async () => {
+  // 1. Exact Taloja screenshot scenario: OSM returns 400010 for Taloja Phase-II, Panvel, Raigad
+  const osmTaloja = core.parseNominatimGeocodeResponse(19.075, 73.112, {
+    display_name: 'Chatrapati Shivaji Maharaj Road, Taloja Phase-II, Taloja, Panvel, Panvel Taluka, Raigad, Maharashtra, 400010, India',
+    address: {
+      road: 'Chatrapati Shivaji Maharaj Road',
+      suburb: 'Taloja',
+      town: 'Panvel',
+      county: 'Panvel Taluka',
+      state_district: 'Raigad',
+      state: 'Maharashtra',
+      postcode: '400010',
+      country: 'India'
+    }
+  });
+  assert.equal(osmTaloja.pincode, '400010');
+
+  const resolvedTaloja = await core.verifyAndResolveIndianPincode(osmTaloja);
+  assert.equal(resolvedTaloja.pincode, '410208');
+  assert.ok(!resolvedTaloja.formattedAddress.includes('400010'), 'Incorrect 400010 should be replaced in formattedAddress');
+  assert.ok(resolvedTaloja.formattedAddress.includes('410208'), 'Correct 410208 should appear in formattedAddress');
+
+  // 2. General India district-mismatch recovery outside Navi Mumbai override map (via mocked India Post lookup)
+  const osmPuneMisattributed = core.parseNominatimGeocodeResponse(18.56, 73.80, {
+    display_name: 'Aundh, Pune, Maharashtra, 400001, India',
+    address: {
+      suburb: 'Aundh',
+      city: 'Pune',
+      state_district: 'Pune',
+      state: 'Maharashtra',
+      postcode: '400001',
+      country: 'India'
+    }
+  });
+
+  const resolvedPune = await core.verifyAndResolveIndianPincode(osmPuneMisattributed, {
+    lookupPincodeFn: async (pin) => {
+      if (pin === '400001') {
+        return [{ Name: 'Fort', District: 'Mumbai', State: 'Maharashtra', Block: 'Mumbai', DeliveryStatus: 'Delivery', Pincode: '400001' }];
+      }
+      return [];
+    },
+    lookupPostOfficeFn: async (place) => {
+      if (place.toLowerCase() === 'aundh') {
+        return [
+          { Name: 'Aundh', District: 'Satara', State: 'Maharashtra', DeliveryStatus: 'Delivery', Pincode: '415510' },
+          { Name: 'Aundh', District: 'Pune', State: 'Maharashtra', DeliveryStatus: 'Delivery', Pincode: '411007' }
+        ];
+      }
+      return [];
+    }
+  });
+  assert.equal(resolvedPune.pincode, '411007', 'Must pick Pune District Aundh PIN 411007 over Mumbai 400001 and Satara Aundh 415510');
+});
+
+test('Saved address permanent deletion UI, dual-DB sync clearance, and /api/users/addresses/delete validation', async () => {
+  const http = require('http');
+  const rootDir = path.join(__dirname, '..');
+  const accountHtml = fs.readFileSync(path.join(rootDir, 'public', 'account.html'), 'utf8');
+  const cartHtml = fs.readFileSync(path.join(rootDir, 'public', 'cart.html'), 'utf8');
+  const firebaseJs = fs.readFileSync(path.join(rootDir, 'public', 'assets', 'nutrolix-firebase.js'), 'utf8');
+
+  // UI & confirmation popup + Add New Address empty-state prompt checks
+  assert.ok(accountHtml.includes('id="deleteAddressConfirmModal"'), 'account.html must include confirmation popup modal');
+  assert.ok(accountHtml.includes('Are you sure you want to delete this address?'), 'confirmation popup must ask confirmation text');
+  assert.ok(accountHtml.includes('id="confirmDeleteAddressBtn"'), 'confirmation popup must have OK confirm button');
+  assert.ok(accountHtml.includes('window.openAddressModal()') && accountHtml.includes('Add New Address'), 'empty/single-deleted state must show Add New Address action');
+  assert.ok(accountHtml.includes('addressesCleared: true'), 'confirmDeleteAddress must mark addressesCleared when last address deleted');
+  assert.ok(!accountHtml.includes("id: 'addr_primary'"), 'account.html must not auto-resurrect deleted defaultAddress into addr_primary');
+  assert.ok(cartHtml.includes('if (profile.addressesCleared) return []'), 'cart.html must respect addressesCleared and never resurrect deleted addresses');
+  assert.ok(firebaseJs.includes('/api/users/addresses/delete') && firebaseJs.includes('/api/users/addresses/save'), 'nutrolix-firebase.js must sync save/delete via dual-DB server API');
+
+  // buildMergedCustomerProfile respects addressesCleared: true
+  const clearedProfile = customerSync.buildMergedCustomerProfile({
+    matchedUserDocs: [{ uid: 'phone_9876543210', name: 'Test User', defaultAddress: '', pincode: '', addressesCleared: true }],
+    extraProfile: { defaultAddress: 'Old Stale Line', pincode: '410208' },
+    cleanPhone: '9876543210',
+    resolvedUid: 'phone_9876543210',
+    allowProfileOverride: false
+  });
+  assert.equal(clearedProfile.addressesCleared, true);
+  assert.equal(clearedProfile.defaultAddress, '');
+  assert.equal(clearedProfile.pincode, '');
+
+  // HTTP server endpoint guard & pincode endpoint verification
+  const server = require(path.join(rootDir, 'server.js'));
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address();
+  const port = typeof addr === 'object' && addr ? addr.port : 0;
+  try {
+    const unauthDel = await new Promise((resolve, reject) => {
+      const bodyStr = JSON.stringify({ addressId: 'addr_1' });
+      const req = http.request({
+        hostname: '127.0.0.1',
+        port,
+        path: '/api/users/addresses/delete',
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) }
+      }, (res) => {
+        let raw = '';
+        res.on('data', c => raw += c);
+        res.on('end', () => resolve({ status: res.statusCode, json: JSON.parse(raw) }));
+      });
+      req.on('error', reject);
+      req.write(bodyStr);
+      req.end();
+    });
+    assert.equal(unauthDel.status, 401);
+
+    const pinRes = await new Promise((resolve, reject) => {
+      http.get({ hostname: '127.0.0.1', port, path: '/api/location/pincode?pin=410208' }, (res) => {
+        let raw = '';
+        res.on('data', c => raw += c);
+        res.on('end', () => resolve({ status: res.statusCode, json: JSON.parse(raw) }));
+      }).on('error', reject);
+    });
+    assert.equal(pinRes.status, 200);
+    assert.equal(pinRes.json.success, true);
+    assert.equal(pinRes.json.pincode, '410208');
+    assert.ok(String(pinRes.json.city).toLowerCase().includes('taloja'));
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+

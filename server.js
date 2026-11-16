@@ -2114,6 +2114,9 @@ const server = http.createServer(async (req, res) => {
       req.on('end', async () => {
         try {
           const item = JSON.parse(body || '{}');
+          if (item.category) {
+            item.category = nutrolixCore.normalizeStoreCategory(item.category, item.title || item.name || '');
+          }
           let products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
           const existingIdx = products.findIndex(p => p.id === item.id);
           if (existingIdx >= 0) {
@@ -2353,7 +2356,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Free Server-Side Reverse Geocoding (OpenStreetMap Nominatim + BigDataCloud fallback)
+  // Free Server-Side Reverse Geocoding (OpenStreetMap Nominatim + BigDataCloud + India Post PIN verification)
   if (req.method === 'POST' && reqPath === '/api/location/reverse-geocode') {
     let body = '';
     req.on('data', chunk => body += chunk);
@@ -2362,7 +2365,9 @@ const server = http.createServer(async (req, res) => {
         const payload = JSON.parse(body || '{}');
         const lat = payload.lat ?? payload.latitude;
         const lon = payload.lon ?? payload.lng ?? payload.longitude;
-        const result = await nutrolixCore.reverseGeocodeFree(lat, lon);
+        const result = await nutrolixCore.reverseGeocodeFree(lat, lon, {
+          nativeGeocoder: payload.nativeGeocoder || null
+        });
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify(result));
       } catch (err) {
@@ -2370,6 +2375,39 @@ const server = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ success: false, fallbackRequired: true, code: 'BAD_REQUEST', error: err.message }));
       }
     });
+    return;
+  }
+
+  // India Post 6-digit PIN lookup helper
+  if (req.method === 'GET' && reqPath === '/api/location/pincode') {
+    const cleanPin = String(parsedUrl.query.pin || parsedUrl.query.pincode || '').replace(/\D/g, '').slice(0, 6);
+    if (cleanPin.length !== 6) {
+      res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ success: false, error: 'Valid 6-digit PIN code is required.' }));
+      return;
+    }
+    const known = nutrolixCore.KNOWN_INDIA_POST_PIN_MAP[cleanPin];
+    if (known) {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({ success: true, ...known }));
+      return;
+    }
+    const offices = await nutrolixCore.lookupIndiaPostByPincode(cleanPin);
+    if (offices.length > 0) {
+      const po = offices.find((p) => String(p.DeliveryStatus || '').toLowerCase() === 'delivery') || offices[0];
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify({
+        success: true,
+        pincode: cleanPin,
+        area: po.Name || '',
+        city: [po.Block && po.Block !== 'NA' ? po.Block : '', po.District || po.Division || ''].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', '),
+        state: po.State || '',
+        district: po.District || ''
+      }));
+      return;
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.end(JSON.stringify({ success: false, pincode: cleanPin }));
     return;
   }
 
@@ -2569,6 +2607,7 @@ const server = http.createServer(async (req, res) => {
                         city: addrCity || (existingUser && existingUser.city) || '',
                         state: addrState || (existingUser && existingUser.state) || '',
                         pincode: addrPin || (existingUser && existingUser.pincode) || '',
+                        addressesCleared: false,
                         updatedAt: nowIso,
                         updatedAtMillis: nowMs
                       });
@@ -4703,6 +4742,109 @@ const server = http.createServer(async (req, res) => {
       });
       return;
     }
+  }
+
+  // Saved Delivery Addresses API (Dual-DB Permanent Save / Set Default / Delete)
+  if (
+    req.method === 'POST' &&
+    (reqPath === '/api/users/addresses/save' ||
+      reqPath === '/api/users/addresses/delete' ||
+      reqPath === '/api/users/addresses/default' ||
+      reqPath === '/api/users/addresses/list')
+  ) {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const payload = JSON.parse(body || '{}');
+        const authHeader = req.headers['authorization'] || '';
+        let verifiedUser = null;
+        if (authHeader && authHeader.toLowerCase().startsWith('bearer ')) {
+          verifiedUser = await nutrolixCore.verifyFirebaseIdToken(authHeader, __dirname);
+          if (!verifiedUser || !verifiedUser.uid) {
+            res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({ success: false, error: 'Invalid Firebase authentication token.' }));
+            return;
+          }
+        }
+
+        const rawUid = String((verifiedUser && verifiedUser.uid) || payload.uid || '').trim();
+        const derivedPhone = normalizePhone(
+          (verifiedUser && (verifiedUser.phoneNumber || (String(verifiedUser.uid || '').startsWith('phone_') ? String(verifiedUser.uid).slice(6) : ''))) ||
+          payload.phone ||
+          (rawUid.startsWith('phone_') ? rawUid.slice(6) : '')
+        );
+        const canonicalUid = nutrolixCore.canonicalCustomerUid(derivedPhone) || rawUid;
+
+        if (!canonicalUid || (!verifiedUser && !(rawUid.startsWith('phone_') && nutrolixCore.isValidIndianMobile(derivedPhone)))) {
+          res.writeHead(401, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Verified customer session is required.' }));
+          return;
+        }
+
+        let result;
+        if (reqPath === '/api/users/addresses/save') {
+          result = await customerSync.saveCustomerAddressRecord({
+            uid: canonicalUid,
+            phone: derivedPhone,
+            address: payload.address || {}
+          });
+        } else if (reqPath === '/api/users/addresses/default') {
+          result = await customerSync.setDefaultCustomerAddressRecord({
+            uid: canonicalUid,
+            phone: derivedPhone,
+            addressId: payload.addressId || payload.id || ''
+          });
+        } else if (reqPath === '/api/users/addresses/delete') {
+          result = await customerSync.deleteCustomerAddressRecord({
+            uid: canonicalUid,
+            phone: derivedPhone,
+            addressId: payload.addressId || payload.id || '',
+            addressKey: payload.addressKey || ''
+          });
+        } else {
+          const addresses = await customerSync.listCanonicalAddresses(canonicalUid);
+          result = { success: true, uid: canonicalUid, addresses };
+        }
+
+        // Keep local users.json cache in sync on empty/update so it never resurrects stale addresses
+        try {
+          const usersFile = path.join(PUBLIC_DIR, 'data', 'users.json');
+          const savedUsers = safeReadJson(usersFile, []);
+          if (Array.isArray(savedUsers)) {
+            const idx = savedUsers.findIndex((u) => u && (u.uid === canonicalUid || u.id === canonicalUid));
+            if (idx >= 0) {
+              if (Array.isArray(result.addresses) && result.addresses.length === 0) {
+                savedUsers[idx].defaultAddress = '';
+                savedUsers[idx].address1 = '';
+                savedUsers[idx].currentAddress = '';
+                savedUsers[idx].lastAddress = '';
+                savedUsers[idx].city = '';
+                savedUsers[idx].state = '';
+                savedUsers[idx].pincode = '';
+                savedUsers[idx].addressesCleared = true;
+              } else if (Array.isArray(result.addresses) && result.addresses.length > 0) {
+                const def = result.addresses.find((a) => a.isDefault) || result.addresses[0];
+                savedUsers[idx].defaultAddress = def.street || def.address1 || '';
+                savedUsers[idx].address1 = def.street || def.address1 || '';
+                savedUsers[idx].city = def.city || '';
+                savedUsers[idx].state = def.state || '';
+                savedUsers[idx].pincode = def.pincode || '';
+                savedUsers[idx].addressesCleared = false;
+              }
+              safeWriteJson(usersFile, savedUsers);
+            }
+          }
+        } catch (_) {}
+
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ ...result, uid: canonicalUid }));
+      } catch (err) {
+        res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
   }
 
   // -------------------------------------------------------------

@@ -292,12 +292,24 @@
       }
     },
 
+    _addressHeaders: async function() {
+      const headers = { 'Content-Type': 'application/json' };
+      try {
+        const fbUser = (typeof firebase !== 'undefined' && firebase.auth) ? firebase.auth().currentUser : null;
+        if (fbUser && typeof fbUser.getIdToken === 'function') {
+          const tok = await fbUser.getIdToken().catch(() => '');
+          if (tok) headers.Authorization = 'Bearer ' + tok;
+        }
+      } catch (_) {}
+      return headers;
+    },
+
     saveUserAddress: async function(uid, addressObj) {
       const db = this.getDb();
       if (!addressObj) return null;
       const cleanAddr = {
         ...addressObj,
-        id: addressObj.id || ('addr_' + Date.now().toString(36)),
+        id: addressObj.id || ('addr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6)),
         uid: uid || '',
         updatedAt: new Date().toISOString(),
         updatedAtMillis: Date.now()
@@ -309,12 +321,48 @@
           console.warn('Firestore saveUserAddress notice:', e.message);
         }
       }
+      if (uid && typeof fetch === 'function') {
+        try {
+          const host = (typeof window !== 'undefined' && window.NUTROLIX_API_HOST) ? window.NUTROLIX_API_HOST : '';
+          const phone = cleanAddr.phone || (String(uid).startsWith('phone_') ? String(uid).slice(6) : '');
+          const res = await fetch(host + '/api/users/addresses/save', {
+            method: 'POST',
+            headers: await this._addressHeaders(),
+            body: JSON.stringify({ uid, phone, address: cleanAddr })
+          });
+          if (res.ok) {
+            const data = await res.json().catch(() => null);
+            if (data && data.address) return data.address;
+          }
+        } catch (e) {
+          console.warn('Server saveUserAddress notice:', e.message);
+        }
+      }
       return cleanAddr;
     },
 
     fetchUserAddresses: async function(uid) {
+      if (!uid) return [];
+      // Prefer authoritative dual-DB backend endpoint when online
+      if (typeof fetch === 'function') {
+        try {
+          const host = (typeof window !== 'undefined' && window.NUTROLIX_API_HOST) ? window.NUTROLIX_API_HOST : '';
+          const phone = String(uid).startsWith('phone_') ? String(uid).slice(6) : '';
+          const res = await fetch(host + '/api/users/addresses/list', {
+            method: 'POST',
+            headers: await this._addressHeaders(),
+            body: JSON.stringify({ uid, phone })
+          });
+          if (res.ok) {
+            const data = await res.json().catch(() => null);
+            if (data && data.success && Array.isArray(data.addresses)) {
+              return data.addresses;
+            }
+          }
+        } catch (_) {}
+      }
       const db = this.getDb();
-      if (!db || !uid) return [];
+      if (!db) return [];
       try {
         const snap = await db.collection('users').doc(uid).collection('addresses').get();
         const list = [];
@@ -326,15 +374,71 @@
       }
     },
 
-    deleteUserAddress: async function(uid, addrId) {
+    setDefaultUserAddress: async function(uid, addrId) {
+      if (!uid || !addrId) return null;
       const db = this.getDb();
-      if (!db || !uid || !addrId) return false;
-      try {
-        await db.collection('users').doc(uid).collection('addresses').doc(addrId).delete();
-        return true;
-      } catch (e) {
-        return false;
+      if (db) {
+        try {
+          const snap = await db.collection('users').doc(uid).collection('addresses').get();
+          const batch = db.batch ? db.batch() : null;
+          if (batch) {
+            snap.forEach((doc) => {
+              batch.set(doc.ref, { isDefault: doc.id === addrId }, { merge: true });
+            });
+            await batch.commit();
+          } else {
+            await db.collection('users').doc(uid).collection('addresses').doc(addrId).set({ isDefault: true }, { merge: true });
+          }
+        } catch (_) {}
       }
+      if (typeof fetch === 'function') {
+        try {
+          const host = (typeof window !== 'undefined' && window.NUTROLIX_API_HOST) ? window.NUTROLIX_API_HOST : '';
+          const phone = String(uid).startsWith('phone_') ? String(uid).slice(6) : '';
+          const res = await fetch(host + '/api/users/addresses/default', {
+            method: 'POST',
+            headers: await this._addressHeaders(),
+            body: JSON.stringify({ uid, phone, addressId: addrId })
+          });
+          if (res.ok) {
+            const data = await res.json().catch(() => null);
+            if (data && Array.isArray(data.addresses)) return data.addresses;
+          }
+        } catch (_) {}
+      }
+      return null;
+    },
+
+    deleteUserAddress: async function(uid, addrId, addressKey = '') {
+      if (!uid || !addrId) return false;
+      const db = this.getDb();
+      let clientOk = false;
+      if (db) {
+        try {
+          await db.collection('users').doc(uid).collection('addresses').doc(addrId).delete();
+          clientOk = true;
+        } catch (e) {
+          console.warn('Firestore deleteUserAddress notice:', e.message);
+        }
+      }
+      if (typeof fetch === 'function') {
+        try {
+          const host = (typeof window !== 'undefined' && window.NUTROLIX_API_HOST) ? window.NUTROLIX_API_HOST : '';
+          const phone = String(uid).startsWith('phone_') ? String(uid).slice(6) : '';
+          const res = await fetch(host + '/api/users/addresses/delete', {
+            method: 'POST',
+            headers: await this._addressHeaders(),
+            body: JSON.stringify({ uid, phone, addressId: addrId, addressKey })
+          });
+          if (res.ok) {
+            const data = await res.json().catch(() => null);
+            if (data && data.success) return data;
+          }
+        } catch (e) {
+          console.warn('Server deleteUserAddress notice:', e.message);
+        }
+      }
+      return clientOk;
     },
 
     mergeAccountDataToUid: async function(oldUid, newUid, extraProfile = {}) {

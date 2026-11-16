@@ -1043,11 +1043,15 @@
     // ========================================================
     function getSavedAddresses() {
       try {
-        const saved = JSON.parse(localStorage.getItem('nutrolix_saved_addresses') || '[]');
-        if (Array.isArray(saved) && saved.length > 0) return saved;
+        const rawSaved = localStorage.getItem('nutrolix_saved_addresses');
+        if (rawSaved !== null) {
+          const saved = JSON.parse(rawSaved || '[]');
+          if (Array.isArray(saved)) return saved;
+        }
 
-        // Check user profile for saved address
+        // Check user profile only if saved addresses were never explicitly cleared
         const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
+        if (profile.addressesCleared) return [];
         if (profile.addresses && Array.isArray(profile.addresses) && profile.addresses.length > 0) {
           return profile.addresses;
         }
@@ -1105,7 +1109,7 @@
                   <span class="text-[9px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full font-bold">${addr.tag || ('Address ' + (idx + 1))}</span>
                   ${isSelected ? '<span class="text-[9px] bg-emerald-600 text-white px-2 py-0.5 rounded-full font-bold">Selected</span>' : ''}
                 </div>
-                <p class="text-xs text-slate-600 mt-1 font-semibold">${addr.address1}, ${addr.city}, ${addr.state} - ${addr.pincode}</p>
+                <p class="text-xs text-slate-600 mt-1 font-semibold">${[addr.address1 || addr.street || '', addr.city, addr.state].filter(Boolean).join(', ')}${addr.pincode ? ' - ' + addr.pincode : ''}</p>
                 <p class="text-[11px] text-emerald-700 font-bold mt-0.5"><i class="fa-solid fa-phone mr-1"></i>${addr.phone}</p>
               </div>
             </div>
@@ -1135,19 +1139,19 @@
 
     // Instant Pincode Database for accurate Navi Mumbai & Maharashtra resolution (ZERO KURLA)
     const PINCODE_LOOKUP_MAP = {
-      '410208': { city: 'Taloja, Navi Mumbai', state: 'Maharashtra', area: 'MIDC Taloja / Taloja Phase 1 & 2' },
-      '410206': { city: 'Panvel, Navi Mumbai', state: 'Maharashtra', area: 'Panvel' },
-      '410218': { city: 'Kharghar, Navi Mumbai', state: 'Maharashtra', area: 'Kharghar' },
-      '410210': { city: 'Kamothe, Navi Mumbai', state: 'Maharashtra', area: 'Kamothe' },
-      '410209': { city: 'Kalamboli, Navi Mumbai', state: 'Maharashtra', area: 'Kalamboli / Roadpali' },
+      '410208': { city: 'Taloja, Panvel', state: 'Maharashtra', area: 'MIDC Taloja / Taloja Phase 1 & 2' },
+      '410206': { city: 'Panvel, Navi Mumbai', state: 'Maharashtra', area: 'Panvel / Ulwe / Kamothe' },
+      '410210': { city: 'Kharghar, Navi Mumbai', state: 'Maharashtra', area: 'Kharghar' },
+      '410218': { city: 'Kalamboli, Navi Mumbai', state: 'Maharashtra', area: 'Kalamboli Node' },
+      '410209': { city: 'Kamothe, Navi Mumbai', state: 'Maharashtra', area: 'Kamothe' },
       '400614': { city: 'CBD Belapur, Navi Mumbai', state: 'Maharashtra', area: 'CBD Belapur' },
       '400703': { city: 'Vashi, Navi Mumbai', state: 'Maharashtra', area: 'Vashi' },
       '400705': { city: 'Sanpada, Navi Mumbai', state: 'Maharashtra', area: 'Sanpada' },
-      '400706': { city: 'Nerul, Navi Mumbai', state: 'Maharashtra', area: 'Nerul' },
+      '400706': { city: 'Nerul, Navi Mumbai', state: 'Maharashtra', area: 'Nerul / Seawoods' },
       '400708': { city: 'Airoli, Navi Mumbai', state: 'Maharashtra', area: 'Airoli' },
       '400701': { city: 'Ghansoli, Navi Mumbai', state: 'Maharashtra', area: 'Ghansoli' },
       '400709': { city: 'Kopar Khairane, Navi Mumbai', state: 'Maharashtra', area: 'Kopar Khairane' },
-      '410221': { city: 'Ulwe, Navi Mumbai', state: 'Maharashtra', area: 'Ulwe' },
+      '410221': { city: 'Palaspe, Panvel', state: 'Maharashtra', area: 'Palaspe / ONGC Complex Panvel' },
       '410222': { city: 'Dronagiri / Uran', state: 'Maharashtra', area: 'Dronagiri' },
       '400001': { city: 'Mumbai', state: 'Maharashtra', area: 'Fort / South Mumbai' }
     };
@@ -1264,13 +1268,34 @@
     // commonly return a broad/incorrect neighbouring postal code.
     // Taloja A.V. and Taloja B.O. are served by PIN 410208.
     function resolveKnownIndianPostalCode(geocode) {
+      if (!geocode || typeof geocode !== 'object') return null;
       const localityText = [
-        geocode && geocode.city,
-        geocode && geocode.neighborhood,
-        geocode && geocode.formattedAddress
+        geocode.city,
+        geocode.neighborhood,
+        geocode.locality,
+        geocode.district,
+        geocode.formattedAddress
       ].filter(Boolean).join(' ').toLowerCase();
-      if (/\btaloja\b|\btaloje\b/.test(localityText)) {
+      if (/\btaloja\b|\btaloje\b|\bnavde\b|\bpendhar\b/.test(localityText)) {
         return { pincode: '410208', city: 'Taloja, Panvel', state: 'Maharashtra' };
+      }
+      if (/\bkharghar\b/.test(localityText)) {
+        return { pincode: '410210', city: 'Kharghar, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bkalamboli\b|\broadpali\b/.test(localityText)) {
+        return { pincode: '410218', city: 'Kalamboli, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bulwe\b|\bulwa\b/.test(localityText)) {
+        return { pincode: '410206', city: 'Ulwe, Panvel', state: 'Maharashtra' };
+      }
+      if (/\bcbd belapur\b|\bbelapur\b/.test(localityText)) {
+        return { pincode: '400614', city: 'CBD Belapur, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bvashi\b/.test(localityText)) {
+        return { pincode: '400703', city: 'Vashi, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bnerul\b|\bseawoods\b/.test(localityText)) {
+        return { pincode: '400706', city: 'Nerul, Navi Mumbai', state: 'Maharashtra' };
       }
       return null;
     }
@@ -1286,7 +1311,7 @@
         const res = await fetch(host + '/api/location/reverse-geocode', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ lat, lon })
+          body: JSON.stringify({ lat, lon, nativeGeocoder: nativeGeocoder || null })
         });
         if (res.ok) {
           const data = await res.json();
@@ -1299,8 +1324,6 @@
       }
 
       if (resolved) {
-        // Prefer a verified India Post locality-to-PIN mapping over a broad
-        // reverse-geocoder postcode when its postcode conflicts with locality.
         const knownPostal = resolveKnownIndianPostalCode(resolved);
         const finalPostal = knownPostal || resolved;
         if (finalPostal.pincode) document.getElementById('custPincode').value = finalPostal.pincode;
@@ -2011,6 +2034,7 @@
           city,
           state,
           pincode,
+          addressesCleared: false,
           name: (name && name !== 'Nutrolix Customer') ? name : (curProf.name || '')
         }));
       } catch (_) {}

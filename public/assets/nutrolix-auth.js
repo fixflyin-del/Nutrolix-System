@@ -271,7 +271,7 @@
         }
 
         let addrs = serverAddresses;
-        if ((!Array.isArray(addrs) || addrs.length === 0) && window.NutrolixFirebase && typeof window.NutrolixFirebase.fetchUserAddresses === 'function') {
+        if (!Array.isArray(addrs) && window.NutrolixFirebase && typeof window.NutrolixFirebase.fetchUserAddresses === 'function') {
           addrs = await window.NutrolixFirebase.fetchUserAddresses(canonicalUid);
         }
         if (Array.isArray(addrs)) {

@@ -1580,12 +1580,12 @@
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Category *</label>
             <select id="pkgCategory" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300">
-              <option value="High-Protein Flours">High-Protein Flours</option>
-              <option value="Complete Meal Mixes">Complete Meal Mixes</option>
-              <option value="Prophetic & Functional Foods">Prophetic & Functional Foods</option>
-              <option value="Plant Proteins">Plant Proteins</option>
-              <option value="Superfood Blends">Superfood Blends</option>
-              <option value="Cold-Pressed Oils">Cold-Pressed Oils</option>
+              <option value="Protein Atta">Protein Atta</option>
+              <option value="Protein Snacks">Protein Snacks</option>
+              <option value="Nutrition Meal">Nutrition Meal</option>
+              <option value="Nutrition Drink">Nutrition Drink</option>
+              <option value="Healthy Flakes">Healthy Flakes</option>
+              <option value="Body Building & Strength">Body Building & Strength</option>
             </select>
           </div>
           <div>
@@ -2060,6 +2060,45 @@
       }
     };
 
+    window.NUTROLIX_STORE_CATEGORIES = [
+      'Protein Atta',
+      'Protein Snacks',
+      'Nutrition Meal',
+      'Nutrition Drink',
+      'Healthy Flakes',
+      'Body Building & Strength'
+    ];
+
+    window.mapToStoreCategory = function(p) {
+      if (!p) return 'Protein Atta';
+      const rawCat = String(p.category || '').trim();
+      const catLower = rawCat.toLowerCase();
+      for (const canonical of window.NUTROLIX_STORE_CATEGORIES) {
+        if (canonical.toLowerCase() === catLower) return canonical;
+      }
+      const titleLower = String(p.name || p.title || '').toLowerCase();
+      const combined = catLower + ' ' + titleLower;
+      if (catLower.includes('flour') || catLower.includes('atta') || combined.includes('atta') || combined.includes('flour') || combined.includes('wheat')) {
+        return 'Protein Atta';
+      }
+      if (catLower.includes('snack') || combined.includes('snack') || combined.includes('chia') || combined.includes('flax') || combined.includes('omega') || combined.includes('seed')) {
+        return 'Protein Snacks';
+      }
+      if (catLower.includes('drink') || catLower.includes('cold-pressed') || catLower.includes('oil') || combined.includes('drink') || combined.includes('black seed') || combined.includes('kalonji') || combined.includes('elixir') || combined.includes('shake') || combined.includes('liquid')) {
+        return 'Nutrition Drink';
+      }
+      if (catLower.includes('flake') || catLower.includes('millet') || combined.includes('flake') || combined.includes('cereal') || combined.includes('crisp')) {
+        return 'Healthy Flakes';
+      }
+      if (catLower.includes('plant protein') || catLower.includes('strength') || catLower.includes('body building') || combined.includes('strength') || combined.includes('body building') || combined.includes('shilajit') || combined.includes('protein powder') || combined.includes('sprouted moong') || combined.includes('muscle')) {
+        return 'Body Building & Strength';
+      }
+      if (catLower.includes('meal') || catLower.includes('breakfast') || catLower.includes('prophetic') || catLower.includes('superfood') || combined.includes('meal') || combined.includes('talbeenah') || combined.includes('porridge') || combined.includes('superfood')) {
+        return 'Nutrition Meal';
+      }
+      return 'Protein Atta';
+    };
+
     window.renderPackagedProductsTable = function() {
       const tbody = document.getElementById('packagedProductsTableBody');
       if (!tbody) return;
@@ -2088,7 +2127,7 @@
             </td>
             <td class="p-3.5">
               <span class="px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 font-bold text-[11px] border border-emerald-200">
-                ${p.category || 'Nutrition'}
+                ${window.mapToStoreCategory(p)}
               </span>
             </td>
             <td class="p-3.5">
@@ -2158,17 +2197,10 @@
       document.getElementById('pkgId').value = p.id;
       document.getElementById('pkgTitle').value = prodName;
 
-      // Ensure category exists in dropdown
+      // Map legacy/store categories identically to User Storefront categories
       const catSelect = document.getElementById('pkgCategory');
-      if (catSelect && p.category) {
-        const exists = Array.from(catSelect.options).some(o => o.value === p.category);
-        if (!exists) {
-          const opt = document.createElement('option');
-          opt.value = p.category;
-          opt.innerText = p.category;
-          catSelect.appendChild(opt);
-        }
-        catSelect.value = p.category;
+      if (catSelect) {
+        catSelect.value = window.mapToStoreCategory(p);
       }
 
       document.getElementById('pkgSubcategory').value = p.subcategory || '';
