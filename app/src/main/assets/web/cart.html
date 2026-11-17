@@ -1059,12 +1059,11 @@
 
       listEl.innerHTML = cart.map((item, index) => {
         const cartImgRaw = item.image || (item.images && item.images[0]) || '';
-        const cartImgImm = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(cartImgRaw) : (cartImgRaw || 'assets/aistudio/image_6061bdc8.png');
-        const cartImgAttr = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(cartImgRaw) : '';
+        const cartImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(cartImgRaw) : (cartImgRaw || 'assets/aistudio/image_6061bdc8.png');
         return `
         <div class="flex items-center justify-between py-3.5 gap-3">
           <div class="flex items-center space-x-3 min-w-0">
-            <img src="${cartImgImm}" ${cartImgAttr ? `data-nutrolix-src="${cartImgAttr}"` : ''} alt="${item.title || item.name}" class="w-16 h-16 rounded-xl object-cover border border-slate-200 flex-shrink-0 bg-slate-50">
+            <img src="${cartImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${item.title || item.name}" class="w-16 h-16 rounded-xl object-cover border border-slate-200 flex-shrink-0 bg-slate-50">
             <div class="min-w-0">
               <h4 class="font-extrabold text-sm text-slate-900 truncate">${item.title || item.name}</h4>
               <p class="text-xs text-slate-500">${item.variant || 'Standard Pack'} • ₹${item.price} each</p>

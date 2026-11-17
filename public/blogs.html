@@ -146,13 +146,11 @@
     function renderBlogs() {
       const grid = document.getElementById('blogsGrid');
       grid.innerHTML = allBlogs.map((b, index) => {
-        const rawImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(b.image) : (b.image || 'assets/aistudio/image_6061bdc8.png');
-        const immSrc = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(rawImg) : rawImg;
-        const dataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(rawImg) : '';
+        const blogImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(b.image) : (b.image || 'assets/aistudio/image_6061bdc8.png');
         return `
         <article class="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col group cursor-pointer" onclick="openArticle(${index})">
           <div class="h-48 overflow-hidden relative">
-            <img src="${immSrc}" ${dataSrc ? `data-nutrolix-src="${dataSrc}"` : ''} alt="${b.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+            <img src="${blogImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${b.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
             <span class="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-extrabold text-emerald-800">
               ${b.category}
             </span>

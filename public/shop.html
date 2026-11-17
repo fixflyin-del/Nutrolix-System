@@ -592,13 +592,11 @@
       container.innerHTML = products.map(p => {
         const rawImg = (p.images && p.images[0]) || p.image || 'assets/aistudio/image_6061bdc8.png';
         const img = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(rawImg) : rawImg;
-        const immSrc = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(img) : img;
-        const dataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(img) : '';
         return `
           <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition flex flex-col group">
             <div class="relative aspect-square overflow-hidden bg-slate-100">
               <a href="product.html?id=${p.id}" class="block w-full h-full cursor-pointer">
-                <img src="${immSrc}" ${dataSrc ? `data-nutrolix-src="${dataSrc}"` : ''} alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                <img src="${img}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
               </a>
               <span class="absolute top-2 sm:top-3 left-2 sm:left-3 bg-nutro-orange text-white text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm">
                 ${p.discountPercent || 20}% OFF

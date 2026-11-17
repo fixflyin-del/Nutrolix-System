@@ -618,7 +618,10 @@
   (async function syncCustomerSystemResetEpoch() {
     try {
       const host = window.NUTROLIX_API_HOST || '';
-      const res = await fetch(host + '/api/system/reset-state', { cache: 'no-store' });
+      const ac = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const tid = ac ? setTimeout(() => ac.abort(), 4500) : null;
+      const res = await fetch(host + '/api/system/reset-state', ac ? { cache: 'no-store', signal: ac.signal } : { cache: 'no-store' })
+        .finally(() => { if (tid) clearTimeout(tid); });
       if (!res || !res.ok) return;
       const data = await res.json().catch(() => null);
       const srvEpoch = Number(data && data.resetEpoch) || 0;

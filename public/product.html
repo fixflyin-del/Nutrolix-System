@@ -646,12 +646,11 @@
       const thumbsContainer = document.getElementById('imageThumbnails');
       if (thumbsContainer) {
         thumbsContainer.innerHTML = window.activeProductImages.map((img, idx) => {
-          const immSrc = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(img) : img;
-          const dataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(img) : '';
+          const thumbSrc = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(img) : img;
           return `
           <button type="button" onclick="window.selectImageIndex(${idx})" class="thumb-btn flex flex-col items-center group/th focus:outline-none shrink-0" data-idx="${idx}">
             <div class="w-16 h-16 rounded-xl border-2 ${idx === 0 ? 'border-emerald-600 ring-2 ring-emerald-500/20' : 'border-slate-200'} overflow-hidden transition bg-slate-50 p-0.5">
-              <img src="${immSrc}" ${dataSrc ? `data-nutrolix-src="${dataSrc}"` : ''} class="w-full h-full object-cover rounded-lg" alt="Thumbnail ${idx+1}">
+              <img src="${thumbSrc}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" class="w-full h-full object-cover rounded-lg" alt="Thumbnail ${idx+1}">
             </div>
             <span class="text-[9px] font-bold text-slate-500 mt-1">${positionLabels[idx] || ('View ' + (idx+1))}</span>
           </button>

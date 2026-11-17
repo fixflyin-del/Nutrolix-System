@@ -1908,13 +1908,11 @@
       container.innerHTML = list.map(b => {
         const slug = b.slug || b.id || 'best-nutrition-meal';
         const articleUrl = `/${slug}`;
-        const rawImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(b.image) : (b.image || 'assets/aistudio/image_6061bdc8.png');
-        const immSrc = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(rawImg) : rawImg;
-        const dataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(rawImg) : '';
+        const blogImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(b.image) : (b.image || 'assets/aistudio/image_6061bdc8.png');
         return `
           <article class="w-[280px] sm:w-[340px] shrink-0 snap-start bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
             <a href="${articleUrl}" class="block aspect-video overflow-hidden bg-slate-100 relative">
-              <img src="${immSrc}" ${dataSrc ? `data-nutrolix-src="${dataSrc}"` : ''} alt="${b.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+              <img src="${blogImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${b.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
               <span class="absolute top-3 left-3 bg-nutro-forest text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow-sm">
                 ${b.category}
               </span>
@@ -2028,7 +2026,10 @@
         if (!skipRemote) {
           const host = window.NUTROLIX_API_HOST || '';
           if (window.location.protocol !== 'file:' || host) {
-            fetch(host + '/api/hero-products', { cache: 'no-store' })
+            const heroAc = new AbortController();
+            const heroTid = setTimeout(() => heroAc.abort(), 5000);
+            fetch(host + '/api/hero-products', { cache: 'no-store', signal: heroAc.signal })
+              .finally(() => clearTimeout(heroTid))
               .then(r => r && r.ok ? r.json() : null)
               .then(raw => {
                 const hero = (raw && raw.heroProducts) ? raw.heroProducts : raw;
@@ -2432,7 +2433,9 @@
       let blogs = null;
       const host = window.NUTROLIX_API_HOST || '';
       try {
-        const res = await fetch(host + '/api/blogs', { cache: 'no-store' });
+        const blogAc = new AbortController();
+        const blogTid = setTimeout(() => blogAc.abort(), 5000);
+        const res = await fetch(host + '/api/blogs', { cache: 'no-store', signal: blogAc.signal }).finally(() => clearTimeout(blogTid));
         if (res.ok) blogs = await res.json();
       } catch (_) {}
 
@@ -2452,13 +2455,11 @@
         container.innerHTML = blogs.map(b => {
           const slug = b.slug || b.id || 'best-nutrition-meal';
           const articleUrl = `/${slug}`;
-          const rawImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(b.image) : (b.image || 'assets/aistudio/image_6061bdc8.png');
-          const immSrc = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(rawImg) : rawImg;
-          const dataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(rawImg) : '';
+          const blogImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(b.image) : (b.image || 'assets/aistudio/image_6061bdc8.png');
           return `
             <article class="w-[280px] sm:w-[340px] shrink-0 snap-start bg-white rounded-3xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition-all duration-300 flex flex-col group">
               <a href="${articleUrl}" class="block aspect-video overflow-hidden bg-slate-100 relative">
-                <img src="${immSrc}" ${dataSrc ? `data-nutrolix-src="${dataSrc}"` : ''} alt="${b.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+                <img src="${blogImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${b.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
                 <span class="absolute top-3 left-3 bg-nutro-forest text-white text-[10px] font-black px-2.5 py-1 rounded-lg shadow-sm">
                   ${b.category}
                 </span>
@@ -2506,8 +2507,6 @@
       const safeJsName = prodName.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
       const rawImg = (p.images && p.images[0]) || p.image || 'assets/aistudio/image_6061bdc8.png';
       const mainImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(rawImg) : rawImg;
-      const immSrc = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(mainImg) : mainImg;
-      const dataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(mainImg) : '';
       const discount = p.discountPercent || (p.mrp && p.price ? Math.max(10, Math.round(((p.mrp - p.price) / p.mrp) * 100)) : 20);
       const rating = p.rating || 4.8;
       const reviewCount = p.reviewCount || 142;
@@ -2519,7 +2518,7 @@
           <!-- Image & Discount Badge (Clickable) -->
           <div class="relative overflow-hidden bg-slate-100 aspect-square">
             <a href="/product?id=${encodeURIComponent(p.id)}" class="block w-full h-full cursor-pointer">
-              <img src="${immSrc}" ${dataSrc ? `data-nutrolix-src="${dataSrc}"` : ''} alt="${safeTitleAttr}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              <img src="${mainImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${safeTitleAttr}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
             </a>
             <span class="absolute top-3 left-3 bg-nutro-orange text-white text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm pointer-events-none">
               ${discount}% OFF
@@ -2902,7 +2901,10 @@
         if (settings) applySettings(settings);
 
         const host = window.NUTROLIX_API_HOST || '';
-        fetch(host + '/api/settings', { cache: 'no-store' })
+        const setAc = new AbortController();
+        const setTid = setTimeout(() => setAc.abort(), 5000);
+        fetch(host + '/api/settings', { cache: 'no-store', signal: setAc.signal })
+          .finally(() => clearTimeout(setTid))
           .then(res => res && res.ok ? res.json() : null)
           .then(data => {
             if (data && data.announcement) {

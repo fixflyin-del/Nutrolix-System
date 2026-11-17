@@ -1249,111 +1249,38 @@ test('Sample artwork default across catalog/blogs and 1s first-open vs reload-sk
     assert.equal(pubHtml, apkHtml, `Android asset mirror mismatch on ${page}`);
   }
 
-  // 4. VM behavior test: fresh open holds >=1000ms after splash; reload bypasses 1s hold
+  // 4. Direct synchronous resolution test (no MutationObserver, no 1000ms hold, no Image preloader)
   const loaderSrc = fs.readFileSync(path.join(rootDir, 'public/assets/nutrolix-image-loader.js'), 'utf8');
-  function runLoaderSandbox({ navType, sessionDone }) {
-    const sessMap = new Map();
-    if (sessionDone) sessMap.set('nutrolix_first_open_img_done', 'true');
-    const scheduledTimeouts = [];
-    const createdImages = [];
+  assert.equal(loaderSrc.includes('MutationObserver'), false, 'nutrolix-image-loader.js must NOT use MutationObserver');
+  assert.equal(loaderSrc.includes('setTimeout'), false, 'nutrolix-image-loader.js must NOT run blocking/delay timers');
+  assert.equal(loaderSrc.includes('new Image'), false, 'nutrolix-image-loader.js must NOT spawn Image preloader probes');
 
-    function FakeImage() {
-      const inst = { src: '', naturalWidth: 400, onload: null, onerror: null };
-      createdImages.push(inst);
-      return inst;
-    }
+  const ctx = {
+    location: { protocol: 'https:', pathname: '/index.html' }
+  };
+  ctx.window = ctx;
+  vm.runInNewContext(loaderSrc, ctx);
 
-    const fakeDoc = {
-      readyState: 'complete',
-      documentElement: {},
-      body: { querySelectorAll: () => [] },
-      getElementById: () => null,
-      addEventListener: () => {},
-      contains: () => true
-    };
-    const ctx = {
-      location: { protocol: 'https:', pathname: '/index.html' },
-      sessionStorage: {
-        getItem: (k) => (sessMap.has(k) ? sessMap.get(k) : null),
-        setItem: (k, v) => sessMap.set(k, String(v))
-      },
-      performance: { getEntriesByType: () => [{ type: navType }] },
-      document: fakeDoc,
-      Image: FakeImage,
-      setTimeout: (fn, ms) => {
-        scheduledTimeouts.push({ fn, ms });
-        return scheduledTimeouts.length;
-      },
-      MutationObserver: function () { return { observe: () => {} }; }
-    };
-    ctx.window = ctx;
-    vm.runInNewContext(loaderSrc, ctx);
-    return { ctx, scheduledTimeouts, createdImages, sessMap };
-  }
-
-  // 4a. Fresh open: must replace default/Unsplash/empty with sample image, preserve real URL, and hold real image for 1000ms
-  const fresh = runLoaderSandbox({ navType: 'navigate', sessionDone: false });
-  assert.equal(fresh.ctx.nutrolixResolveCatalogImage(''), '/assets/aistudio/image_6061bdc8.png');
-  assert.equal(fresh.ctx.nutrolixResolveCatalogImage('https://images.unsplash.com/photo-123'), '/assets/aistudio/image_6061bdc8.png');
-  assert.equal(fresh.ctx.nutrolixResolveCatalogImage('https://res.cloudinary.com/demo/image/upload/p.png'), 'https://res.cloudinary.com/demo/image/upload/p.png');
-  assert.equal(fresh.ctx.nutrolixResolveCatalogImage('/api/media/item1.webp'), '/api/media/item1.webp');
+  assert.equal(ctx.nutrolixResolveCatalogImage(''), '/assets/aistudio/image_6061bdc8.png');
+  assert.equal(ctx.nutrolixResolveCatalogImage('https://images.unsplash.com/photo-123'), '/assets/aistudio/image_6061bdc8.png');
+  assert.equal(ctx.nutrolixResolveCatalogImage('https://res.cloudinary.com/demo/image/upload/p.png'), 'https://res.cloudinary.com/demo/image/upload/p.png');
+  assert.equal(ctx.nutrolixResolveCatalogImage('/api/media/item1.webp'), '/api/media/item1.webp');
 
   const realUrl = 'https://res.cloudinary.com/demo/image/upload/v1/atta.webp';
+  assert.equal(ctx.nutrolixImmediateSrc(realUrl), realUrl, 'Uploaded images must resolve and render immediately without 1s hold');
+
   const attrs = new Map();
   const fakeImgEl = {
-    tagName: 'IMG',
-    id: 'heroCard1Img',
-    isConnected: true,
-    classList: { contains: () => false },
-    closest: () => null,
+    src: '',
+    onerror: null,
     getAttribute: (k) => attrs.get(k) || '',
-    setAttribute: (k, v) => {
-      attrs.set(k, v);
-      if (k === 'src') fakeImgEl.src = v;
-    },
-    removeAttribute: (k) => attrs.delete(k),
-    hasAttribute: (k) => attrs.has(k),
-    addEventListener: () => {},
-    src: ''
+    removeAttribute: (k) => attrs.delete(k)
   };
-  fresh.ctx.nutrolixBindImage(fakeImgEl, realUrl);
-  assert.equal(fakeImgEl.src, '/assets/aistudio/image_6061bdc8.png', 'Fresh open must show sample image immediately');
-  // Simulate splash/DOMContentLoaded timer firing and image finishing download before 1000ms elapses
-  for (const t of fresh.scheduledTimeouts.filter(t => t.ms === 50)) t.fn();
-  assert.equal(fresh.createdImages.length, 1);
-  fresh.createdImages[0].onload();
-  assert.equal(fakeImgEl.src, '/assets/aistudio/image_6061bdc8.png', 'Fresh open must still hold sample image until 1000ms timer fires');
-  // Fire the 1000ms gate timer
-  const oneSecTimer = fresh.scheduledTimeouts.find(t => t.ms === 1000);
-  assert.ok(oneSecTimer, '1000ms gate timer must be scheduled on fresh open');
-  oneSecTimer.fn();
-  assert.equal(fakeImgEl.src, realUrl, 'Real image must swap in once both 1000ms hold and download finish');
-  assert.equal(fresh.sessMap.get('nutrolix_first_open_img_done'), 'true');
-
-  // 4b. Reload: must NOT hold 1000ms — reveals real image immediately once Image.onload fires
-  const reload = runLoaderSandbox({ navType: 'reload', sessionDone: false });
-  assert.equal(reload.scheduledTimeouts.some(t => t.ms === 1000), false, 'Reload must NOT schedule 1000ms hold timer');
-  const attrsR = new Map();
-  const fakeImgReload = {
-    tagName: 'IMG',
-    id: 'heroCard2Img',
-    isConnected: true,
-    classList: { contains: () => false },
-    closest: () => null,
-    getAttribute: (k) => attrsR.get(k) || '',
-    setAttribute: (k, v) => {
-      attrsR.set(k, v);
-      if (k === 'src') fakeImgReload.src = v;
-    },
-    removeAttribute: (k) => attrsR.delete(k),
-    hasAttribute: (k) => attrsR.has(k),
-    addEventListener: () => {},
-    src: ''
-  };
-  reload.ctx.nutrolixBindImage(fakeImgReload, realUrl);
-  assert.equal(fakeImgReload.src, '/assets/aistudio/image_6061bdc8.png', 'Reload shows sample placeholder while real image downloads');
-  reload.createdImages[0].onload();
-  assert.equal(fakeImgReload.src, realUrl, 'Reload reveals real image right on onload without 1000ms wait');
+  ctx.nutrolixBindImage(fakeImgEl, realUrl);
+  assert.equal(fakeImgEl.src, realUrl, 'nutrolixBindImage must assign real uploaded URL directly');
+  assert.equal(typeof fakeImgEl.onerror, 'function', 'nutrolixBindImage must attach safe sample fallback on error');
+  fakeImgEl.onerror();
+  assert.equal(fakeImgEl.src, '/assets/aistudio/image_6061bdc8.png', 'Broken real image must fall back cleanly to sample artwork');
 
   // 5. HTTP Server GET endpoints normalize default/Unsplash items and preserve uploaded /api/media images
   const dataDir = path.join(rootDir, 'public', 'data');

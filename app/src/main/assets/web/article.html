@@ -492,13 +492,11 @@
         const relGrid = document.getElementById('relatedArticlesGrid');
         if (relGrid) {
           relGrid.innerHTML = related.map(rel => {
-            const relRaw = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(rel.image) : (rel.image || 'assets/aistudio/image_6061bdc8.png');
-            const relImm = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(relRaw) : relRaw;
-            const relDataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(relRaw) : '';
+            const relImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(rel.image) : (rel.image || 'assets/aistudio/image_6061bdc8.png');
             return `
             <a href="${rel.slug ? rel.slug : 'article.html?slug=' + rel.id}" class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500 hover:shadow-lg transition flex flex-col group">
               <div class="aspect-video bg-slate-100 overflow-hidden relative">
-                <img src="${relImm}" ${relDataSrc ? `data-nutrolix-src="${relDataSrc}"` : ''} alt="${rel.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                <img src="${relImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${rel.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
                 <span class="absolute top-2 left-2 bg-emerald-800 text-white text-[9px] font-black px-2 py-0.5 rounded-md">
                   ${rel.category || 'Science'}
                 </span>

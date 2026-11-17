@@ -784,8 +784,7 @@
 
         const firstItem = (ord.items && ord.items[0]) ? ord.items[0] : null;
         const itemImgRaw = firstItem ? (firstItem.image || (firstItem.images && firstItem.images[0]) || '') : '';
-        const itemImgImm = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(itemImgRaw) : (itemImgRaw || 'assets/aistudio/image_6061bdc8.png');
-        const itemImgAttr = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(itemImgRaw) : '';
+        const itemImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(itemImgRaw) : (itemImgRaw || 'assets/aistudio/image_6061bdc8.png');
         const firstItemTitle = firstItem ? (firstItem.title || firstItem.name || 'Nutrition Product') : 'Nutrolix Nutrition Item';
 
         const isFood = (ord.orderType === 'healthy_food' || (ord.items && ord.items.some(i => (i.category || '').toLowerCase().includes('food') || (i.category || '').toLowerCase().includes('meal'))));
@@ -800,7 +799,7 @@
         return `
           <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 hover:border-emerald-500 hover:shadow-md transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group">
             <div onclick="window.showOrderDetail('${orderId}')" class="flex items-center space-x-3.5 min-w-0 cursor-pointer flex-1">
-              <img src="${itemImgImm}" ${itemImgAttr ? `data-nutrolix-src="${itemImgAttr}"` : ''} alt="${firstItemTitle}" class="w-14 h-14 rounded-2xl object-contain bg-slate-50 border border-slate-200 p-1 shrink-0">
+              <img src="${itemImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${firstItemTitle}" class="w-14 h-14 rounded-2xl object-contain bg-slate-50 border border-slate-200 p-1 shrink-0">
               <div class="min-w-0">
                 <div class="flex flex-wrap items-center gap-1.5">
                   <span class="font-black text-sm text-slate-900 group-hover:text-emerald-700 transition">#${orderId}</span>
@@ -891,12 +890,11 @@
 
       document.getElementById('detailItemsContainer').innerHTML = (order.items || []).map(it => {
         const itImgRaw = it.image || (it.images && it.images[0]) || '';
-        const itImgImm = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(itImgRaw) : (itImgRaw || 'assets/aistudio/image_6061bdc8.png');
-        const itImgAttr = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(itImgRaw) : '';
+        const itImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(itImgRaw) : (itImgRaw || 'assets/aistudio/image_6061bdc8.png');
         return `
         <div class="flex items-center justify-between py-3 text-xs gap-3">
           <div class="flex items-center space-x-3 min-w-0">
-            <img src="${itImgImm}" ${itImgAttr ? `data-nutrolix-src="${itImgAttr}"` : ''} class="w-12 h-12 rounded-xl object-cover border border-slate-100 bg-slate-50 shrink-0">
+            <img src="${itImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" class="w-12 h-12 rounded-xl object-cover border border-slate-100 bg-slate-50 shrink-0">
             <div class="min-w-0">
               <h5 class="font-extrabold text-slate-900 truncate">${it.title || it.name}</h5>
               <span class="text-slate-500 text-[11px]">${it.variant || 'Standard'} • Qty: ${it.quantity || 1} • ₹${it.price} each</span>

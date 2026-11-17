@@ -1047,11 +1047,7 @@
             
             <!-- Dish Image & Dietary Icon (Click opens detail modal) -->
             <div class="relative aspect-square overflow-hidden bg-slate-100">
-              ${(() => {
-                const foodImm = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(item.image) : item.image;
-                const foodDataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(item.image) : '';
-                return `<img src="${foodImm}" ${foodDataSrc ? `data-nutrolix-src="${foodDataSrc}"` : ''} alt="${item.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`;
-              })()}
+              <img src="${item.image}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${item.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
               
               <!-- Veg / Non-Veg Indicator -->
               <div class="absolute top-2.5 left-2.5 w-5 h-5 bg-white/95 rounded-md flex items-center justify-center shadow-sm border ${item.isVeg ? 'border-emerald-600' : 'border-rose-600'}">
@@ -1449,11 +1445,7 @@
         return `
           <div class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-emerald-50/50 rounded-2xl border border-slate-200 transition">
             <div class="flex items-center space-x-3 cursor-pointer flex-1 min-w-0" onclick="window.closeFoodSearchModal(); window.openFoodDetailModal('${dish.id}')">
-              ${(() => {
-                const sImm = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(dish.image) : dish.image;
-                const sDataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(dish.image) : '';
-                return `<img src="${sImm}" ${sDataSrc ? `data-nutrolix-src="${sDataSrc}"` : ''} alt="${dish.name}" class="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm">`;
-              })()}
+              <img src="${dish.image}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${dish.name}" class="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm">
               <div class="min-w-0 flex-1">
                 <div class="flex items-center space-x-1.5 mb-0.5">
                   <span class="w-2.5 h-2.5 rounded-full ${dish.isVeg ? 'bg-emerald-600' : 'bg-red-600'} shrink-0"></span>
