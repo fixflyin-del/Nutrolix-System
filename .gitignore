@@ -43,3 +43,6 @@ node_modules/
 .vercel/
 out/
 .turbo/
+
+# Firebase Android client configuration (inject through CI secret)
+**/google-services.json
