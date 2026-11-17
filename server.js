@@ -60,6 +60,54 @@ if (webpush) {
 
 // Global in-memory cache and safe JSON helpers for serverless / read-only filesystem environments (e.g. Vercel)
 const inMemoryCache = {};
+const mediaMemoryCache = new Map();
+
+const NO_STORE_JSON_HEADERS = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  'Pragma': 'no-cache',
+  'Expires': '0'
+};
+
+function normalizeStoreSettingsPayload(raw, prev = {}) {
+  const baseDefaults = {
+    storeName: 'Nutrolix',
+    tagline: 'Nutrition That Works',
+    isOpen: true,
+    storeOpen: true,
+    deliveryFee: 49,
+    freeDeliveryAbove: 499,
+    freeDeliveryThreshold: 499,
+    announcement: '⚡ SPECIAL OFFER: Get 15% OFF on your first nutrition order with code NUTRO15! Free Delivery on orders above ₹499',
+    announcementActive: true,
+    taxPercent: 5.0,
+    payuEnabled: true,
+    payuIsLive: true,
+    cloudinaryCloudName: 'muy6zdcd',
+    cloudinaryPreset: 'ml_default',
+    cloudinaryApiKey: '',
+    cloudinaryApiSecret: ''
+  };
+  const merged = { ...baseDefaults, ...(prev || {}), ...(raw || {}) };
+  const resolvedOpen = raw && raw.isOpen !== undefined
+    ? Boolean(raw.isOpen)
+    : (raw && raw.storeOpen !== undefined ? Boolean(raw.storeOpen) : Boolean(merged.isOpen !== false && merged.storeOpen !== false));
+  const resolvedFree = Number(
+    (raw && raw.freeDeliveryAbove !== undefined ? raw.freeDeliveryAbove
+      : (raw && raw.freeDeliveryThreshold !== undefined ? raw.freeDeliveryThreshold
+        : (merged.freeDeliveryAbove !== undefined ? merged.freeDeliveryAbove : merged.freeDeliveryThreshold))) || 499
+  );
+  merged.isOpen = resolvedOpen;
+  merged.storeOpen = resolvedOpen;
+  merged.freeDeliveryAbove = resolvedFree;
+  merged.freeDeliveryThreshold = resolvedFree;
+  merged.deliveryFee = Number(merged.deliveryFee !== undefined ? merged.deliveryFee : 49);
+  merged.taxPercent = Number(merged.taxPercent !== undefined ? merged.taxPercent : 5.0);
+  merged.announcementActive = merged.announcementActive !== false;
+  merged.updatedAt = new Date().toISOString();
+  return merged;
+}
 
 function safeWriteJson(filePath, data) {
   const content = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
@@ -331,34 +379,41 @@ async function gatherCustomerTokens({ uid = '', customerPhone = '', customerEmai
     }
     const legacyLists = await Promise.all(legacyReads);
     for (const list of legacyLists) firestoreTokens.push(...list);
-  } else if (canonicalUid || uid) {
-    // Also check top-level notificationTokens by canonical UID so Chrome Web Push
+  } else if (canonicalUid || uid || cleanPhone) {
+    // Also check top-level notificationTokens by canonical UID & customerPhone so Chrome Web Push
     // registrations are never masked when an Android APK token already exists.
     const uidTarget = canonicalUid || String(uid || '').trim();
-    const webQuery = {
-      from: [{ collectionId: 'notificationTokens' }],
-      where: {
-        fieldFilter: {
-          field: { fieldPath: 'uid' },
-          op: 'EQUAL',
-          value: { stringValue: uidTarget }
-        }
-      },
-      limit: 50
-    };
-    const webTokenLists = await Promise.all(
-      nutrolixCore.BOTH_DB_IDS.map((dbId) =>
-        nutrolixCore.firestoreRunQuery(webQuery, '', dbId)
-          .then((docs) => docs.map((d) => {
-            let subscription = d.subscription || null;
-            if (!subscription && d.subscriptionJson) {
-              try { subscription = JSON.parse(d.subscriptionJson); } catch (_) {}
-            }
-            return { ...d, subscription, _firestorePath: `notificationTokens/${d._docId}`, _dbId: dbId };
-          }))
-          .catch(() => [])
-      )
-    );
+    const tokenFilters = [];
+    if (uidTarget) tokenFilters.push({ field: 'uid', value: uidTarget });
+    if (cleanPhone) tokenFilters.push({ field: 'customerPhone', value: cleanPhone });
+    const webTokenQueries = [];
+    for (const filter of tokenFilters) {
+      const q = {
+        from: [{ collectionId: 'notificationTokens' }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: filter.field },
+            op: 'EQUAL',
+            value: { stringValue: filter.value }
+          }
+        },
+        limit: 50
+      };
+      for (const dbId of nutrolixCore.BOTH_DB_IDS) {
+        webTokenQueries.push(
+          nutrolixCore.firestoreRunQuery(q, '', dbId)
+            .then((docs) => docs.map((d) => {
+              let subscription = d.subscription || null;
+              if (!subscription && d.subscriptionJson) {
+                try { subscription = JSON.parse(d.subscriptionJson); } catch (_) {}
+              }
+              return { ...d, subscription, _firestorePath: `notificationTokens/${d._docId}`, _dbId: dbId };
+            }))
+            .catch(() => [])
+        );
+      }
+    }
+    const webTokenLists = await Promise.all(webTokenQueries);
     for (const list of webTokenLists) firestoreTokens.push(...list);
   }
 
@@ -1745,76 +1800,36 @@ const server = http.createServer(async (req, res) => {
   }
 
   // -------------------------------------------------------------
-  // STORE SETTINGS API (Announcement, Delivery Rules & Coupons)
-  // -------------------------------------------------------------
-  if (reqPath === '/api/store-settings') {
-    const settingsFile = path.join(PUBLIC_DIR, 'data', 'store_settings.json');
-    const defaultSettings = {
-      announcement: "⚡ SPECIAL OFFER: Get 15% OFF on your first nutrition order with code NUTRO15! Free Delivery on orders above ₹499",
-      announcementActive: true,
-      deliveryFee: 49,
-      freeDeliveryThreshold: 499,
-      storeOpen: true,
-      storeName: "Nutrolix",
-      taxPercent: 5.0,
-      coupons: [
-        { code: "NUTRO15", type: "percentage", value: 15, minOrder: 499 },
-        { code: "NUTRO20", type: "percentage", value: 20, minOrder: 1499 },
-        { code: "FIRST100", type: "flat", value: 100, minOrder: 349 }
-      ]
-    };
-
-    if (req.method === 'GET') {
-      const data = await readCatalogDocOrFallback('store_settings', settingsFile, defaultSettings);
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      res.end(JSON.stringify({ success: true, settings: data }));
-      return;
-    } else if (req.method === 'POST') {
-      let bodyData = '';
-      req.on('data', chunk => bodyData += chunk);
-      req.on('end', async () => {
-        try {
-          const payload = JSON.parse(bodyData || '{}');
-          await writeCatalogDocAndLocal('store_settings', settingsFile, payload);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: true, settings: payload }));
-        } catch (err) {
-          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ error: err.message }));
-        }
-      });
-      return;
-    }
-  }
-
-  // -------------------------------------------------------------
-  // HERO PRODUCTS API (Homepage Customizer)
+  // HERO PRODUCTS & BANNERS API (Homepage Customizer)
   // -------------------------------------------------------------
   if (reqPath === '/api/hero-products') {
     const heroFile = path.join(PUBLIC_DIR, 'data', 'hero_products.json');
     const defaultHero = {
       card1: {
-        title: "High Protein Diabetic Atta",
+        title: "High Protein Atta",
         subtitle: "46g Bioavailable Plant Protein • Zero Spike Formula",
         rating: "4.9 ★ (1,840+ Sold)",
+        price: 349,
         image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=700&auto=format&fit=crop&q=80"
       },
       card2: {
         title: "Complete Nutri Meal",
         subtitle: "Zero Added Sugar • Micronutrient Rich Shake",
         rating: "4.9 ★ (820+ Sold)",
+        price: 699,
         image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=700&auto=format&fit=crop&q=80"
       },
       showcase: {
         title: "Nutrolix High Protein Atta",
         tag: "⭐ Bestseller • Clinical Nutrition",
+        price: 349,
         image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=700&auto=format&fit=crop&q=80"
       }
     };
 
     if (req.method === 'GET') {
       const data = await readCatalogDocOrFallback('hero_products', heroFile, defaultHero);
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.writeHead(200, NO_STORE_JSON_HEADERS);
       res.end(JSON.stringify({ success: true, heroProducts: data }));
       return;
     } else if (req.method === 'POST') {
@@ -1824,15 +1839,80 @@ const server = http.createServer(async (req, res) => {
         try {
           const payload = JSON.parse(bodyData || '{}');
           await writeCatalogDocAndLocal('hero_products', heroFile, payload);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: true, heroProducts: payload }));
         } catch (err) {
-          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
         }
       });
       return;
     }
+  }
+
+  if (reqPath === '/api/banners') {
+    const bannersFile = path.join(PUBLIC_DIR, 'data', 'banners.json');
+    if (req.method === 'GET') {
+      const banners = await readCatalogDocOrFallback('banners', bannersFile, []);
+      res.writeHead(200, NO_STORE_JSON_HEADERS);
+      res.end(JSON.stringify(Array.isArray(banners) ? banners : []));
+      return;
+    } else if (req.method === 'POST') {
+      let bodyData = '';
+      req.on('data', chunk => bodyData += chunk);
+      req.on('end', async () => {
+        try {
+          const payload = JSON.parse(bodyData || '{}');
+          let banners = await readCatalogDocOrFallback('banners', bannersFile, []);
+          if (!Array.isArray(banners)) banners = [];
+          if (Array.isArray(payload)) {
+            banners = payload;
+          } else {
+            const b = {
+              id: payload.id || ('banner_' + Date.now().toString(36)),
+              title: String(payload.title || '').trim(),
+              subtitle: String(payload.subtitle || '').trim(),
+              badge: String(payload.badge || '').trim(),
+              code: String(payload.code || '').trim().toUpperCase(),
+              imageUrl: String(payload.imageUrl || '').trim(),
+              active: payload.active !== false,
+              updatedAt: new Date().toISOString()
+            };
+            const idx = banners.findIndex(item => item.id === b.id);
+            if (idx >= 0) banners[idx] = { ...banners[idx], ...b };
+            else banners.unshift(b);
+          }
+          await writeCatalogDocAndLocal('banners', bannersFile, banners);
+          res.writeHead(200, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({ success: true, banners }));
+        } catch (err) {
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+      });
+      return;
+    }
+  }
+
+  if (req.method === 'POST' && reqPath === '/api/banners/delete') {
+    let bodyData = '';
+    req.on('data', chunk => bodyData += chunk);
+    req.on('end', async () => {
+      try {
+        const { id } = JSON.parse(bodyData || '{}');
+        const bannersFile = path.join(PUBLIC_DIR, 'data', 'banners.json');
+        let banners = await readCatalogDocOrFallback('banners', bannersFile, []);
+        if (!Array.isArray(banners)) banners = [];
+        banners = banners.filter(b => b.id !== id);
+        await writeCatalogDocAndLocal('banners', bannersFile, banners);
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ success: true, banners }));
+      } catch (err) {
+        res.writeHead(400, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ success: false, error: err.message }));
+      }
+    });
+    return;
   }
 
   // -------------------------------------------------------------
@@ -2101,10 +2181,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       try {
         const products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify(products));
       } catch (e) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify([]));
       }
       return;
@@ -2126,10 +2206,10 @@ const server = http.createServer(async (req, res) => {
             products.unshift(item);
           }
           await writeCatalogDocAndLocal('nutrition_products', productsFile, products);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: true, product: item }));
         } catch (err) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
         }
       });
@@ -2140,10 +2220,10 @@ const server = http.createServer(async (req, res) => {
         let products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
         if (id) products = products.filter(p => p.id !== id);
         await writeCatalogDocAndLocal('nutrition_products', productsFile, products);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ error: err.message }));
       }
       return;
@@ -2160,17 +2240,17 @@ const server = http.createServer(async (req, res) => {
         let products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
         products = products.filter(p => p.id !== id);
         await writeCatalogDocAndLocal('nutrition_products', productsFile, products);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ error: err.message }));
       }
     });
     return;
   }
 
-  // Google Reviews API
+  // Google Reviews API (Firestore-backed across devices)
   if (reqPath === '/api/google-reviews') {
     const reviewsFile = path.join(PUBLIC_DIR, 'data', 'google_reviews.json');
     const defaultGoogleData = {
@@ -2179,81 +2259,104 @@ const server = http.createServer(async (req, res) => {
       totalReviews: 148,
       reviews: []
     };
+    const normalizeGoogleReviewItem = (r) => {
+      if (!r || typeof r !== 'object') return null;
+      const authorName = String(r.authorName || r.author || 'Verified Customer').trim();
+      const reviewText = String(r.reviewText || r.text || '').trim();
+      return {
+        ...r,
+        author: authorName,
+        authorName,
+        text: reviewText,
+        reviewText,
+        rating: Math.min(5, Math.max(1, Number(r.rating || 5) || 5)),
+        relativeTime: r.relativeTime || 'Recent'
+      };
+    };
+
     if (req.method === 'GET') {
       try {
-        const data = safeReadJson(reviewsFile, defaultGoogleData);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify(data));
+        const data = await readCatalogDocOrFallback('google_reviews', reviewsFile, defaultGoogleData);
+        const list = (Array.isArray(data.reviews) ? data.reviews : (Array.isArray(data.featuredReviews) ? data.featuredReviews : []))
+          .map(normalizeGoogleReviewItem)
+          .filter(Boolean);
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ ...defaultGoogleData, ...data, reviews: list, featuredReviews: list }));
       } catch (e) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify(defaultGoogleData));
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ ...defaultGoogleData, featuredReviews: [] }));
       }
       return;
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const payload = JSON.parse(body || '{}');
-          let current = safeReadJson(reviewsFile, defaultGoogleData);
+          let current = await readCatalogDocOrFallback('google_reviews', reviewsFile, defaultGoogleData);
+          if (!current || typeof current !== 'object') current = { ...defaultGoogleData };
+          if (!Array.isArray(current.reviews)) current.reviews = [];
           if (payload.review) {
-            if (!current.reviews) current.reviews = [];
-            current.reviews.unshift(payload.review);
-            current.totalReviews = (current.totalReviews || 148) + 1;
+            const norm = normalizeGoogleReviewItem(payload.review);
+            if (norm) current.reviews.unshift(norm);
+            current.totalReviews = (Number(current.totalReviews) || 148) + 1;
           } else if (payload.author || payload.authorName) {
-            if (!current.reviews) current.reviews = [];
-            current.reviews.unshift(payload);
-            current.totalReviews = (current.totalReviews || 148) + 1;
-          } else if (payload.reviews) {
-            current = { ...current, ...payload };
+            const norm = normalizeGoogleReviewItem(payload);
+            if (norm) current.reviews.unshift(norm);
+            current.totalReviews = (Number(current.totalReviews) || 148) + 1;
+          } else if (Array.isArray(payload.reviews)) {
+            current = { ...current, ...payload, reviews: payload.reviews.map(normalizeGoogleReviewItem).filter(Boolean) };
           }
+          current.featuredReviews = current.reviews;
           current.lastSynced = new Date().toISOString();
-          safeWriteJson(reviewsFile, current);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: true, lastSynced: current.lastSynced, totalReviews: current.totalReviews || 148 }));
+          await writeCatalogDocAndLocal('google_reviews', reviewsFile, current);
+          res.writeHead(200, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({ success: true, lastSynced: current.lastSynced, totalReviews: current.totalReviews || 148, reviews: current.reviews, featuredReviews: current.reviews }));
         } catch (err) {
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: true, lastSynced: new Date().toISOString(), totalReviews: 148 }));
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({ success: false, error: err.message }));
         }
       });
       return;
     }
   }
 
-  // Video Reviews API (YouTube Shorts)
+  // Video Reviews API (YouTube Shorts — Firestore-backed across devices)
   if (reqPath === '/api/video-reviews') {
     const vidsFile = path.join(PUBLIC_DIR, 'data', 'video_reviews.json');
     if (req.method === 'GET') {
       try {
-        const vids = safeReadJson(vidsFile, []);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify(vids));
+        const vids = await readCatalogDocOrFallback('video_reviews', vidsFile, []);
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify(Array.isArray(vids) ? vids : []));
       } catch (e) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify([]));
       }
       return;
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
-      req.on('end', () => {
+      req.on('end', async () => {
         try {
           const item = JSON.parse(body || '{}');
-          let vids = safeReadJson(vidsFile, []);
+          let vids = await readCatalogDocOrFallback('video_reviews', vidsFile, []);
+          if (!Array.isArray(vids)) vids = [];
           if (!item.id) item.id = 'vid_' + Date.now().toString(36);
-          
-          // Helper to extract clean youtube ID or embed URL
-          let yId = item.youtubeUrl || '';
-          if (yId.includes('shorts/')) {
-            yId = yId.split('shorts/')[1].split(/[?&#]/)[0];
-          } else if (yId.includes('watch?v=' || yId.includes('v='))) {
-            yId = yId.split('v=')[1].split(/[?&#]/)[0];
-          } else if (yId.includes('youtu.be/')) {
-            yId = yId.split('youtu.be/')[1].split(/[?&#]/)[0];
+
+          // Extract clean YouTube video ID across shorts/, watch?v=, youtu.be/, embed/
+          const rawUrl = String(item.youtubeUrl || item.youtubeId || '').trim();
+          let yId = '';
+          const ytMatch = rawUrl.match(/(?:shorts\/|embed\/|youtu\.be\/|[?&]v=)([a-zA-Z0-9_-]{6,})/);
+          if (ytMatch && ytMatch[1]) {
+            yId = ytMatch[1];
+          } else if (/^[a-zA-Z0-9_-]{11}$/.test(rawUrl)) {
+            yId = rawUrl;
           }
-          if (yId && !yId.includes('/')) {
+          if (yId) {
+            item.youtubeId = yId;
             item.embedUrl = `https://www.youtube.com/embed/${yId}?autoplay=1&mute=1&loop=1&playlist=${yId}&enablejsapi=1&controls=0&modestbranding=1`;
-            if (!item.thumbnail) item.thumbnail = `https://img.youtube.com/vi/${yId}/hqdefault.jpg`;
+            if (!item.thumbnail) item.thumbnail = `https://i.ytimg.com/vi/${yId}/hqdefault.jpg`;
           }
 
           const existingIdx = vids.findIndex(v => v.id === item.id);
@@ -2262,11 +2365,11 @@ const server = http.createServer(async (req, res) => {
           } else {
             vids.unshift(item);
           }
-          safeWriteJson(vidsFile, vids);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          await writeCatalogDocAndLocal('video_reviews', vidsFile, vids);
+          res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: true, item }));
         } catch (err) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
         }
       });
@@ -2277,17 +2380,18 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && reqPath === '/api/video-reviews/delete') {
     let body = '';
     req.on('data', chunk => body += chunk);
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const { id } = JSON.parse(body || '{}');
         const vidsFile = path.join(PUBLIC_DIR, 'data', 'video_reviews.json');
-        let vids = safeReadJson(vidsFile, []);
+        let vids = await readCatalogDocOrFallback('video_reviews', vidsFile, []);
+        if (!Array.isArray(vids)) vids = [];
         vids = vids.filter(v => v.id !== id);
-        safeWriteJson(vidsFile, vids);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        await writeCatalogDocAndLocal('video_reviews', vidsFile, vids);
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ error: err.message }));
       }
     });
@@ -2300,10 +2404,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       try {
         const blogs = await readCatalogDocOrFallback('blogs', blogsFile, []);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify(blogs));
       } catch (e) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify([]));
       }
       return;
@@ -2325,10 +2429,10 @@ const server = http.createServer(async (req, res) => {
             blogs.unshift(blog);
           }
           await writeCatalogDocAndLocal('blogs', blogsFile, blogs);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: true, blog }));
         } catch (err) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
         }
       });
@@ -2346,10 +2450,10 @@ const server = http.createServer(async (req, res) => {
         let blogs = await readCatalogDocOrFallback('blogs', blogsFile, []);
         blogs = blogs.filter(b => b.id !== id);
         await writeCatalogDocAndLocal('blogs', blogsFile, blogs);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ error: err.message }));
       }
     });
@@ -3150,29 +3254,26 @@ const server = http.createServer(async (req, res) => {
         req.destroy();
       }
     });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const payload = JSON.parse(body || '{}');
-        const fileData = payload.image || payload.file || '';
+        const fileData = payload.image || payload.file || payload.imageData || '';
         const settingsFile = path.join(PUBLIC_DIR, 'data', 'store_settings.json');
-        const storeSettings = safeReadJson(settingsFile, {});
-        
+        const storeSettings = await readCatalogDocOrFallback('store_settings', settingsFile, {});
+
         const cloudName = payload.cloudName || storeSettings.cloudinaryCloudName || process.env.CLOUDINARY_CLOUD_NAME || 'muy6zdcd';
         const apiKey = payload.apiKey || storeSettings.cloudinaryApiKey || process.env.CLOUDINARY_API_KEY || '';
         const apiSecret = payload.apiSecret || storeSettings.cloudinaryApiSecret || process.env.CLOUDINARY_API_SECRET || '';
         const uploadPreset = payload.uploadPreset || storeSettings.cloudinaryPreset || 'ml_default';
 
         if (!fileData) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
-          return res.end(JSON.stringify({ error: 'No image provided' }));
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
+          return res.end(JSON.stringify({ success: false, error: 'No image provided' }));
         }
 
-        const https = require('https');
         const timestamp = Math.round(Date.now() / 1000);
-
         let postDataObj = {};
         if (apiKey && apiSecret) {
-          // Cloudinary Signed Upload
           const stringToSign = `folder=nutrolix_catalog&timestamp=${timestamp}${apiSecret}`;
           const signature = crypto.createHash('sha1').update(stringToSign).digest('hex');
           postDataObj = {
@@ -3183,7 +3284,6 @@ const server = http.createServer(async (req, res) => {
             folder: 'nutrolix_catalog'
           };
         } else {
-          // Unsigned Preset Upload
           postDataObj = {
             file: fileData,
             upload_preset: uploadPreset,
@@ -3209,91 +3309,174 @@ const server = http.createServer(async (req, res) => {
             try {
               const parsed = JSON.parse(cData);
               if (parsed.secure_url) {
-                res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.writeHead(200, NO_STORE_JSON_HEADERS);
                 res.end(JSON.stringify({ success: true, url: parsed.secure_url, public_id: parsed.public_id }));
               } else {
-                res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+                res.writeHead(200, NO_STORE_JSON_HEADERS);
                 res.end(JSON.stringify({ success: false, error: parsed.error?.message || 'Cloudinary upload failed', raw: parsed }));
               }
             } catch (err) {
-              res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ error: err.message, raw: cData }));
+              res.writeHead(400, NO_STORE_JSON_HEADERS);
+              res.end(JSON.stringify({ success: false, error: err.message, raw: cData }));
             }
           });
         });
 
         cReq.on('error', (e) => {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ error: e.message }));
+          res.writeHead(500, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({ success: false, error: e.message }));
         });
 
         cReq.write(postBody);
         cReq.end();
       } catch (err) {
-        res.writeHead(500, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
+        res.writeHead(500, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ success: false, error: err.message }));
       }
     });
     return;
   }
 
   // -------------------------------------------------------------
-  // PHASE 2 API: POST /api/upload-image (Persistent Image Upload)
+  // DURABLE CROSS-DEVICE IMAGE UPLOAD & SERVING API (/api/upload-image + /api/media/:id)
   // -------------------------------------------------------------
   if (req.method === 'POST' && reqPath === '/api/upload-image') {
     let body = '';
     req.on('data', chunk => {
       body += chunk;
       if (body.length > 25 * 1024 * 1024) {
-        res.writeHead(413, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Image too large (max 25MB)' }));
+        res.writeHead(413, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ success: false, error: 'Image too large (max 25MB)' }));
         req.destroy();
       }
     });
-    req.on('end', () => {
+    req.on('end', async () => {
       try {
         const payload = JSON.parse(body || '{}');
-        let dataBase64 = payload.image || payload.data || '';
-        let ext = '.jpg';
+        let rawData = String(payload.image || payload.data || payload.imageData || '').trim();
+        if (!rawData) {
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({ success: false, error: 'No image payload provided' }));
+          return;
+        }
         let mime = 'image/jpeg';
-        if (dataBase64.startsWith('data:image/png;base64,')) {
-          ext = '.png';
-          mime = 'image/png';
-          dataBase64 = dataBase64.replace(/^data:image\/png;base64,/, '');
-        } else if (dataBase64.startsWith('data:image/webp;base64,')) {
-          ext = '.webp';
-          mime = 'image/webp';
-          dataBase64 = dataBase64.replace(/^data:image\/webp;base64,/, '');
-        } else if (dataBase64.startsWith('data:image/jpeg;base64,')) {
-          ext = '.jpg';
-          mime = 'image/jpeg';
-          dataBase64 = dataBase64.replace(/^data:image\/jpeg;base64,/, '');
+        let ext = '.jpg';
+        const dataUrlMatch = rawData.match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/s);
+        if (dataUrlMatch) {
+          mime = dataUrlMatch[1].toLowerCase();
+          rawData = dataUrlMatch[2].replace(/\s+/g, '');
+          if (mime.includes('png')) ext = '.png';
+          else if (mime.includes('webp')) ext = '.webp';
+          else if (mime.includes('gif')) ext = '.gif';
+          else if (mime.includes('svg')) ext = '.svg';
+        } else {
+          rawData = rawData.replace(/\s+/g, '');
         }
 
-        const buffer = Buffer.from(dataBase64, 'base64');
-        const filename = 'img_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8) + ext;
-        let returnUrl = `data:${mime};base64,${dataBase64}`;
+        const buffer = Buffer.from(rawData, 'base64');
+        if (!buffer.length) {
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({ success: false, error: 'Invalid base64 image data' }));
+          return;
+        }
+
+        const mediaId = 'img_' + Date.now().toString(36) + '_' + crypto.randomBytes(4).toString('hex');
+        const filename = mediaId + ext;
+        const mediaDoc = {
+          id: mediaId,
+          mime,
+          base64: rawData,
+          filename,
+          updatedAt: new Date().toISOString(),
+          updatedAtMillis: Date.now()
+        };
+
+        mediaMemoryCache.set(mediaId, mediaDoc);
 
         try {
           const uploadDir = path.join(PUBLIC_DIR, 'uploads');
           if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-          const targetPath = path.join(uploadDir, filename);
-          fs.writeFileSync(targetPath, buffer);
-          returnUrl = '/uploads/' + filename;
+          fs.writeFileSync(path.join(uploadDir, filename), buffer);
         } catch (_) {
-          try {
-            const tmpPath = path.join('/tmp', filename);
-            fs.writeFileSync(tmpPath, buffer);
-          } catch (_) {}
+          try { fs.writeFileSync(path.join('/tmp', filename), buffer); } catch (_) {}
         }
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ success: true, url: returnUrl, filename }));
+        let firestorePersisted = false;
+        try {
+          const fsRes = await nutrolixCore.firestorePatchBothDbs(`mediaStore/${mediaId}`, mediaDoc);
+          firestorePersisted = Boolean(fsRes && fsRes.anySuccess);
+        } catch (_) {}
+
+        const durableUrl = `/api/media/${mediaId}`;
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({
+          success: true,
+          id: mediaId,
+          url: durableUrl,
+          imageUrl: durableUrl,
+          filename,
+          firestorePersisted
+        }));
       } catch (err) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-        res.end(JSON.stringify({ success: true, url: (JSON.parse(body || '{}').image || '') }));
+        res.writeHead(400, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ success: false, error: err.message || 'Image upload failed' }));
       }
     });
+    return;
+  }
+
+  if (req.method === 'GET' && reqPath.startsWith('/api/media/')) {
+    const rawId = reqPath.slice('/api/media/'.length).split('?')[0].split('/')[0];
+    const mediaId = rawId.replace(/\.[a-z0-9]+$/i, '').replace(/[^a-zA-Z0-9_-]/g, '');
+    if (!mediaId) {
+      res.writeHead(404, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+      res.end('Not found');
+      return;
+    }
+
+    let doc = mediaMemoryCache.get(mediaId) || null;
+    if (!doc || !doc.base64) {
+      try {
+        const fsDoc = await nutrolixCore.firestoreGetFirstAvailable(`mediaStore/${mediaId}`);
+        if (fsDoc && fsDoc.base64) {
+          doc = fsDoc;
+          mediaMemoryCache.set(mediaId, doc);
+        }
+      } catch (_) {}
+    }
+
+    if (doc && doc.base64) {
+      const buf = Buffer.from(String(doc.base64), 'base64');
+      res.writeHead(200, {
+        'Content-Type': doc.mime || 'image/jpeg',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Access-Control-Allow-Origin': '*',
+        'Content-Length': buf.length
+      });
+      res.end(buf);
+      return;
+    }
+
+    // Optional disk fallback check
+    for (const ext of ['.jpg', '.webp', '.png', '.gif', '']) {
+      for (const baseDir of [path.join(PUBLIC_DIR, 'uploads'), '/tmp']) {
+        const candidate = path.join(baseDir, mediaId + ext);
+        if (fs.existsSync(candidate)) {
+          const buf = fs.readFileSync(candidate);
+          res.writeHead(200, {
+            'Content-Type': MIME_TYPES[ext] || 'image/jpeg',
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'Access-Control-Allow-Origin': '*',
+            'Content-Length': buf.length
+          });
+          res.end(buf);
+          return;
+        }
+      }
+    }
+
+    res.writeHead(404, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+    res.end('Media not found');
     return;
   }
 
@@ -3305,10 +3488,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       try {
         const meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify(meals));
       } catch (e) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify([]));
       }
       return;
@@ -3331,10 +3514,10 @@ const server = http.createServer(async (req, res) => {
             }
           }
           await writeCatalogDocAndLocal('healthy_food_menu', foodFile, meals);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: true, meals }));
         } catch (err) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
         }
       });
@@ -3345,10 +3528,10 @@ const server = http.createServer(async (req, res) => {
         let meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
         if (id) meals = meals.filter(m => m.id !== id);
         await writeCatalogDocAndLocal('healthy_food_menu', foodFile, meals);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ success: true, meals }));
       } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ error: err.message }));
       }
       return;
@@ -3365,10 +3548,10 @@ const server = http.createServer(async (req, res) => {
         let meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
         meals = meals.filter(m => m.id !== id);
         await writeCatalogDocAndLocal('healthy_food_menu', foodFile, meals);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ success: true, meals }));
       } catch (err) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.writeHead(400, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ error: err.message }));
       }
     });
@@ -3390,10 +3573,10 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       try {
         const cats = await readCatalogDocOrFallback('healthy_food_categories', catFile, defaults);
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify(cats));
       } catch (e) {
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify(defaults));
       }
       return;
@@ -3419,15 +3602,35 @@ const server = http.createServer(async (req, res) => {
             }
           }
           await writeCatalogDocAndLocal('healthy_food_categories', catFile, cats);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: true, categories: cats }));
         } catch (err) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
         }
       });
       return;
     }
+  }
+
+  if (req.method === 'POST' && reqPath === '/api/food-categories/delete') {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      try {
+        const { id, name } = JSON.parse(body || '{}');
+        const catFile = path.join(PUBLIC_DIR, 'data', 'healthy_food_categories.json');
+        let cats = await readCatalogDocOrFallback('healthy_food_categories', catFile, []);
+        cats = cats.filter(c => c.id !== id && (!name || c.name !== name));
+        await writeCatalogDocAndLocal('healthy_food_categories', catFile, cats);
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ success: true, categories: cats }));
+      } catch (err) {
+        res.writeHead(400, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ error: err.message }));
+      }
+    });
+    return;
   }
 
   // -------------------------------------------------------------
@@ -4554,31 +4757,28 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Store Settings (Announcement, Delivery Fee, Free Delivery Threshold)
+  // Unified Store Settings (Announcement, Delivery Fee, Free Delivery Threshold, Cloudinary, PayU)
   if (reqPath === '/api/settings' || reqPath === '/api/store-settings') {
     const settingsFile = path.join(PUBLIC_DIR, 'data', 'store_settings.json');
     if (req.method === 'GET') {
-      const data = await readCatalogDocOrFallback('store_settings', settingsFile, {
-        storeName: "Nutrolix",
-        announcement: "🔥 Flat 10% OFF on all functional foods! Use Code: NUTRO10 • Free Delivery Above ₹499",
-        announcementActive: true,
-        deliveryFee: 49,
-        freeDeliveryAbove: 499
-      });
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      res.end(JSON.stringify(data));
+      const stored = await readCatalogDocOrFallback('store_settings', settingsFile, {});
+      const normalized = normalizeStoreSettingsPayload(stored, {});
+      res.writeHead(200, NO_STORE_JSON_HEADERS);
+      res.end(JSON.stringify({ ...normalized, success: true, settings: normalized }));
       return;
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
       req.on('end', async () => {
         try {
-          const newSettings = JSON.parse(body || '{}');
-          await writeCatalogDocAndLocal('store_settings', settingsFile, newSettings);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: true, settings: newSettings }));
+          const payload = JSON.parse(body || '{}');
+          const prev = await readCatalogDocOrFallback('store_settings', settingsFile, {});
+          const merged = normalizeStoreSettingsPayload(payload, prev);
+          await writeCatalogDocAndLocal('store_settings', settingsFile, merged);
+          res.writeHead(200, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({ ...merged, success: true, settings: merged }));
         } catch (err) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
         }
       });
@@ -4592,10 +4792,11 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       const data = await readCatalogDocOrFallback('store_coupons', couponsFile, [
         { code: 'NUTRO10', title: '10% OFF on All Products', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true },
+        { code: 'NUTRO15', title: '15% OFF on Orders > ₹499', type: 'percentage', value: 15, discountPercent: 15, minOrder: 499, active: true },
         { code: 'NUTRO20', title: '20% OFF on Orders > ₹1499', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true }
       ]);
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-      res.end(JSON.stringify(data));
+      res.writeHead(200, NO_STORE_JSON_HEADERS);
+      res.end(JSON.stringify(Array.isArray(data) ? data : []));
       return;
     } else if (req.method === 'POST') {
       let body = '';
@@ -4603,11 +4804,11 @@ const server = http.createServer(async (req, res) => {
       req.on('end', async () => {
         try {
           const newCoupons = JSON.parse(body || '[]');
-          await writeCatalogDocAndLocal('store_coupons', couponsFile, newCoupons);
-          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          await writeCatalogDocAndLocal('store_coupons', couponsFile, Array.isArray(newCoupons) ? newCoupons : []);
+          res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: true, coupons: newCoupons }));
         } catch (err) {
-          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
         }
       });

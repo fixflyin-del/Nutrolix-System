@@ -102,11 +102,14 @@ service cloud.firestore {
       return data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
              data.token is string && data.token.size() >= 8 && data.token.size() <= 4096 &&
              data.keys().hasOnly([
-               'uid', 'token', 'fcmToken', 'platform', 'deviceId', 'customerPhone',
-               'customerEmail', 'updatedAt', 'updatedAtMillis', 'updatedAtTs'
+               'uid', 'token', 'fcmToken', 'platform', 'deviceId', 'role', 'customerPhone',
+               'customerEmail', 'endpoint', 'subscriptionJson', 'updatedAt', 'updatedAtMillis', 'updatedAtTs'
              ]) &&
              (!('platform' in data) || (data.platform is string && data.platform.size() <= 40)) &&
              (!('deviceId' in data) || (data.deviceId is string && data.deviceId.size() <= 128)) &&
+             (!('role' in data) || (data.role is string && data.role.size() <= 32)) &&
+             (!('endpoint' in data) || (data.endpoint is string && data.endpoint.size() <= 2048)) &&
+             (!('subscriptionJson' in data) || (data.subscriptionJson is string && data.subscriptionJson.size() <= 8192)) &&
              (!('customerPhone' in data) || (data.customerPhone is string && data.customerPhone.size() <= 32)) &&
              (!('customerEmail' in data) || (data.customerEmail is string && data.customerEmail.size() <= 160));
     }
@@ -277,7 +280,8 @@ service cloud.firestore {
                          incoming().uid == existing().uid &&
                          incoming().diff(existing()).affectedKeys().hasOnly([
                            'token', 'fcmToken', 'platform', 'customerPhone',
-                           'customerEmail', 'updatedAt', 'updatedAtMillis', 'updatedAtTs'
+                           'customerEmail', 'role', 'endpoint', 'subscriptionJson',
+                           'updatedAt', 'updatedAtMillis', 'updatedAtTs'
                          ]);
 
         allow delete: if isSignedIn() && isValidId(userId) && isValidId(tokenId) && (request.auth.uid == userId || isAdmin());

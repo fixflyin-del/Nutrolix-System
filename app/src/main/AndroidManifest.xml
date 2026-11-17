@@ -78,7 +78,7 @@
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="nutrolix_orders_channel" />
+            android:value="nutrolix_orders_channel_v3" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@drawable/nutrolix_app_icon" />

@@ -48,30 +48,160 @@ window.CloudinaryService = {
     });
   },
 
+  getApiHost() {
+    if (window.NUTROLIX_API_HOST) return window.NUTROLIX_API_HOST;
+    return (window.location && window.location.protocol === "file:") ? "https://nutrolixweb.vercel.app" : "";
+  },
+
+  resolveMediaUrl(url) {
+    if (!url || typeof url !== "string") return "";
+    if (url.startsWith("/api/media/") && window.location && window.location.protocol === "file:") {
+      return this.getApiHost() + url;
+    }
+    return url;
+  },
+
+  async hydrateSettings() {
+    try {
+      const host = this.getApiHost();
+      const res = await fetch(host + "/api/settings", { cache: "no-store" });
+      if (!res || !res.ok) return null;
+      const srv = await res.json();
+      if (srv && (srv.cloudinaryCloudName || srv.cloudinaryPreset || srv.cloudinaryApiKey)) {
+        const cur = this.getSettings();
+        const merged = {
+          cloudName: (srv.cloudinaryCloudName || cur.cloudName || "muy6zdcd").trim(),
+          uploadPreset: (srv.cloudinaryPreset || cur.uploadPreset || "ml_default").trim(),
+          apiKey: (srv.cloudinaryApiKey || cur.apiKey || "").trim(),
+          apiSecret: (srv.cloudinaryApiSecret || cur.apiSecret || "").trim(),
+          updatedAt: new Date().toISOString()
+        };
+        localStorage.setItem("nutrolix_cloudinary_settings", JSON.stringify(merged));
+        return merged;
+      }
+    } catch (_) {}
+    return null;
+  },
+
+  compressImageFile(file, maxDimension = 1080, quality = 0.82) {
+    return new Promise((resolve) => {
+      const fallbackRead = async () => {
+        try {
+          const dataUrl = await this.fileToBase64(file);
+          resolve({ dataUrl, blob: file });
+        } catch (err) {
+          resolve({ dataUrl: "", blob: file });
+        }
+      };
+
+      if (!file || (file.type && (file.type.includes("svg") || file.type.includes("gif")))) {
+        return fallbackRead();
+      }
+
+      try {
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          const rawDataUrl = ev.target && ev.target.result;
+          const img = new Image();
+          img.onload = () => {
+            try {
+              let w = img.naturalWidth || img.width || 800;
+              let h = img.naturalHeight || img.height || 800;
+              if (w > maxDimension || h > maxDimension) {
+                const ratio = Math.min(maxDimension / w, maxDimension / h);
+                w = Math.max(1, Math.round(w * ratio));
+                h = Math.max(1, Math.round(h * ratio));
+              }
+              const canvas = document.createElement("canvas");
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext("2d");
+              if (!ctx) return resolve({ dataUrl: rawDataUrl, blob: file });
+              ctx.drawImage(img, 0, 0, w, h);
+
+              // Preserve transparency for PNG/WebP by encoding WebP (widely supported in Chrome & Android WebView)
+              let outUrl = "";
+              try {
+                outUrl = canvas.toDataURL("image/webp", quality);
+              } catch (_) {}
+              if (!outUrl || !outUrl.startsWith("data:image/webp")) {
+                outUrl = canvas.toDataURL("image/jpeg", quality);
+              }
+              if (canvas.toBlob) {
+                const targetMime = outUrl.startsWith("data:image/webp") ? "image/webp" : "image/jpeg";
+                canvas.toBlob((blob) => {
+                  resolve({
+                    dataUrl: outUrl && outUrl.length < rawDataUrl.length ? outUrl : rawDataUrl,
+                    blob: (blob && blob.size < (file.size || Infinity)) ? blob : file
+                  });
+                }, targetMime, quality);
+              } else {
+                resolve({ dataUrl: outUrl || rawDataUrl, blob: file });
+              }
+            } catch (_) {
+              resolve({ dataUrl: rawDataUrl, blob: file });
+            }
+          };
+          img.onerror = () => resolve({ dataUrl: rawDataUrl, blob: file });
+          img.src = rawDataUrl;
+        };
+        reader.onerror = () => fallbackRead();
+        reader.readAsDataURL(file);
+      } catch (_) {
+        fallbackRead();
+      }
+    });
+  },
+
+  async uploadToPersistentMediaApi(dataUrl, filenamePrefix = "nutrolix_img") {
+    const host = this.getApiHost();
+    const res = await fetch(host + "/api/upload-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        imageData: dataUrl,
+        filename: `${filenamePrefix}_${Date.now()}`
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res && res.ok && data && data.success && (data.url || data.imageUrl)) {
+      return this.resolveMediaUrl(data.url || data.imageUrl);
+    }
+    throw new Error((data && data.error) || `Media API failed (${res ? res.status : "network"})`);
+  },
+
   /**
-   * Upload File to Cloudinary with automatic signed / unsigned / fallback handling
-   * @param {File|Blob} file 
-   * @param {Function} onProgress 
-   * @returns {Promise<string>} secure_url or data-URL fallback
+   * Upload File to Cloudinary with automatic signed / unsigned / persistent /api/upload-image handling
+   * @param {File|Blob} file
+   * @param {Function} onProgress
+   * @returns {Promise<string>} durable HTTP URL (Cloudinary CDN or /api/media/:id)
    */
   async uploadImage(file, onProgress) {
     if (!file) throw new Error("No image file selected.");
 
-    const settings = this.getSettings();
+    let settings = this.getSettings();
+    if (!settings.apiKey || !settings.apiSecret) {
+      const hydrated = await this.hydrateSettings();
+      if (hydrated) settings = hydrated;
+    }
+
     const cloudName = settings.cloudName || "muy6zdcd";
     const uploadPreset = settings.uploadPreset || "ml_default";
     const apiKey = settings.apiKey || "";
     const apiSecret = settings.apiSecret || "";
+    const host = this.getApiHost();
 
-    const base64Data = await this.fileToBase64(file);
+    if (onProgress) onProgress(10);
+    const { dataUrl: compressedDataUrl, blob: uploadBlob } = await this.compressImageFile(file);
+    const base64Data = compressedDataUrl || await this.fileToBase64(file);
 
-    // 1. If API Key and Secret are configured, use Server-Side Signed Upload (Guaranteed Cloudinary Dashboard sync!)
+    // 1. If API Key and Secret are configured, use Server-Side Signed Upload
     if (apiKey && apiSecret) {
       try {
         if (onProgress) onProgress(30);
-        const res = await fetch('/api/cloudinary-upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const res = await fetch(host + "/api/cloudinary-upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             image: base64Data,
             cloudName,
@@ -79,7 +209,7 @@ window.CloudinaryService = {
             apiSecret
           })
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (data && data.success && data.url) {
           if (onProgress) onProgress(100);
           return data.url;
@@ -89,13 +219,42 @@ window.CloudinaryService = {
       }
     }
 
-    // 2. Direct browser upload with Upload Preset
+    // 2. Direct browser upload with Upload Preset -> server Cloudinary -> persistent /api/upload-image
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", uploadBlob || file);
     formData.append("upload_preset", uploadPreset);
     formData.append("folder", "nutrolix_catalog");
 
     const endpoint = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+
+    const tryServerAndMediaFallback = async () => {
+      try {
+        if (onProgress) onProgress(70);
+        const sRes = await fetch(host + "/api/cloudinary-upload", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ image: base64Data, cloudName, uploadPreset })
+        });
+        const sData = await sRes.json().catch(() => ({}));
+        if (sData && sData.success && sData.url) {
+          if (onProgress) onProgress(100);
+          return sData.url;
+        }
+      } catch (_) {}
+
+      // Guaranteed cross-device persistent URL stored in Firestore mediaStore/{id}
+      try {
+        if (onProgress) onProgress(85);
+        const mediaUrl = await this.uploadToPersistentMediaApi(base64Data, "catalog");
+        if (onProgress) onProgress(100);
+        return mediaUrl;
+      } catch (mediaErr) {
+        console.warn("Persistent media API fallback notice:", mediaErr && mediaErr.message);
+      }
+
+      if (onProgress) onProgress(100);
+      return base64Data;
+    };
 
     return new Promise((resolve) => {
       const xhr = new XMLHttpRequest();
@@ -104,7 +263,7 @@ window.CloudinaryService = {
       if (onProgress && xhr.upload) {
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
-            const pct = Math.round((e.loaded / e.total) * 100);
+            const pct = Math.min(90, Math.round((e.loaded / e.total) * 80) + 10);
             onProgress(pct);
           }
         };
@@ -116,52 +275,29 @@ window.CloudinaryService = {
             const data = JSON.parse(xhr.responseText);
             const cdnUrl = data.secure_url || data.url;
             if (cdnUrl) {
+              if (onProgress) onProgress(100);
               return resolve(cdnUrl);
             }
           } catch (_) {}
         }
 
-        // Parse Cloudinary error
         let errorMsg = "";
         try {
           const err = JSON.parse(xhr.responseText);
           errorMsg = err.error?.message || "";
         } catch (_) {}
-
         console.warn("Cloudinary direct upload notice:", errorMsg || `HTTP ${xhr.status}`);
-
-        // Try server upload route as second attempt
-        try {
-          const sRes = await fetch('/api/cloudinary-upload', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: base64Data, cloudName, uploadPreset })
-          });
-          const sData = await sRes.json();
-          if (sData && sData.success && sData.url) {
-            return resolve(sData.url);
-          }
-        } catch (_) {}
-
-        // If preset is signed, explain how to toggle to unsigned for direct dashboard sync
-        if (errorMsg.includes("must be whitelisted for unsigned uploads")) {
-          setTimeout(() => {
-            window.CloudinaryService.showUnsignedGuide(cloudName, uploadPreset);
-          }, 400);
-        }
-
-        // Return base64 so product/meal photo works immediately in app
-        resolve(base64Data);
+        resolve(await tryServerAndMediaFallback());
       };
 
       xhr.onerror = async () => {
-        resolve(base64Data);
+        resolve(await tryServerAndMediaFallback());
       };
 
       try {
         xhr.send(formData);
       } catch (_) {
-        resolve(base64Data);
+        tryServerAndMediaFallback().then(resolve);
       }
     });
   },

@@ -565,7 +565,7 @@
         if (uid) qs.set('uid', uid);
         if (phone) qs.set('phone', phone);
         if (email) qs.set('email', email);
-        const res = await fetch(getApiHost() + '/api/notifications/user-history?' + qs.toString());
+        const res = await fetch(getApiHost() + '/api/notifications/user-history?' + qs.toString(), { cache: 'no-store' });
         if (!res.ok) return;
         const data = await res.json();
         const list = Array.isArray(data.notifications) ? data.notifications : [];
@@ -597,17 +597,23 @@
     emitStatusChanged();
   });
 
-  // Ensure logged-in Chrome mobile/desktop users automatically get prompted on their first tap
-  let webAutoPromptTried = false;
+  // Ensure logged-in Chrome mobile/desktop users automatically get prompted on tap with a short retry cooldown
+  let lastWebAutoPromptAt = 0;
   function attachLoggedInGestureAutoPrompt() {
     if (window.AndroidNative || !('Notification' in window)) return;
     const onFirstTap = () => {
-      if (webAutoPromptTried || Notification.permission !== 'default') return;
       const { uid, phone } = getCustomerInfo();
       if (!uid || !phone) return;
-      if (sessionStorage.getItem('nutrolix_web_perm_prompted') === '1') return;
-      webAutoPromptTried = true;
-      try { sessionStorage.setItem('nutrolix_web_perm_prompted', '1'); } catch (_) {}
+      if (Notification.permission === 'granted') {
+        if (localStorage.getItem(STORAGE_KEY) !== 'true') {
+          syncWebPushSubscription().catch(() => {});
+        }
+        return;
+      }
+      if (Notification.permission !== 'default') return;
+      const now = Date.now();
+      if (now - lastWebAutoPromptAt < 20000) return;
+      lastWebAutoPromptAt = now;
       ensurePermissionOnGesture().catch(() => {});
     };
     window.addEventListener('click', onFirstTap, { passive: true, capture: true });
@@ -617,8 +623,21 @@
   if ('serviceWorker' in navigator) {
     try {
       navigator.serviceWorker.addEventListener('message', (event) => {
-        if (event && event.data && event.data.type === 'NUTROLIX_PUSH_SUBSCRIPTION_CHANGED' && event.data.subscription) {
+        if (!event || !event.data) return;
+        if (event.data.type === 'NUTROLIX_PUSH_SUBSCRIPTION_CHANGED' && event.data.subscription) {
           sendSubscriptionToBackend(event.data.subscription, { platform: 'web' });
+        } else if (event.data.type === 'NUTROLIX_PUSH_RECEIVED' && event.data.data) {
+          const payload = event.data.data;
+          const dedupId = payload.dedupKey || payload.orderId || `${payload.title || ''}:${payload.body || ''}`;
+          if (markShownToastId(dedupId)) {
+            showClickableToast({
+              title: payload.title || 'Nutrolix Order Update',
+              message: payload.body || '',
+              orderId: payload.orderId,
+              url: payload.url
+            });
+          }
+          window.dispatchEvent(new CustomEvent('nutrolix:order-push', { detail: payload }));
         }
       });
     } catch (_) {}

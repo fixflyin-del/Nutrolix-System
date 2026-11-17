@@ -45,7 +45,26 @@ self.addEventListener('push', event => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(title, options)
+    Promise.all([
+      self.registration.showNotification(title, options),
+      self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientsList => {
+        clientsList.forEach(client => {
+          try {
+            client.postMessage({
+              type: 'NUTROLIX_PUSH_RECEIVED',
+              data: {
+                title,
+                body,
+                orderId,
+                status: data.status || raw.status || '',
+                url: targetUrl,
+                dedupKey: uniqueTag
+              }
+            });
+          } catch (_) {}
+        });
+      }).catch(() => {})
+    ])
   );
 });
 

@@ -1940,57 +1940,83 @@
     window.heroCard2State = { id: 'prod_complete_nutri_meal', price: 699, title: 'Nutrolix Complete Nutri Meal' };
     window.heroShowcaseState = { id: 'prod_high_protein_atta', price: 349, title: 'Nutrolix High Protein Atta' };
 
-    window.applyHeroCustomizations = function() {
+    function resolveNutroMediaUrl(url) {
+      if (!url || typeof url !== 'string') return url;
+      if (url.startsWith('/api/media/') && window.location.protocol === 'file:') {
+        return (window.NUTROLIX_API_HOST || 'https://nutrolixweb.vercel.app') + url;
+      }
+      return url;
+    }
+
+    function renderHeroFromData(custom) {
+      if (!custom || typeof custom !== 'object') return;
+      if (custom.card1) {
+        const img = document.getElementById('heroCard1Img');
+        if (img && custom.card1.image) img.src = resolveNutroMediaUrl(custom.card1.image);
+        const t = document.getElementById('heroCard1Title');
+        if (t && custom.card1.title) { t.innerText = custom.card1.title; window.heroCard1State.title = custom.card1.title; }
+        const p = document.getElementById('heroCard1Price');
+        if (p && custom.card1.price) {
+          p.innerText = '₹' + custom.card1.price;
+          window.heroCard1State.price = Number(custom.card1.price);
+        }
+      }
+
+      if (custom.card2) {
+        const img = document.getElementById('heroCard2Img');
+        if (img && custom.card2.image) img.src = resolveNutroMediaUrl(custom.card2.image);
+        const t = document.getElementById('heroCard2Title');
+        if (t && custom.card2.title) { t.innerText = custom.card2.title; window.heroCard2State.title = custom.card2.title; }
+        const p = document.getElementById('heroCard2Price');
+        if (p && custom.card2.price) {
+          p.innerText = '₹' + custom.card2.price;
+          window.heroCard2State.price = Number(custom.card2.price);
+        }
+      }
+
+      if (custom.showcase) {
+        const img = document.getElementById('heroShowcaseImg');
+        if (img && custom.showcase.image) img.src = resolveNutroMediaUrl(custom.showcase.image);
+        const productId = custom.showcase.id || 'prod_high_protein_atta';
+        const t = document.getElementById('heroShowcaseTitle');
+        if (t && custom.showcase.title) {
+          t.innerText = custom.showcase.title;
+          t.href = 'product.html?id=' + productId;
+          window.heroShowcaseState.title = custom.showcase.title;
+        }
+        const linkImg = document.getElementById('heroShowcaseLinkImg');
+        if (linkImg) linkImg.href = 'product.html?id=' + productId;
+        const p = document.getElementById('heroShowcasePrice');
+        if (p && custom.showcase.price) {
+          const newPrice = Number(custom.showcase.price);
+          p.innerText = '₹' + newPrice;
+          window.heroShowcaseState.price = newPrice;
+        }
+        const btnText = document.getElementById('heroShowcaseBtnText');
+        if (btnText && custom.showcase.price) {
+          btnText.innerText = 'Add to Bag • ₹' + custom.showcase.price;
+        }
+      }
+    }
+
+    window.applyHeroCustomizations = function(skipRemote = false) {
       try {
         let custom = null;
         try { custom = JSON.parse(localStorage.getItem('nutrolix_hero_products') || 'null'); } catch(_) {}
-        if (!custom) return;
+        if (custom) renderHeroFromData(custom);
 
-        if (custom.card1) {
-          const img = document.getElementById('heroCard1Img');
-          if (img && custom.card1.image) img.src = custom.card1.image;
-          const t = document.getElementById('heroCard1Title');
-          if (t && custom.card1.title) { t.innerText = custom.card1.title; window.heroCard1State.title = custom.card1.title; }
-          const p = document.getElementById('heroCard1Price');
-          if (p && custom.card1.price) {
-            p.innerText = '₹' + custom.card1.price;
-            window.heroCard1State.price = Number(custom.card1.price);
-          }
-        }
-
-        if (custom.card2) {
-          const img = document.getElementById('heroCard2Img');
-          if (img && custom.card2.image) img.src = custom.card2.image;
-          const t = document.getElementById('heroCard2Title');
-          if (t && custom.card2.title) { t.innerText = custom.card2.title; window.heroCard2State.title = custom.card2.title; }
-          const p = document.getElementById('heroCard2Price');
-          if (p && custom.card2.price) {
-            p.innerText = '₹' + custom.card2.price;
-            window.heroCard2State.price = Number(custom.card2.price);
-          }
-        }
-
-        if (custom.showcase) {
-          const img = document.getElementById('heroShowcaseImg');
-          if (img && custom.showcase.image) img.src = custom.showcase.image;
-          const productId = custom.showcase.id || 'prod_high_protein_atta';
-          const t = document.getElementById('heroShowcaseTitle');
-          if (t && custom.showcase.title) {
-            t.innerText = custom.showcase.title;
-            t.href = 'product.html?id=' + productId;
-            window.heroShowcaseState.title = custom.showcase.title;
-          }
-          const linkImg = document.getElementById('heroShowcaseLinkImg');
-          if (linkImg) linkImg.href = 'product.html?id=' + productId;
-          const p = document.getElementById('heroShowcasePrice');
-          if (p && custom.showcase.price) {
-            const newPrice = Number(custom.showcase.price);
-            p.innerText = '₹' + newPrice;
-            window.heroShowcaseState.price = newPrice;
-          }
-          const btnText = document.getElementById('heroShowcaseBtnText');
-          if (btnText && custom.showcase.price) {
-            btnText.innerText = 'Add to Bag • ₹' + custom.showcase.price;
+        if (!skipRemote) {
+          const host = window.NUTROLIX_API_HOST || '';
+          if (window.location.protocol !== 'file:' || host) {
+            fetch(host + '/api/hero-products', { cache: 'no-store' })
+              .then(r => r && r.ok ? r.json() : null)
+              .then(raw => {
+                const hero = (raw && raw.heroProducts) ? raw.heroProducts : raw;
+                if (hero && (hero.card1 || hero.card2 || hero.showcase)) {
+                  try { localStorage.setItem('nutrolix_hero_products', JSON.stringify(hero)); } catch (_) {}
+                  renderHeroFromData(hero);
+                }
+              }).catch(() => {});
           }
         }
       } catch (_) {}
@@ -2045,41 +2071,66 @@
       }
     }
 
+    function syncLiveHomepageData() {
+      const host = window.NUTROLIX_API_HOST || '';
+      if (window.location.protocol !== 'http:' && window.location.protocol !== 'https:' && !host) return;
+
+      window.applyHeroCustomizations(false);
+      syncLiveStoreSettings();
+
+      const fetchWithTimeout = (url, ms = 5000) => {
+        const ac = new AbortController();
+        const tid = setTimeout(() => ac.abort(), ms);
+        return fetch(url, { cache: 'no-store', signal: ac.signal }).finally(() => clearTimeout(tid));
+      };
+
+      fetchWithTimeout(host + '/api/nutrition-products')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data && Array.isArray(data) && data.length) {
+            window.nutroProducts = data.map(normalizeNutroProduct).filter(Boolean);
+            try { localStorage.setItem('nutrolix_products', JSON.stringify(window.nutroProducts)); } catch (_) {}
+            renderFeaturedProducts(window.nutroProducts);
+            renderBestSellers(window.nutroProducts.filter(p => p.isBestSeller));
+            const allCountBadge = document.getElementById('catCountAll');
+            if (allCountBadge) allCountBadge.textContent = window.nutroProducts.length;
+          }
+        }).catch(() => {});
+
+      fetchWithTimeout(host + '/api/video-reviews')
+        .then(r => r.ok ? r.json() : null)
+        .then(v => {
+          if (v && Array.isArray(v) && v.length) {
+            window.nutroVideoReviews = v;
+            renderVideoReviews(v);
+          }
+        }).catch(() => {});
+
+      fetchWithTimeout(host + '/api/google-reviews')
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          const revs = Array.isArray(data && data.featuredReviews) ? data.featuredReviews : (Array.isArray(data) ? data : null);
+          if (revs && revs.length) {
+            try { localStorage.setItem('nutrolix_google_reviews', JSON.stringify(revs)); } catch (_) {}
+            if (typeof renderGoogleReviews === 'function') renderGoogleReviews(revs);
+          }
+        }).catch(() => {});
+
+      if (typeof loadBlogs === 'function') {
+        loadBlogs();
+      }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
       initInstantHomepageContent();
+      syncLiveHomepageData();
 
-      // Only attempt remote sync if running over HTTP/HTTPS with 2.5s timeout (never on file:///)
-      if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
-        const ac = new AbortController();
-        const tid = setTimeout(() => ac.abort(), 2500);
-
-        fetch('/api/nutrition-products', { signal: ac.signal })
-          .then(r => r.ok ? r.json() : null)
-          .then(data => {
-            clearTimeout(tid);
-            if (data && Array.isArray(data) && data.length) {
-              window.nutroProducts = data.map(normalizeNutroProduct).filter(Boolean);
-              try { localStorage.setItem('nutrolix_products', JSON.stringify(window.nutroProducts)); } catch (_) {}
-              renderFeaturedProducts(window.nutroProducts);
-              renderBestSellers(window.nutroProducts.filter(p => p.isBestSeller));
-              const allCountBadge = document.getElementById('catCountAll');
-              if (allCountBadge) allCountBadge.textContent = window.nutroProducts.length;
-            }
-          }).catch(() => {});
-
-        fetch('/api/video-reviews', { signal: ac.signal })
-          .then(r => r.ok ? r.json() : null)
-          .then(v => {
-            if (v && Array.isArray(v) && v.length) {
-              window.nutroVideoReviews = v;
-              renderVideoReviews(v);
-            }
-          }).catch(() => {});
-
-        if (typeof loadBlogs === 'function') {
-          loadBlogs();
-        }
-      }
+      window.addEventListener('pageshow', (e) => {
+        if (e.persisted) syncLiveHomepageData();
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') syncLiveHomepageData();
+      });
 
       // Real-time Cross-tab Sync with Admin Console
       window.addEventListener('storage', (e) => {
@@ -2091,6 +2142,8 @@
           }
           const allCountBadge = document.getElementById('catCountAll');
           if (allCountBadge) allCountBadge.textContent = window.nutroProducts.length;
+        } else if (e.key === 'nutrolix_hero_products') {
+          window.applyHeroCustomizations(true);
         }
       });
     });
@@ -2153,13 +2206,16 @@
         localReviews = JSON.parse(localStorage.getItem('nutrolix_google_reviews') || '[]');
       } catch(_) {}
 
-      const baseRevs = (Array.isArray(revs) && revs.length) ? revs : defaultGoogleReviews;
-      const allReviews = [...(Array.isArray(localReviews) ? localReviews : []), ...baseRevs];
+      const allReviews = (Array.isArray(revs) && revs.length)
+        ? revs
+        : ((Array.isArray(localReviews) && localReviews.length) ? localReviews : defaultGoogleReviews);
 
       container.innerHTML = allReviews.map(rev => {
-        const initial = rev.authorName ? rev.authorName.charAt(0) : 'G';
+        const displayName = rev.authorName || rev.author || 'Verified Customer';
+        const displayText = rev.reviewText || rev.text || '';
+        const initial = displayName ? displayName.charAt(0) : 'G';
         const avatarHtml = rev.authorPhoto 
-          ? `<img src="${rev.authorPhoto}" alt="${rev.authorName}" class="w-11 h-11 rounded-full object-cover border border-slate-100 shrink-0">`
+          ? `<img src="${rev.authorPhoto}" alt="${displayName}" class="w-11 h-11 rounded-full object-cover border border-slate-100 shrink-0">`
           : `<div class="w-11 h-11 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-sm">${initial}</div>`;
         
         const ratingStars = '<i class="fa-solid fa-star text-amber-400 text-xs"></i>'.repeat(rev.rating || 5);
@@ -2171,7 +2227,7 @@
                 <div class="flex items-center space-x-3">
                   ${avatarHtml}
                   <div>
-                    <h4 class="font-black text-sm text-slate-900 group-hover:text-emerald-700 transition leading-snug">${rev.authorName}</h4>
+                    <h4 class="font-black text-sm text-slate-900 group-hover:text-emerald-700 transition leading-snug">${displayName}</h4>
                     <div class="flex items-center space-x-1.5 text-[10px] text-slate-400">
                       <i class="fa-brands fa-google text-blue-500"></i>
                       <span>Verified Google Reviewer</span>
@@ -2187,7 +2243,7 @@
               </div>
 
               <p class="text-slate-600 text-xs leading-relaxed line-clamp-4">
-                "${rev.reviewText}"
+                "${displayText}"
               </p>
             </div>
 
@@ -2212,13 +2268,20 @@
 
     let currentPlayingVideoIndex = null;
 
-    function getVideoThumbnailHtml(v, idx) {
-      let videoId = 'odGWbkDD8KU';
-      if (v.youtubeUrl && v.youtubeUrl.includes('shorts/')) {
-        videoId = v.youtubeUrl.split('shorts/')[1].split('?')[0];
-      } else if (v.id) {
-        videoId = v.id;
+    function extractYoutubeIdFromVideo(v) {
+      if (!v) return 'odGWbkDD8KU';
+      if (v.youtubeId) return String(v.youtubeId).trim();
+      const rawUrl = String(v.youtubeUrl || '').trim();
+      if (rawUrl) {
+        const m = rawUrl.match(/(?:youtube\.com\/(?:shorts\/|embed\/|watch\?.*?v=)|youtu\.be\/)([A-Za-z0-9_-]{6,15})/i);
+        if (m && m[1]) return m[1];
       }
+      if (v.id && /^[A-Za-z0-9_-]{8,15}$/.test(v.id)) return v.id;
+      return 'odGWbkDD8KU';
+    }
+
+    function getVideoThumbnailHtml(v, idx) {
+      const videoId = extractYoutubeIdFromVideo(v);
       const thumb = v.thumbnail || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
       return `
         <img src="${thumb}" alt="Nutrolix Video Review Reel" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
@@ -2246,12 +2309,7 @@
       window.nutroVideoReviews = vids;
       currentPlayingVideoIndex = 0;
       container.innerHTML = vids.map((v, idx) => {
-        let videoId = 'odGWbkDD8KU';
-        if (v.youtubeUrl && v.youtubeUrl.includes('shorts/')) {
-          videoId = v.youtubeUrl.split('shorts/')[1].split('?')[0];
-        } else if (v.id) {
-          videoId = v.id;
-        }
+        const videoId = extractYoutubeIdFromVideo(v);
 
         if (idx === 0) {
           return `
@@ -2286,8 +2344,8 @@
                 </div>
               </div>
               <div class="absolute bottom-3 left-3 right-3 bg-slate-950/80 backdrop-blur-sm p-2 rounded-xl border border-white/10">
-                <p class="text-[11px] font-bold text-white line-clamp-1">${v.title || 'Customer Review'}</p>
-                <span class="text-[9px] text-emerald-400 font-black">${v.author || 'Verified Customer'}</span>
+                <p class="text-[11px] font-bold text-white line-clamp-1">${v.title || v.quote || 'Customer Review'}</p>
+                <span class="text-[9px] text-emerald-400 font-black">${v.author || v.name || 'Verified Customer'}</span>
               </div>
             </div>
           </div>
@@ -2323,12 +2381,7 @@
         currentPlayingVideoIndex = null;
       }
 
-      let videoId = 'odGWbkDD8KU';
-      if (v.youtubeUrl && v.youtubeUrl.includes('shorts/')) {
-        videoId = v.youtubeUrl.split('shorts/')[1].split('?')[0];
-      } else if (v.id) {
-        videoId = v.id;
-      }
+      const videoId = extractYoutubeIdFromVideo(v);
 
       const appOrigin = window.location.origin && window.location.origin !== 'null' && window.location.origin !== 'file://'
         ? window.location.origin 
@@ -2357,14 +2410,15 @@
 
     async function loadBlogs() {
       let blogs = null;
+      const host = window.NUTROLIX_API_HOST || '';
       try {
-        const res = await fetch('/api/blogs');
+        const res = await fetch(host + '/api/blogs', { cache: 'no-store' });
         if (res.ok) blogs = await res.json();
       } catch (_) {}
 
       if (!blogs || !blogs.length) {
         try {
-          const resLocal = await fetch('data/blogs.json');
+          const resLocal = await fetch('data/blogs.json', { cache: 'no-store' });
           if (resLocal.ok) blogs = await resLocal.json();
         } catch (_) {}
       }
@@ -2752,7 +2806,7 @@
       window.updateWishlistCountBadge();
       window.renderWishlistDrawerItems();
       if (typeof renderFeaturedProducts === 'function') {
-        renderFeaturedProducts(window.nutroProducts.filter(p => p.isFeatured));
+        renderFeaturedProducts(window.nutroProducts);
       }
     };
 
@@ -2818,8 +2872,9 @@
 
         if (settings) applySettings(settings);
 
-        fetch('/api/settings')
-          .then(res => res.json())
+        const host = window.NUTROLIX_API_HOST || '';
+        fetch(host + '/api/settings', { cache: 'no-store' })
+          .then(res => res && res.ok ? res.json() : null)
           .then(data => {
             if (data && data.announcement) {
               applySettings(data);

@@ -405,8 +405,16 @@
 
               <div class="space-y-2 text-xs">
                 <div>
-                  <label class="block font-bold text-slate-700 text-[11px] mb-1">Image URL</label>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="block font-bold text-slate-700 text-[11px]">Image URL</label>
+                    <label class="cursor-pointer inline-flex items-center space-x-1 text-[10px] font-black text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded-md transition">
+                      <i class="fa-solid fa-cloud-arrow-up"></i>
+                      <span>Upload Photo</span>
+                      <input type="file" accept="image/*" class="hidden" onchange="window.uploadHeroCardImage(1, this.files && this.files[0])">
+                    </label>
+                  </div>
                   <input type="text" id="adminHeroImg1" oninput="window.updateHeroImgPreview(1, this.value)" class="w-full p-2 bg-white rounded-lg border border-slate-300 text-xs font-mono" placeholder="https://...">
+                  <span id="adminHeroUploadStatus1" class="text-[10px] text-slate-500 font-semibold block mt-0.5"></span>
                 </div>
                 <div>
                   <label class="block font-bold text-slate-700 text-[11px] mb-1">Product Title</label>
@@ -432,8 +440,16 @@
 
               <div class="space-y-2 text-xs">
                 <div>
-                  <label class="block font-bold text-slate-700 text-[11px] mb-1">Image URL</label>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="block font-bold text-slate-700 text-[11px]">Image URL</label>
+                    <label class="cursor-pointer inline-flex items-center space-x-1 text-[10px] font-black text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded-md transition">
+                      <i class="fa-solid fa-cloud-arrow-up"></i>
+                      <span>Upload Photo</span>
+                      <input type="file" accept="image/*" class="hidden" onchange="window.uploadHeroCardImage(2, this.files && this.files[0])">
+                    </label>
+                  </div>
                   <input type="text" id="adminHeroImg2" oninput="window.updateHeroImgPreview(2, this.value)" class="w-full p-2 bg-white rounded-lg border border-slate-300 text-xs font-mono" placeholder="https://...">
+                  <span id="adminHeroUploadStatus2" class="text-[10px] text-slate-500 font-semibold block mt-0.5"></span>
                 </div>
                 <div>
                   <label class="block font-bold text-slate-700 text-[11px] mb-1">Product Title</label>
@@ -459,8 +475,16 @@
 
               <div class="space-y-2 text-xs">
                 <div>
-                  <label class="block font-bold text-slate-700 text-[11px] mb-1">Image URL</label>
+                  <div class="flex items-center justify-between mb-1">
+                    <label class="block font-bold text-slate-700 text-[11px]">Image URL</label>
+                    <label class="cursor-pointer inline-flex items-center space-x-1 text-[10px] font-black text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded-md transition">
+                      <i class="fa-solid fa-cloud-arrow-up"></i>
+                      <span>Upload Photo</span>
+                      <input type="file" accept="image/*" class="hidden" onchange="window.uploadHeroCardImage(3, this.files && this.files[0])">
+                    </label>
+                  </div>
                   <input type="text" id="adminHeroImg3" oninput="window.updateHeroImgPreview(3, this.value)" class="w-full p-2 bg-white rounded-lg border border-slate-300 text-xs font-mono" placeholder="https://...">
+                  <span id="adminHeroUploadStatus3" class="text-[10px] text-slate-500 font-semibold block mt-0.5"></span>
                 </div>
                 <div>
                   <label class="block font-bold text-slate-700 text-[11px] mb-1">Product Title</label>
@@ -2010,12 +2034,16 @@
         window.loadFoodMenuAdmin();
         window.loadFoodCategoriesAdmin();
       }
+      if (tabId === 'banners') {
+        window.loadHeroProductsAdmin();
+        window.loadBannersAdmin();
+      }
+      if (tabId === 'coupons' || tabId === 'settings') window.loadStoreSettings();
       if (tabId === 'notifications') window.loadNotificationHistory();
       if (tabId === 'google-profile') window.loadGoogleProfile();
       if (tabId === 'video-reviews') window.loadVideoReviewsAdmin();
       if (tabId === 'blogs') window.loadBlogsAdmin();
       if (tabId === 'users') window.loadUsers();
-      if (tabId === 'settings') window.loadStoreSettings();
     };
 
     window.closeModal = function(id) {
@@ -2027,7 +2055,13 @@
     window.packagedProducts = [];
 
     window.loadPackagedProducts = async function() {
-      // 1. Instant 0ms Render from in-memory nutrolix-data.js or local cache
+      // 1. Instant 0ms Render from localStorage or in-memory nutrolix-data.js
+      if (!window.packagedProducts || window.packagedProducts.length === 0) {
+        try {
+          const cached = JSON.parse(localStorage.getItem('nutrolix_products') || 'null');
+          if (Array.isArray(cached) && cached.length) window.packagedProducts = cached;
+        } catch (_) {}
+      }
       if (!window.packagedProducts || window.packagedProducts.length === 0) {
         if (window.nutroProducts && window.nutroProducts.length) {
           window.packagedProducts = [...window.nutroProducts];
@@ -2037,20 +2071,21 @@
       if (badge && window.packagedProducts) badge.innerText = window.packagedProducts.length;
       window.renderPackagedProductsTable();
 
-      // 2. Background Sync
+      // 2. Background Sync (always uncached from live Firestore API)
       try {
         let res;
+        const host = window.NUTROLIX_API_HOST || "";
         try {
-          const host = window.NUTROLIX_API_HOST || "";
-          res = await fetch(host + "/api/nutrition-products");
+          res = await fetch(host + "/api/nutrition-products", { cache: "no-store" });
         } catch(_) {}
         if (!res || !res.ok) {
-          res = await fetch("/data/nutrition_products.json");
+          res = await fetch(host + "/data/nutrition_products.json", { cache: "no-store" });
         }
         if (res && res.ok) {
           const data = await res.json();
-          if (Array.isArray(data) && data.length) {
+          if (Array.isArray(data)) {
             window.packagedProducts = data;
+            try { localStorage.setItem('nutrolix_products', JSON.stringify(data)); } catch (_) {}
             if (badge) badge.innerText = window.packagedProducts.length;
             window.renderPackagedProductsTable();
           }
@@ -2313,18 +2348,21 @@
       try {
         const btn = document.getElementById('savePkgBtn');
         if (btn) { btn.disabled = true; btn.innerText = 'Saving...'; }
-        const res = await fetch('/api/nutrition-products', {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/nutrition-products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || (data && data.success === false)) {
+          throw new Error((data && data.error) || `Server error (${res.status})`);
+        }
         window.closeModal('packagedProductModal');
-        window.loadPackagedProducts();
-        alert('✓ Packaged product saved successfully with full nutrition & benefits!');
+        await window.loadPackagedProducts();
+        alert('✓ Packaged product saved & published live across Web, Mobile Chrome, and APKs!');
       } catch (err) {
-        window.closeModal('packagedProductModal');
-        alert('✓ Packaged product saved locally and live in store!');
+        alert('❌ Product save failed to reach live server: ' + err.message);
       } finally {
         const btn = document.getElementById('savePkgBtn');
         if (btn) { btn.disabled = false; btn.innerText = 'Save Product'; }
@@ -2338,8 +2376,9 @@
       if (typeof window.renderPackagedProductsTable === 'function') window.renderPackagedProductsTable();
 
       try {
-        await fetch(`/api/nutrition-products?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
-        window.loadPackagedProducts();
+        const host = window.NUTROLIX_API_HOST || '';
+        await fetch(host + `/api/nutrition-products?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+        await window.loadPackagedProducts();
       } catch (_) {}
     };
 
@@ -3366,48 +3405,51 @@
     window.handleImageSlotUpload = async function(slotIndex, file) {
       if (!file) return;
       const input = document.getElementById(`pkgImg${slotIndex}`);
-      if (input) input.placeholder = "⏳ Uploading to Cloudinary CDN...";
+      if (input) input.placeholder = "⏳ Uploading compressed photo to cloud...";
 
-      // 1. Try direct Cloudinary upload first (zero server load, permanent CDN)
       if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
         try {
           const cdnUrl = await window.CloudinaryService.uploadImage(file);
-          if (input) {
-            input.value = cdnUrl;
-            input.placeholder = `Image ${slotIndex} - https://...`;
+          if (cdnUrl) {
+            if (input) {
+              input.value = cdnUrl;
+              input.placeholder = `Image ${slotIndex} - https://...`;
+            }
+            alert(`✓ Image slot ${slotIndex} uploaded and synced live!\n\n${cdnUrl.startsWith('data:') ? 'Saved (offline data preview)' : cdnUrl}`);
+            return;
           }
-          alert(`✓ Image slot ${slotIndex} uploaded directly to Cloudinary CDN!\n\n${cdnUrl}`);
-          return;
         } catch (cErr) {
-          console.warn("Cloudinary upload notice, using fallback:", cErr.message);
+          console.warn("Uploader notice, trying media API:", cErr.message);
         }
       }
 
-      // 2. Server & Local dataURL fallback
       try {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          const base64 = e.target.result;
-          try {
-            const res = await fetch('/api/upload-image', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                imageData: base64,
-                filename: `pkg_slot_${slotIndex}_${Date.now()}`
-              })
+        const host = window.NUTROLIX_API_HOST || '';
+        const compressed = (window.CloudinaryService && typeof window.CloudinaryService.compressImageFile === 'function')
+          ? (await window.CloudinaryService.compressImageFile(file)).dataUrl
+          : await new Promise((resolve, reject) => {
+              const r = new FileReader();
+              r.onload = () => resolve(r.result);
+              r.onerror = reject;
+              r.readAsDataURL(file);
             });
-            const data = await res.json();
-            if (data.success && (data.imageUrl || data.url)) {
-              if (input) input.value = data.imageUrl || data.url;
-              alert(`✓ Image slot ${slotIndex} uploaded successfully!`);
-              return;
-            }
-          } catch (_) {}
-          if (input) input.value = base64;
-          alert(`✓ Image slot ${slotIndex} attached successfully!`);
-        };
-        reader.readAsDataURL(file);
+        const res = await fetch(host + '/api/upload-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageData: compressed,
+            filename: `pkg_slot_${slotIndex}_${Date.now()}`
+          })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success && (data.imageUrl || data.url)) {
+          const finalUrl = window.CloudinaryService?.resolveMediaUrl?.(data.imageUrl || data.url) || (data.imageUrl || data.url);
+          if (input) input.value = finalUrl;
+          alert(`✓ Image slot ${slotIndex} uploaded to cloud server!`);
+          return;
+        }
+        if (input) input.value = compressed;
+        alert(`✓ Image slot ${slotIndex} attached.`);
       } catch (err) {
         alert('Upload failed: ' + err.message);
       }
@@ -3438,9 +3480,10 @@
 
       window.renderHealthyFoodCategories();
 
-      // 2. Background sync
+      // 2. Background sync (no-store)
       try {
-        const res = await fetch('/api/food-categories');
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/food-categories', { cache: 'no-store' });
         if (res && res.ok) {
           const data = await res.json();
           if (Array.isArray(data) && data.length) {
@@ -3574,7 +3617,8 @@
       window.closeModal('addCategoryModal');
 
       try {
-        await fetch('/api/food-categories', {
+        const host = window.NUTROLIX_API_HOST || '';
+        await fetch(host + '/api/food-categories', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(newCategory)
@@ -3593,7 +3637,8 @@
       window.renderHealthyFoodCategories();
 
       try {
-        await fetch('/api/food-categories/delete', {
+        const host = window.NUTROLIX_API_HOST || '';
+        await fetch(host + '/api/food-categories/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id })
@@ -3604,7 +3649,7 @@
     window.loadFoodMenuAdmin = async function() {
       // 1. Instant 0ms In-Memory Render
       let localMeals = [];
-      try { localMeals = JSON.parse(localStorage.getItem('nutrolix_healthy_food_menu') || '[]'); } catch(_) {}
+      try { localMeals = JSON.parse(localStorage.getItem('nutrolix_healthy_food_menu') || localStorage.getItem('nutrolix_healthy_food') || '[]'); } catch(_) {}
       
       if (localMeals && localMeals.length) {
         window.healthyMeals = localMeals;
@@ -3619,23 +3664,26 @@
       window.renderFoodMenuTable();
       window.loadFoodCategoriesAdmin();
 
-      // 2. Background Sync
+      // 2. Background Sync (always no-store)
       try {
         let res;
+        const host = window.NUTROLIX_API_HOST || "";
         try {
-          const host = window.NUTROLIX_API_HOST || "";
-          res = await fetch(host + "/api/food-menu");
+          res = await fetch(host + "/api/food-menu", { cache: "no-store" });
         } catch(_) {}
         if (!res || !res.ok) {
-          try { res = await fetch("/data/healthy_food_menu.json"); } catch(_) {}
+          try { res = await fetch(host + "/data/healthy_food_menu.json", { cache: "no-store" }); } catch(_) {}
         }
         if (res && res.ok) {
           const ct = res.headers.get('content-type') || '';
           if (ct.includes('application/json')) {
             const data = await res.json();
-            if (Array.isArray(data) && data.length) {
+            if (Array.isArray(data)) {
               window.healthyMeals = data;
-              localStorage.setItem('nutrolix_healthy_food_menu', JSON.stringify(data));
+              try {
+                localStorage.setItem('nutrolix_healthy_food_menu', JSON.stringify(data));
+                localStorage.setItem('nutrolix_healthy_food', JSON.stringify(data));
+              } catch (_) {}
               if (badge) badge.innerText = data.length;
               window.renderFoodMenuTable();
               window.renderHealthyFoodCategories();
@@ -3712,46 +3760,47 @@
       const preview = document.getElementById('singleMealPreview');
       const wrapper = document.getElementById('singleMealImagePreviewWrapper');
 
-      // 1. Direct Cloudinary upload
       if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
         try {
-          if (input) input.placeholder = "⏳ Uploading photo to Cloudinary CDN...";
+          if (input) input.placeholder = "⏳ Uploading compressed meal photo...";
           const cdnUrl = await window.CloudinaryService.uploadImage(file);
-          if (input) input.value = cdnUrl;
-          if (preview) preview.src = cdnUrl;
-          if (wrapper) wrapper.classList.remove('hidden');
-          alert(`✓ Meal photo uploaded directly to Cloudinary CDN!\n\n${cdnUrl}`);
-          return;
+          if (cdnUrl) {
+            if (input) input.value = cdnUrl;
+            if (preview) preview.src = cdnUrl;
+            if (wrapper) wrapper.classList.remove('hidden');
+            alert(`✓ Meal photo uploaded and synced live!\n\n${cdnUrl.startsWith('data:') ? 'Saved (offline preview)' : cdnUrl}`);
+            return;
+          }
         } catch (cErr) {
-          console.warn("Cloudinary upload notice, using fallback:", cErr.message);
+          console.warn("Uploader notice, trying media API:", cErr.message);
         }
       }
 
-      // 2. Server & Local dataURL fallback
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64 = e.target.result;
-        try {
-          const res = await fetch('/api/upload-image', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              imageData: base64,
-              filename: `meal_${Date.now()}`
-            })
-          });
-          const data = await res.json();
-          const finalUrl = (data.success && (data.imageUrl || data.url)) ? (data.imageUrl || data.url) : base64;
-          if (input) input.value = finalUrl;
-          if (preview) preview.src = finalUrl;
-          if (wrapper) wrapper.classList.remove('hidden');
-        } catch (_) {
-          if (input) input.value = base64;
-          if (preview) preview.src = base64;
-          if (wrapper) wrapper.classList.remove('hidden');
-        }
-      };
-      reader.readAsDataURL(file);
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const compressed = (window.CloudinaryService && typeof window.CloudinaryService.compressImageFile === 'function')
+          ? (await window.CloudinaryService.compressImageFile(file)).dataUrl
+          : await new Promise((resolve, reject) => {
+              const r = new FileReader();
+              r.onload = () => resolve(r.result);
+              r.onerror = reject;
+              r.readAsDataURL(file);
+            });
+        const res = await fetch(host + '/api/upload-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ imageData: compressed, filename: `meal_${Date.now()}` })
+        });
+        const data = await res.json().catch(() => ({}));
+        const finalUrl = (res.ok && data.success && (data.imageUrl || data.url))
+          ? (window.CloudinaryService?.resolveMediaUrl?.(data.imageUrl || data.url) || (data.imageUrl || data.url))
+          : compressed;
+        if (input) input.value = finalUrl;
+        if (preview) preview.src = finalUrl;
+        if (wrapper) wrapper.classList.remove('hidden');
+      } catch (err) {
+        alert('Upload failed: ' + err.message);
+      }
     };
 
     window.saveHealthyMeal = async function(event) {
@@ -3774,27 +3823,33 @@
         inStock: document.getElementById('singleMealInStock').checked
       };
 
-      // Immediate local state update so admin & user app see it instantly
+      // Immediate local state update
       window.healthyMeals = window.healthyMeals || [];
       const mIdx = window.healthyMeals.findIndex(m => m.id === payload.id);
       if (mIdx >= 0) window.healthyMeals[mIdx] = { ...window.healthyMeals[mIdx], ...payload };
       else window.healthyMeals.unshift(payload);
       try {
         localStorage.setItem('nutrolix_healthy_food', JSON.stringify(window.healthyMeals));
+        localStorage.setItem('nutrolix_healthy_food_menu', JSON.stringify(window.healthyMeals));
       } catch (_) {}
       if (typeof window.renderFoodMenuTable === 'function') window.renderFoodMenuTable();
       window.closeModal('addMealModalSingle');
 
       try {
-        await fetch('/api/food-menu', {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/food-menu', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
-        window.loadFoodMenuAdmin();
-        alert('✓ Healthy food meal saved successfully!');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || (data && data.success === false)) {
+          throw new Error((data && data.error) || `Server error (${res.status})`);
+        }
+        await window.loadFoodMenuAdmin();
+        alert('✓ Healthy food meal saved & synced live across Web, Mobile, and APKs!');
       } catch (err) {
-        alert('✓ Healthy meal saved locally and live in store!');
+        alert('❌ Meal save failed to reach live server: ' + err.message);
       }
     };
 
@@ -3860,12 +3915,13 @@
       if (typeof window.renderFoodMenuTable === 'function') window.renderFoodMenuTable();
 
       try {
-        await fetch('/api/food-menu/delete', {
+        const host = window.NUTROLIX_API_HOST || '';
+        await fetch(host + '/api/food-menu/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id })
         });
-        window.loadFoodMenuAdmin();
+        await window.loadFoodMenuAdmin();
       } catch (_) {}
     };
 
@@ -4003,13 +4059,14 @@
       if (badge && window.videoReviews) badge.innerText = window.videoReviews.length;
       window.renderVideoReviewsAdmin();
 
-      // 2. Background Sync
+      // 2. Background Sync (no-store)
       try {
-        let res = await fetch('/api/video-reviews');
-        if (!res || !res.ok) res = await fetch('/data/video_reviews.json');
+        const host = window.NUTROLIX_API_HOST || '';
+        let res = await fetch(host + '/api/video-reviews', { cache: 'no-store' });
+        if (!res || !res.ok) res = await fetch(host + '/data/video_reviews.json', { cache: 'no-store' });
         if (res && res.ok) {
           const data = await res.json();
-          if (Array.isArray(data) && data.length) {
+          if (Array.isArray(data)) {
             window.videoReviews = data;
             if (badge) badge.innerText = data.length;
             window.renderVideoReviewsAdmin();
@@ -4105,7 +4162,8 @@
         const btn = document.getElementById('saveVidBtn');
         btn.disabled = true;
         btn.innerText = 'Saving...';
-        const res = await fetch('/api/video-reviews', {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/video-reviews', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -4113,8 +4171,8 @@
         const data = await res.json();
         if (data.success) {
           window.closeModal('videoReviewModal');
-          window.loadVideoReviewsAdmin();
-          alert('✓ Video review successfully published to store homepage!');
+          await window.loadVideoReviewsAdmin();
+          alert('✓ Video review successfully published live across Web & APKs!');
         } else {
           alert('Failed to save review: ' + (data.error || 'Server error'));
         }
@@ -4130,14 +4188,15 @@
     window.deleteVideoReview = async function(id) {
       if (!confirm('Delete this video review from homepage?')) return;
       try {
-        const res = await fetch('/api/video-reviews/delete', {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/video-reviews/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id })
         });
         const data = await res.json();
         if (data.success) {
-          window.loadVideoReviewsAdmin();
+          await window.loadVideoReviewsAdmin();
         } else {
           alert('Error: ' + data.error);
         }
@@ -4160,20 +4219,21 @@
       if (badge && window.blogsList) badge.innerText = window.blogsList.length;
       window.renderBlogsAdminTable();
 
-      // 2. Background Sync
+      // 2. Background Sync (no-store)
       try {
         let res;
+        const host = window.NUTROLIX_API_HOST || "";
         try {
-          const host = window.NUTROLIX_API_HOST || "";
-          res = await fetch(host + "/api/blogs");
+          res = await fetch(host + "/api/blogs", { cache: "no-store" });
         } catch(_) {}
         if (!res || !res.ok) {
-          res = await fetch("/data/blogs.json");
+          res = await fetch(host + "/data/blogs.json", { cache: "no-store" });
         }
         if (res && res.ok) {
           const data = await res.json();
-          if (Array.isArray(data) && data.length) {
+          if (Array.isArray(data)) {
             window.blogsList = data;
+            try { localStorage.setItem('nutrolix_blogs', JSON.stringify(data)); } catch (_) {}
             if (badge) badge.innerText = data.length;
             window.renderBlogsAdminTable();
           }
@@ -4307,7 +4367,8 @@
         const btn = document.getElementById('saveBlogBtn');
         btn.disabled = true;
         btn.innerText = 'Publishing...';
-        const res = await fetch('/api/blogs', {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/blogs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
@@ -4315,7 +4376,7 @@
         const data = await res.json();
         if (data.success) {
           window.closeModal('blogModal');
-          window.loadBlogsAdmin();
+          await window.loadBlogsAdmin();
           alert('✓ Article successfully published! Accessible live at: nutrolix.in/' + slug);
         } else {
           alert('Failed to save blog: ' + (data.error || 'Server error'));
@@ -4332,14 +4393,15 @@
     window.deleteBlog = async function(id) {
       if (!confirm('Are you sure you want to delete this blog article?')) return;
       try {
-        const res = await fetch('/api/blogs/delete', {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/blogs/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id })
         });
         const data = await res.json();
         if (data.success) {
-          window.loadBlogsAdmin();
+          await window.loadBlogsAdmin();
         } else {
           alert('Error: ' + data.error);
         }
@@ -4416,15 +4478,17 @@
       try {
         localRevs = JSON.parse(localStorage.getItem('nutrolix_google_reviews') || '[]');
       } catch (_) {}
-      const combined = [...localRevs, ...defaultReviews];
-      window.renderGoogleReviewsList(combined);
+      window.renderGoogleReviewsList(localRevs.length ? localRevs : defaultReviews);
 
       try {
-        const res = await fetch('/api/google-reviews');
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/google-reviews', { cache: 'no-store' });
         if (res && res.ok) {
           const data = await res.json();
-          if (data && data.featuredReviews && data.featuredReviews.length) {
-            window.renderGoogleReviewsList([...localRevs, ...data.featuredReviews]);
+          const serverRevs = Array.isArray(data && data.featuredReviews) ? data.featuredReviews : (Array.isArray(data) ? data : null);
+          if (serverRevs && serverRevs.length) {
+            try { localStorage.setItem('nutrolix_google_reviews', JSON.stringify(serverRevs)); } catch (_) {}
+            window.renderGoogleReviewsList(serverRevs);
             if (data.lastSynced) {
               const el = document.getElementById('googleSyncTime');
               if (el) el.innerText = 'Last Synced: ' + new Date(data.lastSynced).toLocaleTimeString();
@@ -4439,33 +4503,65 @@
     window.renderGoogleReviewsList = function(reviews) {
       const list = document.getElementById('googleReviewsList');
       if (!list || !reviews || !reviews.length) return;
-      list.innerHTML = reviews.map(r => `
+      list.innerHTML = reviews.map(r => {
+        const authorName = r.author || r.authorName || 'Google Customer';
+        const reviewBody = r.text || r.reviewText || '';
+        return `
         <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-2">
-              <span class="font-bold text-xs text-slate-900">${r.author}</span>
+              <span class="font-bold text-xs text-slate-900">${authorName}</span>
               ${r.isLocalGuide ? '<span class="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">Local Guide</span>' : ''}
             </div>
             <div class="flex text-amber-400 text-xs">
               ${'<i class="fa-solid fa-star"></i>'.repeat(r.rating || 5)}
             </div>
           </div>
-          <p class="text-xs text-slate-600 italic">"${r.text}"</p>
+          <p class="text-xs text-slate-600 italic">"${reviewBody}"</p>
           <div class="text-[10px] text-slate-400">${r.relativeTime || 'Verified Google Review'}</div>
         </div>
-      `).join('');
+      `;
+      }).join('');
     };
 
     // Homepage Hero 3 Products & Images Management (Point 4)
     window.updateHeroImgPreview = function(idx, url) {
       const p = document.getElementById('adminHeroPreview' + idx);
-      if (p && url) p.src = url;
+      if (p && url) p.src = window.CloudinaryService?.resolveMediaUrl?.(url) || url;
     };
 
-    window.loadHeroProductsAdmin = function() {
-      let custom = null;
-      try { custom = JSON.parse(localStorage.getItem('nutrolix_hero_products') || 'null'); } catch(_) {}
-      
+    window.uploadHeroCardImage = async function(idx, file) {
+      if (!file) return;
+      const input = document.getElementById('adminHeroImg' + idx);
+      const statusEl = document.getElementById('adminHeroUploadStatus' + idx);
+      if (statusEl) {
+        statusEl.textContent = '⏳ Uploading compressed photo...';
+        statusEl.className = 'text-[10px] text-amber-600 font-bold animate-pulse block mt-0.5';
+      }
+      try {
+        let finalUrl = '';
+        if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
+          finalUrl = await window.CloudinaryService.uploadImage(file, (pct) => {
+            if (statusEl) statusEl.textContent = `⏳ Uploading photo (${pct}%)...`;
+          });
+        }
+        if (finalUrl) {
+          if (input) input.value = finalUrl;
+          window.updateHeroImgPreview(idx, finalUrl);
+          if (statusEl) {
+            statusEl.textContent = '✓ Uploaded & ready — tap "Save All Hero Cards" to publish!';
+            statusEl.className = 'text-[10px] text-emerald-700 font-bold block mt-0.5';
+          }
+        }
+      } catch (err) {
+        if (statusEl) {
+          statusEl.textContent = '❌ Upload failed: ' + (err && err.message || 'Retry');
+          statusEl.className = 'text-[10px] text-rose-600 font-bold block mt-0.5';
+        }
+      }
+    };
+
+    function applyHeroProductsToAdminInputs(data) {
       const defaults = {
         card1: {
           title: "High Protein Atta",
@@ -4483,26 +4579,44 @@
           image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80"
         }
       };
+      const resolved = data && (data.card1 || data.card2 || data.showcase) ? data : defaults;
 
-      const data = custom || defaults;
+      if (document.getElementById('adminHeroImg1')) document.getElementById('adminHeroImg1').value = resolved.card1?.image || defaults.card1.image;
+      if (document.getElementById('adminHeroTitle1')) document.getElementById('adminHeroTitle1').value = resolved.card1?.title || defaults.card1.title;
+      if (document.getElementById('adminHeroPrice1')) document.getElementById('adminHeroPrice1').value = resolved.card1?.price || defaults.card1.price;
+      window.updateHeroImgPreview(1, resolved.card1?.image || defaults.card1.image);
 
-      if (document.getElementById('adminHeroImg1')) document.getElementById('adminHeroImg1').value = data.card1?.image || defaults.card1.image;
-      if (document.getElementById('adminHeroTitle1')) document.getElementById('adminHeroTitle1').value = data.card1?.title || defaults.card1.title;
-      if (document.getElementById('adminHeroPrice1')) document.getElementById('adminHeroPrice1').value = data.card1?.price || defaults.card1.price;
-      window.updateHeroImgPreview(1, data.card1?.image || defaults.card1.image);
+      if (document.getElementById('adminHeroImg2')) document.getElementById('adminHeroImg2').value = resolved.card2?.image || defaults.card2.image;
+      if (document.getElementById('adminHeroTitle2')) document.getElementById('adminHeroTitle2').value = resolved.card2?.title || defaults.card2.title;
+      if (document.getElementById('adminHeroPrice2')) document.getElementById('adminHeroPrice2').value = resolved.card2?.price || defaults.card2.price;
+      window.updateHeroImgPreview(2, resolved.card2?.image || defaults.card2.image);
 
-      if (document.getElementById('adminHeroImg2')) document.getElementById('adminHeroImg2').value = data.card2?.image || defaults.card2.image;
-      if (document.getElementById('adminHeroTitle2')) document.getElementById('adminHeroTitle2').value = data.card2?.title || defaults.card2.title;
-      if (document.getElementById('adminHeroPrice2')) document.getElementById('adminHeroPrice2').value = data.card2?.price || defaults.card2.price;
-      window.updateHeroImgPreview(2, data.card2?.image || defaults.card2.image);
+      if (document.getElementById('adminHeroImg3')) document.getElementById('adminHeroImg3').value = resolved.showcase?.image || defaults.showcase.image;
+      if (document.getElementById('adminHeroTitle3')) document.getElementById('adminHeroTitle3').value = resolved.showcase?.title || defaults.showcase.title;
+      if (document.getElementById('adminHeroPrice3')) document.getElementById('adminHeroPrice3').value = resolved.showcase?.price || defaults.showcase.price;
+      window.updateHeroImgPreview(3, resolved.showcase?.image || defaults.showcase.image);
+    }
 
-      if (document.getElementById('adminHeroImg3')) document.getElementById('adminHeroImg3').value = data.showcase?.image || defaults.showcase.image;
-      if (document.getElementById('adminHeroTitle3')) document.getElementById('adminHeroTitle3').value = data.showcase?.title || defaults.showcase.title;
-      if (document.getElementById('adminHeroPrice3')) document.getElementById('adminHeroPrice3').value = data.showcase?.price || defaults.showcase.price;
-      window.updateHeroImgPreview(3, data.showcase?.image || defaults.showcase.image);
+    window.loadHeroProductsAdmin = async function() {
+      let custom = null;
+      try { custom = JSON.parse(localStorage.getItem('nutrolix_hero_products') || 'null'); } catch(_) {}
+      applyHeroProductsToAdminInputs(custom);
+
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/hero-products', { cache: 'no-store' });
+        if (res && res.ok) {
+          const raw = await res.json();
+          const hero = (raw && raw.heroProducts) ? raw.heroProducts : raw;
+          if (hero && (hero.card1 || hero.card2 || hero.showcase)) {
+            try { localStorage.setItem('nutrolix_hero_products', JSON.stringify(hero)); } catch (_) {}
+            applyHeroProductsToAdminInputs(hero);
+          }
+        }
+      } catch (_) {}
     };
 
-    window.saveHeroProductsAdmin = function() {
+    window.saveHeroProductsAdmin = async function() {
       const heroData = {
         card1: {
           image: (document.getElementById('adminHeroImg1')?.value || '').trim() || "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=500&q=80",
@@ -4523,14 +4637,20 @@
 
       localStorage.setItem('nutrolix_hero_products', JSON.stringify(heroData));
       try {
-        fetch('/api/hero-products', {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/hero-products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(heroData)
-        }).catch(() => {});
-      } catch(_) {}
-
-      alert('✓ Homepage Hero Section 3 Products & Images successfully updated and published!');
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || (data && data.success === false)) {
+          throw new Error((data && data.error) || `Server error (${res.status})`);
+        }
+        alert('✓ Homepage Hero Section 3 Products & Images published live across Web, Mobile Chrome, and APKs!');
+      } catch (err) {
+        alert('❌ Hero save failed to reach live server: ' + err.message);
+      }
     };
 
     window.syncGoogleReviews = async function() {
@@ -4541,7 +4661,8 @@
       try {
         let totalReviews = 148;
         try {
-          const res = await fetch('/api/google-reviews', { method: 'POST' });
+          const host = window.NUTROLIX_API_HOST || '';
+          const res = await fetch(host + '/api/google-reviews', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
           if (res && res.ok) {
             const ct = res.headers.get('content-type') || '';
             if (ct.includes('application/json')) {
@@ -4756,14 +4877,36 @@
       document.getElementById("bannerModal")?.classList.remove("hidden");
     };
 
-    window.saveBanner = function(e) {
+    window.loadBannersAdmin = async function() {
+      window.renderBannersList();
+      try {
+        const host = window.NUTROLIX_API_HOST || "";
+        const res = await fetch(host + "/api/banners", { cache: "no-store" });
+        if (res && res.ok) {
+          const data = await res.json();
+          const arr = Array.isArray(data) ? data : (Array.isArray(data && data.banners) ? data.banners : null);
+          if (arr) {
+            try { localStorage.setItem("nutrolix_top_banners", JSON.stringify(arr)); } catch (_) {}
+            window.renderBannersList();
+          }
+        }
+      } catch (_) {}
+    };
+
+    window.saveBanner = async function(e) {
       if (e && e.preventDefault) e.preventDefault();
-      const title = document.getElementById("bannerTitle")?.value || "";
-      const subtitle = document.getElementById("bannerSubtitle")?.value || "";
-      const badge = document.getElementById("bannerBadge")?.value || "";
-      const code = document.getElementById("bannerCode")?.value || "";
-      const imageUrl = document.getElementById("bannerImageUrl")?.value || "";
-      const editId = document.getElementById("bannerEditId")?.value;
+      const title = (document.getElementById("bannerTitle")?.value || "").trim();
+      const subtitle = (document.getElementById("bannerSubtitle")?.value || "").trim();
+      const badge = (document.getElementById("bannerBadge")?.value || "").trim();
+      const code = (document.getElementById("bannerCode")?.value || "").trim();
+      const imageUrl = (document.getElementById("bannerImageUrl")?.value || "").trim();
+      const editId = document.getElementById("bannerEditId")?.value || "";
+
+      const bannerObj = {
+        id: editId || ("banner_" + Date.now()),
+        title, subtitle, badge, code, imageUrl,
+        active: true
+      };
 
       let banners = [];
       try {
@@ -4773,19 +4916,68 @@
       if (editId) {
         const idx = banners.findIndex(b => b.id === editId);
         if (idx !== -1) {
-          banners[idx] = { ...banners[idx], title, subtitle, badge, code, imageUrl };
+          banners[idx] = { ...banners[idx], ...bannerObj };
+        } else {
+          banners.unshift(bannerObj);
         }
       } else {
-        banners.push({
-          id: "banner_" + Date.now(),
-          title, subtitle, badge, code, imageUrl,
-          active: true
-        });
+        banners.unshift(bannerObj);
       }
       localStorage.setItem("nutrolix_top_banners", JSON.stringify(banners));
       window.closeModal("bannerModal");
       window.renderBannersList();
-      alert("✓ Promo Banner saved successfully!");
+
+      try {
+        const host = window.NUTROLIX_API_HOST || "";
+        const res = await fetch(host + "/api/banners", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(bannerObj)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || (data && data.success === false)) {
+          throw new Error((data && data.error) || `Server error (${res.status})`);
+        }
+        await window.loadBannersAdmin();
+        alert("✓ Promo Banner saved & published live across Web, Mobile, and APKs!");
+      } catch (err) {
+        alert("❌ Banner save failed to reach live server: " + err.message);
+      }
+    };
+
+    window.editBanner = function(id) {
+      let banners = [];
+      try { banners = JSON.parse(localStorage.getItem("nutrolix_top_banners") || "[]"); } catch(_) {}
+      const b = banners.find(item => item.id === id);
+      if (!b) return;
+      const titleEl = document.getElementById("bannerModalTitle");
+      if (titleEl) titleEl.innerText = "Edit Promo Banner";
+      if (document.getElementById("bannerEditId")) document.getElementById("bannerEditId").value = b.id || "";
+      if (document.getElementById("bannerTitle")) document.getElementById("bannerTitle").value = b.title || "";
+      if (document.getElementById("bannerSubtitle")) document.getElementById("bannerSubtitle").value = b.subtitle || "";
+      if (document.getElementById("bannerBadge")) document.getElementById("bannerBadge").value = b.badge || "";
+      if (document.getElementById("bannerCode")) document.getElementById("bannerCode").value = b.code || "";
+      if (document.getElementById("bannerImageUrl")) document.getElementById("bannerImageUrl").value = b.imageUrl || "";
+      document.getElementById("bannerModal")?.classList.remove("hidden");
+    };
+
+    window.deleteBanner = async function(id) {
+      if (!confirm("Delete this promo banner?")) return;
+      try {
+        let banners = JSON.parse(localStorage.getItem("nutrolix_top_banners") || "[]");
+        banners = banners.filter(b => b.id !== id);
+        localStorage.setItem("nutrolix_top_banners", JSON.stringify(banners));
+        window.renderBannersList();
+      } catch (_) {}
+      try {
+        const host = window.NUTROLIX_API_HOST || "";
+        await fetch(host + "/api/banners/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        });
+        await window.loadBannersAdmin();
+      } catch (_) {}
     };
 
     window.renderBannersList = function() {
@@ -4799,17 +4991,28 @@
         c.innerHTML = '<div class="col-span-2 text-center py-8 text-slate-400 text-xs">No banners added yet. Click "+ Add Banner" above.</div>';
         return;
       }
-      c.innerHTML = banners.map(b => `
+      c.innerHTML = banners.map(b => {
+        const img = window.CloudinaryService?.resolveMediaUrl?.(b.imageUrl) || b.imageUrl || '/assets/nutrolix_logo.png';
+        return `
         <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm p-3 flex gap-3 items-center">
-          <img src="${b.imageUrl}" class="w-20 h-20 object-cover rounded-xl bg-slate-50 border border-slate-100 shrink-0">
+          <img src="${img}" class="w-20 h-20 object-cover rounded-xl bg-slate-50 border border-slate-100 shrink-0">
           <div class="flex-1 min-w-0">
             <span class="text-[9px] bg-emerald-100 text-emerald-800 font-bold px-1.5 py-0.5 rounded">${b.badge || 'PROMO'}</span>
             <h4 class="font-black text-xs text-slate-900 mt-1 truncate">${b.title}</h4>
             <p class="text-[11px] text-slate-500 truncate">${b.subtitle}</p>
             <div class="text-[10px] text-purple-700 font-mono font-bold mt-1">Code: ${b.code || 'None'}</div>
           </div>
+          <div class="flex flex-col space-y-1 shrink-0">
+            <button type="button" onclick="window.editBanner('${b.id}')" class="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px]" title="Edit Banner">
+              <i class="fa-solid fa-pen-to-square"></i>
+            </button>
+            <button type="button" onclick="window.deleteBanner('${b.id}')" class="px-2 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold text-[11px]" title="Delete Banner">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
     };
 
     // Coupons Modal Handlers
@@ -4821,7 +5024,7 @@
       document.getElementById("couponModal")?.classList.remove("hidden");
     };
 
-    window.saveCoupon = function(e) {
+    window.saveCoupon = async function(e) {
       if (e && e.preventDefault) e.preventDefault();
       const code = (document.getElementById("couponCode")?.value || "").trim().toUpperCase();
       const title = document.getElementById("couponTitle")?.value || "";
@@ -4847,16 +5050,20 @@
       } catch (_) {}
 
       try {
-        fetch("/api/coupons", {
+        const host = window.NUTROLIX_API_HOST || "";
+        const res = await fetch(host + "/api/coupons", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(window.storeCoupons)
-        }).catch(() => {});
-      } catch (_) {}
+        });
+        if (!res.ok) throw new Error(`Server error (${res.status})`);
+      } catch (err) {
+        alert("Notice: Coupon saved locally; server sync error: " + err.message);
+      }
 
       window.closeModal("couponModal");
       window.renderCouponsList();
-      alert("✓ Coupon " + code + " created and active in store & checkout!");
+      alert("✓ Coupon " + code + " created and active across store & checkout!");
     };
 
     // -------------------------------------------------------------
@@ -4886,14 +5093,12 @@
 
     window.renderCouponsList = function() {
       const container = document.getElementById('couponsListContainer');
+      const tabGrid = document.getElementById('couponsList');
       const badge = document.getElementById('activeCouponsBadge');
       if (badge) badge.innerText = `${window.storeCoupons.length} Active`;
-      if (!container) return;
-      if (!window.storeCoupons.length) {
-        container.innerHTML = '<div class="text-xs text-slate-400 p-3 col-span-3 text-center bg-slate-50 rounded-xl">No active coupons. Create one above.</div>';
-        return;
-      }
-      container.innerHTML = window.storeCoupons.map(c => `
+      const cardsHtml = !window.storeCoupons.length
+        ? '<div class="text-xs text-slate-400 p-3 col-span-3 text-center bg-slate-50 rounded-xl">No active coupons. Create one above.</div>'
+        : window.storeCoupons.map(c => `
         <div class="p-3 bg-purple-50/70 rounded-2xl border border-purple-200 flex items-center justify-between shadow-xs">
           <div>
             <div class="flex items-center space-x-1.5">
@@ -4907,9 +5112,11 @@
           </button>
         </div>
       `).join('');
+      if (container) container.innerHTML = cardsHtml;
+      if (tabGrid) tabGrid.innerHTML = cardsHtml;
     };
 
-    window.addNewCoupon = function(e) {
+    window.addNewCoupon = async function(e) {
       if (e && e.preventDefault) e.preventDefault();
       const code = (document.getElementById('newCouponCode')?.value || '').trim().toUpperCase();
       const type = document.getElementById('newCouponType')?.value || 'percentage';
@@ -4922,32 +5129,42 @@
       }
 
       window.storeCoupons = window.storeCoupons.filter(c => c.code !== code);
-      window.storeCoupons.push({ code, type, value: val, minOrder, active: true });
+      window.storeCoupons.push({ code, type, value: val, discountPercent: val, minOrder, active: true, status: 'Active' });
       localStorage.setItem('nutrolix_coupons', JSON.stringify(window.storeCoupons));
       window.renderCouponsList();
+
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/coupons', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(window.storeCoupons)
+        });
+        if (!res.ok) throw new Error(`Server error (${res.status})`);
+      } catch (err) {
+        alert('Notice: Coupon saved locally; server sync error: ' + err.message);
+      }
 
       if (document.getElementById('newCouponCode')) document.getElementById('newCouponCode').value = '';
       if (document.getElementById('newCouponValue')) document.getElementById('newCouponValue').value = '';
       alert(`✓ Coupon "${code}" successfully created and live across customer checkout!`);
     };
 
-    window.deleteCoupon = function(code) {
+    window.deleteCoupon = async function(code) {
       window.storeCoupons = window.storeCoupons.filter(c => c.code !== code);
       localStorage.setItem('nutrolix_coupons', JSON.stringify(window.storeCoupons));
       window.renderCouponsList();
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        await fetch(host + '/api/coupons', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(window.storeCoupons)
+        });
+      } catch (_) {}
     };
 
-    window.loadStoreSettings = function() {
-      try {
-        const saved = JSON.parse(localStorage.getItem("nutrolix_store_settings") || "null");
-        if (saved) window.storeSettings = { ...window.storeSettings, ...saved };
-      } catch (_) {}
-
-      try {
-        const savedCoupons = JSON.parse(localStorage.getItem("nutrolix_coupons") || "null");
-        if (Array.isArray(savedCoupons) && savedCoupons.length) window.storeCoupons = savedCoupons;
-      } catch (_) {}
-
+    function applyStoreSettingsToAdminUI() {
       const nameEl = document.getElementById("settingStoreName");
       if (nameEl) nameEl.value = window.storeSettings.storeName || "Nutrolix";
       
@@ -4965,7 +5182,10 @@
       if (feeEl) feeEl.value = window.storeSettings.deliveryFee !== undefined ? window.storeSettings.deliveryFee : 49;
 
       const freeEl = document.getElementById("settingFreeThreshold") || document.getElementById("settingFreeDeliveryAbove");
-      if (freeEl) freeEl.value = window.storeSettings.freeDeliveryAbove !== undefined ? window.storeSettings.freeDeliveryAbove : 499;
+      const freeVal = window.storeSettings.freeDeliveryAbove !== undefined
+        ? window.storeSettings.freeDeliveryAbove
+        : (window.storeSettings.freeDeliveryThreshold !== undefined ? window.storeSettings.freeDeliveryThreshold : 499);
+      if (freeEl) freeEl.value = freeVal;
 
       const taxEl = document.getElementById("settingTaxPercent");
       if (taxEl) taxEl.value = window.storeSettings.taxPercent || 5.0;
@@ -4977,6 +5197,14 @@
       if (disp) disp.innerText = window.storeSettings.announcement || defaultAnn;
 
       if (window.CloudinaryService) {
+        if (window.storeSettings.cloudinaryCloudName || window.storeSettings.cloudinaryPreset || window.storeSettings.cloudinaryApiKey) {
+          window.CloudinaryService.saveSettings(
+            window.storeSettings.cloudinaryCloudName || "muy6zdcd",
+            window.storeSettings.cloudinaryPreset || "ml_default",
+            window.storeSettings.cloudinaryApiKey || "",
+            window.storeSettings.cloudinaryApiSecret || ""
+          );
+        }
         const cSettings = window.CloudinaryService.getSettings();
         const cNameEl = document.getElementById("settingCloudinaryName");
         if (cNameEl) cNameEl.value = cSettings.cloudName || "";
@@ -5001,12 +5229,51 @@
       }
 
       window.renderCouponsList();
+    }
+
+    window.loadStoreSettings = async function() {
+      try {
+        const saved = JSON.parse(localStorage.getItem("nutrolix_store_settings") || "null");
+        if (saved) window.storeSettings = { ...window.storeSettings, ...saved };
+      } catch (_) {}
+
+      try {
+        const savedCoupons = JSON.parse(localStorage.getItem("nutrolix_coupons") || "null");
+        if (Array.isArray(savedCoupons) && savedCoupons.length) window.storeCoupons = savedCoupons;
+      } catch (_) {}
+
+      applyStoreSettingsToAdminUI();
+
+      // Fetch authoritative server settings & coupons with no-store
+      try {
+        const host = window.NUTROLIX_API_HOST || "";
+        const [sRes, cRes] = await Promise.all([
+          fetch(host + "/api/store-settings", { cache: "no-store" }).catch(() => null),
+          fetch(host + "/api/coupons", { cache: "no-store" }).catch(() => null)
+        ]);
+        if (sRes && sRes.ok) {
+          const sData = await sRes.json().catch(() => null);
+          if (sData && typeof sData === "object") {
+            window.storeSettings = { ...window.storeSettings, ...sData };
+            try { localStorage.setItem("nutrolix_store_settings", JSON.stringify(window.storeSettings)); } catch (_) {}
+          }
+        }
+        if (cRes && cRes.ok) {
+          const cData = await cRes.json().catch(() => null);
+          const arr = Array.isArray(cData) ? cData : (Array.isArray(cData && cData.coupons) ? cData.coupons : null);
+          if (arr) {
+            window.storeCoupons = arr;
+            try { localStorage.setItem("nutrolix_coupons", JSON.stringify(arr)); } catch (_) {}
+          }
+        }
+        applyStoreSettingsToAdminUI();
+      } catch (_) {}
     };
 
     window.toggleStoreOpen = function() {
       window.storeSettings.isOpen = !window.storeSettings.isOpen;
       window.saveAllStoreSettings(true);
-      window.loadStoreSettings();
+      applyStoreSettingsToAdminUI();
     };
 
     window.soundAlertEnabled = true;
@@ -5025,7 +5292,7 @@
       }
     };
 
-    // Save All Store Settings (Point 5) - Works 100% on Click
+    // Save All Store Settings (Point 5) - Works 100% on Click & syncs live to Firestore
     window.saveAllStoreSettings = async function(silent = false) {
       const name = document.getElementById("settingStoreName")?.value || "Nutrolix";
       const announcement = document.getElementById("settingAnnouncement")?.value || "";
@@ -5035,47 +5302,6 @@
       const taxPercent = parseFloat(document.getElementById("settingTaxPercent")?.value || "5.0");
       const payuIsLive = document.getElementById("settingPayuLive")?.checked !== false;
 
-      window.storeSettings = {
-        ...window.storeSettings,
-        storeName: name,
-        announcement,
-        announcementActive,
-        deliveryFee,
-        freeDeliveryAbove,
-        taxPercent,
-        payuIsLive
-      };
-
-      try {
-        localStorage.setItem("nutrolix_store_settings", JSON.stringify(window.storeSettings));
-      } catch (_) {}
-
-      // Update ticker and preview
-      const disp = document.getElementById("announcementDisplay");
-      if (disp) disp.innerText = announcement || "⚡ 100% Fresh Healthy Meals • Delivered in 25 mins";
-
-      const prevAnn = document.getElementById("previewAnnouncementText");
-      if (prevAnn) prevAnn.innerText = announcement;
-
-      const statusEl = document.getElementById("settingsSaveStatus");
-      if (statusEl) {
-        statusEl.innerText = "✅ Saved & Published Live! Synced with Customer Web App and Mobile at " + new Date().toLocaleTimeString();
-        statusEl.className = "text-xs font-bold text-emerald-800 animate-pulse";
-      }
-
-      if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveStoreSettings === "function") {
-        window.NutrolixFirebase.saveStoreSettings(window.storeSettings).catch(() => {});
-      }
-
-      try {
-        const host = window.NUTROLIX_API_HOST || "";
-        fetch(host + "/api/store-settings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(window.storeSettings)
-        }).catch(() => {});
-      } catch (_) {}
-
       const cName = (document.getElementById("settingCloudinaryName")?.value || "").trim();
       const cPreset = (document.getElementById("settingCloudinaryPreset")?.value || "").trim();
       const cApiKey = (document.getElementById("settingCloudinaryApiKey")?.value || "").trim();
@@ -5084,8 +5310,58 @@
         window.CloudinaryService.saveSettings(cName || "muy6zdcd", cPreset || "ml_default", cApiKey, cApiSecret);
       }
 
-      window.loadStoreSettings();
-      if (!silent) alert("✓ All Store Settings saved & published successfully!\n\n• Announcement Ticker: Active\n• Delivery Fee: ₹" + deliveryFee + "\n• Free Shipping Threshold: ₹" + freeDeliveryAbove + "\n• Live Synced across Customer Web App & Admin.");
+      window.storeSettings = {
+        ...window.storeSettings,
+        storeName: name,
+        announcement,
+        announcementActive,
+        deliveryFee,
+        freeDeliveryAbove,
+        freeDeliveryThreshold: freeDeliveryAbove,
+        taxPercent,
+        payuIsLive,
+        cloudinaryCloudName: cName || window.storeSettings.cloudinaryCloudName || "muy6zdcd",
+        cloudinaryPreset: cPreset || window.storeSettings.cloudinaryPreset || "ml_default",
+        cloudinaryApiKey: cApiKey,
+        cloudinaryApiSecret: cApiSecret
+      };
+
+      try {
+        localStorage.setItem("nutrolix_store_settings", JSON.stringify(window.storeSettings));
+      } catch (_) {}
+
+      const disp = document.getElementById("announcementDisplay");
+      if (disp) disp.innerText = announcement || "⚡ 100% Fresh Healthy Meals • Delivered in 25 mins";
+
+      const prevAnn = document.getElementById("previewAnnouncementText");
+      if (prevAnn) prevAnn.innerText = announcement;
+
+      if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveStoreSettings === "function") {
+        window.NutrolixFirebase.saveStoreSettings(window.storeSettings).catch(() => {});
+      }
+
+      try {
+        const host = window.NUTROLIX_API_HOST || "";
+        const res = await fetch(host + "/api/store-settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(window.storeSettings)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || (data && data.success === false)) {
+          throw new Error((data && data.error) || `Server error (${res.status})`);
+        }
+        const statusEl = document.getElementById("settingsSaveStatus");
+        if (statusEl) {
+          statusEl.innerText = "✅ Saved & Published Live across Web, Mobile Chrome, and APKs at " + new Date().toLocaleTimeString();
+          statusEl.className = "text-xs font-bold text-emerald-800 animate-pulse";
+        }
+        applyStoreSettingsToAdminUI();
+        if (!silent) alert("✓ All Store Settings saved & published live across Customer Web App & Mobile Apps!\n\n• Announcement Ticker: Active\n• Delivery Fee: ₹" + deliveryFee + "\n• Free Shipping Threshold: ₹" + freeDeliveryAbove);
+      } catch (err) {
+        applyStoreSettingsToAdminUI();
+        if (!silent) alert("❌ Store Settings server sync failed: " + err.message);
+      }
     };
     window.saveStoreSettings = window.saveAllStoreSettings;
 
@@ -5106,24 +5382,24 @@
         if (!file) return;
         const statusEl = document.getElementById("cloudinaryTestStatus");
         if (statusEl) {
-          statusEl.innerText = "⏳ Uploading photo directly to Cloudinary CDN...";
+          statusEl.innerText = "⏳ Uploading photo to Cloudinary / Cloud Media Store...";
           statusEl.className = "text-[11px] text-amber-600 font-bold animate-pulse";
         }
         try {
           const url = await window.CloudinaryService.uploadImage(file, pct => {
-            if (statusEl) statusEl.innerText = `⏳ Uploading to Cloudinary (${pct}%)...`;
+            if (statusEl) statusEl.innerText = `⏳ Uploading image (${pct}%)...`;
           });
           if (statusEl) {
-            statusEl.innerText = "✓ Success! Test photo live on Cloudinary CDN: " + url;
+            statusEl.innerText = "✓ Success! Photo live across all devices: " + url;
             statusEl.className = "text-[11px] text-emerald-700 font-bold";
           }
-          alert(`✓ Cloudinary Connection Working 100%!\n\nImage successfully uploaded to CDN:\n${url}`);
+          alert(`✓ Image Upload Working 100%!\n\nImage URL:\n${url}`);
         } catch (err) {
           if (statusEl) {
             statusEl.innerText = "❌ Upload failed: " + err.message;
             statusEl.className = "text-[11px] text-rose-600 font-bold";
           }
-          alert("Cloudinary Upload Error: " + err.message);
+          alert("Upload Error: " + err.message);
         } finally {
           testInput.remove();
         }
@@ -5137,20 +5413,23 @@
       const input = document.getElementById('blogImage');
       if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
         try {
-          if (input) input.placeholder = "⏳ Uploading cover to Cloudinary CDN...";
+          if (input) input.placeholder = "⏳ Uploading cover image...";
           const cdnUrl = await window.CloudinaryService.uploadImage(file);
-          if (input) input.value = cdnUrl;
-          alert(`✓ Blog cover image uploaded to Cloudinary CDN!\n\n${cdnUrl}`);
-          return;
+          if (cdnUrl) {
+            if (input) input.value = cdnUrl;
+            alert(`✓ Blog cover image uploaded!\n\n${cdnUrl.startsWith('data:') ? 'Saved (offline preview)' : cdnUrl}`);
+            return;
+          }
         } catch (e) {
-          console.warn("Cloudinary fallback:", e.message);
+          console.warn("Uploader fallback:", e.message);
         }
       }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (input) input.value = e.target.result;
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = (window.CloudinaryService && typeof window.CloudinaryService.compressImageFile === 'function')
+          ? (await window.CloudinaryService.compressImageFile(file)).dataUrl
+          : '';
+        if (input && compressed) input.value = compressed;
+      } catch (_) {}
     };
 
     window.uploadBannerImageFile = async function(file) {
@@ -5158,20 +5437,23 @@
       const input = document.getElementById('bannerImageUrl');
       if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
         try {
-          if (input) input.placeholder = "⏳ Uploading banner to Cloudinary CDN...";
+          if (input) input.placeholder = "⏳ Uploading banner image...";
           const cdnUrl = await window.CloudinaryService.uploadImage(file);
-          if (input) input.value = cdnUrl;
-          alert(`✓ Banner image uploaded to Cloudinary CDN!\n\n${cdnUrl}`);
-          return;
+          if (cdnUrl) {
+            if (input) input.value = cdnUrl;
+            alert(`✓ Banner image uploaded!\n\n${cdnUrl.startsWith('data:') ? 'Saved (offline preview)' : cdnUrl}`);
+            return;
+          }
         } catch (e) {
-          console.warn("Cloudinary fallback:", e.message);
+          console.warn("Uploader fallback:", e.message);
         }
       }
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        if (input) input.value = e.target.result;
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = (window.CloudinaryService && typeof window.CloudinaryService.compressImageFile === 'function')
+          ? (await window.CloudinaryService.compressImageFile(file)).dataUrl
+          : '';
+        if (input && compressed) input.value = compressed;
+      } catch (_) {}
     };
 
     // Attach real-time input listener for Announcement Preview
@@ -5221,6 +5503,19 @@
       window.loadUsers();
       window.loadStoreSettings();
       window.loadHeroProductsAdmin();
+      window.loadBannersAdmin();
+
+      const syncAllLiveAdminSections = () => {
+        window.loadPackagedProducts();
+        window.loadFoodMenuAdmin();
+        window.loadStoreSettings();
+        window.loadHeroProductsAdmin();
+        window.loadBannersAdmin();
+      };
+      window.addEventListener('pageshow', (e) => { if (e.persisted) syncAllLiveAdminSections(); });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') syncAllLiveAdminSections();
+      });
 
       // Live Firebase Firestore real-time subscription for Orders
       if (window.NutrolixFirebase && typeof window.NutrolixFirebase.subscribeOrders === "function") {

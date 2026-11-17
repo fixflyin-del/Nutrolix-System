@@ -586,6 +586,7 @@
       sendBtn.disabled = true;
       sendBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-[10px]"></i>';
       try {
+        window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
         const res = await window.startNutrolixPhoneOtp(phone, { isResend });
         if (res.mode === 'instant') {
           checkAuthAndLoadOrders();

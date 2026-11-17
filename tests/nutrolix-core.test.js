@@ -1028,3 +1028,191 @@ test('Checkout address tick switch, default address selection, recipient phone i
   assert.equal(adminHtml.includes('+ Add Google Review'), false, 'admin.html must not have double + icon on Google Review button');
   assert.equal(adminHtml.includes('+ Add New Category'), false, 'admin.html must not have double + icon on Add Category button');
 });
+
+test('Live cross-device media upload (/api/upload-image -> /api/media/:id) & no-store catalog CRUD roundtrips', async () => {
+  const rootDir = path.join(__dirname, '..');
+  const dataDir = path.join(rootDir, 'public', 'data');
+  const trackedCatalogFiles = [
+    'banners.json',
+    'hero_products.json',
+    'google_reviews.json',
+    'video_reviews.json',
+    'store_settings.json'
+  ];
+  const backups = {};
+  for (const f of trackedCatalogFiles) {
+    const p = path.join(dataDir, f);
+    backups[f] = fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null;
+  }
+  let createdUploadPath = null;
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address();
+  const port = typeof addr === 'object' && addr ? addr.port : 0;
+
+  const httpReq = (method, reqPath, bodyObj = null) => new Promise((resolve, reject) => {
+    const bodyStr = bodyObj ? JSON.stringify(bodyObj) : null;
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port,
+      path: reqPath,
+      method,
+      headers: bodyStr ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(bodyStr) } : {}
+    }, (res) => {
+      const chunks = [];
+      res.on('data', c => chunks.push(c));
+      res.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        const raw = buf.toString('utf8');
+        let json = null;
+        try { json = JSON.parse(raw); } catch (_) {}
+        resolve({ status: res.statusCode, headers: res.headers, json, raw, buf });
+      });
+    });
+    req.on('error', reject);
+    if (bodyStr) req.write(bodyStr);
+    req.end();
+  });
+
+  try {
+    // 1. Upload 1x1 PNG via /api/upload-image and retrieve binary via /api/media/:id
+    const png1x1Base64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const upRes = await httpReq('POST', '/api/upload-image', {
+      imageData: `data:image/png;base64,${png1x1Base64}`,
+      filename: 'test_sync_png'
+    });
+    assert.equal(upRes.status, 200);
+    assert.equal(upRes.json.success, true);
+    assert.ok(upRes.json.url.startsWith('/api/media/'), 'Upload URL must be /api/media/:id');
+    assert.ok(String(upRes.headers['cache-control'] || '').includes('no-store'));
+
+    if (upRes.json.filename) {
+      const candidate = path.join(rootDir, 'public', 'uploads', upRes.json.filename);
+      if (fs.existsSync(candidate)) createdUploadPath = candidate;
+    }
+
+    const mediaGet = await httpReq('GET', upRes.json.url);
+    assert.equal(mediaGet.status, 200);
+    assert.equal(mediaGet.headers['content-type'], 'image/png');
+    assert.ok(mediaGet.buf.equals(Buffer.from(png1x1Base64, 'base64')), 'Served binary image must match uploaded PNG bytes');
+
+    // 2. Banners CRUD + no-store header
+    const bPost = await httpReq('POST', '/api/banners', {
+      id: 'banner_test_sync',
+      title: 'Diwali Fitness Sale',
+      subtitle: 'Extra 15% Off',
+      code: 'NUTRO15',
+      imageUrl: upRes.json.url,
+      active: true
+    });
+    assert.equal(bPost.status, 200);
+    assert.equal(bPost.json.success, true);
+
+    const bGet = await httpReq('GET', '/api/banners');
+    assert.equal(bGet.status, 200);
+    assert.ok(String(bGet.headers['cache-control'] || '').includes('no-store'));
+    assert.ok(bGet.json.some(b => b.id === 'banner_test_sync' && b.imageUrl === upRes.json.url));
+
+    const bDel = await httpReq('POST', '/api/banners/delete', { id: 'banner_test_sync' });
+    assert.equal(bDel.status, 200);
+    assert.equal(bDel.json.banners.some(b => b.id === 'banner_test_sync'), false);
+
+    // 3. Hero products roundtrip
+    const heroPost = await httpReq('POST', '/api/hero-products', {
+      card1: { title: 'Test Atta', subtitle: '46g Protein', rating: '5.0', price: 399, image: upRes.json.url },
+      card2: { title: 'Test Meal', subtitle: 'Clean Fuel', rating: '4.9', price: 299, image: upRes.json.url },
+      showcase: { title: 'Test Showcase', tag: 'Lab Verified', price: 399, image: upRes.json.url }
+    });
+    assert.equal(heroPost.status, 200);
+    const heroGet = await httpReq('GET', '/api/hero-products');
+    assert.equal(heroGet.status, 200);
+    assert.ok(String(heroGet.headers['cache-control'] || '').includes('no-store'));
+    assert.equal(heroGet.json.heroProducts.card1.image, upRes.json.url);
+
+    // 4. Google Reviews dual-field normalization (author/authorName, text/reviewText)
+    const gPost = await httpReq('POST', '/api/google-reviews', {
+      author: 'Kabir Mehta',
+      text: 'Fresh atta and fast delivery!',
+      rating: 5
+    });
+    assert.equal(gPost.status, 200);
+    const gGet = await httpReq('GET', '/api/google-reviews');
+    assert.equal(gGet.status, 200);
+    assert.ok(String(gGet.headers['cache-control'] || '').includes('no-store'));
+    const kabir = gGet.json.reviews.find(r => r.authorName === 'Kabir Mehta');
+    assert.ok(kabir && kabir.author === 'Kabir Mehta' && kabir.reviewText === 'Fresh atta and fast delivery!');
+
+    // 5. Video Reviews YouTube ID extraction across shorts/, youtu.be/, watch?v=
+    for (const [vidId, url] of [
+      ['vid_test_short', 'https://www.youtube.com/shorts/dQw4w9WgXcQ'],
+      ['vid_test_be', 'https://youtu.be/M7lc1UVf-VE?si=xyz'],
+      ['vid_test_watch', 'https://www.youtube.com/watch?v=aqz-KE-bpKQ']
+    ]) {
+      const vPost = await httpReq('POST', '/api/video-reviews', { id: vidId, youtubeUrl: url, title: 'Review' });
+      assert.equal(vPost.status, 200);
+      assert.ok(vPost.json.item.youtubeId, `Should extract YouTube ID from ${url}`);
+    }
+    const vGet = await httpReq('GET', '/api/video-reviews');
+    assert.equal(vGet.status, 200);
+    assert.equal(vGet.json.find(v => v.id === 'vid_test_short').youtubeId, 'dQw4w9WgXcQ');
+    assert.equal(vGet.json.find(v => v.id === 'vid_test_be').youtubeId, 'M7lc1UVf-VE');
+    assert.equal(vGet.json.find(v => v.id === 'vid_test_watch').youtubeId, 'aqz-KE-bpKQ');
+
+    // 6. Store settings unified alias (/api/settings & /api/store-settings)
+    const sPost = await httpReq('POST', '/api/store-settings', {
+      announcementText: 'Live Test Banner!',
+      deliveryFee: 39,
+      freeDeliveryMin: 599
+    });
+    assert.equal(sPost.status, 200);
+    const sGet = await httpReq('GET', '/api/settings');
+    assert.equal(sGet.status, 200);
+    assert.ok(String(sGet.headers['cache-control'] || '').includes('no-store'));
+    assert.equal(sGet.json.announcementText, 'Live Test Banner!');
+    assert.equal(sGet.json.deliveryFee, 39);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    for (const f of trackedCatalogFiles) {
+      const p = path.join(dataDir, f);
+      if (backups[f] !== null) fs.writeFileSync(p, backups[f], 'utf8');
+      else if (fs.existsSync(p)) fs.unlinkSync(p);
+    }
+    if (createdUploadPath && fs.existsSync(createdUploadPath)) {
+      try { fs.unlinkSync(createdUploadPath); } catch (_) {}
+    }
+  }
+});
+
+test('Audible lockscreen Android channel alignment, Doze WakeLock, Web Push SW broadcast & client live-sync guards', () => {
+  const rootDir = path.join(__dirname, '..');
+  const manifestXml = fs.readFileSync(path.join(rootDir, 'app/src/main/AndroidManifest.xml'), 'utf8');
+  const helperKt = fs.readFileSync(path.join(rootDir, 'app/src/main/java/com/example/util/NotificationAndSoundHelper.kt'), 'utf8');
+  const fcmKt = fs.readFileSync(path.join(rootDir, 'app/src/main/java/com/example/service/NutrolixFirebaseMessagingService.kt'), 'utf8');
+  const rules = fs.readFileSync(path.join(rootDir, 'firestore.rules'), 'utf8');
+  const swJs = fs.readFileSync(path.join(rootDir, 'public/sw.js'), 'utf8');
+  const uploaderJs = fs.readFileSync(path.join(rootDir, 'public/assets/cloudinary-uploader.js'), 'utf8');
+  const notifJs = fs.readFileSync(path.join(rootDir, 'public/assets/nutrolix-notifications.js'), 'utf8');
+  const adminHtml = fs.readFileSync(path.join(rootDir, 'public/admin.html'), 'utf8');
+  const indexHtml = fs.readFileSync(path.join(rootDir, 'public/index.html'), 'utf8');
+  const coreJs = fs.readFileSync(path.join(rootDir, 'lib/nutrolix-core.js'), 'utf8');
+
+  // Android manifest & service lockscreen/Doze + sound integrity
+  assert.ok(manifestXml.includes('android:value="nutrolix_orders_channel_v3"'), 'AndroidManifest default FCM channel must be nutrolix_orders_channel_v3');
+  assert.ok(helperKt.includes('"nutrolix_orders_channel"'), 'NotificationAndSoundHelper must also register legacy nutrolix_orders_channel');
+  assert.ok(helperKt.includes('NotificationCompat.DEFAULT_LIGHTS or NotificationCompat.DEFAULT_VIBRATE'), 'sendFcmOrderNotification must not let DEFAULT_ALL override custom sound');
+  assert.ok(fcmKt.includes('PowerManager.PARTIAL_WAKE_LOCK') && fcmKt.includes('wakeLock?.isHeld == true'), 'NutrolixFirebaseMessagingService must hold & release PARTIAL_WAKE_LOCK');
+
+  // FCM v1 server payload & Firestore rules
+  assert.ok(coreJs.includes("visibility: 'PUBLIC'") && coreJs.includes("notification_priority: 'PRIORITY_MAX'") && coreJs.includes("ttl: '86400s'"));
+  assert.ok(rules.includes("'role'") && rules.includes("'endpoint'") && rules.includes("'subscriptionJson'"), 'firestore.rules fcmTokens schema must allow role, endpoint & subscriptionJson');
+
+  // Web Push SW broadcast & permission recovery
+  assert.ok(swJs.includes('NUTROLIX_PUSH_RECEIVED'), 'sw.js must broadcast push events to open window clients');
+  assert.ok(notifJs.includes('lastWebAutoPromptAt') && notifJs.includes('NUTROLIX_PUSH_RECEIVED'), 'nutrolix-notifications.js must retry permission prompt cleanly and handle SW broadcast');
+
+  // Cross-device image compression + persistent upload + no-store storefront/admin sync
+  assert.ok(uploaderJs.includes('/api/upload-image') && uploaderJs.includes('compressImageFile'), 'cloudinary-uploader.js must compress and persist via /api/upload-image');
+  assert.ok(adminHtml.includes('uploadHeroCardImage') && adminHtml.includes('loadBannersAdmin') && adminHtml.includes('loadHeroProductsAdmin'));
+  assert.ok(indexHtml.includes('syncLiveHomepageData') && indexHtml.includes("cache: 'no-store'"));
+});
+

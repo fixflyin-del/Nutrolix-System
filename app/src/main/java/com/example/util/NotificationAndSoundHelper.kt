@@ -40,6 +40,12 @@ object OrderNotificationHelper {
   fun initChannel(context: Context) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+      val notifSoundUri = android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION)
+      val notifAudioAttrs = AudioAttributes.Builder()
+        .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+        .build()
+
       val customerChannel = NotificationChannel(
         CHANNEL_ID,
         CHANNEL_NAME,
@@ -50,13 +56,21 @@ object OrderNotificationHelper {
         vibrationPattern = longArrayOf(0, 250, 150, 250)
         enableLights(true)
         lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
-        setSound(
-          android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_NOTIFICATION),
-          AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-            .build()
-        )
+        setSound(notifSoundUri, notifAudioAttrs)
+      }
+
+      // Legacy manifest fallback channel ID kept in sync so OS-rendered background FCM payloads always ring audibly
+      val legacyCustomerChannel = NotificationChannel(
+        "nutrolix_orders_channel",
+        CHANNEL_NAME,
+        NotificationManager.IMPORTANCE_HIGH
+      ).apply {
+        description = "Order status and confirmation notifications"
+        enableVibration(true)
+        vibrationPattern = longArrayOf(0, 250, 150, 250)
+        enableLights(true)
+        lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
+        setSound(notifSoundUri, notifAudioAttrs)
       }
 
       // Visual-only high-priority lockscreen channel (no system ringtone audio;
@@ -75,6 +89,7 @@ object OrderNotificationHelper {
         enableLights(true)
       }
       notificationManager?.createNotificationChannel(customerChannel)
+      notificationManager?.createNotificationChannel(legacyCustomerChannel)
       notificationManager?.createNotificationChannel(adminChannel)
     }
   }
@@ -210,7 +225,7 @@ object OrderNotificationHelper {
       .setSilent(false)
       .setVibrate(longArrayOf(0, 300, 150, 300))
       .setAutoCancel(true)
-      .setDefaults(NotificationCompat.DEFAULT_ALL)
+      .setDefaults(NotificationCompat.DEFAULT_LIGHTS or NotificationCompat.DEFAULT_VIBRATE)
 
     try {
       NotificationManagerCompat.from(context).notify(notifId, builder.build())

@@ -489,8 +489,9 @@
         }
       } catch (_) {}
 
-      if (window.location.protocol !== 'file:') {
-        fetch('/api/nutrition-products')
+      const host = window.NUTROLIX_API_HOST || '';
+      if (window.location.protocol !== 'file:' || host) {
+        fetch(host + '/api/nutrition-products', { cache: 'no-store' })
           .then(res => res.ok ? res.json() : null)
           .then(srv => {
             if (srv && Array.isArray(srv) && srv.length) {
@@ -521,6 +522,9 @@
 
       loadLiveProducts();
       updateShopCartBadge();
+
+      window.addEventListener('pageshow', (e) => { if (e.persisted) loadLiveProducts(); });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') loadLiveProducts(); });
 
       // Cross-tab live sync with Admin Panel
       window.addEventListener('storage', (e) => {

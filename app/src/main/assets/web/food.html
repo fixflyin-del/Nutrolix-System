@@ -1125,16 +1125,22 @@
         if (local) cats = JSON.parse(local);
       } catch(_) {}
 
-      if (!cats || !cats.length) {
-        try {
-          const res = await fetch('/api/food-categories');
-          if (res.ok) cats = await res.json();
-        } catch(_) {}
-      }
-
       if (cats && cats.length) {
         renderCategoryPills(cats);
       }
+
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/food-categories', { cache: 'no-store' });
+        if (res && res.ok) {
+          const freshCats = await res.json();
+          if (Array.isArray(freshCats) && freshCats.length) {
+            cats = freshCats;
+            try { localStorage.setItem('nutrolix_food_categories', JSON.stringify(freshCats)); } catch (_) {}
+            renderCategoryPills(freshCats);
+          }
+        }
+      } catch(_) {}
     }
 
     function renderCategoryPills(categories) {
@@ -1463,26 +1469,37 @@
       }).join('');
     };
 
-    document.addEventListener('DOMContentLoaded', () => {
-      renderFoodMenu();
-      updateCartBadges();
+    function syncLiveFoodCatalog() {
+      const host = window.NUTROLIX_API_HOST || '';
+      if (window.location.protocol === 'file:' && !host) return;
       loadDynamicCategories();
-
-      // Background sync with server
-      fetch('/api/food-menu')
+      fetch(host + '/api/food-menu', { cache: 'no-store' })
         .then(r => r.ok ? r.json() : null)
         .then(meals => {
           if (Array.isArray(meals) && meals.length > 0) {
-            try { localStorage.setItem('nutrolix_healthy_food', JSON.stringify(meals)); } catch (_) {}
+            try {
+              localStorage.setItem('nutrolix_healthy_food', JSON.stringify(meals));
+              localStorage.setItem('nutrolix_healthy_food_menu', JSON.stringify(meals));
+            } catch (_) {}
             renderFoodMenu();
           }
         })
         .catch(() => {});
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderFoodMenu();
+      updateCartBadges();
+      syncLiveFoodCatalog();
+
+      window.addEventListener('pageshow', (e) => { if (e.persisted) syncLiveFoodCatalog(); });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncLiveFoodCatalog(); });
 
       // Cross-tab live sync with Admin Panel
       window.addEventListener('storage', (e) => {
-        if (e.key === 'nutrolix_healthy_food') {
+        if (e.key === 'nutrolix_healthy_food' || e.key === 'nutrolix_food_categories') {
           renderFoodMenu();
+          loadDynamicCategories();
         }
       });
     });

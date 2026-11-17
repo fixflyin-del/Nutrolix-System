@@ -766,15 +766,49 @@
     function getStoreSettings() {
       try {
         const s = JSON.parse(localStorage.getItem('nutrolix_store_settings') || '{}');
+        const freeThreshold = s.freeDeliveryThreshold !== undefined
+          ? Number(s.freeDeliveryThreshold)
+          : (s.freeDeliveryAbove !== undefined ? Number(s.freeDeliveryAbove) : 499);
         return {
           deliveryFee: s.deliveryFee !== undefined ? Number(s.deliveryFee) : 49,
-          freeDeliveryThreshold: s.freeDeliveryThreshold !== undefined ? Number(s.freeDeliveryThreshold) : 499,
+          freeDeliveryThreshold: freeThreshold,
           announcement: s.announcement || '🔥 Flat 10% OFF on all functional foods! Code: NUTRO10 • Free Delivery Above ₹499',
           announcementActive: s.announcementActive !== false
         };
       } catch (_) {
         return { deliveryFee: 49, freeDeliveryThreshold: 499 };
       }
+    }
+
+    async function syncLiveCartConfig() {
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        if (window.location.protocol === 'file:' && !host) return;
+        const [sRes, cRes] = await Promise.all([
+          fetch(host + '/api/settings', { cache: 'no-store' }).catch(() => null),
+          fetch(host + '/api/coupons', { cache: 'no-store' }).catch(() => null)
+        ]);
+        let changed = false;
+        if (sRes && sRes.ok) {
+          const sData = await sRes.json().catch(() => null);
+          if (sData && typeof sData === 'object') {
+            try { localStorage.setItem('nutrolix_store_settings', JSON.stringify(sData)); } catch (_) {}
+            changed = true;
+          }
+        }
+        if (cRes && cRes.ok) {
+          const cData = await cRes.json().catch(() => null);
+          const arr = Array.isArray(cData) ? cData : (Array.isArray(cData && cData.coupons) ? cData.coupons : null);
+          if (arr) {
+            try { localStorage.setItem('nutrolix_coupons', JSON.stringify(arr)); } catch (_) {}
+            changed = true;
+          }
+        }
+        if (changed) {
+          renderAvailableCoupons();
+          renderSummary();
+        }
+      } catch (_) {}
     }
 
     function getStoreCoupons() {
@@ -1954,6 +1988,7 @@
         alert('Your cart is empty. Please add a product first.');
         return;
       }
+      window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
 
       const user = window.getNutrolixUser ? window.getNutrolixUser() : null;
       const verifiedPhone = user
@@ -2369,8 +2404,11 @@
       checkAndRenderSavedAddresses();
       renderCart();
       renderAvailableCoupons();
+      syncLiveCartConfig();
       window.checkCartAuthStatus();
       window.autoDetectCheckoutLocation(false);
+      window.addEventListener('pageshow', (e) => { if (e.persisted) syncLiveCartConfig(); });
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncLiveCartConfig(); });
 
       // Reactive cross-device Firebase / Firestore sync listeners
       window.addEventListener('nutrolix:auth-changed', () => {

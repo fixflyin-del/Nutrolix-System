@@ -376,7 +376,8 @@
       async function loadArticle() {
         let allBlogs = [];
         try {
-          const res = await fetch('/api/blogs');
+          const host = window.NUTROLIX_API_HOST || '';
+          const res = await fetch(host + '/api/blogs', { cache: 'no-store' });
           if (res.ok) allBlogs = await res.json();
         } catch (_) {}
 

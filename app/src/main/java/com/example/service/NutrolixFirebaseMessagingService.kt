@@ -1,6 +1,8 @@
 package com.example.service
 
+import android.content.Context
 import android.content.Intent
+import android.os.PowerManager
 import android.util.Log
 import com.example.MainActivity
 import com.example.model.Order
@@ -81,66 +83,82 @@ class NutrolixFirebaseMessagingService : FirebaseMessagingService() {
 
   override fun onMessageReceived(remoteMessage: RemoteMessage) {
     super.onMessageReceived(remoteMessage)
-    val data = remoteMessage.data
-    val msgType = data["type"] ?: ""
-    val targetRole = data["role"] ?: ""
-    val orderId = data["orderId"] ?: ""
-    val isAdminOrderPush = msgType == "ADMIN_NEW_ORDER" || targetRole == "admin" ||
-      (applicationContext.packageName.contains("admin", ignoreCase = true) && orderId.isNotBlank())
+    val pm = applicationContext.getSystemService(Context.POWER_SERVICE) as? PowerManager
+    val wakeLock = try {
+      pm?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Nutrolix:FcmWakeLock")?.apply {
+        setReferenceCounted(false)
+        acquire(8000L)
+      }
+    } catch (_: Exception) {
+      null
+    }
 
-    if (isAdminOrderPush) {
-      val resolvedOrderId = orderId.ifBlank { "LIVE_${System.currentTimeMillis()}" }
-      val custName = data["customerName"]?.takeIf { it.isNotBlank() } ?: "Customer"
-      val custPhone = data["customerPhone"] ?: ""
-      val paymentMethod = data["paymentMethod"]?.takeIf { it.isNotBlank() } ?: "Online"
-      val totalAmount = data["total"]?.toDoubleOrNull() ?: 0.0
-      val adminOrder = Order(
-        id = resolvedOrderId,
-        orderNumber = data["orderNumber"]?.takeIf { it.isNotBlank() } ?: resolvedOrderId,
-        customerPhone = custPhone,
-        customerName = custName,
-        items = emptyList(),
-        subtotal = totalAmount,
-        discount = 0.0,
-        deliveryFee = 0.0,
-        tax = 0.0,
-        tip = 0.0,
-        total = totalAmount,
-        status = OrderStatus.CONFIRMED,
-        paymentMethod = paymentMethod,
-        paymentStatus = "PAID",
-        orderTimeMillis = System.currentTimeMillis(),
-        deliveryAddress = data["deliveryAddress"] ?: ""
+    try {
+      val data = remoteMessage.data
+      val msgType = data["type"] ?: ""
+      val targetRole = data["role"] ?: ""
+      val orderId = data["orderId"] ?: ""
+      val isAdminOrderPush = msgType == "ADMIN_NEW_ORDER" || targetRole == "admin" ||
+        (applicationContext.packageName.contains("admin", ignoreCase = true) && orderId.isNotBlank())
+
+      if (isAdminOrderPush) {
+        val resolvedOrderId = orderId.ifBlank { "LIVE_${System.currentTimeMillis()}" }
+        val custName = data["customerName"]?.takeIf { it.isNotBlank() } ?: "Customer"
+        val custPhone = data["customerPhone"] ?: ""
+        val paymentMethod = data["paymentMethod"]?.takeIf { it.isNotBlank() } ?: "Online"
+        val totalAmount = data["total"]?.toDoubleOrNull() ?: 0.0
+        val adminOrder = Order(
+          id = resolvedOrderId,
+          orderNumber = data["orderNumber"]?.takeIf { it.isNotBlank() } ?: resolvedOrderId,
+          customerPhone = custPhone,
+          customerName = custName,
+          items = emptyList(),
+          subtotal = totalAmount,
+          discount = 0.0,
+          deliveryFee = 0.0,
+          tax = 0.0,
+          tip = 0.0,
+          total = totalAmount,
+          status = OrderStatus.CONFIRMED,
+          paymentMethod = paymentMethod,
+          paymentStatus = "PAID",
+          orderTimeMillis = System.currentTimeMillis(),
+          deliveryAddress = data["deliveryAddress"] ?: ""
+        )
+        OrderAlarmPlayer.playOrderAlarm(applicationContext)
+        OrderNotificationHelper.sendAdminNewOrderNotification(applicationContext, adminOrder)
+        return
+      }
+
+      val title = remoteMessage.notification?.title ?: data["title"] ?: "Nutrolix Order Update"
+      val body = remoteMessage.notification?.body ?: data["message"] ?: data["body"] ?: "Your order status has been updated."
+      val status = data["status"] ?: ""
+      val openUrl = data["url"] ?: if (orderId.isNotBlank()) "/orders.html?orderId=$orderId" else "/orders.html"
+
+      // Show system notification for background/locked/closed states
+      OrderNotificationHelper.sendFcmOrderNotification(
+        context = applicationContext,
+        title = title,
+        body = body,
+        orderId = orderId,
+        openUrl = openUrl
       )
-      OrderAlarmPlayer.playOrderAlarm(applicationContext)
-      OrderNotificationHelper.sendAdminNewOrderNotification(applicationContext, adminOrder)
-      return
+
+      // Broadcast to active MainActivity so WebView shows a clean in-app toast & refreshes orders
+      val broadcast = Intent(ACTION_ORDER_PUSH_RECEIVED).apply {
+        setPackage(packageName)
+        putExtra("title", title)
+        putExtra("body", body)
+        putExtra("order_id", orderId)
+        putExtra("status", status)
+        putExtra("open_url", openUrl)
+      }
+      sendBroadcast(broadcast)
+    } finally {
+      if (wakeLock?.isHeld == true) {
+        try { wakeLock.release() } catch (_: Exception) {}
+      }
     }
-
-    val title = remoteMessage.notification?.title ?: data["title"] ?: "Nutrolix Order Update"
-    val body = remoteMessage.notification?.body ?: data["message"] ?: data["body"] ?: "Your order status has been updated."
-    val status = data["status"] ?: ""
-    val openUrl = data["url"] ?: if (orderId.isNotBlank()) "/orders.html?orderId=$orderId" else "/orders.html"
-
-    // Show system notification for background/locked/closed states
-    OrderNotificationHelper.sendFcmOrderNotification(
-      context = applicationContext,
-      title = title,
-      body = body,
-      orderId = orderId,
-      openUrl = openUrl
-    )
-
-    // Broadcast to active MainActivity so WebView shows a clean in-app toast & refreshes orders
-    val broadcast = Intent(ACTION_ORDER_PUSH_RECEIVED).apply {
-      setPackage(packageName)
-      putExtra("title", title)
-      putExtra("body", body)
-      putExtra("order_id", orderId)
-      putExtra("status", status)
-      putExtra("open_url", openUrl)
-    }
-    sendBroadcast(broadcast)
   }
 
   private fun registerTokenOnServer(

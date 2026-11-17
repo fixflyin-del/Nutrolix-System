@@ -576,6 +576,7 @@
       sendBtn.disabled = true;
       sendBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-[10px]"></i>';
       try {
+        window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
         const res = await window.startNutrolixPhoneOtp(digits, { isResend });
         if (res.mode === 'instant' && res.profile) {
           finish(res.profile);
@@ -600,7 +601,9 @@
       verifyBtn.disabled = true;
       verifyBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i><span>Verifying...</span>';
       try {
+        window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
         const prof = await window.verifyNutrolixPhoneOtp(otpInput.value);
+        window.NutrolixNotifications?.ensureWebPushSynced?.(2000).catch?.(() => {});
         finish(prof);
       } catch (e) {
         showErr(e.message || 'Incorrect OTP. Please try again.');
