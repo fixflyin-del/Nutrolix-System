@@ -39,6 +39,7 @@
   </style>
   <script src="assets/nutrolix-data.js"></script>
   <script src="assets/nutrolix-drawer.js"></script>
+  <script src="assets/nutrolix-image-loader.js"></script>
   <script src="assets/cloudinary-uploader.js"></script>
   <!-- Firebase Compat SDK & Live Firestore Bridge -->
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
@@ -400,7 +401,7 @@
               </div>
               
               <div class="aspect-square w-full rounded-xl overflow-hidden bg-white border border-slate-200 relative group">
-                <img id="adminHeroPreview1" src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=500&q=80" alt="Card 1 Preview" class="w-full h-full object-cover">
+                <img id="adminHeroPreview1" src="assets/aistudio/image_6061bdc8.png" alt="Card 1 Preview" class="w-full h-full object-cover">
               </div>
 
               <div class="space-y-2 text-xs">
@@ -435,7 +436,7 @@
               </div>
               
               <div class="aspect-square w-full rounded-xl overflow-hidden bg-white border border-slate-200 relative group">
-                <img id="adminHeroPreview2" src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80" alt="Card 2 Preview" class="w-full h-full object-cover">
+                <img id="adminHeroPreview2" src="assets/aistudio/image_6061bdc8.png" alt="Card 2 Preview" class="w-full h-full object-cover">
               </div>
 
               <div class="space-y-2 text-xs">
@@ -470,7 +471,7 @@
               </div>
               
               <div class="aspect-square w-full rounded-xl overflow-hidden bg-white border border-slate-200 relative group">
-                <img id="adminHeroPreview3" src="https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80" alt="Card 3 Preview" class="w-full h-full object-cover">
+                <img id="adminHeroPreview3" src="assets/aistudio/image_6061bdc8.png" alt="Card 3 Preview" class="w-full h-full object-cover">
               </div>
 
               <div class="space-y-2 text-xs">
@@ -1477,7 +1478,7 @@
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Image URL</label>
-          <input type="url" id="mealImageUrl" required placeholder="https://images.unsplash.com/..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300">
+          <input type="url" id="mealImageUrl" required placeholder="/assets/aistudio/image_6061bdc8.png" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300">
         </div>
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Description</label>
@@ -1881,13 +1882,14 @@
 
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Cover Image URL *</label>
-          <div class="flex space-x-2">
-            <input type="url" id="blogImage" required placeholder="https://..." class="flex-1 px-3 py-2 text-xs rounded-xl border border-slate-300">
+          <div class="flex flex-wrap gap-1.5">
+            <input type="text" id="blogImage" placeholder="/assets/aistudio/image_6061bdc8.png" class="flex-1 min-w-[140px] px-3 py-2 text-xs rounded-xl border border-slate-300">
             <label class="px-2.5 py-1 text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg font-bold border border-emerald-300 cursor-pointer flex items-center space-x-1 whitespace-nowrap">
               <i class="fa-solid fa-cloud-arrow-up"></i>
               <span>Upload</span>
               <input type="file" accept="image/*" class="hidden" onchange="window.uploadBlogCover(this.files[0])">
             </label>
+            <button type="button" onclick="document.getElementById('blogImage').value='/assets/aistudio/image_6061bdc8.png'" class="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold whitespace-nowrap">Sample Preset</button>
             <button type="button" onclick="document.getElementById('blogImage').value='assets/nutrolix_lab_facility.jpg'" class="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold whitespace-nowrap">Lab Preset</button>
             <button type="button" onclick="document.getElementById('blogImage').value='assets/nutrolix_cleanroom_factory.jpg'" class="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold whitespace-nowrap">Factory Preset</button>
           </div>
@@ -2143,7 +2145,10 @@
       }
 
       tbody.innerHTML = window.packagedProducts.map(p => {
-        const img = (p.images && p.images[0]) || '/assets/nutrolix_logo.png';
+        const rawImg = (p.images && p.images[0]) || p.image || '';
+        const img = (typeof window.nutrolixResolveCatalogImage === 'function')
+          ? window.nutrolixResolveCatalogImage(rawImg)
+          : (rawImg || 'assets/aistudio/image_6061bdc8.png');
         const imgCount = (p.images || []).length;
         const protein = p.nutritionFacts?.per100g?.protein || p.protein || '30g';
         return `
@@ -2307,7 +2312,7 @@
       const howToUse = document.getElementById('pkgUsage').value.trim();
       const storage = document.getElementById('pkgStorage').value.trim();
 
-      const finalImages = images.length ? images : ['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80'];
+      const finalImages = images.length ? images : ['/assets/aistudio/image_6061bdc8.png'];
       const payload = {
         id,
         name: title,
@@ -3704,10 +3709,14 @@
         return;
       }
 
-      tbody.innerHTML = window.healthyMeals.map(m => `
+      tbody.innerHTML = window.healthyMeals.map(m => {
+        const mImg = (typeof window.nutrolixResolveCatalogImage === 'function')
+          ? window.nutrolixResolveCatalogImage(m.image)
+          : (m.image || 'assets/aistudio/image_6061bdc8.png');
+        return `
         <tr class="hover:bg-slate-50 transition border-b border-slate-100">
           <td class="p-3.5 flex items-center space-x-3">
-            <img src="${m.image || 'assets/nutrolix-logo.png'}" alt="${m.name || m.title || "Healthy Meal"}" class="w-12 h-12 rounded-xl object-cover border border-slate-200">
+            <img src="${mImg}" alt="${m.name || m.title || "Healthy Meal"}" class="w-12 h-12 rounded-xl object-cover border border-slate-200">
             <div>
               <span class="font-extrabold text-slate-900 block text-xs">${m.name || m.title || "Healthy Meal"}</span>
               <span class="text-[10px] text-slate-400">${m.id}</span>
@@ -3734,7 +3743,8 @@
             </button>
           </td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
     };
 
     window.openAddMealModal = function() {
@@ -3807,7 +3817,7 @@
       event.preventDefault();
       const id = document.getElementById('singleMealId').value.trim() || ('meal_' + Date.now());
       const mealTitle = document.getElementById('singleMealTitle').value.trim();
-      const mealImg = document.getElementById('singleMealImageUrl').value.trim() || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80';
+      const mealImg = document.getElementById('singleMealImageUrl').value.trim() || '/assets/aistudio/image_6061bdc8.png';
       const payload = {
         id: id,
         name: mealTitle,
@@ -3891,8 +3901,11 @@
       document.getElementById('singleMealProtein').value = parseFloat(meal.protein) || 25;
       document.getElementById('singleMealPrep').value = String(meal.prepTime || '20').replace(/[^0-9]/g, '');
       
-      const mealImg = meal.image || (Array.isArray(meal.images) ? meal.images[0] : '') || '';
-      document.getElementById('singleMealImageUrl').value = mealImg;
+      const mealImgRaw = meal.image || (Array.isArray(meal.images) ? meal.images[0] : '') || '';
+      const mealImg = (typeof window.nutrolixResolveCatalogImage === 'function')
+        ? window.nutrolixResolveCatalogImage(mealImgRaw)
+        : (mealImgRaw || 'assets/aistudio/image_6061bdc8.png');
+      document.getElementById('singleMealImageUrl').value = mealImgRaw;
       document.getElementById('singleMealDescription').value = meal.description || '';
       document.getElementById('singleMealInStock').checked = meal.inStock !== false;
       
@@ -4253,11 +4266,14 @@
 
       tbody.innerHTML = window.blogsList.map(b => {
         const articleUrl = '/' + (b.slug || b.id);
+        const blogThumb = (typeof window.nutrolixResolveCatalogImage === 'function')
+          ? window.nutrolixResolveCatalogImage(b.image)
+          : (b.image || 'assets/aistudio/image_6061bdc8.png');
         return `
         <tr class="hover:bg-slate-50 transition border-b border-slate-100">
           <td class="p-3.5">
             <div class="flex items-center space-x-3">
-              <img src="${b.image || '/assets/nutrolix_logo.png'}" class="w-12 h-12 rounded-xl object-cover border border-slate-200">
+              <img src="${blogThumb}" class="w-12 h-12 rounded-xl object-cover border border-slate-200">
               <div class="max-w-xs">
                 <span class="font-extrabold text-slate-900 block truncate text-xs">${b.title}</span>
                 <a href="${articleUrl}" target="_blank" class="text-[11px] text-purple-700 font-bold hover:underline flex items-center space-x-1">
@@ -4340,7 +4356,7 @@
       const category = document.getElementById('blogCategory').value;
       const author = document.getElementById('blogAuthor').value.trim();
       const readTime = document.getElementById('blogReadTime').value.trim();
-      const image = document.getElementById('blogImage').value.trim();
+      const image = document.getElementById('blogImage').value.trim() || '/assets/aistudio/image_6061bdc8.png';
       const seoTitle = document.getElementById('blogSeoTitle').value.trim();
       const seoDescription = document.getElementById('blogSeoDescription').value.trim();
       const seoKeywords = document.getElementById('blogSeoKeywords').value.trim();
@@ -4527,7 +4543,11 @@
     // Homepage Hero 3 Products & Images Management (Point 4)
     window.updateHeroImgPreview = function(idx, url) {
       const p = document.getElementById('adminHeroPreview' + idx);
-      if (p && url) p.src = window.CloudinaryService?.resolveMediaUrl?.(url) || url;
+      if (!p) return;
+      const resolved = (typeof window.nutrolixResolveCatalogImage === 'function')
+        ? window.nutrolixResolveCatalogImage(url)
+        : (window.CloudinaryService?.resolveMediaUrl?.(url) || url || 'assets/aistudio/image_6061bdc8.png');
+      p.src = resolved;
     };
 
     window.uploadHeroCardImage = async function(idx, file) {
@@ -4566,35 +4586,42 @@
         card1: {
           title: "High Protein Atta",
           price: 349,
-          image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=500&q=80"
+          image: "/assets/aistudio/image_6061bdc8.png"
         },
         card2: {
           title: "Complete Nutri Meal",
           price: 699,
-          image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80"
+          image: "/assets/aistudio/image_6061bdc8.png"
         },
         showcase: {
           title: "Nutrolix High Protein Atta",
           price: 349,
-          image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80"
+          image: "/assets/aistudio/image_6061bdc8.png"
         }
       };
       const resolved = data && (data.card1 || data.card2 || data.showcase) ? data : defaults;
+      const isStock = typeof window.nutrolixIsDefaultImage === 'function' ? window.nutrolixIsDefaultImage : (() => false);
 
-      if (document.getElementById('adminHeroImg1')) document.getElementById('adminHeroImg1').value = resolved.card1?.image || defaults.card1.image;
+      const raw1 = resolved.card1?.image || defaults.card1.image;
+      const img1 = isStock(raw1) ? defaults.card1.image : raw1;
+      if (document.getElementById('adminHeroImg1')) document.getElementById('adminHeroImg1').value = img1;
       if (document.getElementById('adminHeroTitle1')) document.getElementById('adminHeroTitle1').value = resolved.card1?.title || defaults.card1.title;
       if (document.getElementById('adminHeroPrice1')) document.getElementById('adminHeroPrice1').value = resolved.card1?.price || defaults.card1.price;
-      window.updateHeroImgPreview(1, resolved.card1?.image || defaults.card1.image);
+      window.updateHeroImgPreview(1, img1);
 
-      if (document.getElementById('adminHeroImg2')) document.getElementById('adminHeroImg2').value = resolved.card2?.image || defaults.card2.image;
+      const raw2 = resolved.card2?.image || defaults.card2.image;
+      const img2 = isStock(raw2) ? defaults.card2.image : raw2;
+      if (document.getElementById('adminHeroImg2')) document.getElementById('adminHeroImg2').value = img2;
       if (document.getElementById('adminHeroTitle2')) document.getElementById('adminHeroTitle2').value = resolved.card2?.title || defaults.card2.title;
       if (document.getElementById('adminHeroPrice2')) document.getElementById('adminHeroPrice2').value = resolved.card2?.price || defaults.card2.price;
-      window.updateHeroImgPreview(2, resolved.card2?.image || defaults.card2.image);
+      window.updateHeroImgPreview(2, img2);
 
-      if (document.getElementById('adminHeroImg3')) document.getElementById('adminHeroImg3').value = resolved.showcase?.image || defaults.showcase.image;
+      const raw3 = resolved.showcase?.image || defaults.showcase.image;
+      const img3 = isStock(raw3) ? defaults.showcase.image : raw3;
+      if (document.getElementById('adminHeroImg3')) document.getElementById('adminHeroImg3').value = img3;
       if (document.getElementById('adminHeroTitle3')) document.getElementById('adminHeroTitle3').value = resolved.showcase?.title || defaults.showcase.title;
       if (document.getElementById('adminHeroPrice3')) document.getElementById('adminHeroPrice3').value = resolved.showcase?.price || defaults.showcase.price;
-      window.updateHeroImgPreview(3, resolved.showcase?.image || defaults.showcase.image);
+      window.updateHeroImgPreview(3, img3);
     }
 
     window.loadHeroProductsAdmin = async function() {
@@ -4619,17 +4646,17 @@
     window.saveHeroProductsAdmin = async function() {
       const heroData = {
         card1: {
-          image: (document.getElementById('adminHeroImg1')?.value || '').trim() || "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=500&q=80",
+          image: (document.getElementById('adminHeroImg1')?.value || '').trim() || "/assets/aistudio/image_6061bdc8.png",
           title: (document.getElementById('adminHeroTitle1')?.value || '').trim() || "High Protein Atta",
           price: parseInt(document.getElementById('adminHeroPrice1')?.value, 10) || 349
         },
         card2: {
-          image: (document.getElementById('adminHeroImg2')?.value || '').trim() || "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80",
+          image: (document.getElementById('adminHeroImg2')?.value || '').trim() || "/assets/aistudio/image_6061bdc8.png",
           title: (document.getElementById('adminHeroTitle2')?.value || '').trim() || "Complete Nutri Meal",
           price: parseInt(document.getElementById('adminHeroPrice2')?.value, 10) || 699
         },
         showcase: {
-          image: (document.getElementById('adminHeroImg3')?.value || '').trim() || "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80",
+          image: (document.getElementById('adminHeroImg3')?.value || '').trim() || "/assets/aistudio/image_6061bdc8.png",
           title: (document.getElementById('adminHeroTitle3')?.value || '').trim() || "Nutrolix High Protein Atta",
           price: parseInt(document.getElementById('adminHeroPrice3')?.value, 10) || 349
         }
@@ -4992,7 +5019,7 @@
         return;
       }
       c.innerHTML = banners.map(b => {
-        const img = window.CloudinaryService?.resolveMediaUrl?.(b.imageUrl) || b.imageUrl || '/assets/nutrolix_logo.png';
+        const img = window.CloudinaryService?.resolveMediaUrl?.(b.imageUrl) || b.imageUrl || 'assets/aistudio/image_6061bdc8.png';
         return `
         <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm p-3 flex gap-3 items-center">
           <img src="${img}" class="w-20 h-20 object-cover rounded-xl bg-slate-50 border border-slate-100 shrink-0">

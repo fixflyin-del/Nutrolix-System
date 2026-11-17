@@ -48,6 +48,7 @@
   <script src="assets/nutrolix-notifications.js"></script>
   <!-- Animated Splash Screen (Requirement 4) -->
   <script src="assets/nutrolix-splash.js"></script>
+  <script src="assets/nutrolix-image-loader.js"></script>
   <!-- Android Mobile Browser Back Navigation Handler (Requirement 3) -->
   <script src="assets/nutrolix-back-handler.js"></script>
 </head>
@@ -132,7 +133,7 @@
         <div class="lg:col-span-7 flex flex-col gap-3">
           <!-- Main Product Image Card (With Click-to-Zoom & Swipe) -->
           <div id="mainImageContainer" class="w-full bg-white rounded-3xl border border-slate-200 p-4 sm:p-6 relative overflow-hidden flex items-center justify-center shadow-sm min-h-[280px] max-h-[380px] sm:max-h-[480px] cursor-zoom-in select-none" onclick="window.openImageZoom()">
-            <img id="mainProductImage" src="" alt="Nutrolix Functional Nutrition" class="max-h-[250px] sm:max-h-[400px] w-auto max-w-full object-contain rounded-2xl transition duration-300">
+            <img id="mainProductImage" src="assets/aistudio/image_6061bdc8.png" alt="Nutrolix Functional Nutrition" class="max-h-[250px] sm:max-h-[400px] w-auto max-w-full object-contain rounded-2xl transition duration-300">
             
             <span id="productDiscountBadge" class="absolute top-3 left-3 bg-nutro-orange text-white text-[11px] sm:text-xs font-black px-2.5 py-1 rounded-xl shadow-md">
               22% OFF
@@ -513,7 +514,11 @@
     function normalizeNutroProduct(p) {
       if (!p) return null;
       const title = p.name || p.title || 'Nutrolix Product';
-      const imgList = (p.images && p.images.length) ? p.images.filter(Boolean) : (p.image ? [p.image] : ['https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80']);
+      const resolveCatImg = (typeof window.nutrolixResolveCatalogImage === 'function')
+        ? window.nutrolixResolveCatalogImage
+        : (u => u || 'assets/aistudio/image_6061bdc8.png');
+      const rawImgs = (p.images && p.images.length) ? p.images.filter(Boolean) : (p.image ? [p.image] : []);
+      const imgList = rawImgs.length ? rawImgs.map(resolveCatImg) : ['assets/aistudio/image_6061bdc8.png'];
       const price = Number(p.price || 349);
       const mrp = Number(p.mrp || Math.round(price * 1.28));
       const discountPercent = Number(p.discountPercent || (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 20));
@@ -619,35 +624,39 @@
       if (stickyMobPriceEl) stickyMobPriceEl.textContent = `₹${p.price}`;
 
       // Images (All 5 verified product images)
-      const baseImages = (p.images && p.images.length) ? p.images.filter(Boolean) : [];
-      if (baseImages.length === 0 && p.image) baseImages.push(p.image);
-      const defaultNutroImages = [
-        "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1627483262268-9c2b5b2834b5?auto=format&fit=crop&w=800&q=80",
-        "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
-      ];
+      const resolveCatImg = (typeof window.nutrolixResolveCatalogImage === 'function')
+        ? window.nutrolixResolveCatalogImage
+        : (u => u || 'assets/aistudio/image_6061bdc8.png');
+      const baseImages = ((p.images && p.images.length) ? p.images.filter(Boolean) : (p.image ? [p.image] : [])).map(resolveCatImg);
+      const sampleFallback = resolveCatImg('assets/aistudio/image_6061bdc8.png');
+      if (baseImages.length === 0) baseImages.push(sampleFallback);
       while (baseImages.length < 5) {
-        baseImages.push(defaultNutroImages[baseImages.length % defaultNutroImages.length]);
+        baseImages.push(sampleFallback);
       }
       window.activeProductImages = baseImages.slice(0, 5);
       window.currentImageIndex = 0;
 
       const mainImg = document.getElementById('mainProductImage');
-      if (mainImg) mainImg.src = window.activeProductImages[0];
+      if (mainImg) {
+        if (typeof window.nutrolixBindImage === 'function') window.nutrolixBindImage(mainImg, window.activeProductImages[0]);
+        else mainImg.src = window.activeProductImages[0];
+      }
 
       const positionLabels = ['Main Product', 'Packaging', 'Benefits', 'Nutrition', 'Usage'];
       const thumbsContainer = document.getElementById('imageThumbnails');
       if (thumbsContainer) {
-        thumbsContainer.innerHTML = window.activeProductImages.map((img, idx) => `
+        thumbsContainer.innerHTML = window.activeProductImages.map((img, idx) => {
+          const immSrc = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(img) : img;
+          const dataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(img) : '';
+          return `
           <button type="button" onclick="window.selectImageIndex(${idx})" class="thumb-btn flex flex-col items-center group/th focus:outline-none shrink-0" data-idx="${idx}">
             <div class="w-16 h-16 rounded-xl border-2 ${idx === 0 ? 'border-emerald-600 ring-2 ring-emerald-500/20' : 'border-slate-200'} overflow-hidden transition bg-slate-50 p-0.5">
-              <img src="${img}" class="w-full h-full object-cover rounded-lg" alt="Thumbnail ${idx+1}">
+              <img src="${immSrc}" ${dataSrc ? `data-nutrolix-src="${dataSrc}"` : ''} class="w-full h-full object-cover rounded-lg" alt="Thumbnail ${idx+1}">
             </div>
             <span class="text-[9px] font-bold text-slate-500 mt-1">${positionLabels[idx] || ('View ' + (idx+1))}</span>
           </button>
-        `).join('');
+        `;
+        }).join('');
       }
 
       // Attach mobile swipe gestures
@@ -863,7 +872,10 @@
       window.currentImageIndex = idx;
       const src = window.activeProductImages[idx];
       const mainImg = document.getElementById('mainProductImage');
-      if (mainImg) mainImg.src = src;
+      if (mainImg) {
+        if (typeof window.nutrolixBindImage === 'function') window.nutrolixBindImage(mainImg, src);
+        else mainImg.src = src;
+      }
 
       const allThumbs = document.querySelectorAll('.thumb-btn div');
       allThumbs.forEach((box, i) => {

@@ -171,6 +171,53 @@ async function writeCatalogDocAndLocal(docKey, localFile, value) {
   } catch (_) {}
 }
 
+const DEFAULT_SAMPLE_IMAGE_URL = '/assets/aistudio/image_6061bdc8.png';
+
+function isDefaultOrStockCatalogImage(url) {
+  if (!url || typeof url !== 'string') return true;
+  const s = url.trim().toLowerCase();
+  if (!s || s === 'null' || s === 'undefined') return true;
+  if (s.includes('image_6061bdc8.png')) return true;
+  if (s.includes('images.unsplash.com/')) return true;
+  if (s.includes('nutrolix_logo') || s.includes('nutrolix-logo') || s.includes('nutrolix_lab_facility.jpg')) return true;
+  return false;
+}
+
+function normalizeCatalogImageUrl(url) {
+  return isDefaultOrStockCatalogImage(url) ? DEFAULT_SAMPLE_IMAGE_URL : String(url).trim();
+}
+
+function normalizeProductMediaFields(p) {
+  if (!p || typeof p !== 'object') return p;
+  const rawImgs = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
+  const imgs = rawImgs.length ? rawImgs.map(normalizeCatalogImageUrl) : [normalizeCatalogImageUrl(p.image)];
+  const realImgs = imgs.filter(x => x !== DEFAULT_SAMPLE_IMAGE_URL);
+  const finalImgs = realImgs.length ? realImgs : [DEFAULT_SAMPLE_IMAGE_URL];
+  return {
+    ...p,
+    images: finalImgs,
+    image: finalImgs[0] || DEFAULT_SAMPLE_IMAGE_URL
+  };
+}
+
+function normalizeSingleImageRecord(item) {
+  if (!item || typeof item !== 'object') return item;
+  const img = normalizeCatalogImageUrl(item.image || (Array.isArray(item.images) && item.images[0]));
+  return {
+    ...item,
+    image: img,
+    ...(Array.isArray(item.images) ? { images: [img] } : {})
+  };
+}
+
+function normalizeHeroMedia(hero) {
+  const out = { ...(hero || {}) };
+  if (out.card1) out.card1 = { ...out.card1, image: normalizeCatalogImageUrl(out.card1.image) };
+  if (out.card2) out.card2 = { ...out.card2, image: normalizeCatalogImageUrl(out.card2.image) };
+  if (out.showcase) out.showcase = { ...out.showcase, image: normalizeCatalogImageUrl(out.showcase.image) };
+  return out;
+}
+
 // Customer Discount Engine Helpers (Strictly for Healthy Food / Cloud Kitchen orders)
 function normalizePhone(p) {
   return nutrolixCore.normalizePhone(p);
@@ -1810,25 +1857,26 @@ const server = http.createServer(async (req, res) => {
         subtitle: "46g Bioavailable Plant Protein • Zero Spike Formula",
         rating: "4.9 ★ (1,840+ Sold)",
         price: 349,
-        image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=700&auto=format&fit=crop&q=80"
+        image: DEFAULT_SAMPLE_IMAGE_URL
       },
       card2: {
         title: "Complete Nutri Meal",
         subtitle: "Zero Added Sugar • Micronutrient Rich Shake",
         rating: "4.9 ★ (820+ Sold)",
         price: 699,
-        image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=700&auto=format&fit=crop&q=80"
+        image: DEFAULT_SAMPLE_IMAGE_URL
       },
       showcase: {
         title: "Nutrolix High Protein Atta",
         tag: "⭐ Bestseller • Clinical Nutrition",
         price: 349,
-        image: "https://images.unsplash.com/photo-1509440159596-0249088772ff?w=700&auto=format&fit=crop&q=80"
+        image: DEFAULT_SAMPLE_IMAGE_URL
       }
     };
 
     if (req.method === 'GET') {
-      const data = await readCatalogDocOrFallback('hero_products', heroFile, defaultHero);
+      const rawHero = await readCatalogDocOrFallback('hero_products', heroFile, defaultHero);
+      const data = normalizeHeroMedia(rawHero);
       res.writeHead(200, NO_STORE_JSON_HEADERS);
       res.end(JSON.stringify({ success: true, heroProducts: data }));
       return;
@@ -2181,8 +2229,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       try {
         const products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
+        const normalized = Array.isArray(products) ? products.map(normalizeProductMediaFields) : [];
         res.writeHead(200, NO_STORE_JSON_HEADERS);
-        res.end(JSON.stringify(products));
+        res.end(JSON.stringify(normalized));
       } catch (e) {
         res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify([]));
@@ -2404,8 +2453,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       try {
         const blogs = await readCatalogDocOrFallback('blogs', blogsFile, []);
+        const normalized = Array.isArray(blogs) ? blogs.map(normalizeSingleImageRecord) : [];
         res.writeHead(200, NO_STORE_JSON_HEADERS);
-        res.end(JSON.stringify(blogs));
+        res.end(JSON.stringify(normalized));
       } catch (e) {
         res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify([]));
@@ -3488,8 +3538,9 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       try {
         const meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
+        const normalized = Array.isArray(meals) ? meals.map(normalizeSingleImageRecord) : [];
         res.writeHead(200, NO_STORE_JSON_HEADERS);
-        res.end(JSON.stringify(meals));
+        res.end(JSON.stringify(normalized));
       } catch (e) {
         res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify([]));

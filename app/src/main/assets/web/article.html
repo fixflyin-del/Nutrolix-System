@@ -15,14 +15,14 @@
   <meta property="og:type" content="article">
   <meta id="ogTitle" property="og:title" content="Nutrolix Wellness Research Insights">
   <meta id="ogDesc" property="og:description" content="Evidence-based nutrition science for cellular bioavailability and metabolic vitality.">
-  <meta id="ogImage" property="og:image" content="https://nutrolix.in/assets/nutrolix_lab_facility.jpg">
+  <meta id="ogImage" property="og:image" content="https://nutrolix.in/assets/aistudio/image_6061bdc8.png">
   <meta id="ogUrl" property="og:url" content="https://nutrolix.in/">
 
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
   <meta id="twTitle" name="twitter:title" content="Nutrolix Wellness Research Insights">
   <meta id="twDesc" name="twitter:description" content="Evidence-based nutrition science by Nutrolix.">
-  <meta id="twImage" name="twitter:image" content="https://nutrolix.in/assets/nutrolix_lab_facility.jpg">
+  <meta id="twImage" name="twitter:image" content="https://nutrolix.in/assets/aistudio/image_6061bdc8.png">
 
   <!-- Schema.org Article Structured Data (Google Rich Snippets) -->
   <script type="application/ld+json" id="schemaArticle">
@@ -95,6 +95,7 @@
 
   <script src="assets/nutrolix-data.js"></script>
   <script src="assets/nutrolix-drawer.js"></script>
+  <script src="assets/nutrolix-image-loader.js"></script>
 </head>
 <body class="text-slate-800 antialiased min-h-screen flex flex-col pb-24 sm:pb-0">
 
@@ -253,7 +254,7 @@
 
     <!-- Featured Hero Image -->
     <div class="mb-10 rounded-3xl overflow-hidden shadow-lg border border-slate-200 bg-slate-100 aspect-[16/9] relative">
-      <img id="articleFeaturedImg" src="assets/nutrolix_lab_facility.jpg" alt="Nutrolix Article Feature" class="w-full h-full object-cover">
+      <img id="articleFeaturedImg" src="assets/aistudio/image_6061bdc8.png" alt="Nutrolix Article Feature" class="w-full h-full object-cover">
       <div class="absolute bottom-3 right-3 bg-black/60 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
         Nutrolix Formulation Labs
       </div>
@@ -404,7 +405,10 @@
         const seoDesc = article.seoDescription || article.excerpt || "Evidence-based clinical nutrition insights by Nutrolix.";
         const seoKeywords = article.seoKeywords || (article.category + ", nutrolix nutrition, healthy food, clinical diet");
         const pageUrl = window.location.origin + '/' + (article.slug || article.id);
-        const imgUrl = article.image || "https://nutrolix.in/assets/nutrolix_lab_facility.jpg";
+        const resolvedArticleImg = (typeof window.nutrolixResolveCatalogImage === 'function')
+          ? window.nutrolixResolveCatalogImage(article.image)
+          : (article.image || 'assets/aistudio/image_6061bdc8.png');
+        const imgUrl = resolvedArticleImg.startsWith('http') ? resolvedArticleImg : (window.location.origin + '/' + resolvedArticleImg.replace(/^\/+/, ''));
 
         document.title = seoTitle;
         const setMeta = (id, attr, val) => { const el = document.getElementById(id); if (el) el.setAttribute(attr, val); };
@@ -464,7 +468,8 @@
         
         const featuredImg = document.getElementById('articleFeaturedImg');
         if (featuredImg) {
-          featuredImg.src = imgUrl;
+          if (typeof window.nutrolixBindImage === 'function') window.nutrolixBindImage(featuredImg, resolvedArticleImg);
+          else featuredImg.src = resolvedArticleImg;
           featuredImg.alt = article.title;
         }
 
@@ -486,10 +491,14 @@
         const related = allBlogs.filter(b => b.id !== article.id).slice(0, 3);
         const relGrid = document.getElementById('relatedArticlesGrid');
         if (relGrid) {
-          relGrid.innerHTML = related.map(rel => `
+          relGrid.innerHTML = related.map(rel => {
+            const relRaw = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(rel.image) : (rel.image || 'assets/aistudio/image_6061bdc8.png');
+            const relImm = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(relRaw) : relRaw;
+            const relDataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(relRaw) : '';
+            return `
             <a href="${rel.slug ? rel.slug : 'article.html?slug=' + rel.id}" class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500 hover:shadow-lg transition flex flex-col group">
               <div class="aspect-video bg-slate-100 overflow-hidden relative">
-                <img src="${rel.image || 'assets/nutrolix_lab_facility.jpg'}" alt="${rel.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                <img src="${relImm}" ${relDataSrc ? `data-nutrolix-src="${relDataSrc}"` : ''} alt="${rel.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
                 <span class="absolute top-2 left-2 bg-emerald-800 text-white text-[9px] font-black px-2 py-0.5 rounded-md">
                   ${rel.category || 'Science'}
                 </span>
@@ -507,7 +516,8 @@
                 </div>
               </div>
             </a>
-          `).join('');
+          `;
+          }).join('');
         }
       }
 

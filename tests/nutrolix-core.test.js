@@ -1216,3 +1216,185 @@ test('Audible lockscreen Android channel alignment, Doze WakeLock, Web Push SW b
   assert.ok(indexHtml.includes('syncLiveHomepageData') && indexHtml.includes("cache: 'no-store'"));
 });
 
+test('Sample artwork default across catalog/blogs and 1s first-open vs reload-skip progressive reveal', async () => {
+  const vm = require('node:vm');
+  const rootDir = path.join(__dirname, '..');
+
+  // 1. Sample image exists in public & Android assets mirror
+  assert.ok(fs.existsSync(path.join(rootDir, 'public/assets/aistudio/image_6061bdc8.png')), 'Sample artwork must exist in public/assets/aistudio/');
+  assert.ok(fs.existsSync(path.join(rootDir, 'app/src/main/assets/web/assets/aistudio/image_6061bdc8.png')), 'Sample artwork must be mirrored to Android assets');
+
+  // 2. Zero Unsplash catalog URLs remain in JSON seeds, nutrolix-data.js, or store/food/blog/admin HTML
+  for (const rel of [
+    'public/data/nutrition_products.json',
+    'public/data/healthy_food_menu.json',
+    'public/data/blogs.json',
+    'public/assets/nutrolix-data.js',
+    'public/shop.html',
+    'public/product.html',
+    'public/food.html',
+    'public/blogs.html',
+    'public/article.html',
+    'public/admin.html'
+  ]) {
+    const content = fs.readFileSync(path.join(rootDir, rel), 'utf8');
+    assert.equal(content.includes('images.unsplash.com/'), false, `Legacy Unsplash URL still present in ${rel}`);
+  }
+
+  // 3. All target web pages wire nutrolix-image-loader.js and match Android assets mirror
+  for (const page of ['index.html', 'shop.html', 'product.html', 'food.html', 'blogs.html', 'article.html', 'cart.html', 'orders.html', 'admin.html']) {
+    const pubHtml = fs.readFileSync(path.join(rootDir, 'public', page), 'utf8');
+    const apkHtml = fs.readFileSync(path.join(rootDir, 'app/src/main/assets/web', page), 'utf8');
+    assert.ok(pubHtml.includes('assets/nutrolix-image-loader.js'), `Missing nutrolix-image-loader.js in public/${page}`);
+    assert.equal(pubHtml, apkHtml, `Android asset mirror mismatch on ${page}`);
+  }
+
+  // 4. VM behavior test: fresh open holds >=1000ms after splash; reload bypasses 1s hold
+  const loaderSrc = fs.readFileSync(path.join(rootDir, 'public/assets/nutrolix-image-loader.js'), 'utf8');
+  function runLoaderSandbox({ navType, sessionDone }) {
+    const sessMap = new Map();
+    if (sessionDone) sessMap.set('nutrolix_first_open_img_done', 'true');
+    const scheduledTimeouts = [];
+    const createdImages = [];
+
+    function FakeImage() {
+      const inst = { src: '', naturalWidth: 400, onload: null, onerror: null };
+      createdImages.push(inst);
+      return inst;
+    }
+
+    const fakeDoc = {
+      readyState: 'complete',
+      documentElement: {},
+      body: { querySelectorAll: () => [] },
+      getElementById: () => null,
+      addEventListener: () => {},
+      contains: () => true
+    };
+    const ctx = {
+      location: { protocol: 'https:', pathname: '/index.html' },
+      sessionStorage: {
+        getItem: (k) => (sessMap.has(k) ? sessMap.get(k) : null),
+        setItem: (k, v) => sessMap.set(k, String(v))
+      },
+      performance: { getEntriesByType: () => [{ type: navType }] },
+      document: fakeDoc,
+      Image: FakeImage,
+      setTimeout: (fn, ms) => {
+        scheduledTimeouts.push({ fn, ms });
+        return scheduledTimeouts.length;
+      },
+      MutationObserver: function () { return { observe: () => {} }; }
+    };
+    ctx.window = ctx;
+    vm.runInNewContext(loaderSrc, ctx);
+    return { ctx, scheduledTimeouts, createdImages, sessMap };
+  }
+
+  // 4a. Fresh open: must replace default/Unsplash/empty with sample image, preserve real URL, and hold real image for 1000ms
+  const fresh = runLoaderSandbox({ navType: 'navigate', sessionDone: false });
+  assert.equal(fresh.ctx.nutrolixResolveCatalogImage(''), '/assets/aistudio/image_6061bdc8.png');
+  assert.equal(fresh.ctx.nutrolixResolveCatalogImage('https://images.unsplash.com/photo-123'), '/assets/aistudio/image_6061bdc8.png');
+  assert.equal(fresh.ctx.nutrolixResolveCatalogImage('https://res.cloudinary.com/demo/image/upload/p.png'), 'https://res.cloudinary.com/demo/image/upload/p.png');
+  assert.equal(fresh.ctx.nutrolixResolveCatalogImage('/api/media/item1.webp'), '/api/media/item1.webp');
+
+  const realUrl = 'https://res.cloudinary.com/demo/image/upload/v1/atta.webp';
+  const attrs = new Map();
+  const fakeImgEl = {
+    tagName: 'IMG',
+    id: 'heroCard1Img',
+    isConnected: true,
+    classList: { contains: () => false },
+    closest: () => null,
+    getAttribute: (k) => attrs.get(k) || '',
+    setAttribute: (k, v) => {
+      attrs.set(k, v);
+      if (k === 'src') fakeImgEl.src = v;
+    },
+    removeAttribute: (k) => attrs.delete(k),
+    hasAttribute: (k) => attrs.has(k),
+    addEventListener: () => {},
+    src: ''
+  };
+  fresh.ctx.nutrolixBindImage(fakeImgEl, realUrl);
+  assert.equal(fakeImgEl.src, '/assets/aistudio/image_6061bdc8.png', 'Fresh open must show sample image immediately');
+  // Simulate splash/DOMContentLoaded timer firing and image finishing download before 1000ms elapses
+  for (const t of fresh.scheduledTimeouts.filter(t => t.ms === 50)) t.fn();
+  assert.equal(fresh.createdImages.length, 1);
+  fresh.createdImages[0].onload();
+  assert.equal(fakeImgEl.src, '/assets/aistudio/image_6061bdc8.png', 'Fresh open must still hold sample image until 1000ms timer fires');
+  // Fire the 1000ms gate timer
+  const oneSecTimer = fresh.scheduledTimeouts.find(t => t.ms === 1000);
+  assert.ok(oneSecTimer, '1000ms gate timer must be scheduled on fresh open');
+  oneSecTimer.fn();
+  assert.equal(fakeImgEl.src, realUrl, 'Real image must swap in once both 1000ms hold and download finish');
+  assert.equal(fresh.sessMap.get('nutrolix_first_open_img_done'), 'true');
+
+  // 4b. Reload: must NOT hold 1000ms — reveals real image immediately once Image.onload fires
+  const reload = runLoaderSandbox({ navType: 'reload', sessionDone: false });
+  assert.equal(reload.scheduledTimeouts.some(t => t.ms === 1000), false, 'Reload must NOT schedule 1000ms hold timer');
+  const attrsR = new Map();
+  const fakeImgReload = {
+    tagName: 'IMG',
+    id: 'heroCard2Img',
+    isConnected: true,
+    classList: { contains: () => false },
+    closest: () => null,
+    getAttribute: (k) => attrsR.get(k) || '',
+    setAttribute: (k, v) => {
+      attrsR.set(k, v);
+      if (k === 'src') fakeImgReload.src = v;
+    },
+    removeAttribute: (k) => attrsR.delete(k),
+    hasAttribute: (k) => attrsR.has(k),
+    addEventListener: () => {},
+    src: ''
+  };
+  reload.ctx.nutrolixBindImage(fakeImgReload, realUrl);
+  assert.equal(fakeImgReload.src, '/assets/aistudio/image_6061bdc8.png', 'Reload shows sample placeholder while real image downloads');
+  reload.createdImages[0].onload();
+  assert.equal(fakeImgReload.src, realUrl, 'Reload reveals real image right on onload without 1000ms wait');
+
+  // 5. HTTP Server GET endpoints normalize default/Unsplash items and preserve uploaded /api/media images
+  const dataDir = path.join(rootDir, 'public', 'data');
+  const prodFile = path.join(dataDir, 'nutrition_products.json');
+  const origProds = fs.readFileSync(prodFile, 'utf8');
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address();
+  const port = typeof addr === 'object' && addr ? addr.port : 0;
+  try {
+    const prodList = JSON.parse(origProds);
+    const customTestProd = {
+      ...prodList[0],
+      id: 'test-img-precedence',
+      images: ['/assets/aistudio/image_6061bdc8.png', '/api/media/uploaded_real.png']
+    };
+    fs.writeFileSync(prodFile, JSON.stringify([customTestProd, ...prodList], null, 2), 'utf8');
+
+    const getJson = (reqPath) => new Promise((resolve, reject) => {
+      http.get({ hostname: '127.0.0.1', port, path: reqPath }, (res) => {
+        let raw = '';
+        res.on('data', c => raw += c);
+        res.on('end', () => resolve({ status: res.statusCode, json: JSON.parse(raw) }));
+      }).on('error', reject);
+    });
+
+    const pRes = await getJson('/api/nutrition-products');
+    assert.equal(pRes.status, 200);
+    const customOut = pRes.json.find(x => x.id === 'test-img-precedence');
+    assert.equal(customOut.images[0], '/api/media/uploaded_real.png', 'Uploaded image must take precedence over sample fallback');
+    assert.equal(pRes.json.find(x => x.id !== 'test-img-precedence').images[0], '/assets/aistudio/image_6061bdc8.png');
+
+    for (const ep of ['/api/food-menu', '/api/blogs']) {
+      const r = await getJson(ep);
+      assert.equal(r.status, 200);
+      assert.ok(Array.isArray(r.json) && r.json.length > 0);
+      assert.equal(r.json[0].image, '/assets/aistudio/image_6061bdc8.png', `${ep} must default to sample image`);
+    }
+  } finally {
+    fs.writeFileSync(prodFile, origProds, 'utf8');
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+

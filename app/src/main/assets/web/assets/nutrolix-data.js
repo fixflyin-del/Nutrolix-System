@@ -19,11 +19,7 @@ window.nutroProducts = [
     "inStock": true,
     "stockQuantity": 850,
     "images": [
-      "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1586444248902-2f64eddc13df?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1627483262268-9c2b5b2834b5?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
+      "assets/aistudio/image_6061bdc8.png"
     ],
     "variants": [
       {
@@ -89,11 +85,7 @@ window.nutroProducts = [
     "inStock": true,
     "stockQuantity": 620,
     "images": [
-      "https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80"
+      "assets/aistudio/image_6061bdc8.png"
     ],
     "variants": [
       {
@@ -159,11 +151,7 @@ window.nutroProducts = [
     "inStock": true,
     "stockQuantity": 480,
     "images": [
-      "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1505253758473-96b3015f240a?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
+      "assets/aistudio/image_6061bdc8.png"
     ],
     "variants": [
       {
@@ -229,11 +217,7 @@ window.nutroProducts = [
     "inStock": true,
     "stockQuantity": 390,
     "images": [
-      "https://images.unsplash.com/photo-1525385133512-2f3bdd039054?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1505253758473-96b3015f240a?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1517433670267-08bbd4be890f?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
+      "assets/aistudio/image_6061bdc8.png"
     ],
     "variants": [
       {
@@ -293,11 +277,7 @@ window.nutroProducts = [
     "inStock": true,
     "stockQuantity": 510,
     "images": [
-      "https://images.unsplash.com/photo-1514733670139-4d87a1941d55?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80"
+      "assets/aistudio/image_6061bdc8.png"
     ],
     "variants": [
       {
@@ -362,11 +342,7 @@ window.nutroProducts = [
     "inStock": true,
     "stockQuantity": 320,
     "images": [
-      "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80"
+      "assets/aistudio/image_6061bdc8.png"
     ],
     "variants": [
       {
@@ -426,11 +402,7 @@ window.nutroProducts = [
     "inStock": true,
     "stockQuantity": 410,
     "images": [
-      "https://images.unsplash.com/photo-1587049352846-4a222e784d38?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&w=800&q=80"
+      "assets/aistudio/image_6061bdc8.png"
     ],
     "variants": [
       {
@@ -490,11 +462,7 @@ window.nutroProducts = [
     "inStock": true,
     "stockQuantity": 490,
     "images": [
-      "https://images.unsplash.com/photo-1514733670139-4d87a1941d55?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1579722821273-0f6c7d44362f?auto=format&fit=crop&w=800&q=80"
+      "assets/aistudio/image_6061bdc8.png"
     ],
     "variants": [
       {
@@ -598,7 +566,7 @@ window.nutroBlogs = [
     "date": "October 24, 2026",
     "readTime": "4 min read",
     "category": "Nutrition Science",
-    "image": "https://images.unsplash.com/photo-1509440159596-0249088772ff?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "excerpt": "Traditional wheat rotis, while a staple of Indian diets, are predominantly carbohydrates. Discover how bio-engineered plant proteins transform your daily staple into a muscle-sparing, low-GI metabolic powerhouse.",
     "content": "In most Indian households, 60% to 70% of daily calories originate from high-glycemic carbohydrates like refined wheat and polished rice. This chronic carbohydrate overload causes frequent postprandial insulin spikes, leading to metabolic exhaustion, visceral fat deposition, and afternoon fatigue.\n\nNutrolix High Protein Atta reverses this equation by combining non-GMO soy protein isolate, roasted defatted peanut flour, and sprouted finger millet (ragi) into wholegrain flour. With 46.2g of verified plant protein per 100g, two rotis deliver the equivalent protein of four egg whites, while dietary fiber prevents insulin surges."
   },
@@ -610,7 +578,7 @@ window.nutroBlogs = [
     "date": "October 18, 2026",
     "readTime": "5 min read",
     "category": "Wellness Science",
-    "image": "https://images.unsplash.com/photo-1550572017-edd951aa8f72?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "excerpt": "Isolating vitamin C or zinc in a synthetic pill rarely replicates the biological efficacy of whole-plant botanical matrices. Learn how adaptogens and greens work synergistically in the body.",
     "content": "Human cellular biochemistry evolved to process micronutrients alongside their natural co-factors: bioflavonoids, polyphenols, and enzymes. When isolated chemical vitamins are consumed, absorption rates rarely exceed 15-20%.\n\nNutrolix Complete Nutri Meal integrates 25+ real whole foods including moringa, spirulina, ashwagandha, chia, and raw cacao. These botanicals act in concert: prebiotic fibers enhance gut microbiome diversity, enabling optimal absorption of adaptogens and plant protein without gastrointestinal distress."
   },
@@ -622,7 +590,7 @@ window.nutroBlogs = [
     "date": "October 12, 2026",
     "readTime": "3 min read",
     "category": "Functional Foods",
-    "image": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "excerpt": "Long celebrated in ancient medicine, roasted pearl barley porridge contains concentrated beta-glucan fiber that actively coats and soothes gastric lining while calming system stress.",
     "content": "Modern lifestyle stresses and processed dietary habits have led to widespread chronic gastritis, acid reflux, and irritable bowel symptoms. Talbeenah offers an ancient, evidence-backed antidote. Prepared by gently roasting wholegrain pearl barley and infusing it with almond meal and date powder, its soluble beta-glucan mucilage creates a protective coating across the gastrointestinal tract."
   }
@@ -637,7 +605,7 @@ window.nutroFoodMenu = [
     "protein": "34g Protein",
     "calories": "410 kcal",
     "price": 249,
-    "image": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Herb-marinated low-fat cottage cheese on organic tri-color Peruvian quinoa with steamed edamame, sautéed broccoli, bell peppers, and cold-pressed extra virgin olive oil dressing. Rich in essential amino acids.",
     "highlights": [
       "34g Bioavailable Plant & Dairy Protein per bowl",
@@ -665,7 +633,7 @@ window.nutroFoodMenu = [
     "protein": "22g Protein",
     "calories": "320 kcal",
     "price": 199,
-    "image": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Slow-cooked sprouted green moong, whole pearl barley, and foxtail millet infused with digestive cumin seeds, fresh ginger, and finished with 100% pure Vedic A2 Gir Cow Ghee. Extremely soothing for gut health.",
     "highlights": [
       "22g Gentle Gut-Friendly Plant Protein",
@@ -693,7 +661,7 @@ window.nutroFoodMenu = [
     "protein": "26g Protein",
     "calories": "290 kcal",
     "price": 269,
-    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Creamy Hass avocado slices, smoked organic tofu cubes, tender baby spinach, microgreens, roasted sunflower seeds, and chia seeds tossed in an artisanal cold-pressed sesame tahini dressing.",
     "highlights": [
       "26g Plant Protein with Organic Non-GMO Soya Tofu",
@@ -721,7 +689,7 @@ window.nutroFoodMenu = [
     "protein": "48g Protein",
     "calories": "480 kcal",
     "price": 299,
-    "image": "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Herb-charred skinless chicken breast fillet cooked without refined oil, served with 2 warm Nutrolix High-Protein Ragi rotis, yellow lentil soup (dal tadka), cucumber-mint yogurt raita, and pickled beetroot.",
     "highlights": [
       "48g Complete Animal & Plant Protein in one serving",
@@ -749,7 +717,7 @@ window.nutroFoodMenu = [
     "protein": "4g Protein",
     "calories": "110 kcal",
     "price": 149,
-    "image": "https://images.unsplash.com/photo-1589733955941-5eeaf752f6dd?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "100% hydraulic cold-pressed juice made with organic ruby beetroot, fresh mountain carrots, wild amla (Indian gooseberry), ginger, and Himalayan pink salt. Raw, unpasteurized, zero added water or sugar.",
     "highlights": [
       "100% Pure Hydraulic Cold-Pressed (No Heat, No Oxidation)",
@@ -777,7 +745,7 @@ window.nutroFoodMenu = [
     "protein": "18g Protein",
     "calories": "210 kcal",
     "price": 189,
-    "image": "https://images.unsplash.com/photo-1556881286-fc6915169721?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Stone-ground artisanal almond milk blended with organic Indian spirulina, baby spinach leaves, ripe banana, soaked chia seeds, and plant-based digestive enzymes for maximum bioavailability.",
     "highlights": [
       "18g Plant-Based Protein & Complete Chlorophyll Matrix",
@@ -805,7 +773,7 @@ window.nutroFoodMenu = [
     "protein": "42g Protein",
     "calories": "340 kcal",
     "price": 219,
-    "image": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Six farm-fresh egg whites scrambled with low-fat artisanal paneer, green chilies, organic turmeric, coriander, and served with a zesty lemon cucumber crunch salad. Almost zero carbohydrates.",
     "highlights": [
       "42g Rapid-Absorption Egg & Paneer Protein",
@@ -833,7 +801,7 @@ window.nutroFoodMenu = [
     "protein": "16g Protein",
     "calories": "180 kcal",
     "price": 159,
-    "image": "https://images.unsplash.com/photo-1627483262268-9c2b5b2834b5?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Steamed sprouted green gram, roasted fox nuts (makhana), puffed ragi & bajra, juicy ruby pomegranate seeds, tossed in cold-pressed raw mango mint chutney and roasted cumin rock salt.",
     "highlights": [
       "16g Whole Plant Fiber-Bound Protein",

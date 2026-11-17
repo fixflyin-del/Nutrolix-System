@@ -47,6 +47,7 @@
   <script src="assets/nutrolix-notifications.js"></script>
   <script src="assets/nutrolix-reviews.js"></script>
   <script src="assets/nutrolix-splash.js"></script>
+  <script src="assets/nutrolix-image-loader.js"></script>
   <script src="assets/nutrolix-back-handler.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col pb-28 overflow-x-hidden">
@@ -527,7 +528,7 @@
     "protein": "34g Protein",
     "calories": "410 kcal",
     "price": 249,
-    "image": "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Herb-marinated low-fat cottage cheese on organic tri-color Peruvian quinoa with steamed edamame, saut\u00e9ed broccoli, bell peppers, and cold-pressed extra virgin olive oil dressing. Rich in essential amino acids.",
     "highlights": [
       "34g Bioavailable Plant & Dairy Protein per bowl",
@@ -583,7 +584,7 @@
     "protein": "22g Protein",
     "calories": "320 kcal",
     "price": 199,
-    "image": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Slow-cooked sprouted green moong, whole pearl barley, and foxtail millet infused with digestive cumin seeds, fresh ginger, and finished with 100% pure Vedic A2 Gir Cow Ghee. Extremely soothing for gut health.",
     "highlights": [
       "22g Gentle Gut-Friendly Plant Protein",
@@ -639,7 +640,7 @@
     "protein": "26g Protein",
     "calories": "290 kcal",
     "price": 269,
-    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Creamy Hass avocado slices, smoked organic tofu cubes, tender baby spinach, microgreens, roasted sunflower seeds, and chia seeds tossed in an artisanal cold-pressed sesame tahini dressing.",
     "highlights": [
       "26g Plant Protein with Organic Non-GMO Soya Tofu",
@@ -695,7 +696,7 @@
     "protein": "48g Protein",
     "calories": "480 kcal",
     "price": 299,
-    "image": "https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Herb-charred skinless chicken breast fillet cooked without refined oil, served with 2 warm Nutrolix High-Protein Ragi rotis, yellow lentil soup (dal tadka), cucumber-mint yogurt raita, and pickled beetroot.",
     "highlights": [
       "48g Complete Animal & Plant Protein in one serving",
@@ -751,7 +752,7 @@
     "protein": "4g Protein",
     "calories": "110 kcal",
     "price": 149,
-    "image": "https://images.unsplash.com/photo-1589733955941-5eeaf752f6dd?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "100% hydraulic cold-pressed juice made with organic ruby beetroot, fresh mountain carrots, wild amla (Indian gooseberry), ginger, and Himalayan pink salt. Raw, unpasteurized, zero added water or sugar.",
     "highlights": [
       "100% Pure Hydraulic Cold-Pressed (No Heat, No Oxidation)",
@@ -807,7 +808,7 @@
     "protein": "18g Protein",
     "calories": "210 kcal",
     "price": 189,
-    "image": "https://images.unsplash.com/photo-1556881286-fc6915169721?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Stone-ground artisanal almond milk blended with organic Indian spirulina, baby spinach leaves, ripe banana, soaked chia seeds, and plant-based digestive enzymes for maximum bioavailability.",
     "highlights": [
       "18g Plant-Based Protein & Complete Chlorophyll Matrix",
@@ -863,7 +864,7 @@
     "protein": "42g Protein",
     "calories": "340 kcal",
     "price": 219,
-    "image": "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Six farm-fresh egg whites scrambled with low-fat artisanal paneer, green chilies, organic turmeric, coriander, and served with a zesty lemon cucumber crunch salad. Almost zero carbohydrates.",
     "highlights": [
       "42g Rapid-Absorption Egg & Paneer Protein",
@@ -919,7 +920,7 @@
     "protein": "16g Protein",
     "calories": "180 kcal",
     "price": 159,
-    "image": "https://images.unsplash.com/photo-1627483262268-9c2b5b2834b5?auto=format&fit=crop&w=800&q=80",
+    "image": "assets/aistudio/image_6061bdc8.png",
     "description": "Steamed sprouted green gram, roasted fox nuts (makhana), puffed ragi & bajra, juicy ruby pomegranate seeds, tossed in cold-pressed raw mango mint chutney and roasted cumin rock salt.",
     "highlights": [
       "16g Whole Plant Fiber-Bound Protein",
@@ -976,7 +977,10 @@
     function normalizeMeal(m) {
       if (!m) return null;
       const name = m.name || m.title || 'Nutrolix Healthy Meal';
-      const img = m.image || (m.images && m.images[0]) || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80';
+      const rawImg = m.image || (m.images && m.images[0]) || '';
+      const img = (typeof window.nutrolixResolveCatalogImage === 'function')
+        ? window.nutrolixResolveCatalogImage(rawImg)
+        : (rawImg || 'assets/aistudio/image_6061bdc8.png');
       return {
         ...m,
         id: m.id || ('meal_' + Math.random().toString(36).substring(2, 8)),
@@ -1043,7 +1047,11 @@
             
             <!-- Dish Image & Dietary Icon (Click opens detail modal) -->
             <div class="relative aspect-square overflow-hidden bg-slate-100">
-              <img src="${item.image}" alt="${item.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              ${(() => {
+                const foodImm = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(item.image) : item.image;
+                const foodDataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(item.image) : '';
+                return `<img src="${foodImm}" ${foodDataSrc ? `data-nutrolix-src="${foodDataSrc}"` : ''} alt="${item.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">`;
+              })()}
               
               <!-- Veg / Non-Veg Indicator -->
               <div class="absolute top-2.5 left-2.5 w-5 h-5 bg-white/95 rounded-md flex items-center justify-center shadow-sm border ${item.isVeg ? 'border-emerald-600' : 'border-rose-600'}">
@@ -1181,7 +1189,11 @@
 
       // Populate Modal Fields
       document.getElementById('modalDishCategory').textContent = dish.category;
-      document.getElementById('modalDishImage').src = dish.image;
+      if (typeof window.nutrolixBindImage === 'function') {
+        window.nutrolixBindImage('modalDishImage', dish.image);
+      } else {
+        document.getElementById('modalDishImage').src = dish.image;
+      }
       document.getElementById('modalDishImage').alt = dish.name;
       document.getElementById('modalDishMacroPill').textContent = `${dish.protein} • ${dish.calories}`;
       document.getElementById('modalDishTitle').textContent = dish.name;
@@ -1437,7 +1449,11 @@
         return `
           <div class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-emerald-50/50 rounded-2xl border border-slate-200 transition">
             <div class="flex items-center space-x-3 cursor-pointer flex-1 min-w-0" onclick="window.closeFoodSearchModal(); window.openFoodDetailModal('${dish.id}')">
-              <img src="${dish.image}" alt="${dish.name}" class="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm">
+              ${(() => {
+                const sImm = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(dish.image) : dish.image;
+                const sDataSrc = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(dish.image) : '';
+                return `<img src="${sImm}" ${sDataSrc ? `data-nutrolix-src="${sDataSrc}"` : ''} alt="${dish.name}" class="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm">`;
+              })()}
               <div class="min-w-0 flex-1">
                 <div class="flex items-center space-x-1.5 mb-0.5">
                   <span class="w-2.5 h-2.5 rounded-full ${dish.isVeg ? 'bg-emerald-600' : 'bg-red-600'} shrink-0"></span>

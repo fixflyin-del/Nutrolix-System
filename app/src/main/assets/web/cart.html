@@ -45,6 +45,7 @@
   <script src="assets/nutrolix-notifications.js"></script>
   <!-- Animated Splash Screen (Requirement 4) -->
   <script src="assets/nutrolix-splash.js"></script>
+  <script src="assets/nutrolix-image-loader.js"></script>
   <!-- Android Mobile Browser Back Navigation Handler (Requirement 3) -->
   <script src="assets/nutrolix-back-handler.js"></script>
   <!-- Firebase Authentication, Firestore & Messaging SDK -->
@@ -1056,10 +1057,14 @@
       const totalCount = cart.reduce((sum, item) => sum + item.quantity, 0);
       countBadge.innerText = `${totalCount} ${totalCount === 1 ? 'item' : 'items'}`;
 
-      listEl.innerHTML = cart.map((item, index) => `
+      listEl.innerHTML = cart.map((item, index) => {
+        const cartImgRaw = item.image || (item.images && item.images[0]) || '';
+        const cartImgImm = window.nutrolixImmediateSrc ? window.nutrolixImmediateSrc(cartImgRaw) : (cartImgRaw || 'assets/aistudio/image_6061bdc8.png');
+        const cartImgAttr = window.nutrolixDataSrcAttr ? window.nutrolixDataSrcAttr(cartImgRaw) : '';
+        return `
         <div class="flex items-center justify-between py-3.5 gap-3">
           <div class="flex items-center space-x-3 min-w-0">
-            <img src="${item.image || 'assets/nutrolix-logo.png'}" alt="${item.title || item.name}" class="w-16 h-16 rounded-xl object-cover border border-slate-200 flex-shrink-0 bg-slate-50">
+            <img src="${cartImgImm}" ${cartImgAttr ? `data-nutrolix-src="${cartImgAttr}"` : ''} alt="${item.title || item.name}" class="w-16 h-16 rounded-xl object-cover border border-slate-200 flex-shrink-0 bg-slate-50">
             <div class="min-w-0">
               <h4 class="font-extrabold text-sm text-slate-900 truncate">${item.title || item.name}</h4>
               <p class="text-xs text-slate-500">${item.variant || 'Standard Pack'} • ₹${item.price} each</p>
@@ -1078,7 +1083,8 @@
             </button>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
 
       renderSummary();
     }
