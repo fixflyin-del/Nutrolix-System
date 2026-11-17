@@ -3879,7 +3879,7 @@ const server = http.createServer(async (req, res) => {
         // Google Play reviewer-only test access. This is isolated from normal customer WhatsApp OTP.
         // Configure both values as encrypted production environment variables; never hardcode credentials.
         const reviewerPhone = normalizePhone(process.env.NUTROLIX_REVIEWER_PHONE || '');
-        const reviewerOtp = String(process.env.NUTROLIX_REVIEWER_OTP || '').replace(/\\D/g, '').slice(0, 10);
+        const reviewerOtp = String(process.env.NUTROLIX_REVIEWER_OTP || '').replace(/\D/g, '').slice(0, 10);
         if (reviewerPhone && reviewerOtp && mobile === reviewerPhone) {
           if (!isVerify) {
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -3891,7 +3891,7 @@ const server = http.createServer(async (req, res) => {
             return;
           }
 
-          const submittedOtp = String(payload.otp || '').replace(/\\D/g, '').slice(0, 10);
+          const submittedOtp = String(payload.otp || '').replace(/\D/g, '').slice(0, 10);
           const expected = Buffer.from(reviewerOtp);
           const submitted = Buffer.from(submittedOtp);
           const validOtp = submitted.length === expected.length && crypto.timingSafeEqual(submitted, expected);
