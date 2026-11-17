@@ -3876,6 +3876,87 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ success: false, error: 'Enter a valid 10-digit Indian mobile number.' }));
           return;
         }
+        // Google Play reviewer-only test access. This is isolated from normal customer WhatsApp OTP.
+        // Configure both values as encrypted production environment variables; never hardcode credentials.
+        const reviewerPhone = normalizePhone(process.env.NUTROLIX_REVIEWER_PHONE || '');
+        const reviewerOtp = String(process.env.NUTROLIX_REVIEWER_OTP || '').replace(/\\D/g, '').slice(0, 10);
+        if (reviewerPhone && reviewerOtp && mobile === reviewerPhone) {
+          if (!isVerify) {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({
+              success: true, sent: true, channel: 'reviewer-test',
+              message: 'Reviewer test code is available in the Play Console review instructions.',
+              requestId: 'reviewer-test'
+            }));
+            return;
+          }
+
+          const submittedOtp = String(payload.otp || '').replace(/\\D/g, '').slice(0, 10);
+          const expected = Buffer.from(reviewerOtp);
+          const submitted = Buffer.from(submittedOtp);
+          const validOtp = submitted.length === expected.length && crypto.timingSafeEqual(submitted, expected);
+          if (!validOtp) {
+            res.writeHead(401, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Incorrect or expired reviewer test code.' }));
+            return;
+          }
+
+          const sa = nutrolixCore.parseServiceAccountFromEnv();
+          if (!sa) {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, code: 'FIREBASE_ADMIN_NOT_CONFIGURED', error: 'Firebase server authentication is not configured.' }));
+            return;
+          }
+          const firebaseApiKey = nutrolixCore.getFirebaseWebApiKey(__dirname);
+          if (!firebaseApiKey) {
+            res.writeHead(503, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: 'Firebase client configuration is missing.' }));
+            return;
+          }
+          const uid = 'phone_' + mobile;
+          const now = Math.floor(Date.now() / 1000);
+          const b64 = value => Buffer.from(value).toString('base64url');
+          const unsigned = b64(JSON.stringify({ alg: 'RS256', typ: 'JWT' })) + '.' + b64(JSON.stringify({
+            iss: sa.client_email, sub: sa.client_email,
+            aud: 'https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit',
+            iat: now, exp: now + 3600, uid
+          }));
+          const signer = crypto.createSign('RSA-SHA256');
+          signer.update(unsigned);
+          const customToken = unsigned + '.' + signer.sign(sa.private_key.replace(/\\\\n/g, '\\n'), 'base64url');
+          await new Promise((resolve, reject) => {
+            const data = JSON.stringify({ token: customToken, returnSecureToken: true });
+            const request = https.request('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + encodeURIComponent(firebaseApiKey), {
+              method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }, timeout: 15000
+            }, response => {
+              let raw = '';
+              response.on('data', chunk => raw += chunk);
+              response.on('end', () => {
+                let parsed = {};
+                try { parsed = JSON.parse(raw || '{}'); } catch (_) {}
+                if (response.statusCode >= 200 && response.statusCode < 300 && parsed.idToken) resolve(parsed);
+                else reject(new Error(parsed.error && parsed.error.message ? parsed.error.message : 'Firebase sign-in failed.'));
+              });
+            });
+            request.on('timeout', () => request.destroy(new Error('Firebase sign-in timed out.')));
+            request.on('error', reject);
+            request.write(data); request.end();
+          });
+
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({
+            success: true, verified: true, customToken, uid,
+            profile: {
+              uid, id: uid, name: 'Google Play Reviewer', phone: mobile,
+              verifiedPhone: mobile, whatsappNumber: mobile, phoneVerified: true,
+              verified: true, authProvider: 'phone', providers: ['phone'],
+              googleLinked: false, reviewerTestAccount: true
+            },
+            addresses: []
+          }));
+          return;
+        }
+
         const apiKey = String(process.env.FAST2SMS_API_KEY || '').trim();
         const otpId = String(process.env.FAST2SMS_OTP_ID || '').trim();
         if (!apiKey || !otpId) {
