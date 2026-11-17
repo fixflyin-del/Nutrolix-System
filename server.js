@@ -3923,7 +3923,7 @@ const server = http.createServer(async (req, res) => {
           }));
           const signer = crypto.createSign('RSA-SHA256');
           signer.update(unsigned);
-          const customToken = unsigned + '.' + signer.sign(sa.private_key.replace(/\\\\n/g, '\\n'), 'base64url');
+          const customToken = unsigned + '.' + signer.sign(sa.private_key.replace(/\\n/g, '\n'), 'base64url');
           await new Promise((resolve, reject) => {
             const data = JSON.stringify({ token: customToken, returnSecureToken: true });
             const request = https.request('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + encodeURIComponent(firebaseApiKey), {
