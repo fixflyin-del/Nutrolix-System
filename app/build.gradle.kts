@@ -16,6 +16,12 @@ android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
+  sourceSets {
+    getByName("main") {
+      manifest.srcFile(if (isAdmin) "src/main/AndroidManifest.xml" else "src/customer/AndroidManifest.xml")
+    }
+  }
+
   defaultConfig {
     if (isAdmin) {
       applicationId = "com.aistudio.nutrolix.admin"
