@@ -50,6 +50,7 @@ jobs:
           echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > app/google-services.json
           test -s "$RUNNER_TEMP/nutrolix-upload-key.jks"
           test -s app/google-services.json
+          keytool -list -keystore "$RUNNER_TEMP/nutrolix-upload-key.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
           jq -e '[.client[].client_info.android_client_info.package_name] | index("com.aistudio.nutrolix.fooddelivery") != null' app/google-services.json >/dev/null
           echo "KEYSTORE_PATH=$RUNNER_TEMP/nutrolix-upload-key.jks" >> "$GITHUB_ENV"
 
@@ -79,6 +80,8 @@ jobs:
           mkdir -p artifacts
           cp app/build/outputs/bundle/release/app-release.aab "artifacts/Nutrolix-Customer-$VERSION_NAME.aab"
           test -s "artifacts/Nutrolix-Customer-$VERSION_NAME.aab"
+          jarsigner -verify "artifacts/Nutrolix-Customer-$VERSION_NAME.aab" >/dev/null
+          echo "Verified signed Customer AAB for package com.aistudio.nutrolix.fooddelivery"
 
       - name: Upload signed AAB
         uses: actions/upload-artifact@v4
