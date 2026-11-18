@@ -153,14 +153,56 @@ window.CloudinaryService = {
     });
   },
 
+  _uploadedSignatureByUrl: new Map(),
+
+  buildUniqueFilename(file, targetMime) {
+    const mime = String(targetMime || (file && file.type) || "image/webp").toLowerCase();
+    const ext = mime.includes("png") ? "png"
+      : (mime.includes("jpeg") || mime.includes("jpg")) ? "jpg"
+      : mime.includes("gif") ? "gif"
+      : "webp";
+    const rawName = (file && typeof file.name === "string" && file.name !== "blob")
+      ? file.name.replace(/\.[^.]+$/, "")
+      : "product";
+    const safeBase = rawName.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 20) || "product";
+    const rand = (typeof crypto !== "undefined" && crypto.getRandomValues)
+      ? Array.from(crypto.getRandomValues(new Uint8Array(4))).map(b => b.toString(16).padStart(2, "0")).join("")
+      : Math.random().toString(36).slice(2, 10);
+    return `nutrolix_${safeBase}_${Date.now().toString(36)}_${rand}.${ext}`;
+  },
+
+  computeFileSignature(file, dataUrl) {
+    const str = String(dataUrl || "");
+    const mid = str.length > 200 ? str.slice(Math.floor(str.length / 2), Math.floor(str.length / 2) + 64) : "";
+    return `${(file && file.size) || 0}:${str.length}:${str.slice(0, 64)}:${mid}:${str.slice(-64)}`;
+  },
+
+  isCollisionUrl(url, fileSignature) {
+    if (!url || typeof url !== "string") return true;
+    const clean = url.split("?")[0].split("#")[0];
+    if (/\/blob(\.[a-z0-9]+)?$/i.test(clean)) return true;
+    if (this._uploadedSignatureByUrl.has(clean) && this._uploadedSignatureByUrl.get(clean) !== fileSignature) {
+      return true;
+    }
+    return false;
+  },
+
+  recordUploadedUrl(url, fileSignature) {
+    if (url && typeof url === "string") {
+      const clean = url.split("?")[0].split("#")[0];
+      this._uploadedSignatureByUrl.set(clean, fileSignature);
+    }
+  },
+
   async uploadToPersistentMediaApi(dataUrl, filenamePrefix = "nutrolix_img") {
     const host = this.getApiHost();
+    const rand = Math.random().toString(36).slice(2, 8);
     const res = await fetch(host + "/api/upload-image", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         imageData: dataUrl,
-        filename: `${filenamePrefix}_${Date.now()}`
+        filename: `${filenamePrefix}_${Date.now()}_${rand}`
       })
     });
     const data = await res.json().catch(() => ({}));
@@ -194,23 +236,29 @@ window.CloudinaryService = {
     if (onProgress) onProgress(10);
     const { dataUrl: compressedDataUrl, blob: uploadBlob } = await this.compressImageFile(file);
     const base64Data = compressedDataUrl || await this.fileToBase64(file);
+    if (onProgress) onProgress(25);
+
+    const fileSignature = this.computeFileSignature(file, base64Data);
+    const uniqueFilename = this.buildUniqueFilename(file, (uploadBlob && uploadBlob.type) || file.type);
 
     // 1. If API Key and Secret are configured, use Server-Side Signed Upload
     if (apiKey && apiSecret) {
       try {
-        if (onProgress) onProgress(30);
+        if (onProgress) onProgress(45);
         const res = await fetch(host + "/api/cloudinary-upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             image: base64Data,
+            filename: uniqueFilename,
             cloudName,
             apiKey,
             apiSecret
           })
         });
         const data = await res.json().catch(() => ({}));
-        if (data && data.success && data.url) {
+        if (data && data.success && data.url && !this.isCollisionUrl(data.url, fileSignature)) {
+          this.recordUploadedUrl(data.url, fileSignature);
           if (onProgress) onProgress(100);
           return data.url;
         }
@@ -219,9 +267,18 @@ window.CloudinaryService = {
       }
     }
 
-    // 2. Direct browser upload with Upload Preset -> server Cloudinary -> persistent /api/upload-image
+    // 2. Direct browser upload with unique File name (never unnamed "blob") -> server Cloudinary -> persistent /api/upload-image
+    let namedPayload = uploadBlob || file;
+    try {
+      if (typeof File === "function") {
+        namedPayload = new File([uploadBlob || file], uniqueFilename, {
+          type: (uploadBlob && uploadBlob.type) || (file && file.type) || "image/webp"
+        });
+      }
+    } catch (_) {}
+
     const formData = new FormData();
-    formData.append("file", uploadBlob || file);
+    formData.append("file", namedPayload, uniqueFilename);
     formData.append("upload_preset", uploadPreset);
     formData.append("folder", "nutrolix_catalog");
 
@@ -229,23 +286,25 @@ window.CloudinaryService = {
 
     const tryServerAndMediaFallback = async () => {
       try {
-        if (onProgress) onProgress(70);
+        if (onProgress) onProgress(72);
         const sRes = await fetch(host + "/api/cloudinary-upload", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ image: base64Data, cloudName, uploadPreset })
+          body: JSON.stringify({ image: base64Data, filename: uniqueFilename, cloudName, uploadPreset })
         });
         const sData = await sRes.json().catch(() => ({}));
-        if (sData && sData.success && sData.url) {
+        if (sData && sData.success && sData.url && !this.isCollisionUrl(sData.url, fileSignature)) {
+          this.recordUploadedUrl(sData.url, fileSignature);
           if (onProgress) onProgress(100);
           return sData.url;
         }
       } catch (_) {}
 
-      // Guaranteed cross-device persistent URL stored in Firestore mediaStore/{id}
+      // Guaranteed cross-device unique persistent URL stored in Firestore mediaStore/{id}
       try {
-        if (onProgress) onProgress(85);
+        if (onProgress) onProgress(88);
         const mediaUrl = await this.uploadToPersistentMediaApi(base64Data, "catalog");
+        this.recordUploadedUrl(mediaUrl, fileSignature);
         if (onProgress) onProgress(100);
         return mediaUrl;
       } catch (mediaErr) {
@@ -263,7 +322,7 @@ window.CloudinaryService = {
       if (onProgress && xhr.upload) {
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) {
-            const pct = Math.min(90, Math.round((e.loaded / e.total) * 80) + 10);
+            const pct = Math.min(90, Math.round((e.loaded / e.total) * 65) + 25);
             onProgress(pct);
           }
         };
@@ -274,9 +333,13 @@ window.CloudinaryService = {
           try {
             const data = JSON.parse(xhr.responseText);
             const cdnUrl = data.secure_url || data.url;
-            if (cdnUrl) {
+            if (cdnUrl && !this.isCollisionUrl(cdnUrl, fileSignature)) {
+              this.recordUploadedUrl(cdnUrl, fileSignature);
               if (onProgress) onProgress(100);
               return resolve(cdnUrl);
+            }
+            if (cdnUrl) {
+              console.warn("Cloudinary collision/blob URL prevented, switching to unique fallback:", cdnUrl);
             }
           } catch (_) {}
         }

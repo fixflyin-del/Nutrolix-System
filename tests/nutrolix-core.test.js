@@ -1324,4 +1324,61 @@ test('Sample artwork default across catalog/blogs and 1s first-open vs reload-sk
   }
 });
 
+test('Unique Cloudinary filenames (no blob.webp overwrite), progress bars, and single deduplicated admin notification', () => {
+  const vm = require('node:vm');
+  const rootDir = path.join(__dirname, '..');
+  const uploaderSrc = fs.readFileSync(path.join(rootDir, 'public/assets/cloudinary-uploader.js'), 'utf8');
+  const adminHtml = fs.readFileSync(path.join(rootDir, 'public/admin.html'), 'utf8');
+  const serverJs = fs.readFileSync(path.join(rootDir, 'server.js'), 'utf8');
+
+  // 1. Evaluate CloudinaryService in VM sandbox
+  const ctx = {
+    location: { protocol: 'https:' },
+    localStorage: { getItem: () => null, setItem: () => {} },
+    crypto: require('node:crypto').webcrypto
+  };
+  ctx.window = ctx;
+  vm.runInNewContext(uploaderSrc, ctx);
+
+  const svc = ctx.CloudinaryService;
+  const f1 = svc.buildUniqueFilename({ name: 'blob', type: 'image/webp' }, 'image/webp');
+  const f2 = svc.buildUniqueFilename({ name: 'image.png', type: 'image/png' }, 'image/png');
+  const f3 = svc.buildUniqueFilename({ name: 'image.png', type: 'image/png' }, 'image/png');
+  assert.notEqual(f1, f2);
+  assert.notEqual(f2, f3);
+  assert.equal(/blob\.webp$/i.test(f1), false, 'Generated filename must never be blob.webp');
+  assert.ok(f1.startsWith('nutrolix_') && f1.endsWith('.webp'));
+  assert.ok(f2.startsWith('nutrolix_') && f2.endsWith('.png'));
+
+  // 2. Collision guard catches /blob.webp and duplicate URL across different file bytes
+  const sigA = svc.computeFileSignature({ size: 1200 }, 'data:image/webp;base64,AAA111');
+  const sigB = svc.computeFileSignature({ size: 2400 }, 'data:image/webp;base64,BBB222');
+  assert.equal(svc.isCollisionUrl('https://res.cloudinary.com/muy6zdcd/image/upload/v1795019222/nutrolix_catalog/blob.webp', sigA), true);
+  const uniqueUrlA = 'https://res.cloudinary.com/muy6zdcd/image/upload/v1795019999/nutrolix_catalog/nutrolix_atta_1.webp';
+  assert.equal(svc.isCollisionUrl(uniqueUrlA, sigA), false);
+  svc.recordUploadedUrl(uniqueUrlA, sigA);
+  assert.equal(svc.isCollisionUrl(uniqueUrlA, sigA), false, 'Same file signature may match its own URL');
+  assert.equal(svc.isCollisionUrl(uniqueUrlA, sigB), true, 'Different file bytes must reject colliding CDN URL');
+
+  // 3. Server /api/cloudinary-upload enforces unique public_id / multipart filename & rejects /blob.*
+  assert.ok(serverJs.includes('public_id: uniquePublicId') && serverJs.includes('multipart/form-data; boundary='));
+  assert.ok(serverJs.includes('!/\\/blob(\\.[a-z0-9]+)?$/i.test(cleanPath)'));
+
+  // 4. Admin progress bars & single deduplicated toast notification (zero alert() spam on image/product upload)
+  for (const id of [
+    'pkgImgProgressWrap1', 'pkgImgProgressWrap2', 'pkgImgProgressWrap3', 'pkgImgProgressWrap4', 'pkgImgProgressWrap5',
+    'pkgSaveProgressWrap', 'singleMealProgressWrap', 'mealSaveProgressWrap',
+    'adminHeroProgressWrap1', 'adminHeroProgressWrap2', 'adminHeroProgressWrap3', 'heroSaveProgressWrap',
+    'blogImageProgressWrap', 'blogSaveProgressWrap', 'bannerImageProgressWrap', 'bannerSaveProgressWrap',
+    'cloudinaryTestProgressWrap'
+  ]) {
+    assert.ok(adminHtml.includes(`id="${id}"`), `Missing admin progress indicator: ${id}`);
+  }
+  assert.ok(adminHtml.includes('window.showAdminNotification') && adminHtml.includes('id="nutrolixAdminToast"') || adminHtml.includes("container.id = 'nutrolixAdminToast'"));
+  assert.equal(adminHtml.includes('uploaded and synced live!'), false, 'Per-image upload must not spam alert popups');
+  assert.equal(adminHtml.includes('Packaged product saved & published live across Web'), false, 'Packaged product save must use single toast notification instead of alert');
+  assert.equal(adminHtml.includes('Healthy food meal saved & synced live across Web'), false, 'Healthy meal save must use single toast notification instead of alert');
+});
+
+
 

@@ -385,10 +385,21 @@
               <h2 class="text-lg font-black text-slate-900">Homepage Hero 3 Products & Images</h2>
               <p class="text-xs text-slate-500">Change titles, prices and custom image URLs for all 3 hero cards shown at the top of the homepage.</p>
             </div>
-            <button onclick="window.saveHeroProductsAdmin()" class="px-5 py-2.5 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-extrabold text-xs shadow-md transition flex items-center space-x-1.5 self-start sm:self-auto">
-              <i class="fa-solid fa-floppy-disk text-emerald-400"></i>
-              <span>Save & Publish Hero Images</span>
-            </button>
+            <div class="flex flex-col sm:flex-row sm:items-center gap-2 self-start sm:self-auto">
+              <div id="heroSaveProgressWrap" class="hidden min-w-[180px] bg-slate-100 rounded-xl p-2 border border-slate-200">
+                <div class="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-1">
+                  <span data-progress-label>Saving...</span>
+                  <span data-progress-pct>0%</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
+                </div>
+              </div>
+              <button id="saveHeroCardsBtn" onclick="window.saveHeroProductsAdmin()" class="px-5 py-2.5 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-extrabold text-xs shadow-md transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-floppy-disk text-emerald-400"></i>
+                <span>Save & Publish Hero Images</span>
+              </button>
+            </div>
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -411,10 +422,19 @@
                     <label class="cursor-pointer inline-flex items-center space-x-1 text-[10px] font-black text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded-md transition">
                       <i class="fa-solid fa-cloud-arrow-up"></i>
                       <span>Upload Photo</span>
-                      <input type="file" accept="image/*" class="hidden" onchange="window.uploadHeroCardImage(1, this.files && this.files[0])">
+                      <input type="file" accept="image/*" class="hidden" onchange="window.uploadHeroCardImage(1, this.files && this.files[0]); this.value='';">
                     </label>
                   </div>
                   <input type="text" id="adminHeroImg1" oninput="window.updateHeroImgPreview(1, this.value)" class="w-full p-2 bg-white rounded-lg border border-slate-300 text-xs font-mono" placeholder="https://...">
+                  <div id="adminHeroProgressWrap1" class="hidden mt-1.5">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+                      <span data-progress-label>Uploading...</span>
+                      <span data-progress-pct>0%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
+                    </div>
+                  </div>
                   <span id="adminHeroUploadStatus1" class="text-[10px] text-slate-500 font-semibold block mt-0.5"></span>
                 </div>
                 <div>
@@ -446,10 +466,19 @@
                     <label class="cursor-pointer inline-flex items-center space-x-1 text-[10px] font-black text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded-md transition">
                       <i class="fa-solid fa-cloud-arrow-up"></i>
                       <span>Upload Photo</span>
-                      <input type="file" accept="image/*" class="hidden" onchange="window.uploadHeroCardImage(2, this.files && this.files[0])">
+                      <input type="file" accept="image/*" class="hidden" onchange="window.uploadHeroCardImage(2, this.files && this.files[0]); this.value='';">
                     </label>
                   </div>
                   <input type="text" id="adminHeroImg2" oninput="window.updateHeroImgPreview(2, this.value)" class="w-full p-2 bg-white rounded-lg border border-slate-300 text-xs font-mono" placeholder="https://...">
+                  <div id="adminHeroProgressWrap2" class="hidden mt-1.5">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+                      <span data-progress-label>Uploading...</span>
+                      <span data-progress-pct>0%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
+                    </div>
+                  </div>
                   <span id="adminHeroUploadStatus2" class="text-[10px] text-slate-500 font-semibold block mt-0.5"></span>
                 </div>
                 <div>
@@ -481,10 +510,19 @@
                     <label class="cursor-pointer inline-flex items-center space-x-1 text-[10px] font-black text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-2 py-0.5 rounded-md transition">
                       <i class="fa-solid fa-cloud-arrow-up"></i>
                       <span>Upload Photo</span>
-                      <input type="file" accept="image/*" class="hidden" onchange="window.uploadHeroCardImage(3, this.files && this.files[0])">
+                      <input type="file" accept="image/*" class="hidden" onchange="window.uploadHeroCardImage(3, this.files && this.files[0]); this.value='';">
                     </label>
                   </div>
                   <input type="text" id="adminHeroImg3" oninput="window.updateHeroImgPreview(3, this.value)" class="w-full p-2 bg-white rounded-lg border border-slate-300 text-xs font-mono" placeholder="https://...">
+                  <div id="adminHeroProgressWrap3" class="hidden mt-1.5">
+                    <div class="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+                      <span data-progress-label>Uploading...</span>
+                      <span data-progress-pct>0%</span>
+                    </div>
+                    <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                      <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
+                    </div>
+                  </div>
                   <span id="adminHeroUploadStatus3" class="text-[10px] text-slate-500 font-semibold block mt-0.5"></span>
                 </div>
                 <div>
@@ -743,6 +781,15 @@
                 <i class="fa-solid fa-upload text-[11px]"></i>
                 <span>Test Upload Photo</span>
               </button>
+            </div>
+            <div id="cloudinaryTestProgressWrap" class="hidden">
+              <div class="flex items-center justify-between text-[10px] font-bold text-sky-800 mb-0.5">
+                <span data-progress-label>Uploading...</span>
+                <span data-progress-pct>0%</span>
+              </div>
+              <div class="w-full h-2 bg-sky-100 rounded-full overflow-hidden">
+                <div data-progress-bar class="h-full bg-sky-600 rounded-full transition-all duration-200" style="width:0%"></div>
+              </div>
             </div>
           </div>
 
@@ -1330,12 +1377,21 @@
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Meal Photo (EXACTLY 1 Image) *</label>
           <div class="flex items-center space-x-2 mb-2">
-            <input type="url" id="singleMealImageUrl" required placeholder="https://..." class="flex-1 px-3 py-1.5 text-xs rounded-xl border border-slate-300">
+            <input type="url" id="singleMealImageUrl" required placeholder="https://..." oninput="const p=document.getElementById('singleMealPreview'),w=document.getElementById('singleMealImagePreviewWrapper');if(p&&this.value.trim()){p.src=this.value.trim();if(w)w.classList.remove('hidden');}" class="flex-1 px-3 py-1.5 text-xs rounded-xl border border-slate-300">
             <label class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer border border-slate-300 flex items-center space-x-1">
               <i class="fa-solid fa-cloud-arrow-up"></i>
               <span>Upload</span>
-              <input type="file" accept="image/*" class="hidden" onchange="window.uploadSingleMealFile(this.files[0])">
+              <input type="file" accept="image/*" class="hidden" onchange="window.uploadSingleMealFile(this.files[0]); this.value='';">
             </label>
+          </div>
+          <div id="singleMealProgressWrap" class="hidden mb-2">
+            <div class="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+              <span data-progress-label>Uploading meal photo...</span>
+              <span data-progress-pct>0%</span>
+            </div>
+            <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+              <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
+            </div>
           </div>
           <div id="singleMealImagePreviewWrapper" class="hidden">
             <img id="singleMealPreview" src="" alt="Preview" class="w-full h-32 object-cover rounded-xl border border-slate-200">
@@ -1350,6 +1406,16 @@
         <div class="flex items-center space-x-2">
           <input type="checkbox" id="singleMealInStock" checked class="rounded text-emerald-600">
           <label for="singleMealInStock" class="text-xs font-bold text-slate-700">Currently In Stock & Ready to Cook</label>
+        </div>
+
+        <div id="mealSaveProgressWrap" class="hidden pt-1">
+          <div class="flex items-center justify-between text-[11px] font-bold text-slate-700 mb-1">
+            <span data-progress-label>Uploading & saving meal...</span>
+            <span data-progress-pct>0%</span>
+          </div>
+          <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+            <div data-progress-bar class="h-full bg-amber-600 rounded-full transition-all duration-200" style="width:0%"></div>
+          </div>
         </div>
 
         <div class="flex justify-end space-x-2 pt-3">
@@ -1527,13 +1593,31 @@
             <label class="px-3 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-bold rounded-xl border border-emerald-300 cursor-pointer flex items-center space-x-1 shadow-sm flex-shrink-0">
               <i class="fa-solid fa-cloud-arrow-up"></i>
               <span>Upload</span>
-              <input type="file" accept="image/*" class="hidden" onchange="window.uploadBannerImageFile(this.files[0])">
+              <input type="file" accept="image/*" class="hidden" onchange="window.uploadBannerImageFile(this.files[0]); this.value='';">
             </label>
+          </div>
+          <div id="bannerImageProgressWrap" class="hidden mt-1.5">
+            <div class="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+              <span data-progress-label>Uploading banner...</span>
+              <span data-progress-pct>0%</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
+            </div>
+          </div>
+        </div>
+        <div id="bannerSaveProgressWrap" class="hidden">
+          <div class="flex items-center justify-between text-[11px] font-bold text-slate-700 mb-1">
+            <span data-progress-label>Saving banner...</span>
+            <span data-progress-pct>0%</span>
+          </div>
+          <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
           </div>
         </div>
         <div class="flex justify-end space-x-2 pt-3">
           <button type="button" onclick="window.closeModal('bannerModal')" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Cancel</button>
-          <button type="submit" class="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow">Save Banner</button>
+          <button type="submit" id="saveBannerBtn" class="px-5 py-2 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow">Save Banner</button>
         </div>
       </form>
     </div>
@@ -1643,58 +1727,118 @@
           <label class="block text-xs font-bold text-slate-700 mb-1">Product Images (Supports Up to 5 High-Res Images) *</label>
           <div class="space-y-2">
             <!-- Slot 1 -->
-            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50 flex items-center space-x-2">
-              <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black flex items-center justify-center flex-shrink-0">1</span>
-              <input type="url" id="pkgImg1" required placeholder="Image 1 (Main Pack Front) - https://..." class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300">
-              <label class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg cursor-pointer border border-slate-300 flex items-center space-x-1 shadow-sm flex-shrink-0">
-                <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i>
-                <span>Upload</span>
-                <input type="file" accept="image/*" class="hidden" onchange="window.handleImageSlotUpload(1, this.files[0])">
-              </label>
+            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+              <div class="flex items-center space-x-2">
+                <span class="w-6 h-6 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-black flex items-center justify-center flex-shrink-0">1</span>
+                <img id="pkgImgThumb1" src="" alt="" class="hidden w-9 h-9 rounded-lg object-cover border border-slate-300 bg-white flex-shrink-0">
+                <input type="url" id="pkgImg1" required placeholder="Image 1 (Main Pack Front) - https://..." oninput="window.updatePkgSlotThumb(1, this.value)" class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300">
+                <label class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg cursor-pointer border border-slate-300 flex items-center space-x-1 shadow-sm flex-shrink-0">
+                  <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i>
+                  <span>Upload</span>
+                  <input type="file" accept="image/*" class="hidden" onchange="window.handleImageSlotUpload(1, this.files[0]); this.value='';">
+                </label>
+              </div>
+              <div id="pkgImgProgressWrap1" class="hidden px-1">
+                <div class="flex items-center justify-between text-[10px] font-bold text-slate-600 mb-0.5">
+                  <span data-progress-label>Uploading Slot 1...</span>
+                  <span data-progress-pct>0%</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
+                </div>
+              </div>
             </div>
 
             <!-- Slot 2 -->
-            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50 flex items-center space-x-2">
-              <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-800 text-[10px] font-black flex items-center justify-center flex-shrink-0">2</span>
-              <input type="url" id="pkgImg2" placeholder="Image 2 (Packaging / Back Label) - https://..." class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300">
-              <label class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg cursor-pointer border border-slate-300 flex items-center space-x-1 shadow-sm flex-shrink-0">
-                <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i>
-                <span>Upload</span>
-                <input type="file" accept="image/*" class="hidden" onchange="window.handleImageSlotUpload(2, this.files[0])">
-              </label>
+            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+              <div class="flex items-center space-x-2">
+                <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-800 text-[10px] font-black flex items-center justify-center flex-shrink-0">2</span>
+                <img id="pkgImgThumb2" src="" alt="" class="hidden w-9 h-9 rounded-lg object-cover border border-slate-300 bg-white flex-shrink-0">
+                <input type="url" id="pkgImg2" placeholder="Image 2 (Packaging / Back Label) - https://..." oninput="window.updatePkgSlotThumb(2, this.value)" class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300">
+                <label class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg cursor-pointer border border-slate-300 flex items-center space-x-1 shadow-sm flex-shrink-0">
+                  <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i>
+                  <span>Upload</span>
+                  <input type="file" accept="image/*" class="hidden" onchange="window.handleImageSlotUpload(2, this.files[0]); this.value='';">
+                </label>
+              </div>
+              <div id="pkgImgProgressWrap2" class="hidden px-1">
+                <div class="flex items-center justify-between text-[10px] font-bold text-slate-600 mb-0.5">
+                  <span data-progress-label>Uploading Slot 2...</span>
+                  <span data-progress-pct>0%</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
+                </div>
+              </div>
             </div>
 
             <!-- Slot 3 -->
-            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50 flex items-center space-x-2">
-              <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-800 text-[10px] font-black flex items-center justify-center flex-shrink-0">3</span>
-              <input type="url" id="pkgImg3" placeholder="Image 3 (Health Benefits / Features) - https://..." class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300">
-              <label class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg cursor-pointer border border-slate-300 flex items-center space-x-1 shadow-sm flex-shrink-0">
-                <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i>
-                <span>Upload</span>
-                <input type="file" accept="image/*" class="hidden" onchange="window.handleImageSlotUpload(3, this.files[0])">
-              </label>
+            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+              <div class="flex items-center space-x-2">
+                <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-800 text-[10px] font-black flex items-center justify-center flex-shrink-0">3</span>
+                <img id="pkgImgThumb3" src="" alt="" class="hidden w-9 h-9 rounded-lg object-cover border border-slate-300 bg-white flex-shrink-0">
+                <input type="url" id="pkgImg3" placeholder="Image 3 (Health Benefits / Features) - https://..." oninput="window.updatePkgSlotThumb(3, this.value)" class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300">
+                <label class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg cursor-pointer border border-slate-300 flex items-center space-x-1 shadow-sm flex-shrink-0">
+                  <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i>
+                  <span>Upload</span>
+                  <input type="file" accept="image/*" class="hidden" onchange="window.handleImageSlotUpload(3, this.files[0]); this.value='';">
+                </label>
+              </div>
+              <div id="pkgImgProgressWrap3" class="hidden px-1">
+                <div class="flex items-center justify-between text-[10px] font-bold text-slate-600 mb-0.5">
+                  <span data-progress-label>Uploading Slot 3...</span>
+                  <span data-progress-pct>0%</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
+                </div>
+              </div>
             </div>
 
             <!-- Slot 4 -->
-            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50 flex items-center space-x-2">
-              <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-800 text-[10px] font-black flex items-center justify-center flex-shrink-0">4</span>
-              <input type="url" id="pkgImg4" placeholder="Image 4 (Nutrition Facts Label) - https://..." class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300">
-              <label class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg cursor-pointer border border-slate-300 flex items-center space-x-1 shadow-sm flex-shrink-0">
-                <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i>
-                <span>Upload</span>
-                <input type="file" accept="image/*" class="hidden" onchange="window.handleImageSlotUpload(4, this.files[0])">
-              </label>
+            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+              <div class="flex items-center space-x-2">
+                <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-800 text-[10px] font-black flex items-center justify-center flex-shrink-0">4</span>
+                <img id="pkgImgThumb4" src="" alt="" class="hidden w-9 h-9 rounded-lg object-cover border border-slate-300 bg-white flex-shrink-0">
+                <input type="url" id="pkgImg4" placeholder="Image 4 (Nutrition Facts Label) - https://..." oninput="window.updatePkgSlotThumb(4, this.value)" class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300">
+                <label class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg cursor-pointer border border-slate-300 flex items-center space-x-1 shadow-sm flex-shrink-0">
+                  <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i>
+                  <span>Upload</span>
+                  <input type="file" accept="image/*" class="hidden" onchange="window.handleImageSlotUpload(4, this.files[0]); this.value='';">
+                </label>
+              </div>
+              <div id="pkgImgProgressWrap4" class="hidden px-1">
+                <div class="flex items-center justify-between text-[10px] font-bold text-slate-600 mb-0.5">
+                  <span data-progress-label>Uploading Slot 4...</span>
+                  <span data-progress-pct>0%</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
+                </div>
+              </div>
             </div>
 
             <!-- Slot 5 -->
-            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50 flex items-center space-x-2">
-              <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-800 text-[10px] font-black flex items-center justify-center flex-shrink-0">5</span>
-              <input type="url" id="pkgImg5" placeholder="Image 5 (Usage & Lifestyle / Prepared Food) - https://..." class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300">
-              <label class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg cursor-pointer border border-slate-300 flex items-center space-x-1 shadow-sm flex-shrink-0">
-                <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i>
-                <span>Upload</span>
-                <input type="file" accept="image/*" class="hidden" onchange="window.handleImageSlotUpload(5, this.files[0])">
-              </label>
+            <div class="p-2 rounded-xl border border-slate-200 bg-slate-50 space-y-1.5">
+              <div class="flex items-center space-x-2">
+                <span class="w-6 h-6 rounded-full bg-slate-200 text-slate-800 text-[10px] font-black flex items-center justify-center flex-shrink-0">5</span>
+                <img id="pkgImgThumb5" src="" alt="" class="hidden w-9 h-9 rounded-lg object-cover border border-slate-300 bg-white flex-shrink-0">
+                <input type="url" id="pkgImg5" placeholder="Image 5 (Usage & Lifestyle / Prepared Food) - https://..." oninput="window.updatePkgSlotThumb(5, this.value)" class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300">
+                <label class="px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold rounded-lg cursor-pointer border border-slate-300 flex items-center space-x-1 shadow-sm flex-shrink-0">
+                  <i class="fa-solid fa-cloud-arrow-up text-emerald-600"></i>
+                  <span>Upload</span>
+                  <input type="file" accept="image/*" class="hidden" onchange="window.handleImageSlotUpload(5, this.files[0]); this.value='';">
+                </label>
+              </div>
+              <div id="pkgImgProgressWrap5" class="hidden px-1">
+                <div class="flex items-center justify-between text-[10px] font-bold text-slate-600 mb-0.5">
+                  <span data-progress-label>Uploading Slot 5...</span>
+                  <span data-progress-pct>0%</span>
+                </div>
+                <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                  <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1750,6 +1894,16 @@
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">How to Store</label>
             <textarea id="pkgStorage" rows="2" placeholder="e.g. Store in a cool, dry place. Transfer into airtight container after opening." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"></textarea>
+          </div>
+        </div>
+
+        <div id="pkgSaveProgressWrap" class="hidden pt-2">
+          <div class="flex items-center justify-between text-[11px] font-bold text-slate-700 mb-1">
+            <span data-progress-label>Saving product...</span>
+            <span data-progress-pct>0%</span>
+          </div>
+          <div class="w-full h-2.5 bg-slate-200 rounded-full overflow-hidden">
+            <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
           </div>
         </div>
 
@@ -1887,11 +2041,20 @@
             <label class="px-2.5 py-1 text-[10px] bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg font-bold border border-emerald-300 cursor-pointer flex items-center space-x-1 whitespace-nowrap">
               <i class="fa-solid fa-cloud-arrow-up"></i>
               <span>Upload</span>
-              <input type="file" accept="image/*" class="hidden" onchange="window.uploadBlogCover(this.files[0])">
+              <input type="file" accept="image/*" class="hidden" onchange="window.uploadBlogCover(this.files[0]); this.value='';">
             </label>
             <button type="button" onclick="document.getElementById('blogImage').value='/assets/aistudio/image_6061bdc8.png'" class="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold whitespace-nowrap">Sample Preset</button>
             <button type="button" onclick="document.getElementById('blogImage').value='assets/nutrolix_lab_facility.jpg'" class="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold whitespace-nowrap">Lab Preset</button>
             <button type="button" onclick="document.getElementById('blogImage').value='assets/nutrolix_cleanroom_factory.jpg'" class="px-2.5 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-700 font-bold whitespace-nowrap">Factory Preset</button>
+          </div>
+          <div id="blogImageProgressWrap" class="hidden mt-1.5">
+            <div class="flex items-center justify-between text-[10px] font-bold text-slate-700 mb-0.5">
+              <span data-progress-label>Uploading cover...</span>
+              <span data-progress-pct>0%</span>
+            </div>
+            <div class="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <div data-progress-bar class="h-full bg-purple-600 rounded-full transition-all duration-200" style="width:0%"></div>
+            </div>
           </div>
         </div>
 
@@ -1923,6 +2086,16 @@
         <div>
           <label class="block text-xs font-bold text-slate-700 mb-1">Full Article Content *</label>
           <textarea id="blogContent" required rows="6" placeholder="Write the complete scientific article here (use blank lines between paragraphs)..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-mono text-xs"></textarea>
+        </div>
+
+        <div id="blogSaveProgressWrap" class="hidden pt-1">
+          <div class="flex items-center justify-between text-[11px] font-bold text-slate-700 mb-1">
+            <span data-progress-label>Publishing article...</span>
+            <span data-progress-pct>0%</span>
+          </div>
+          <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div data-progress-bar class="h-full bg-purple-600 rounded-full transition-all duration-200" style="width:0%"></div>
+          </div>
         </div>
 
         <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
@@ -1987,6 +2160,76 @@
 
   <!-- STANDALONE CORE JAVASCRIPT: GUARANTEED ZERO-FAILURE EXECUTION -->
   <script>
+    // Single Deduplicated Admin Toast Notification + Progress Bar Helper
+    window._adminToastTimer = null;
+    window.showAdminNotification = function(message, type = 'success') {
+      if (!message) return;
+      let container = document.getElementById('nutrolixAdminToast');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'nutrolixAdminToast';
+        container.className = 'fixed top-4 right-4 z-[9999] max-w-sm w-auto pointer-events-auto transition-all duration-200';
+        document.body.appendChild(container);
+      }
+      const isErr = type === 'error';
+      container.innerHTML = `
+        <div class="flex items-center space-x-2.5 px-4 py-3 rounded-2xl shadow-2xl border ${isErr ? 'bg-rose-950 text-white border-rose-700' : 'bg-slate-900 text-white border-emerald-500/70'} text-xs font-bold">
+          <span class="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${isErr ? 'bg-rose-600' : 'bg-emerald-500 text-slate-950'}">
+            <i class="fa-solid ${isErr ? 'fa-xmark' : 'fa-check'} text-[10px]"></i>
+          </span>
+          <span class="leading-snug">${String(message).replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>
+          <button type="button" onclick="document.getElementById('nutrolixAdminToast').classList.add('hidden')" class="ml-2 text-slate-400 hover:text-white text-xs px-1">
+            <i class="fa-solid fa-xmark"></i>
+          </button>
+        </div>
+      `;
+      container.classList.remove('hidden');
+      if (window._adminToastTimer) clearTimeout(window._adminToastTimer);
+      window._adminToastTimer = setTimeout(() => {
+        if (container) container.classList.add('hidden');
+      }, isErr ? 5000 : 3200);
+    };
+
+    window.setAdminProgress = function(wrapId, pct, label, state = 'active') {
+      const wrap = document.getElementById(wrapId);
+      if (!wrap) return;
+      if (state === 'hide') {
+        wrap.classList.add('hidden');
+        return;
+      }
+      wrap.classList.remove('hidden');
+      const clamped = Math.max(0, Math.min(100, Math.round(Number(pct) || 0)));
+      const bar = wrap.querySelector('[data-progress-bar]');
+      const pctEl = wrap.querySelector('[data-progress-pct]');
+      const labelEl = wrap.querySelector('[data-progress-label]');
+      if (bar) {
+        bar.style.width = clamped + '%';
+        if (state === 'error') {
+          bar.className = 'h-full bg-rose-600 rounded-full transition-all duration-200';
+        } else if (state === 'done' || clamped >= 100) {
+          bar.className = 'h-full bg-emerald-600 rounded-full transition-all duration-200';
+        }
+      }
+      if (pctEl) pctEl.textContent = clamped + '%';
+      if (labelEl && label) labelEl.textContent = label;
+    };
+
+    window.updatePkgSlotThumb = function(slotIndex, url) {
+      const thumb = document.getElementById(`pkgImgThumb${slotIndex}`);
+      if (!thumb) return;
+      const val = String(url || '').trim();
+      if (!val) {
+        thumb.src = '';
+        thumb.classList.add('hidden');
+        return;
+      }
+      const resolved = (window.CloudinaryService && typeof window.CloudinaryService.resolveMediaUrl === 'function')
+        ? window.CloudinaryService.resolveMediaUrl(val)
+        : val;
+      thumb.src = resolved;
+      thumb.classList.remove('hidden');
+    };
+
     // Mobile Hamburger Sidebar Drawer Controls
     window.openAdminSidebar = function() {
       const aside = document.getElementById('adminSidebar');
@@ -2210,6 +2453,11 @@
       if (saveBtn) saveBtn.innerText = 'Save Product';
       document.getElementById('pkgProductForm').reset();
       document.getElementById('pkgId').value = '';
+      for (let i = 1; i <= 5; i++) {
+        window.updatePkgSlotThumb(i, '');
+        window.setAdminProgress(`pkgImgProgressWrap${i}`, 0, '', 'hide');
+      }
+      window.setAdminProgress('pkgSaveProgressWrap', 0, '', 'hide');
       modal.classList.remove('hidden');
     };
 
@@ -2225,7 +2473,7 @@
         p = window.nutroProducts.find(item => String(item.id) === String(id));
       }
       if (!p) {
-        alert('Could not find product details for ID: ' + id);
+        window.showAdminNotification('Could not find product details for ID: ' + id, 'error');
         return;
       }
 
@@ -2249,11 +2497,14 @@
       document.getElementById('pkgStockStatus').value = p.stockStatus || 'In Stock';
       
       const imgs = (p.images && p.images.length) ? p.images : (p.image ? [p.image] : []);
-      document.getElementById('pkgImg1').value = imgs[0] || '';
-      document.getElementById('pkgImg2').value = imgs[1] || '';
-      document.getElementById('pkgImg3').value = imgs[2] || '';
-      document.getElementById('pkgImg4').value = imgs[3] || '';
-      document.getElementById('pkgImg5').value = imgs[4] || '';
+      for (let i = 1; i <= 5; i++) {
+        const val = imgs[i - 1] || '';
+        const inp = document.getElementById(`pkgImg${i}`);
+        if (inp) inp.value = val;
+        window.updatePkgSlotThumb(i, val);
+        window.setAdminProgress(`pkgImgProgressWrap${i}`, 0, '', 'hide');
+      }
+      window.setAdminProgress('pkgSaveProgressWrap', 0, '', 'hide');
 
       const per100g = p.nutritionFacts?.per100g || {};
       const calVal = per100g.calories || p.calories || '368';
@@ -2353,21 +2604,27 @@
       try {
         const btn = document.getElementById('savePkgBtn');
         if (btn) { btn.disabled = true; btn.innerText = 'Saving...'; }
+        window.setAdminProgress('pkgSaveProgressWrap', 30, 'Uploading product details...');
         const host = window.NUTROLIX_API_HOST || '';
         const res = await fetch(host + '/api/nutrition-products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+        window.setAdminProgress('pkgSaveProgressWrap', 75, 'Syncing live store...');
         const data = await res.json().catch(() => ({}));
         if (!res.ok || (data && data.success === false)) {
           throw new Error((data && data.error) || `Server error (${res.status})`);
         }
-        window.closeModal('packagedProductModal');
         await window.loadPackagedProducts();
-        alert('✓ Packaged product saved & published live across Web, Mobile Chrome, and APKs!');
+        window.setAdminProgress('pkgSaveProgressWrap', 100, '✓ Product published!', 'done');
+        await new Promise(r => setTimeout(r, 250));
+        window.setAdminProgress('pkgSaveProgressWrap', 0, '', 'hide');
+        window.closeModal('packagedProductModal');
+        window.showAdminNotification('✓ Product saved & published live!');
       } catch (err) {
-        alert('❌ Product save failed to reach live server: ' + err.message);
+        window.setAdminProgress('pkgSaveProgressWrap', 100, 'Save failed: ' + err.message, 'error');
+        window.showAdminNotification('Product save failed: ' + err.message, 'error');
       } finally {
         const btn = document.getElementById('savePkgBtn');
         if (btn) { btn.disabled = false; btn.innerText = 'Save Product'; }
@@ -3173,12 +3430,11 @@
     window.markOrderPacked = async function(orderId) {
       acknowledgedOrderIds.add(orderId);
       try {
-        const res = await window.callOrderStatusEndpoint(orderId, 'Packed');
-        const pushNote = window.formatPushSummary(res);
-        alert(`✓ Order #${orderId} marked as Packed!\n${pushNote}`);
+        await window.callOrderStatusEndpoint(orderId, 'Packed');
+        window.showAdminNotification(`✓ Order #${orderId} marked as Packed`);
         window.loadPackagedOrders();
       } catch (err) {
-        alert('❌ Failed to update order status: ' + err.message);
+        window.showAdminNotification('Failed to update order status: ' + err.message, 'error');
       }
     };
 
@@ -3187,36 +3443,33 @@
       const courierName = prompt('Enter Courier / Delivery Partner Name (e.g. Delhivery, Blue Dart, Porter):', 'Nutrolix Express') || 'Nutrolix Express';
       const trackingNumber = prompt('Enter Tracking Number (optional):', '') || '';
       try {
-        const res = await window.callOrderStatusEndpoint(orderId, 'Out for Delivery', courierName, trackingNumber);
-        const pushNote = window.formatPushSummary(res);
-        alert(`✓ Order #${orderId} marked as Out for Delivery!\n${pushNote}`);
+        await window.callOrderStatusEndpoint(orderId, 'Out for Delivery', courierName, trackingNumber);
+        window.showAdminNotification(`✓ Order #${orderId} marked as Out for Delivery`);
         window.loadPackagedOrders();
       } catch (err) {
-        alert('❌ Failed to update order status: ' + err.message);
+        window.showAdminNotification('Failed to update order status: ' + err.message, 'error');
       }
     };
 
     window.markOrderDelivered = async function(orderId) {
       acknowledgedOrderIds.add(orderId);
       try {
-        const res = await window.callOrderStatusEndpoint(orderId, 'Delivered');
-        const pushNote = window.formatPushSummary(res);
-        alert(`✓ Order #${orderId} marked as Delivered!\n${pushNote}`);
+        await window.callOrderStatusEndpoint(orderId, 'Delivered');
+        window.showAdminNotification(`✓ Order #${orderId} marked as Delivered`);
         window.loadPackagedOrders();
       } catch (err) {
-        alert('❌ Failed to update order status: ' + err.message);
+        window.showAdminNotification('Failed to update order status: ' + err.message, 'error');
       }
     };
 
     window.updatePackagedOrderStatus = async function(orderId, newStatus) {
       acknowledgedOrderIds.add(orderId);
       try {
-        const res = await window.callOrderStatusEndpoint(orderId, newStatus);
-        const pushNote = window.formatPushSummary(res);
-        alert(`✓ Order #${orderId} status updated to "${newStatus}"!\n${pushNote}`);
+        await window.callOrderStatusEndpoint(orderId, newStatus);
+        window.showAdminNotification(`✓ Order #${orderId} updated to ${newStatus}`);
         window.loadPackagedOrders();
       } catch (err) {
-        alert('❌ Failed to update order status: ' + err.message);
+        window.showAdminNotification('Failed to update order status: ' + err.message, 'error');
         window.loadPackagedOrders();
       }
     };
@@ -3405,22 +3658,27 @@
     };
 
     // -------------------------------------------------------------
-    // 5-IMAGE PACKAGED PRODUCT UPLOADER
+    // 5-IMAGE PACKAGED PRODUCT UPLOADER (With Per-Slot Progress & Live Thumbnail)
     // -------------------------------------------------------------
     window.handleImageSlotUpload = async function(slotIndex, file) {
       if (!file) return;
       const input = document.getElementById(`pkgImg${slotIndex}`);
-      if (input) input.placeholder = "⏳ Uploading compressed photo to cloud...";
+      const progressId = `pkgImgProgressWrap${slotIndex}`;
+      if (input) input.placeholder = "Uploading photo...";
+      window.setAdminProgress(progressId, 10, `Uploading Slot ${slotIndex}...`);
 
       if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
         try {
-          const cdnUrl = await window.CloudinaryService.uploadImage(file);
+          const cdnUrl = await window.CloudinaryService.uploadImage(file, (pct) => {
+            window.setAdminProgress(progressId, pct, `Uploading Slot ${slotIndex}...`);
+          });
           if (cdnUrl) {
             if (input) {
               input.value = cdnUrl;
               input.placeholder = `Image ${slotIndex} - https://...`;
             }
-            alert(`✓ Image slot ${slotIndex} uploaded and synced live!\n\n${cdnUrl.startsWith('data:') ? 'Saved (offline data preview)' : cdnUrl}`);
+            window.updatePkgSlotThumb(slotIndex, cdnUrl);
+            window.setAdminProgress(progressId, 100, `✓ Slot ${slotIndex} ready`, 'done');
             return;
           }
         } catch (cErr) {
@@ -3429,6 +3687,7 @@
       }
 
       try {
+        window.setAdminProgress(progressId, 55, `Uploading Slot ${slotIndex}...`);
         const host = window.NUTROLIX_API_HOST || '';
         const compressed = (window.CloudinaryService && typeof window.CloudinaryService.compressImageFile === 'function')
           ? (await window.CloudinaryService.compressImageFile(file)).dataUrl
@@ -3443,20 +3702,23 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             imageData: compressed,
-            filename: `pkg_slot_${slotIndex}_${Date.now()}`
+            filename: `pkg_slot_${slotIndex}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
           })
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok && data.success && (data.imageUrl || data.url)) {
           const finalUrl = window.CloudinaryService?.resolveMediaUrl?.(data.imageUrl || data.url) || (data.imageUrl || data.url);
           if (input) input.value = finalUrl;
-          alert(`✓ Image slot ${slotIndex} uploaded to cloud server!`);
+          window.updatePkgSlotThumb(slotIndex, finalUrl);
+          window.setAdminProgress(progressId, 100, `✓ Slot ${slotIndex} ready`, 'done');
           return;
         }
         if (input) input.value = compressed;
-        alert(`✓ Image slot ${slotIndex} attached.`);
+        window.updatePkgSlotThumb(slotIndex, compressed);
+        window.setAdminProgress(progressId, 100, `✓ Slot ${slotIndex} attached`, 'done');
       } catch (err) {
-        alert('Upload failed: ' + err.message);
+        window.setAdminProgress(progressId, 100, `Upload failed: ${err.message}`, 'error');
+        window.showAdminNotification('Upload failed: ' + err.message, 'error');
       }
     };
 
@@ -3631,7 +3893,7 @@
       } catch (err) {
         console.warn('Category API sync:', err);
       }
-      alert('✓ Category "' + name + '" saved successfully!');
+      window.showAdminNotification('✓ Category "' + name + '" saved!');
     };
 
     window.deleteCategory = async function(id) {
@@ -3761,6 +4023,8 @@
       const submitBtn = document.getElementById('saveMealSubmitBtn');
       if (submitBtn) submitBtn.innerText = 'Save Meal';
       document.getElementById('singleMealImagePreviewWrapper').classList.add('hidden');
+      window.setAdminProgress('singleMealProgressWrap', 0, '', 'hide');
+      window.setAdminProgress('mealSaveProgressWrap', 0, '', 'hide');
       document.getElementById('addMealModalSingle').classList.remove('hidden');
     };
 
@@ -3769,16 +4033,19 @@
       const input = document.getElementById('singleMealImageUrl');
       const preview = document.getElementById('singleMealPreview');
       const wrapper = document.getElementById('singleMealImagePreviewWrapper');
+      window.setAdminProgress('singleMealProgressWrap', 10, 'Uploading meal photo...');
 
       if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
         try {
-          if (input) input.placeholder = "⏳ Uploading compressed meal photo...";
-          const cdnUrl = await window.CloudinaryService.uploadImage(file);
+          if (input) input.placeholder = "Uploading meal photo...";
+          const cdnUrl = await window.CloudinaryService.uploadImage(file, (pct) => {
+            window.setAdminProgress('singleMealProgressWrap', pct, 'Uploading meal photo...');
+          });
           if (cdnUrl) {
             if (input) input.value = cdnUrl;
             if (preview) preview.src = cdnUrl;
             if (wrapper) wrapper.classList.remove('hidden');
-            alert(`✓ Meal photo uploaded and synced live!\n\n${cdnUrl.startsWith('data:') ? 'Saved (offline preview)' : cdnUrl}`);
+            window.setAdminProgress('singleMealProgressWrap', 100, '✓ Meal photo ready', 'done');
             return;
           }
         } catch (cErr) {
@@ -3787,6 +4054,7 @@
       }
 
       try {
+        window.setAdminProgress('singleMealProgressWrap', 55, 'Uploading meal photo...');
         const host = window.NUTROLIX_API_HOST || '';
         const compressed = (window.CloudinaryService && typeof window.CloudinaryService.compressImageFile === 'function')
           ? (await window.CloudinaryService.compressImageFile(file)).dataUrl
@@ -3799,7 +4067,7 @@
         const res = await fetch(host + '/api/upload-image', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageData: compressed, filename: `meal_${Date.now()}` })
+          body: JSON.stringify({ imageData: compressed, filename: `meal_${Date.now()}_${Math.random().toString(36).slice(2, 7)}` })
         });
         const data = await res.json().catch(() => ({}));
         const finalUrl = (res.ok && data.success && (data.imageUrl || data.url))
@@ -3808,8 +4076,10 @@
         if (input) input.value = finalUrl;
         if (preview) preview.src = finalUrl;
         if (wrapper) wrapper.classList.remove('hidden');
+        window.setAdminProgress('singleMealProgressWrap', 100, '✓ Meal photo ready', 'done');
       } catch (err) {
-        alert('Upload failed: ' + err.message);
+        window.setAdminProgress('singleMealProgressWrap', 100, 'Upload failed: ' + err.message, 'error');
+        window.showAdminNotification('Upload failed: ' + err.message, 'error');
       }
     };
 
@@ -3843,23 +4113,33 @@
         localStorage.setItem('nutrolix_healthy_food_menu', JSON.stringify(window.healthyMeals));
       } catch (_) {}
       if (typeof window.renderFoodMenuTable === 'function') window.renderFoodMenuTable();
-      window.closeModal('addMealModalSingle');
 
+      const submitBtn = document.getElementById('saveMealSubmitBtn');
       try {
+        if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = 'Saving...'; }
+        window.setAdminProgress('mealSaveProgressWrap', 35, 'Saving meal details...');
         const host = window.NUTROLIX_API_HOST || '';
         const res = await fetch(host + '/api/food-menu', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+        window.setAdminProgress('mealSaveProgressWrap', 75, 'Publishing live...');
         const data = await res.json().catch(() => ({}));
         if (!res.ok || (data && data.success === false)) {
           throw new Error((data && data.error) || `Server error (${res.status})`);
         }
         await window.loadFoodMenuAdmin();
-        alert('✓ Healthy food meal saved & synced live across Web, Mobile, and APKs!');
+        window.setAdminProgress('mealSaveProgressWrap', 100, '✓ Meal published!', 'done');
+        await new Promise(r => setTimeout(r, 250));
+        window.setAdminProgress('mealSaveProgressWrap', 0, '', 'hide');
+        window.closeModal('addMealModalSingle');
+        window.showAdminNotification('✓ Healthy meal saved & published live!');
       } catch (err) {
-        alert('❌ Meal save failed to reach live server: ' + err.message);
+        window.setAdminProgress('mealSaveProgressWrap', 100, 'Save failed: ' + err.message, 'error');
+        window.showAdminNotification('Meal save failed: ' + err.message, 'error');
+      } finally {
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = 'Save Meal'; }
       }
     };
 
@@ -3918,6 +4198,8 @@
         wrapper.classList.add('hidden');
       }
 
+      window.setAdminProgress('singleMealProgressWrap', 0, '', 'hide');
+      window.setAdminProgress('mealSaveProgressWrap', 0, '', 'hide');
       document.getElementById('addMealModalSingle').classList.remove('hidden');
     };
 
@@ -4185,12 +4467,12 @@
         if (data.success) {
           window.closeModal('videoReviewModal');
           await window.loadVideoReviewsAdmin();
-          alert('✓ Video review successfully published live across Web & APKs!');
+          window.showAdminNotification('✓ Video review published live!');
         } else {
-          alert('Failed to save review: ' + (data.error || 'Server error'));
+          window.showAdminNotification('Failed to save review: ' + (data.error || 'Server error'), 'error');
         }
       } catch (err) {
-        alert('Error: ' + err.message);
+        window.showAdminNotification('Error: ' + err.message, 'error');
       } finally {
         const btn = document.getElementById('saveVidBtn');
         btn.disabled = false;
@@ -4323,6 +4605,8 @@
       document.getElementById('blogSeoTitle').value = '';
       document.getElementById('blogSeoDescription').value = '';
       document.getElementById('blogSeoKeywords').value = '';
+      window.setAdminProgress('blogImageProgressWrap', 0, '', 'hide');
+      window.setAdminProgress('blogSaveProgressWrap', 0, '', 'hide');
       document.getElementById('blogModal').classList.remove('hidden');
     };
 
@@ -4342,6 +4626,8 @@
       document.getElementById('blogSeoKeywords').value = b.seoKeywords || '';
       document.getElementById('blogExcerpt').value = b.excerpt || '';
       document.getElementById('blogContent').value = b.content || '';
+      window.setAdminProgress('blogImageProgressWrap', 0, '', 'hide');
+      window.setAdminProgress('blogSaveProgressWrap', 0, '', 'hide');
       document.getElementById('blogModal').classList.remove('hidden');
     };
 
@@ -4383,22 +4669,29 @@
         const btn = document.getElementById('saveBlogBtn');
         btn.disabled = true;
         btn.innerText = 'Publishing...';
+        window.setAdminProgress('blogSaveProgressWrap', 40, 'Publishing article...');
         const host = window.NUTROLIX_API_HOST || '';
         const res = await fetch(host + '/api/blogs', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
+        window.setAdminProgress('blogSaveProgressWrap', 80, 'Syncing live...');
         const data = await res.json();
         if (data.success) {
-          window.closeModal('blogModal');
           await window.loadBlogsAdmin();
-          alert('✓ Article successfully published! Accessible live at: nutrolix.in/' + slug);
+          window.setAdminProgress('blogSaveProgressWrap', 100, '✓ Article published!', 'done');
+          await new Promise(r => setTimeout(r, 250));
+          window.setAdminProgress('blogSaveProgressWrap', 0, '', 'hide');
+          window.closeModal('blogModal');
+          window.showAdminNotification('✓ Article published live!');
         } else {
-          alert('Failed to save blog: ' + (data.error || 'Server error'));
+          window.setAdminProgress('blogSaveProgressWrap', 100, 'Save failed', 'error');
+          window.showAdminNotification('Failed to save blog: ' + (data.error || 'Server error'), 'error');
         }
       } catch (err) {
-        alert('Error: ' + err.message);
+        window.setAdminProgress('blogSaveProgressWrap', 100, 'Save failed', 'error');
+        window.showAdminNotification('Error: ' + err.message, 'error');
       } finally {
         const btn = document.getElementById('saveBlogBtn');
         btn.disabled = false;
@@ -4478,7 +4771,7 @@
 
       window.closeModal('addGoogleReviewModal');
       if (e.target && e.target.reset) e.target.reset();
-      alert(`✓ Google Review from "${author}" successfully published! It is now live on the Nutrolix homepage.`);
+      window.showAdminNotification(`✓ Google Review from "${author}" published!`);
       window.loadGoogleProfile();
     };
 
@@ -4554,30 +4847,26 @@
       if (!file) return;
       const input = document.getElementById('adminHeroImg' + idx);
       const statusEl = document.getElementById('adminHeroUploadStatus' + idx);
+      const progressId = 'adminHeroProgressWrap' + idx;
+      window.setAdminProgress(progressId, 10, 'Uploading photo...');
       if (statusEl) {
-        statusEl.textContent = '⏳ Uploading compressed photo...';
-        statusEl.className = 'text-[10px] text-amber-600 font-bold animate-pulse block mt-0.5';
+        statusEl.textContent = '';
       }
       try {
         let finalUrl = '';
         if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
           finalUrl = await window.CloudinaryService.uploadImage(file, (pct) => {
-            if (statusEl) statusEl.textContent = `⏳ Uploading photo (${pct}%)...`;
+            window.setAdminProgress(progressId, pct, 'Uploading photo...');
           });
         }
         if (finalUrl) {
           if (input) input.value = finalUrl;
           window.updateHeroImgPreview(idx, finalUrl);
-          if (statusEl) {
-            statusEl.textContent = '✓ Uploaded & ready — tap "Save All Hero Cards" to publish!';
-            statusEl.className = 'text-[10px] text-emerald-700 font-bold block mt-0.5';
-          }
+          window.setAdminProgress(progressId, 100, '✓ Uploaded & ready', 'done');
         }
       } catch (err) {
-        if (statusEl) {
-          statusEl.textContent = '❌ Upload failed: ' + (err && err.message || 'Retry');
-          statusEl.className = 'text-[10px] text-rose-600 font-bold block mt-0.5';
-        }
+        window.setAdminProgress(progressId, 100, 'Upload failed', 'error');
+        window.showAdminNotification('Upload failed: ' + (err && err.message || 'Retry'), 'error');
       }
     };
 
@@ -4663,20 +4952,29 @@
       };
 
       localStorage.setItem('nutrolix_hero_products', JSON.stringify(heroData));
+      const saveBtn = document.getElementById('saveHeroCardsBtn');
       try {
+        if (saveBtn) saveBtn.disabled = true;
+        window.setAdminProgress('heroSaveProgressWrap', 35, 'Saving hero cards...');
         const host = window.NUTROLIX_API_HOST || '';
         const res = await fetch(host + '/api/hero-products', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(heroData)
         });
+        window.setAdminProgress('heroSaveProgressWrap', 80, 'Publishing live...');
         const data = await res.json().catch(() => ({}));
         if (!res.ok || (data && data.success === false)) {
           throw new Error((data && data.error) || `Server error (${res.status})`);
         }
-        alert('✓ Homepage Hero Section 3 Products & Images published live across Web, Mobile Chrome, and APKs!');
+        window.setAdminProgress('heroSaveProgressWrap', 100, '✓ Hero cards live!', 'done');
+        setTimeout(() => window.setAdminProgress('heroSaveProgressWrap', 0, '', 'hide'), 1500);
+        window.showAdminNotification('✓ Hero cards published live!');
       } catch (err) {
-        alert('❌ Hero save failed to reach live server: ' + err.message);
+        window.setAdminProgress('heroSaveProgressWrap', 100, 'Save failed', 'error');
+        window.showAdminNotification('Hero save failed: ' + err.message, 'error');
+      } finally {
+        if (saveBtn) saveBtn.disabled = false;
       }
     };
 
@@ -4901,6 +5199,8 @@
       if (form) form.reset();
       const editId = document.getElementById("bannerEditId");
       if (editId) editId.value = "";
+      window.setAdminProgress("bannerImageProgressWrap", 0, "", "hide");
+      window.setAdminProgress("bannerSaveProgressWrap", 0, "", "hide");
       document.getElementById("bannerModal")?.classList.remove("hidden");
     };
 
@@ -4951,24 +5251,34 @@
         banners.unshift(bannerObj);
       }
       localStorage.setItem("nutrolix_top_banners", JSON.stringify(banners));
-      window.closeModal("bannerModal");
       window.renderBannersList();
 
+      const saveBannerBtn = document.getElementById("saveBannerBtn");
       try {
+        if (saveBannerBtn) saveBannerBtn.disabled = true;
+        window.setAdminProgress("bannerSaveProgressWrap", 35, "Saving banner...");
         const host = window.NUTROLIX_API_HOST || "";
         const res = await fetch(host + "/api/banners", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(bannerObj)
         });
+        window.setAdminProgress("bannerSaveProgressWrap", 80, "Publishing live...");
         const data = await res.json().catch(() => ({}));
         if (!res.ok || (data && data.success === false)) {
           throw new Error((data && data.error) || `Server error (${res.status})`);
         }
         await window.loadBannersAdmin();
-        alert("✓ Promo Banner saved & published live across Web, Mobile, and APKs!");
+        window.setAdminProgress("bannerSaveProgressWrap", 100, "✓ Banner published!", "done");
+        await new Promise(r => setTimeout(r, 250));
+        window.setAdminProgress("bannerSaveProgressWrap", 0, "", "hide");
+        window.closeModal("bannerModal");
+        window.showAdminNotification("✓ Promo banner saved & published live!");
       } catch (err) {
-        alert("❌ Banner save failed to reach live server: " + err.message);
+        window.setAdminProgress("bannerSaveProgressWrap", 100, "Save failed", "error");
+        window.showAdminNotification("Banner save failed: " + err.message, "error");
+      } finally {
+        if (saveBannerBtn) saveBannerBtn.disabled = false;
       }
     };
 
@@ -4985,6 +5295,8 @@
       if (document.getElementById("bannerBadge")) document.getElementById("bannerBadge").value = b.badge || "";
       if (document.getElementById("bannerCode")) document.getElementById("bannerCode").value = b.code || "";
       if (document.getElementById("bannerImageUrl")) document.getElementById("bannerImageUrl").value = b.imageUrl || "";
+      window.setAdminProgress("bannerImageProgressWrap", 0, "", "hide");
+      window.setAdminProgress("bannerSaveProgressWrap", 0, "", "hide");
       document.getElementById("bannerModal")?.classList.remove("hidden");
     };
 
@@ -5090,7 +5402,7 @@
 
       window.closeModal("couponModal");
       window.renderCouponsList();
-      alert("✓ Coupon " + code + " created and active across store & checkout!");
+      window.showAdminNotification("✓ Coupon " + code + " saved & active!");
     };
 
     // -------------------------------------------------------------
@@ -5174,7 +5486,7 @@
 
       if (document.getElementById('newCouponCode')) document.getElementById('newCouponCode').value = '';
       if (document.getElementById('newCouponValue')) document.getElementById('newCouponValue').value = '';
-      alert(`✓ Coupon "${code}" successfully created and live across customer checkout!`);
+      window.showAdminNotification(`✓ Coupon "${code}" saved & live!`);
     };
 
     window.deleteCoupon = async function(code) {
@@ -5380,14 +5692,14 @@
         }
         const statusEl = document.getElementById("settingsSaveStatus");
         if (statusEl) {
-          statusEl.innerText = "✅ Saved & Published Live across Web, Mobile Chrome, and APKs at " + new Date().toLocaleTimeString();
-          statusEl.className = "text-xs font-bold text-emerald-800 animate-pulse";
+          statusEl.innerText = "✅ Saved & Published Live at " + new Date().toLocaleTimeString();
+          statusEl.className = "text-xs font-bold text-emerald-800";
         }
         applyStoreSettingsToAdminUI();
-        if (!silent) alert("✓ All Store Settings saved & published live across Customer Web App & Mobile Apps!\n\n• Announcement Ticker: Active\n• Delivery Fee: ₹" + deliveryFee + "\n• Free Shipping Threshold: ₹" + freeDeliveryAbove);
+        if (!silent) window.showAdminNotification("✓ Store settings saved & published live!");
       } catch (err) {
         applyStoreSettingsToAdminUI();
-        if (!silent) alert("❌ Store Settings server sync failed: " + err.message);
+        if (!silent) window.showAdminNotification("Store Settings sync failed: " + err.message, "error");
       }
     };
     window.saveStoreSettings = window.saveAllStoreSettings;
@@ -5408,25 +5720,28 @@
         const file = testInput.files && testInput.files[0];
         if (!file) return;
         const statusEl = document.getElementById("cloudinaryTestStatus");
+        window.setAdminProgress("cloudinaryTestProgressWrap", 10, "Uploading test photo...");
         if (statusEl) {
-          statusEl.innerText = "⏳ Uploading photo to Cloudinary / Cloud Media Store...";
-          statusEl.className = "text-[11px] text-amber-600 font-bold animate-pulse";
+          statusEl.innerText = "Uploading photo...";
+          statusEl.className = "text-[11px] text-amber-600 font-bold";
         }
         try {
           const url = await window.CloudinaryService.uploadImage(file, pct => {
-            if (statusEl) statusEl.innerText = `⏳ Uploading image (${pct}%)...`;
+            window.setAdminProgress("cloudinaryTestProgressWrap", pct, "Uploading test photo...");
           });
           if (statusEl) {
-            statusEl.innerText = "✓ Success! Photo live across all devices: " + url;
+            statusEl.innerText = "✓ Success! Unique Photo URL: " + url;
             statusEl.className = "text-[11px] text-emerald-700 font-bold";
           }
-          alert(`✓ Image Upload Working 100%!\n\nImage URL:\n${url}`);
+          window.setAdminProgress("cloudinaryTestProgressWrap", 100, "✓ Upload working 100%", "done");
+          window.showAdminNotification("✓ Test image uploaded cleanly!");
         } catch (err) {
           if (statusEl) {
             statusEl.innerText = "❌ Upload failed: " + err.message;
             statusEl.className = "text-[11px] text-rose-600 font-bold";
           }
-          alert("Upload Error: " + err.message);
+          window.setAdminProgress("cloudinaryTestProgressWrap", 100, "Upload failed", "error");
+          window.showAdminNotification("Upload Error: " + err.message, "error");
         } finally {
           testInput.remove();
         }
@@ -5438,13 +5753,16 @@
     window.uploadBlogCover = async function(file) {
       if (!file) return;
       const input = document.getElementById('blogImage');
+      window.setAdminProgress('blogImageProgressWrap', 10, 'Uploading cover image...');
       if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
         try {
-          if (input) input.placeholder = "⏳ Uploading cover image...";
-          const cdnUrl = await window.CloudinaryService.uploadImage(file);
+          if (input) input.placeholder = "Uploading cover image...";
+          const cdnUrl = await window.CloudinaryService.uploadImage(file, (pct) => {
+            window.setAdminProgress('blogImageProgressWrap', pct, 'Uploading cover image...');
+          });
           if (cdnUrl) {
             if (input) input.value = cdnUrl;
-            alert(`✓ Blog cover image uploaded!\n\n${cdnUrl.startsWith('data:') ? 'Saved (offline preview)' : cdnUrl}`);
+            window.setAdminProgress('blogImageProgressWrap', 100, '✓ Cover image uploaded', 'done');
             return;
           }
         } catch (e) {
@@ -5452,23 +5770,31 @@
         }
       }
       try {
+        window.setAdminProgress('blogImageProgressWrap', 70, 'Processing cover image...');
         const compressed = (window.CloudinaryService && typeof window.CloudinaryService.compressImageFile === 'function')
           ? (await window.CloudinaryService.compressImageFile(file)).dataUrl
           : '';
         if (input && compressed) input.value = compressed;
-      } catch (_) {}
+        window.setAdminProgress('blogImageProgressWrap', 100, '✓ Cover image ready', 'done');
+      } catch (err) {
+        window.setAdminProgress('blogImageProgressWrap', 100, 'Upload failed', 'error');
+        window.showAdminNotification('Cover upload failed: ' + (err && err.message || 'Retry'), 'error');
+      }
     };
 
     window.uploadBannerImageFile = async function(file) {
       if (!file) return;
       const input = document.getElementById('bannerImageUrl');
+      window.setAdminProgress('bannerImageProgressWrap', 10, 'Uploading banner image...');
       if (window.CloudinaryService && typeof window.CloudinaryService.uploadImage === 'function') {
         try {
-          if (input) input.placeholder = "⏳ Uploading banner image...";
-          const cdnUrl = await window.CloudinaryService.uploadImage(file);
+          if (input) input.placeholder = "Uploading banner image...";
+          const cdnUrl = await window.CloudinaryService.uploadImage(file, (pct) => {
+            window.setAdminProgress('bannerImageProgressWrap', pct, 'Uploading banner image...');
+          });
           if (cdnUrl) {
             if (input) input.value = cdnUrl;
-            alert(`✓ Banner image uploaded!\n\n${cdnUrl.startsWith('data:') ? 'Saved (offline preview)' : cdnUrl}`);
+            window.setAdminProgress('bannerImageProgressWrap', 100, '✓ Banner image uploaded', 'done');
             return;
           }
         } catch (e) {
@@ -5476,11 +5802,16 @@
         }
       }
       try {
+        window.setAdminProgress('bannerImageProgressWrap', 70, 'Processing banner image...');
         const compressed = (window.CloudinaryService && typeof window.CloudinaryService.compressImageFile === 'function')
           ? (await window.CloudinaryService.compressImageFile(file)).dataUrl
           : '';
         if (input && compressed) input.value = compressed;
-      } catch (_) {}
+        window.setAdminProgress('bannerImageProgressWrap', 100, '✓ Banner image ready', 'done');
+      } catch (err) {
+        window.setAdminProgress('bannerImageProgressWrap', 100, 'Upload failed', 'error');
+        window.showAdminNotification('Banner upload failed: ' + (err && err.message || 'Retry'), 'error');
+      }
     };
 
     // Attach real-time input listener for Announcement Preview

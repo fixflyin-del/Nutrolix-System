@@ -3322,33 +3322,70 @@ const server = http.createServer(async (req, res) => {
         }
 
         const timestamp = Math.round(Date.now() / 1000);
-        let postDataObj = {};
+        const rawSlug = String(payload.filename || '')
+          .replace(/\.[^.]+$/, '')
+          .toLowerCase()
+          .replace(/[^a-z0-9_-]+/g, '_')
+          .replace(/^_+|_+$/g, '')
+          .slice(0, 32);
+        const uniqueSuffix = Date.now().toString(36) + '_' + crypto.randomBytes(4).toString('hex');
+        const uniquePublicId = rawSlug ? `${rawSlug}_${crypto.randomBytes(2).toString('hex')}` : `nutrolix_${uniqueSuffix}`;
+
+        let postBuffer;
+        let contentType = 'application/json';
+
         if (apiKey && apiSecret) {
-          const stringToSign = `folder=nutrolix_catalog&timestamp=${timestamp}${apiSecret}`;
+          // Signed upload with explicit unique public_id (sorted alphabetically per Cloudinary spec)
+          const stringToSign = `folder=nutrolix_catalog&public_id=${uniquePublicId}&timestamp=${timestamp}${apiSecret}`;
           const signature = crypto.createHash('sha1').update(stringToSign).digest('hex');
-          postDataObj = {
+          postBuffer = Buffer.from(JSON.stringify({
             file: fileData,
             api_key: apiKey,
             timestamp: timestamp,
             signature: signature,
-            folder: 'nutrolix_catalog'
-          };
+            folder: 'nutrolix_catalog',
+            public_id: uniquePublicId
+          }), 'utf8');
         } else {
-          postDataObj = {
-            file: fileData,
-            upload_preset: uploadPreset,
-            folder: 'nutrolix_catalog'
-          };
+          // Unsigned upload: use multipart/form-data with a unique filename so Cloudinary never saves as "blob"
+          const b64Match = String(fileData).match(/^data:(image\/[a-zA-Z0-9+.-]+);base64,(.+)$/s);
+          if (b64Match) {
+            const imgMime = b64Match[1].toLowerCase();
+            const imgExt = imgMime.includes('png') ? 'png'
+              : (imgMime.includes('jpeg') || imgMime.includes('jpg')) ? 'jpg'
+              : imgMime.includes('gif') ? 'gif'
+              : 'webp';
+            const imgBytes = Buffer.from(b64Match[2].replace(/\s+/g, ''), 'base64');
+            const boundary = '----NutrolixBoundary' + crypto.randomBytes(8).toString('hex');
+            contentType = `multipart/form-data; boundary=${boundary}`;
+            const partHeader = Buffer.from(
+              `--${boundary}\r\n` +
+              `Content-Disposition: form-data; name="upload_preset"\r\n\r\n${uploadPreset}\r\n` +
+              `--${boundary}\r\n` +
+              `Content-Disposition: form-data; name="folder"\r\n\r\nnutrolix_catalog\r\n` +
+              `--${boundary}\r\n` +
+              `Content-Disposition: form-data; name="file"; filename="${uniquePublicId}.${imgExt}"\r\n` +
+              `Content-Type: ${imgMime}\r\n\r\n`,
+              'utf8'
+            );
+            const partFooter = Buffer.from(`\r\n--${boundary}--\r\n`, 'utf8');
+            postBuffer = Buffer.concat([partHeader, imgBytes, partFooter]);
+          } else {
+            postBuffer = Buffer.from(JSON.stringify({
+              file: fileData,
+              upload_preset: uploadPreset,
+              folder: 'nutrolix_catalog'
+            }), 'utf8');
+          }
         }
 
-        const postBody = JSON.stringify(postDataObj);
         const options = {
           hostname: 'api.cloudinary.com',
           path: `/v1_1/${cloudName}/image/upload`,
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
-            'Content-Length': Buffer.byteLength(postBody)
+            'Content-Type': contentType,
+            'Content-Length': postBuffer.length
           }
         };
 
@@ -3358,7 +3395,8 @@ const server = http.createServer(async (req, res) => {
           cRes.on('end', () => {
             try {
               const parsed = JSON.parse(cData);
-              if (parsed.secure_url) {
+              const cleanPath = String(parsed.secure_url || '').split('?')[0];
+              if (parsed.secure_url && !/\/blob(\.[a-z0-9]+)?$/i.test(cleanPath)) {
                 res.writeHead(200, NO_STORE_JSON_HEADERS);
                 res.end(JSON.stringify({ success: true, url: parsed.secure_url, public_id: parsed.public_id }));
               } else {
@@ -3377,7 +3415,7 @@ const server = http.createServer(async (req, res) => {
           res.end(JSON.stringify({ success: false, error: e.message }));
         });
 
-        cReq.write(postBody);
+        cReq.write(postBuffer);
         cReq.end();
       } catch (err) {
         res.writeHead(500, NO_STORE_JSON_HEADERS);
