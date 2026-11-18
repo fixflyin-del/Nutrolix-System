@@ -353,6 +353,27 @@
           </div>
         </div>
 
+        <!-- Portion / Size Variants (Hidden unless Admin configures variants) -->
+        <div id="modalDishVariantsSection" class="hidden bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-black uppercase tracking-wider text-slate-800">Choose Portion / Size</h4>
+            <span class="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">Select 1</span>
+          </div>
+          <div id="modalDishVariantsList" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
+        </div>
+
+        <!-- Zomato-Style Extra Add-ons (Hidden unless Admin configures add-ons) -->
+        <div id="modalDishAddonsSection" class="hidden bg-amber-50/50 border border-amber-200 rounded-2xl p-4 space-y-2.5">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center space-x-1.5">
+              <i class="fa-solid fa-layer-group text-amber-600"></i>
+              <span>Extra Add-ons (Zomato Style)</span>
+            </h4>
+            <span class="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-full">Optional</span>
+          </div>
+          <div id="modalDishAddonsList" class="space-y-2"></div>
+        </div>
+
         <!-- Key Bullet Points (Requirement 1) -->
         <div class="bg-emerald-50/70 border border-emerald-200/60 rounded-2xl p-4 space-y-2">
           <h4 class="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center space-x-1.5">
@@ -973,6 +994,48 @@
     let currentCategory = 'All';
     let currentSelectedModalDish = null;
     let modalSelectedQuantity = 1;
+    let modalSelectedVariantIndex = 0;
+    let modalSelectedAddonIndices = new Set();
+
+    function sanitizeMealVariants(rawVariants) {
+      if (!Array.isArray(rawVariants) || rawVariants.length === 0) return [];
+      const seen = new Set();
+      const out = [];
+      for (const v of rawVariants) {
+        if (!v || typeof v !== 'object') continue;
+        const size = String(v.size || v.label || v.weight || v.name || '').trim();
+        const price = Number(v.price);
+        if (!size || !Number.isFinite(price) || price <= 0) continue;
+        const key = size.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const mrpRaw = Number(v.mrp);
+        out.push({ size, label: size, price, mrp: (Number.isFinite(mrpRaw) && mrpRaw >= price) ? mrpRaw : price });
+      }
+      return out;
+    }
+
+    function sanitizeMealAddons(rawAddons) {
+      if (!Array.isArray(rawAddons) || rawAddons.length === 0) return [];
+      const seen = new Set();
+      const out = [];
+      for (const a of rawAddons) {
+        if (!a || typeof a !== 'object') continue;
+        const name = String(a.name || a.title || '').trim();
+        const price = Number(a.price);
+        if (!name || !Number.isFinite(price) || price < 0) continue;
+        const key = name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({
+          id: String(a.id || ('addon_' + key.replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''))),
+          name,
+          price,
+          isVeg: a.isVeg !== false
+        });
+      }
+      return out;
+    }
 
     function normalizeMeal(m) {
       if (!m) return null;
@@ -981,6 +1044,8 @@
       const img = (typeof window.nutrolixResolveCatalogImage === 'function')
         ? window.nutrolixResolveCatalogImage(rawImg)
         : (rawImg || 'assets/aistudio/image_6061bdc8.png');
+      const variants = sanitizeMealVariants(m.variants);
+      const addons = sanitizeMealAddons(m.addons);
       return {
         ...m,
         id: m.id || ('meal_' + Math.random().toString(36).substring(2, 8)),
@@ -989,6 +1054,8 @@
         image: img,
         category: m.category || 'High Protein Meals',
         price: Number(m.price || 199),
+        variants,
+        addons,
         protein: m.protein ? (String(m.protein).includes('g') ? m.protein : m.protein + 'g Protein') : '25g Protein',
         calories: m.calories ? (String(m.calories).includes('kcal') ? m.calories : m.calories + ' kcal') : '350 kcal',
         description: m.description || 'Clean, clinical-grade nutrition prepared fresh with zero palm oil.',
@@ -1039,8 +1106,9 @@
       const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
 
       container.innerHTML = filtered.map(item => {
-        const inCartItem = cart.find(i => i.id === item.id);
-        const qty = inCartItem ? inCartItem.quantity : 0;
+        const qty = cart.filter(i => i.id === item.id).reduce((s, i) => s + (i.quantity || 1), 0);
+        const hasCustom = (item.variants && item.variants.length > 0) || (item.addons && item.addons.length > 0);
+        const displayPrice = (item.variants && item.variants.length > 0) ? item.variants[0].price : item.price;
 
         return `
           <div onclick="window.openFoodDetailModal('${item.id}')" class="cursor-pointer bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition flex flex-col justify-between group active:scale-[0.99]">
@@ -1074,12 +1142,13 @@
                 <p class="text-[11px] text-slate-500 mt-1 line-clamp-2">
                   ${item.description}
                 </p>
+                ${hasCustom ? `<span class="inline-block mt-1.5 text-[9px] font-extrabold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">Customizable</span>` : ''}
               </div>
 
               <!-- Price & Plus/Add Stepper -->
               <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between" onclick="event.stopPropagation()">
                 <div>
-                  <span class="text-sm sm:text-base font-black text-slate-900">₹${item.price}</span>
+                  <span class="text-sm sm:text-base font-black text-slate-900">₹${displayPrice}</span>
                   <span class="text-[9px] text-slate-400 block -mt-0.5">Kitchen Fresh</span>
                 </div>
 
@@ -1088,10 +1157,10 @@
                     <div class="flex items-center space-x-1.5 bg-nutro-forest text-white rounded-xl px-2 py-1 shadow-sm text-xs font-black">
                       <button onclick="changeFoodQuantity('${item.id}', -1)" class="w-6 h-6 flex items-center justify-center hover:bg-emerald-800 rounded-lg transition">-</button>
                       <span class="px-1">${qty}</span>
-                      <button onclick="changeFoodQuantity('${item.id}', 1)" class="w-6 h-6 flex items-center justify-center hover:bg-emerald-800 rounded-lg transition">+</button>
+                      <button onclick="${hasCustom ? `window.openFoodDetailModal('${item.id}')` : `changeFoodQuantity('${item.id}', 1)`}" class="w-6 h-6 flex items-center justify-center hover:bg-emerald-800 rounded-lg transition">+</button>
                     </div>
                   ` : `
-                    <button onclick="changeFoodQuantity('${item.id}', 1)" class="bg-nutro-forest hover:bg-nutro-dark text-white text-xs font-black px-3.5 py-1.5 rounded-xl transition shadow flex items-center space-x-1 active:scale-95">
+                    <button onclick="${hasCustom ? `window.openFoodDetailModal('${item.id}')` : `changeFoodQuantity('${item.id}', 1)`}" class="bg-nutro-forest hover:bg-nutro-dark text-white text-xs font-black px-3.5 py-1.5 rounded-xl transition shadow flex items-center space-x-1 active:scale-95">
                       <i class="fa-solid fa-plus text-[10px]"></i>
                       <span>Add</span>
                     </button>
@@ -1173,6 +1242,79 @@
       container.innerHTML = html;
     }
 
+    function renderModalCustomizationSections(dish) {
+      const variantsSection = document.getElementById('modalDishVariantsSection');
+      const variantsList = document.getElementById('modalDishVariantsList');
+      const variants = Array.isArray(dish.variants) ? dish.variants : [];
+      if (variantsSection && variantsList) {
+        if (variants.length > 0) {
+          variantsSection.classList.remove('hidden');
+          variantsList.innerHTML = variants.map((v, i) => {
+            const active = i === modalSelectedVariantIndex;
+            return `
+              <button type="button" onclick="window.selectModalMealVariant(${i})" class="flex items-center justify-between px-3 py-2.5 rounded-xl border text-left transition ${active ? 'bg-nutro-forest text-white border-nutro-forest shadow-sm' : 'bg-white text-slate-800 border-slate-300 hover:border-emerald-500'}">
+                <span class="text-xs font-extrabold">${v.size || v.label}</span>
+                <span class="text-xs font-black">₹${v.price}</span>
+              </button>
+            `;
+          }).join('');
+        } else {
+          variantsSection.classList.add('hidden');
+          variantsList.innerHTML = '';
+        }
+      }
+
+      const addonsSection = document.getElementById('modalDishAddonsSection');
+      const addonsList = document.getElementById('modalDishAddonsList');
+      const addons = Array.isArray(dish.addons) ? dish.addons : [];
+      if (addonsSection && addonsList) {
+        if (addons.length > 0) {
+          addonsSection.classList.remove('hidden');
+          addonsList.innerHTML = addons.map((a, i) => {
+            const checked = modalSelectedAddonIndices.has(i);
+            const isVeg = a.isVeg !== false;
+            return `
+              <label onclick="event.preventDefault(); window.toggleModalMealAddon(${i})" class="cursor-pointer flex items-center justify-between p-2.5 rounded-xl border transition ${checked ? 'bg-emerald-50 border-emerald-500 shadow-xs' : 'bg-white border-slate-200 hover:border-amber-400'}">
+                <div class="flex items-center space-x-2.5 min-w-0">
+                  <span class="w-4 h-4 rounded-sm border flex items-center justify-center shrink-0 ${isVeg ? 'border-emerald-600' : 'border-rose-600'}">
+                    <span class="w-2 h-2 rounded-full ${isVeg ? 'bg-emerald-600' : 'bg-rose-600'}"></span>
+                  </span>
+                  <span class="text-xs font-bold text-slate-900 truncate">${a.name}</span>
+                </div>
+                <div class="flex items-center space-x-2.5 shrink-0">
+                  <span class="text-xs font-extrabold text-slate-700">+ ₹${a.price}</span>
+                  <span class="w-5 h-5 rounded-md border flex items-center justify-center text-[11px] ${checked ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-white border-slate-300 text-transparent'}">
+                    <i class="fa-solid fa-check"></i>
+                  </span>
+                </div>
+              </label>
+            `;
+          }).join('');
+        } else {
+          addonsSection.classList.add('hidden');
+          addonsList.innerHTML = '';
+        }
+      }
+    }
+
+    window.selectModalMealVariant = function(idx) {
+      if (!currentSelectedModalDish || !Array.isArray(currentSelectedModalDish.variants) || !currentSelectedModalDish.variants[idx]) return;
+      modalSelectedVariantIndex = idx;
+      renderModalCustomizationSections(currentSelectedModalDish);
+      updateModalPriceAndQty();
+    };
+
+    window.toggleModalMealAddon = function(idx) {
+      if (!currentSelectedModalDish || !Array.isArray(currentSelectedModalDish.addons) || !currentSelectedModalDish.addons[idx]) return;
+      if (modalSelectedAddonIndices.has(idx)) {
+        modalSelectedAddonIndices.delete(idx);
+      } else {
+        modalSelectedAddonIndices.add(idx);
+      }
+      renderModalCustomizationSections(currentSelectedModalDish);
+      updateModalPriceAndQty();
+    };
+
     // =========================================================================
     // Dish Detail Modal Functions (Requirement 1)
     // =========================================================================
@@ -1182,6 +1324,8 @@
 
       currentSelectedModalDish = dish;
       modalSelectedQuantity = 1;
+      modalSelectedVariantIndex = 0;
+      modalSelectedAddonIndices = new Set();
 
       // Populate Modal Fields
       document.getElementById('modalDishCategory').textContent = dish.category;
@@ -1193,7 +1337,7 @@
       document.getElementById('modalDishImage').alt = dish.name;
       document.getElementById('modalDishMacroPill').textContent = `${dish.protein} • ${dish.calories}`;
       document.getElementById('modalDishTitle').textContent = dish.name;
-      document.getElementById('modalDishPrice').textContent = `₹${dish.price}`;
+      document.getElementById('modalDishPrice').textContent = `₹${(Array.isArray(dish.variants) && dish.variants.length) ? dish.variants[0].price : dish.price}`;
       document.getElementById('modalDishDescription').textContent = dish.description;
 
       // Veg vs Non-Veg badge
@@ -1206,6 +1350,8 @@
         vegDot.className = 'w-3 h-3 rounded-full bg-rose-600';
         vegBadge.className = 'absolute top-3 left-3 w-6 h-6 bg-white/95 backdrop-blur-sm rounded-lg flex items-center justify-center shadow-md border border-rose-600';
       }
+
+      renderModalCustomizationSections(dish);
 
       // Populate Key Highlights Bullet Points (Requirement 1)
       const highlightsList = document.getElementById('modalDishHighlights');
@@ -1289,35 +1435,62 @@
       updateModalPriceAndQty();
     };
 
+    function getModalUnitPricing() {
+      if (!currentSelectedModalDish) return { basePrice: 0, addonsTotal: 0, unitTotal: 0, variantLabel: '', selectedAddons: [] };
+      const variants = Array.isArray(currentSelectedModalDish.variants) ? currentSelectedModalDish.variants : [];
+      const activeVar = variants.length > 0 ? (variants[modalSelectedVariantIndex] || variants[0]) : null;
+      const basePrice = Number((activeVar && activeVar.price) || currentSelectedModalDish.price || 0);
+      const variantLabel = activeVar ? String(activeVar.size || activeVar.label || '').trim() : '';
+
+      const addons = Array.isArray(currentSelectedModalDish.addons) ? currentSelectedModalDish.addons : [];
+      const selectedAddons = Array.from(modalSelectedAddonIndices)
+        .filter(idx => addons[idx])
+        .map(idx => ({ id: addons[idx].id, name: addons[idx].name, price: Number(addons[idx].price || 0), isVeg: addons[idx].isVeg !== false }));
+      const addonsTotal = selectedAddons.reduce((sum, a) => sum + Number(a.price || 0), 0);
+      return { basePrice, addonsTotal, unitTotal: basePrice + addonsTotal, variantLabel, selectedAddons };
+    }
+
     function updateModalPriceAndQty() {
       if (!currentSelectedModalDish) return;
+      const { unitTotal } = getModalUnitPricing();
       document.getElementById('modalQuantityText').textContent = modalSelectedQuantity;
-      const total = currentSelectedModalDish.price * modalSelectedQuantity;
+      document.getElementById('modalDishPrice').textContent = `₹${unitTotal}`;
+      const total = unitTotal * modalSelectedQuantity;
       document.getElementById('modalDishTotalPrice').textContent = `₹${total}`;
     }
 
     window.submitModalAddToCart = function() {
       if (!currentSelectedModalDish) return;
 
+      const { basePrice, addonsTotal, unitTotal, variantLabel, selectedAddons } = getModalUnitPricing();
+      const addonKey = selectedAddons.map(a => a.name).sort().join('|');
+      const itemKey = `${currentSelectedModalDish.id}::${variantLabel}::${addonKey}`;
+
       let cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
-      let existing = cart.find(i => i.id === currentSelectedModalDish.id);
+      let existing = cart.find(i => (i.itemKey || i.id) === itemKey);
 
       if (existing) {
         existing.quantity += modalSelectedQuantity;
       } else {
         cart.push({
           id: currentSelectedModalDish.id,
+          itemKey,
           name: currentSelectedModalDish.name,
           title: currentSelectedModalDish.name,
-          price: currentSelectedModalDish.price,
+          basePrice,
+          addons: selectedAddons,
+          addonsTotal,
+          price: unitTotal,
           quantity: modalSelectedQuantity,
-          variant: 'Fresh Kitchen Meal',
+          variant: variantLabel,
+          isFood: true,
           type: 'healthy_food',
           image: currentSelectedModalDish.image
         });
       }
 
       localStorage.setItem('nutrolix_store_cart', JSON.stringify(cart));
+      localStorage.setItem('nutrolix_packaged_cart', JSON.stringify(cart));
       window.closeFoodDetailModal();
       renderFoodMenu();
       updateCartBadges();
@@ -1325,7 +1498,8 @@
       // Show friendly confirmation toast
       const toast = document.createElement('div');
       toast.className = 'fixed top-24 left-1/2 -translate-x-1/2 z-50 bg-nutro-forest text-white px-5 py-2.5 rounded-2xl shadow-2xl text-xs font-black flex items-center space-x-2 border border-emerald-400';
-      toast.innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i><span>' + currentSelectedModalDish.name + ' (' + modalSelectedQuantity + ') added to Cart!</span>';
+      const customNote = [variantLabel, ...selectedAddons.map(a => '+ ' + a.name)].filter(Boolean).join(', ');
+      toast.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400"></i><span>${currentSelectedModalDish.name}${customNote ? ' (' + customNote + ')' : ''} × ${modalSelectedQuantity} added!</span>`;
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 2500);
     };
@@ -1334,28 +1508,43 @@
       const foodItem = getLiveHealthyFoodMenu().find(i => i.id === id);
       if (!foodItem) return;
 
-      let cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
-      let item = cart.find(i => i.id === id);
+      const hasCustom = (foodItem.variants && foodItem.variants.length > 0) || (foodItem.addons && foodItem.addons.length > 0);
+      if (delta > 0 && hasCustom) {
+        window.openFoodDetailModal(id);
+        return;
+      }
 
-      if (item) {
-        item.quantity += delta;
-        if (item.quantity <= 0) {
-          cart = cart.filter(i => i.id !== id);
+      let cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
+      let idx = -1;
+      for (let k = cart.length - 1; k >= 0; k--) {
+        if (cart[k].id === id) { idx = k; break; }
+      }
+
+      if (idx >= 0) {
+        cart[idx].quantity += delta;
+        if (cart[idx].quantity <= 0) {
+          cart.splice(idx, 1);
         }
       } else if (delta > 0) {
         cart.push({
           id: foodItem.id,
+          itemKey: foodItem.id,
           name: foodItem.name,
           title: foodItem.name,
+          basePrice: foodItem.price,
+          addons: [],
+          addonsTotal: 0,
           price: foodItem.price,
           quantity: 1,
-          variant: 'Fresh Kitchen Meal',
+          variant: '',
+          isFood: true,
           type: 'healthy_food',
           image: foodItem.image
         });
       }
 
       localStorage.setItem('nutrolix_store_cart', JSON.stringify(cart));
+      localStorage.setItem('nutrolix_packaged_cart', JSON.stringify(cart));
       renderFoodMenu();
     }
 
@@ -1440,8 +1629,8 @@
       const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
 
       container.innerHTML = results.map(dish => {
-        const cartItem = cart.find(c => c.id === dish.id);
-        const qty = cartItem ? cartItem.quantity : 0;
+        const qty = cart.filter(c => c.id === dish.id).reduce((s, c) => s + (c.quantity || 1), 0);
+        const hasCustom = (dish.variants && dish.variants.length > 0) || (dish.addons && dish.addons.length > 0);
         return `
           <div class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-emerald-50/50 rounded-2xl border border-slate-200 transition">
             <div class="flex items-center space-x-3 cursor-pointer flex-1 min-w-0" onclick="window.closeFoodSearchModal(); window.openFoodDetailModal('${dish.id}')">
@@ -1464,10 +1653,10 @@
                 <div class="flex items-center space-x-1.5 bg-nutro-forest text-white rounded-lg p-0.5 px-1.5 text-xs font-black">
                   <button onclick="window.changeFoodQuantity('${dish.id}', -1); window.handleFoodSearch(document.getElementById('foodSearchInput').value);" class="w-5 h-5 flex items-center justify-center hover:bg-white/20 rounded">-</button>
                   <span class="w-4 text-center">${qty}</span>
-                  <button onclick="window.changeFoodQuantity('${dish.id}', 1); window.handleFoodSearch(document.getElementById('foodSearchInput').value);" class="w-5 h-5 flex items-center justify-center hover:bg-white/20 rounded">+</button>
+                  <button onclick="${hasCustom ? `window.closeFoodSearchModal(); window.openFoodDetailModal('${dish.id}')` : `window.changeFoodQuantity('${dish.id}', 1); window.handleFoodSearch(document.getElementById('foodSearchInput').value);`}" class="w-5 h-5 flex items-center justify-center hover:bg-white/20 rounded">+</button>
                 </div>
               ` : `
-                <button onclick="window.changeFoodQuantity('${dish.id}', 1); window.handleFoodSearch(document.getElementById('foodSearchInput').value);" class="px-3 py-1 bg-nutro-forest hover:bg-nutro-dark text-white rounded-lg text-xs font-black shadow-sm transition active:scale-95">
+                <button onclick="${hasCustom ? `window.closeFoodSearchModal(); window.openFoodDetailModal('${dish.id}')` : `window.changeFoodQuantity('${dish.id}', 1); window.handleFoodSearch(document.getElementById('foodSearchInput').value);`}" class="px-3 py-1 bg-nutro-forest hover:bg-nutro-dark text-white rounded-lg text-xs font-black shadow-sm transition active:scale-95">
                   + Add
                 </button>
               `}

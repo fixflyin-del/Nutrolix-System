@@ -1,5 +1,46 @@
 [
   {
+    "id": "meal_test_zomato_bowl",
+    "name": "Clinical Millet Power Bowl",
+    "category": "High Protein Meals",
+    "price": 249,
+    "variants": [
+      {
+        "size": "Regular (300g)",
+        "label": "Regular (300g)",
+        "price": 249,
+        "mrp": 249
+      },
+      {
+        "size": "Jumbo (500g)",
+        "label": "Jumbo (500g)",
+        "price": 369,
+        "mrp": 369
+      }
+    ],
+    "addons": [
+      {
+        "id": "addon_extra_a2_ghee",
+        "name": "Extra A2 Ghee",
+        "price": 30,
+        "isVeg": true
+      },
+      {
+        "id": "addon_extra_dry_fruits",
+        "name": "Extra Dry Fruits",
+        "price": 45,
+        "isVeg": true
+      },
+      {
+        "id": "addon_extra_ragi_roti",
+        "name": "Extra Ragi Roti",
+        "price": 25,
+        "isVeg": true
+      }
+    ],
+    "image": "/assets/aistudio/image_6061bdc8.png"
+  },
+  {
     "title": "Test Healthy Meal",
     "price": 249,
     "category": "High-Protein Bowls",

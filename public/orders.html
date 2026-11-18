@@ -891,13 +891,19 @@
       document.getElementById('detailItemsContainer').innerHTML = (order.items || []).map(it => {
         const itImgRaw = it.image || (it.images && it.images[0]) || '';
         const itImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(itImgRaw) : (itImgRaw || 'assets/aistudio/image_6061bdc8.png');
+        const cleanVar = (it.variant && !['Standard', 'Standard Pack', 'Fresh Kitchen Meal'].includes(it.variant)) ? it.variant : '';
+        const addonsList = Array.isArray(it.addons) ? it.addons.filter(a => a && a.name) : [];
+        const addonsHtml = addonsList.length
+          ? `<div class="text-[11px] text-amber-700 font-semibold mt-0.5">+ ${addonsList.map(a => `${a.name} (₹${a.price})`).join(', ')}</div>`
+          : '';
         return `
         <div class="flex items-center justify-between py-3 text-xs gap-3">
           <div class="flex items-center space-x-3 min-w-0">
             <img src="${itImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" class="w-12 h-12 rounded-xl object-cover border border-slate-100 bg-slate-50 shrink-0">
             <div class="min-w-0">
               <h5 class="font-extrabold text-slate-900 truncate">${it.title || it.name}</h5>
-              <span class="text-slate-500 text-[11px]">${it.variant || 'Standard'} • Qty: ${it.quantity || 1} • ₹${it.price} each</span>
+              <span class="text-slate-500 text-[11px]">${cleanVar ? `${cleanVar} • ` : ''}Qty: ${it.quantity || 1} • ₹${it.price} each</span>
+              ${addonsHtml}
             </div>
           </div>
           <div class="font-black text-slate-900 text-sm shrink-0">₹${(it.price || 0) * (it.quantity || 1)}</div>

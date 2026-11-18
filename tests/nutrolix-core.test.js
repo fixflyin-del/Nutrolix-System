@@ -1380,5 +1380,203 @@ test('Unique Cloudinary filenames (no blob.webp overwrite), progress bars, and s
   assert.equal(adminHtml.includes('Healthy food meal saved & synced live across Web'), false, 'Healthy meal save must use single toast notification instead of alert');
 });
 
+test('Packaged product variants & Healthy Food Zomato-style add-ons work end-to-end and stay hidden when unconfigured', async () => {
+  const vm = require('node:vm');
+  const rootDir = path.join(__dirname, '..');
+
+  // 1. Core normalization: legacy unconfigured seed variants must be suppressed; explicit Admin config preserved
+  assert.deepEqual(
+    core.normalizeProductVariants([{ size: '1 Kg', price: 349, mrp: 449 }], { id: 'prod_high_protein_atta' }),
+    [],
+    'Unconfigured legacy seed variants must be hidden'
+  );
+  assert.deepEqual(
+    core.normalizeProductVariants(
+      [{ size: '1 Kg', price: 349, mrp: 449 }, { size: '5 Kg', price: 1649, mrp: 2199 }, { size: '1 kg', price: 999 }],
+      { id: 'prod_high_protein_atta', variantsConfigured: true }
+    ),
+    [
+      { size: '1 Kg', label: '1 Kg', price: 349, mrp: 449 },
+      { size: '5 Kg', label: '5 Kg', price: 1649, mrp: 2199 }
+    ]
+  );
+  assert.deepEqual(
+    core.normalizeProductVariants([], { id: 'prod_high_protein_atta', variantsConfigured: true }),
+    []
+  );
+
+  // Food Zomato add-ons sanitizer
+  assert.deepEqual(
+    core.normalizeFoodAddons([
+      { name: 'Extra A2 Ghee', price: 30, isVeg: true },
+      { name: 'extra a2 ghee', price: 99, isVeg: true },
+      { name: 'Extra Boiled Egg', price: 35, isVeg: false },
+      { name: '', price: 20 }
+    ]),
+    [
+      { id: 'addon_extra_a2_ghee', name: 'Extra A2 Ghee', price: 30, isVeg: true },
+      { id: 'addon_extra_boiled_egg', name: 'Extra Boiled Egg', price: 35, isVeg: false }
+    ]
+  );
+
+  // 2. Order validation preserves variant & Zomato add-ons and omits blank variant
+  const orderWithCustom = customerSync.validateOrderPayload({
+    customerPhone: '9876543210',
+    customerName: 'Aarav Sharma',
+    deliveryAddress: { address1: 'Sector 17, Vashi', city: 'Navi Mumbai', state: 'Maharashtra', pincode: '400703' },
+    items: [
+      {
+        id: 'meal_bowl_1',
+        title: 'Grilled Paneer Quinoa Bowl',
+        variant: 'Jumbo 500g',
+        addons: [{ name: 'Extra A2 Ghee', price: 30, isVeg: true }, { name: 'Extra Dry Fruits', price: 45, isVeg: true }],
+        quantity: 2,
+        price: 374
+      },
+      {
+        id: 'prod_high_protein_atta',
+        title: 'Nutrolix High Protein Atta',
+        quantity: 1,
+        price: 349
+      }
+    ],
+    grandTotal: 1097
+  });
+  assert.equal(orderWithCustom.valid, true);
+  assert.equal(orderWithCustom.normalizedOrder.items[0].variant, 'Jumbo 500g');
+  assert.equal(orderWithCustom.normalizedOrder.items[0].addons.length, 2);
+  assert.equal(orderWithCustom.normalizedOrder.items[0].addonsTotal, 75);
+  assert.equal(orderWithCustom.normalizedOrder.items[1].variant, undefined, 'Items without variants must not inject fake Standard Pack');
+
+  // 3. Seed files must NOT contain hardcoded unconfigured variants, and Android assets mirror matches
+  const seedJson = JSON.parse(fs.readFileSync(path.join(rootDir, 'public/data/nutrition_products.json'), 'utf8'));
+  for (const prod of seedJson) {
+    assert.deepEqual(prod.variants || [], [], `Seed product ${prod.id} must have empty variants by default`);
+  }
+
+  const dataJsCtx = { window: {} };
+  vm.runInNewContext(fs.readFileSync(path.join(rootDir, 'public/assets/nutrolix-data.js'), 'utf8'), dataJsCtx);
+  for (const prod of dataJsCtx.window.nutroProducts) {
+    assert.deepEqual(JSON.parse(JSON.stringify(prod.variants || [])), [], `Fallback nutroProducts ${prod.id} must have empty variants`);
+  }
+
+  for (const file of ['admin.html', 'product.html', 'shop.html', 'index.html', 'food.html', 'cart.html', 'orders.html', 'delete-account.html']) {
+    const pubContent = fs.readFileSync(path.join(rootDir, 'public', file), 'utf8');
+    const apkContent = fs.readFileSync(path.join(rootDir, 'app/src/main/assets/web', file), 'utf8');
+    assert.equal(pubContent, apkContent, `APK web mirror out of sync for ${file}`);
+  }
+
+  // 4. Static UI contracts on Admin, Product, Food, Cart & Orders pages
+  const adminHtml = fs.readFileSync(path.join(rootDir, 'public/admin.html'), 'utf8');
+  for (const marker of ['pkgVariantsEditorList', 'btnAddPkgVariantRow', 'mealVariantsEditorList', 'btnAddMealVariantRow', 'mealAddonsEditorList', 'btnAddMealAddonRow', 'Extra A2 Ghee', 'Extra Dry Fruits', 'Extra Ragi Roti']) {
+    assert.ok(adminHtml.includes(marker), `Admin panel missing ${marker}`);
+  }
+
+  const productHtml = fs.readFileSync(path.join(rootDir, 'public/product.html'), 'utf8');
+  assert.ok(productHtml.includes('id="productVariantsSection" class="pt-1 hidden"'), 'product.html must hide variant section by default');
+  assert.equal(productHtml.includes('>Standard Pack<'), false, 'product.html must not render hardcoded Standard Pack fallback');
+
+  const foodHtml = fs.readFileSync(path.join(rootDir, 'public/food.html'), 'utf8');
+  for (const marker of ['id="modalDishVariantsSection"', 'id="modalDishAddonsSection"', 'Extra Add-ons (Zomato Style)', 'window.toggleModalMealAddon', 'window.selectModalMealVariant']) {
+    assert.ok(foodHtml.includes(marker), `food.html missing ${marker}`);
+  }
+
+  // 5. Server HTTP roundtrip tests for Packaged Variants & Food Zomato Add-ons (restoring disk JSONs in finally)
+  const dataDir = path.join(rootDir, 'public/data');
+  const prodFile = path.join(dataDir, 'nutrition_products.json');
+  const foodFile = path.join(dataDir, 'food_menu.json');
+  const origProds = fs.readFileSync(prodFile, 'utf8');
+  const origFood = fs.existsSync(foodFile) ? fs.readFileSync(foodFile, 'utf8') : null;
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address();
+  const port = typeof addr === 'object' && addr ? addr.port : 0;
+
+  const requestJson = (method, reqPath, bodyObj = null) => new Promise((resolve, reject) => {
+    const payload = bodyObj ? JSON.stringify(bodyObj) : null;
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port,
+      path: reqPath,
+      method,
+      headers: payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}
+    }, (res) => {
+      let raw = '';
+      res.on('data', c => raw += c);
+      res.on('end', () => resolve({ status: res.statusCode, json: JSON.parse(raw) }));
+    });
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+
+  try {
+    // 5a. Legacy Atta has [] variants before Admin edits
+    const initialList = await requestJson('GET', '/api/nutrition-products');
+    assert.equal(initialList.status, 200);
+    const attaBefore = initialList.json.find(p => p.id === 'prod_high_protein_atta');
+    assert.deepEqual(attaBefore.variants, []);
+
+    // 5b. Admin adds custom variants to Atta -> saved & returned live
+    const postProd = await requestJson('POST', '/api/nutrition-products', {
+      id: 'prod_high_protein_atta',
+      name: 'Nutrolix High Protein Atta',
+      price: 349,
+      mrp: 449,
+      variants: [{ size: '2 Kg', price: 669, mrp: 849 }],
+      variantsConfigured: true
+    });
+    assert.equal(postProd.status, 200);
+    assert.equal(postProd.json.success, true);
+
+    const afterAddList = await requestJson('GET', '/api/nutrition-products');
+    const attaAfterAdd = afterAddList.json.find(p => p.id === 'prod_high_protein_atta');
+    assert.deepEqual(attaAfterAdd.variants, [{ size: '2 Kg', label: '2 Kg', price: 669, mrp: 849 }]);
+
+    // 5c. Admin clears variants -> empty [] persists cleanly
+    await requestJson('POST', '/api/nutrition-products', {
+      id: 'prod_high_protein_atta',
+      name: 'Nutrolix High Protein Atta',
+      price: 349,
+      mrp: 449,
+      variants: [],
+      variantsConfigured: true
+    });
+    const afterClearList = await requestJson('GET', '/api/nutrition-products');
+    const attaAfterClear = afterClearList.json.find(p => p.id === 'prod_high_protein_atta');
+    assert.deepEqual(attaAfterClear.variants, []);
+
+    // 5d. Admin saves Healthy Meal with Portion Variants + Zomato Add-ons
+    const postMeal = await requestJson('POST', '/api/food-menu', {
+      id: 'meal_test_zomato_bowl',
+      name: 'Clinical Millet Power Bowl',
+      category: 'High Protein Meals',
+      price: 249,
+      variants: [{ size: 'Regular (300g)', price: 249 }, { size: 'Jumbo (500g)', price: 369 }],
+      addons: [
+        { name: 'Extra A2 Ghee', price: 30, isVeg: true },
+        { name: 'Extra Dry Fruits', price: 45, isVeg: true },
+        { name: 'Extra Ragi Roti', price: 25, isVeg: true }
+      ]
+    });
+    assert.equal(postMeal.status, 200);
+    assert.equal(postMeal.json.success, true);
+
+    const foodList = await requestJson('GET', '/api/food-menu');
+    assert.equal(foodList.status, 200);
+    const savedMeal = foodList.json.find(m => m.id === 'meal_test_zomato_bowl');
+    assert.ok(savedMeal, 'Saved healthy meal must exist');
+    assert.equal(savedMeal.variants.length, 2);
+    assert.equal(savedMeal.addons.length, 3);
+    assert.equal(savedMeal.addons[0].name, 'Extra A2 Ghee');
+    assert.equal(savedMeal.addons[0].price, 30);
+  } finally {
+    fs.writeFileSync(prodFile, origProds, 'utf8');
+    if (origFood !== null) fs.writeFileSync(foodFile, origFood, 'utf8');
+    else if (fs.existsSync(foodFile)) fs.unlinkSync(foodFile);
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
 
 

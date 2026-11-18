@@ -1758,6 +1758,38 @@
 
   <!-- Global Application Scripts -->
   <script>
+    const LEGACY_UNCONFIGURED_VARIANT_IDS = new Set([
+      'prod_high_protein_atta',
+      'prod_complete_nutri_meal',
+      'prod_premium_talbeenah',
+      'prod_multi_millet_flakes',
+      'prod_sprouted_moong_protein',
+      'prod_cold_pressed_black_seed_oil',
+      'prod_raw_forest_honey_shilajit',
+      'prod_chia_flax_omega_blend'
+    ]);
+
+    function sanitizeProductVariants(p) {
+      if (!p) return [];
+      const pid = String(p.id || '').trim();
+      if (pid && LEGACY_UNCONFIGURED_VARIANT_IDS.has(pid) && p.variantsConfigured !== true) return [];
+      if (!Array.isArray(p.variants) || p.variants.length === 0) return [];
+      const seen = new Set();
+      const out = [];
+      for (const v of p.variants) {
+        if (!v || typeof v !== 'object') continue;
+        const size = String(v.size || v.label || v.weight || '').trim();
+        const price = Number(v.price);
+        if (!size || !Number.isFinite(price) || price <= 0) continue;
+        const key = size.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const mrpRaw = Number(v.mrp);
+        out.push({ size, label: size, price, mrp: (Number.isFinite(mrpRaw) && mrpRaw >= price) ? mrpRaw : price });
+      }
+      return out;
+    }
+
     // Normalization helper for packaged nutrition products
     function normalizeNutroProduct(p) {
       if (!p) return null;
@@ -1770,6 +1802,7 @@
       const price = Number(p.price || 349);
       const mrp = Number(p.mrp || Math.round(price * 1.28));
       const discountPercent = Number(p.discountPercent || (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 20));
+      const variants = sanitizeProductVariants(p);
       return {
         ...p,
         id: p.id || ('prod_' + Math.random().toString(36).substring(2, 9)),
@@ -1779,6 +1812,7 @@
         price,
         mrp,
         discountPercent,
+        variants,
         rating: Number(p.rating || 4.8),
         reviewCount: Number(p.reviewCount || 120),
         images: imgList,
@@ -2551,13 +2585,14 @@
               </div>
 
               <p class="hidden sm:block text-[11px] text-slate-500 mt-1 line-clamp-2">${tagline}</p>
+              ${(Array.isArray(p.variants) && p.variants.length > 0) ? `<span class="inline-block mt-1 px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[9px] font-extrabold">${p.variants.length} Pack Size${p.variants.length > 1 ? 's' : ''}</span>` : ''}
             </div>
 
             <!-- Price & Add to Bag -->
             <div class="mt-2.5 sm:mt-4 pt-2 sm:pt-3 border-t border-slate-100 flex items-center justify-between gap-1.5">
               <div>
-                <div class="text-sm sm:text-base font-black text-slate-900">₹${p.price}</div>
-                <div class="text-[9px] sm:text-[10px] text-slate-400 line-through">₹${p.mrp || (p.price + 100)}</div>
+                <div class="text-sm sm:text-base font-black text-slate-900">₹${(Array.isArray(p.variants) && p.variants.length > 0) ? p.variants[0].price : p.price}</div>
+                <div class="text-[9px] sm:text-[10px] text-slate-400 line-through">₹${(Array.isArray(p.variants) && p.variants.length > 0) ? (p.variants[0].mrp || p.mrp) : (p.mrp || (p.price + 100))}</div>
               </div>
 
               <div class="flex items-center space-x-1">
@@ -2588,26 +2623,36 @@
 
     // Cart management
     window.quickAddToCart = function(id, price, name, image) {
-      const existing = window.nutroCart.find(i => i.id === id);
+      const prod = (window.nutroProducts || []).find(item => item.id === id);
+      const hasVariants = prod && Array.isArray(prod.variants) && prod.variants.length > 0;
+      const defaultVar = hasVariants ? prod.variants[0] : null;
+      const unitPrice = Number((defaultVar && defaultVar.price) || price);
+      const unitMrp = Number((defaultVar && defaultVar.mrp) || (prod && prod.mrp) || unitPrice);
+      const variantLabel = defaultVar ? String(defaultVar.size || defaultVar.label || '').trim() : '';
+      const itemKey = variantLabel ? `${id}_${variantLabel}` : id;
+
+      const existing = window.nutroCart.find(i => (i.itemKey || i.id) === itemKey);
       if (existing) {
         existing.quantity += 1;
       } else {
-        window.nutroCart.push({ id, price, name, image, quantity: 1 });
+        window.nutroCart.push({ id, itemKey, variant: variantLabel, price: unitPrice, mrp: unitMrp, title: name, name, image, quantity: 1 });
       }
       localStorage.setItem('nutrolix_store_cart', JSON.stringify(window.nutroCart));
+      localStorage.setItem('nutrolix_packaged_cart', JSON.stringify(window.nutroCart));
       updateCartBadge();
       renderCartDrawer();
       window.openCartDrawer();
     };
 
-    window.updateCartQuantity = function(id, delta) {
-      const item = window.nutroCart.find(i => i.id === id);
+    window.updateCartQuantity = function(itemKeyOrId, delta) {
+      const item = window.nutroCart.find(i => (i.itemKey || i.id) === itemKeyOrId || i.id === itemKeyOrId);
       if (item) {
         item.quantity += delta;
         if (item.quantity <= 0) {
-          window.nutroCart = window.nutroCart.filter(i => i.id !== id);
+          window.nutroCart = window.nutroCart.filter(i => i !== item);
         }
         localStorage.setItem('nutrolix_store_cart', JSON.stringify(window.nutroCart));
+        localStorage.setItem('nutrolix_packaged_cart', JSON.stringify(window.nutroCart));
         updateCartBadge();
         renderCartDrawer();
       }
@@ -2659,17 +2704,22 @@
       let subtotal = 0;
       container.innerHTML = window.nutroCart.map(item => {
         subtotal += item.price * item.quantity;
+        const keyEsc = String(item.itemKey || item.id).replace(/'/g, "\\'");
+        const varClean = (item.variant && !['Standard Pack', 'Fresh Kitchen Meal', 'Standard'].includes(item.variant)) ? item.variant : '';
+        const addonsTxt = (Array.isArray(item.addons) && item.addons.length) ? `+ ${item.addons.map(a => a.name).join(', ')}` : '';
         return `
           <div class="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-            <img src="${item.image}" alt="${item.name}" class="w-12 h-12 rounded-lg object-cover">
-            <div class="flex-1 px-3">
-              <h4 class="font-extrabold text-xs text-slate-900 line-clamp-1">${item.name}</h4>
+            <img src="${item.image}" alt="${item.name || item.title}" class="w-12 h-12 rounded-lg object-cover">
+            <div class="flex-1 px-3 min-w-0">
+              <h4 class="font-extrabold text-xs text-slate-900 line-clamp-1">${item.name || item.title}</h4>
+              ${varClean ? `<div class="text-[10px] text-slate-500 font-semibold">${varClean}</div>` : ''}
+              ${addonsTxt ? `<div class="text-[10px] text-amber-700 font-semibold line-clamp-1">${addonsTxt}</div>` : ''}
               <div class="text-xs font-black text-emerald-700 mt-0.5">₹${item.price}</div>
             </div>
             <div class="flex items-center space-x-1.5 bg-white border border-slate-200 rounded-lg px-2 py-1">
-              <button onclick="window.updateCartQuantity('${item.id}', -1)" class="text-xs text-slate-500 hover:text-slate-900 font-bold px-1">-</button>
+              <button onclick="window.updateCartQuantity('${keyEsc}', -1)" class="text-xs text-slate-500 hover:text-slate-900 font-bold px-1">-</button>
               <span class="text-xs font-black px-1">${item.quantity}</span>
-              <button onclick="window.updateCartQuantity('${item.id}', 1)" class="text-xs text-slate-500 hover:text-slate-900 font-bold px-1">+</button>
+              <button onclick="window.updateCartQuantity('${keyEsc}', 1)" class="text-xs text-slate-500 hover:text-slate-900 font-bold px-1">+</button>
             </div>
           </div>
         `;

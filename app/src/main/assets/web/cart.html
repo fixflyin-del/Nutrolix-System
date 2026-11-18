@@ -738,7 +738,10 @@
       const coupon = appliedCoupon ? appliedCoupon.code : '';
       const addr = (document.getElementById('custAddress1')?.value || '').trim().slice(0, 40);
       const pin = (document.getElementById('custPincode')?.value || '').trim();
-      const itemsSig = (cart || []).map(i => `${i.id || i.title}:${i.variant || ''}:${i.quantity || 1}:${i.price || 0}`).join('|');
+      const itemsSig = (cart || []).map(i => {
+        const addonsSig = Array.isArray(i.addons) ? i.addons.map(a => a.name).join(',') : '';
+        return `${i.id || i.title}:${i.variant || ''}:${addonsSig}:${i.quantity || 1}:${i.price || 0}`;
+      }).join('|');
       return `${itemsSig}::${pm}::${coupon}::${pin}::${addr}`;
     }
 
@@ -963,15 +966,16 @@
         const cat = (item.category || '').toLowerCase();
         const id = (item.id || '').toLowerCase();
         return Boolean(
-          item.isFood || 
-          cat.includes('food') || 
-          cat.includes('meal') || 
-          cat.includes('thali') || 
-          cat.includes('salad') || 
-          cat.includes('bowl') || 
-          cat.includes('combos') || 
-          id.startsWith('food_') || 
-          id.startsWith('meal_') || 
+          item.isFood ||
+          item.type === 'healthy_food' ||
+          cat.includes('food') ||
+          cat.includes('meal') ||
+          cat.includes('thali') ||
+          cat.includes('salad') ||
+          cat.includes('bowl') ||
+          cat.includes('combos') ||
+          id.startsWith('food_') ||
+          id.startsWith('meal_') ||
           id.startsWith('healthy_')
         );
       });
@@ -1060,13 +1064,19 @@
       listEl.innerHTML = cart.map((item, index) => {
         const cartImgRaw = item.image || (item.images && item.images[0]) || '';
         const cartImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(cartImgRaw) : (cartImgRaw || 'assets/aistudio/image_6061bdc8.png');
+        const cleanVariant = (item.variant && !['Standard Pack', 'Fresh Kitchen Meal', 'Standard'].includes(item.variant)) ? item.variant : '';
+        const addonsList = Array.isArray(item.addons) ? item.addons.filter(a => a && a.name) : [];
+        const addonsHtml = addonsList.length
+          ? `<div class="text-[11px] text-amber-800 font-semibold mt-0.5">+ ${addonsList.map(a => `${a.name} (₹${a.price})`).join(', ')}</div>`
+          : '';
         return `
         <div class="flex items-center justify-between py-3.5 gap-3">
           <div class="flex items-center space-x-3 min-w-0">
             <img src="${cartImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${item.title || item.name}" class="w-16 h-16 rounded-xl object-cover border border-slate-200 flex-shrink-0 bg-slate-50">
             <div class="min-w-0">
               <h4 class="font-extrabold text-sm text-slate-900 truncate">${item.title || item.name}</h4>
-              <p class="text-xs text-slate-500">${item.variant || 'Standard Pack'} • ₹${item.price} each</p>
+              <p class="text-xs text-slate-500">${cleanVariant ? `${cleanVariant} • ` : ''}₹${item.price} each</p>
+              ${addonsHtml}
               <div class="text-xs font-bold text-emerald-700 mt-1">₹${item.price * item.quantity}</div>
             </div>
           </div>

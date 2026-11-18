@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Delete Your Nutrolix Account</title>
+<meta name="description" content="Request deletion of your Nutrolix customer account and associated personal data.">
+<style>
+:root{font-family:Arial,Helvetica,sans-serif;color:#172033;background:#f5f8f7}*{box-sizing:border-box}body{margin:0}.wrap{max-width:760px;margin:48px auto;padding:0 18px}.card{background:#fff;border:1px solid #e2e8f0;border-radius:20px;padding:30px;box-shadow:0 8px 28px #0f172a0b}h1{color:#065f46;margin:0 0 12px;font-size:30px}h2{font-size:18px;margin:26px 0 8px}p,li{line-height:1.65;color:#475569}.brand{font-weight:800;color:#059669;letter-spacing:.4px;margin-bottom:22px}label{display:block;font-weight:700;margin:18px 0 7px}input,textarea{width:100%;padding:13px;border:1px solid #cbd5e1;border-radius:10px;font:inherit}button,.btn{display:inline-block;background:#059669;color:#fff;border:0;border-radius:10px;padding:13px 18px;font-weight:700;text-decoration:none;cursor:pointer;margin-top:16px}.note{background:#ecfdf5;border-left:4px solid #059669;padding:12px 15px;border-radius:8px;color:#065f46}.small{font-size:13px;color:#64748b}a{color:#047857}@media(max-width:600px){.wrap{margin:20px auto}.card{padding:22px}}
+</style>
+</head>
+<body><main class="wrap"><div class="brand">NUTROLIX · NUTRITION THAT WORKS</div><section class="card">
+<h1>Delete your Nutrolix account</h1>
+<p>You can request deletion of your Nutrolix customer account and the personal information associated with it using the form below. This page is available to both app users and people who have uninstalled the app.</p>
+<div class="note">To protect your account, send the request using the WhatsApp mobile number registered with your Nutrolix account. Our support team may contact you to verify that you own the account before processing deletion.</div>
+<form id="deleteForm">
+<label for="phone">Registered WhatsApp mobile number</label>
+<input id="phone" name="phone" type="tel" inputmode="tel" placeholder="+91 9876543210" required maxlength="16">
+<label for="email">Email address (optional)</label>
+<input id="email" name="email" type="email" placeholder="you@example.com">
+<label for="details">Additional details (optional)</label>
+<textarea id="details" name="details" rows="3" placeholder="Any details that can help us identify your account"></textarea>
+<button type="submit">Request account deletion</button>
+</form>
+<p class="small">Submitting opens your email app with a pre-filled deletion request. You must send the email to complete the request. If your email app does not open, email <a href="mailto:support@nutrolix.com">support@nutrolix.com</a> with the subject “Nutrolix Account Deletion Request” and your registered mobile number.</p>
+<h2>What will be deleted?</h2>
+<ul><li>Your Nutrolix customer account/profile and associated login identity.</li><li>Saved delivery addresses and other account profile information associated with your account.</li><li>Other personal information that is not required to be retained for a lawful business purpose.</li></ul>
+<h2>What may be retained?</h2>
+<p>Order, payment, invoice, tax, refund, dispute, fraud-prevention and accounting records may be retained where required by applicable law or for legitimate legal and security purposes. Such records will be restricted and retained only for the applicable retention period.</p>
+<h2>Processing time</h2>
+<p>We will acknowledge your request and process verified deletion requests within 30 days, unless additional verification is needed or a longer period is permitted or required by law. If some records must be retained, we will explain the applicable reason.</p>
+<p class="small">For help, contact <a href="mailto:support@nutrolix.com">support@nutrolix.com</a>.</p>
+</section></main>
+<script>
+document.getElementById('deleteForm').addEventListener('submit',function(e){
+ e.preventDefault();
+ const phone=document.getElementById('phone').value.trim();
+ const email=document.getElementById('email').value.trim();
+ const details=document.getElementById('details').value.trim();
+ const body='I request deletion of my Nutrolix customer account and associated personal data.\\n\\nRegistered WhatsApp mobile number: '+phone+'\\nEmail: '+(email||'Not provided')+'\\nAdditional details: '+(details||'None')+'\\n\\nI understand Nutrolix may contact me to verify account ownership and may retain records where required by law.';
+ const url='mailto:support@nutrolix.com?subject='+encodeURIComponent('Nutrolix Account Deletion Request')+'&body='+encodeURIComponent(body);
+ window.location.href=url;
+});
+</script></body></html>

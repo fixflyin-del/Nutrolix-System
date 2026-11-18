@@ -193,10 +193,13 @@ function normalizeProductMediaFields(p) {
   const imgs = rawImgs.length ? rawImgs.map(normalizeCatalogImageUrl) : [normalizeCatalogImageUrl(p.image)];
   const realImgs = imgs.filter(x => x !== DEFAULT_SAMPLE_IMAGE_URL);
   const finalImgs = realImgs.length ? realImgs : [DEFAULT_SAMPLE_IMAGE_URL];
+  const variants = nutrolixCore.normalizeProductVariants(p.variants, p);
   return {
     ...p,
     images: finalImgs,
-    image: finalImgs[0] || DEFAULT_SAMPLE_IMAGE_URL
+    image: finalImgs[0] || DEFAULT_SAMPLE_IMAGE_URL,
+    variants,
+    variantsConfigured: Boolean(p.variantsConfigured)
   };
 }
 
@@ -207,6 +210,16 @@ function normalizeSingleImageRecord(item) {
     ...item,
     image: img,
     ...(Array.isArray(item.images) ? { images: [img] } : {})
+  };
+}
+
+function normalizeFoodMenuRecord(item) {
+  if (!item || typeof item !== 'object') return item;
+  const base = normalizeSingleImageRecord(item);
+  return {
+    ...base,
+    variants: nutrolixCore.normalizeProductVariants(item.variants, { id: item.id, variantsConfigured: true }),
+    addons: nutrolixCore.normalizeFoodAddons(item.addons)
   };
 }
 
@@ -2246,17 +2259,20 @@ const server = http.createServer(async (req, res) => {
           if (item.category) {
             item.category = nutrolixCore.normalizeStoreCategory(item.category, item.title || item.name || '');
           }
+          const variantsConfigured = true;
+          item.variantsConfigured = variantsConfigured;
+          item.variants = nutrolixCore.normalizeProductVariants(item.variants, { id: item.id, variantsConfigured });
           let products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
           const existingIdx = products.findIndex(p => p.id === item.id);
           if (existingIdx >= 0) {
-            products[existingIdx] = { ...products[existingIdx], ...item };
+            products[existingIdx] = { ...products[existingIdx], ...item, variants: item.variants, variantsConfigured: true };
           } else {
             if (!item.id) item.id = 'prod_' + Date.now().toString(36);
             products.unshift(item);
           }
           await writeCatalogDocAndLocal('nutrition_products', productsFile, products);
           res.writeHead(200, NO_STORE_JSON_HEADERS);
-          res.end(JSON.stringify({ success: true, product: item }));
+          res.end(JSON.stringify({ success: true, product: normalizeProductMediaFields(item) }));
         } catch (err) {
           res.writeHead(400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
@@ -3576,7 +3592,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       try {
         const meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
-        const normalized = Array.isArray(meals) ? meals.map(normalizeSingleImageRecord) : [];
+        const normalized = Array.isArray(meals) ? meals.map(normalizeFoodMenuRecord) : [];
         res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify(normalized));
       } catch (e) {
@@ -3592,19 +3608,20 @@ const server = http.createServer(async (req, res) => {
           const meal = JSON.parse(body || '{}');
           let meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
           if (Array.isArray(meal)) {
-            meals = meal;
+            meals = meal.map(normalizeFoodMenuRecord);
           } else {
-            const idx = meals.findIndex(m => m.id === meal.id);
+            const cleanMeal = normalizeFoodMenuRecord(meal);
+            const idx = meals.findIndex(m => m.id === cleanMeal.id);
             if (idx >= 0) {
-              meals[idx] = { ...meals[idx], ...meal };
+              meals[idx] = { ...meals[idx], ...cleanMeal, variants: cleanMeal.variants, addons: cleanMeal.addons };
             } else {
-              if (!meal.id) meal.id = 'food_' + Date.now();
-              meals.unshift(meal);
+              if (!cleanMeal.id) cleanMeal.id = 'food_' + Date.now();
+              meals.unshift(cleanMeal);
             }
           }
           await writeCatalogDocAndLocal('healthy_food_menu', foodFile, meals);
           res.writeHead(200, NO_STORE_JSON_HEADERS);
-          res.end(JSON.stringify({ success: true, meals }));
+          res.end(JSON.stringify({ success: true, meals: meals.map(normalizeFoodMenuRecord) }));
         } catch (err) {
           res.writeHead(400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));

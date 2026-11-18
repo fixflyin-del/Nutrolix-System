@@ -1403,6 +1403,42 @@
           <textarea id="singleMealDescription" rows="2" placeholder="Freshly prepared with cold-pressed olive oil..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"></textarea>
         </div>
 
+        <!-- Portion / Meal Variants (Optional) -->
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <span class="block text-xs font-black text-slate-800">Portion / Size Variants (Optional)</span>
+              <span class="block text-[10px] text-slate-500">Leave empty to show only base price on Healthy Food Store.</span>
+            </div>
+            <button type="button" id="btnAddMealVariantRow" onclick="window.addMealVariantRow()" class="px-2.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold flex items-center space-x-1 shrink-0">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>Add Variant</span>
+            </button>
+          </div>
+          <div id="mealVariantsEditorList" class="space-y-1.5"></div>
+        </div>
+
+        <!-- Zomato-Style Extra Add-ons (Optional) -->
+        <div class="bg-amber-50/60 border border-amber-200 rounded-2xl p-3 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <span class="block text-xs font-black text-slate-800">Extra Add-ons — Zomato Style (Optional)</span>
+              <span class="block text-[10px] text-slate-600">Customers can add extras while ordering. Leave empty if none.</span>
+            </div>
+            <button type="button" id="btnAddMealAddonRow" onclick="window.addMealAddonRow()" class="px-2.5 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold flex items-center space-x-1 shrink-0">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>Add Extra</span>
+            </button>
+          </div>
+          <div class="flex flex-wrap gap-1.5">
+            <button type="button" onclick="window.addMealAddonRow({ name: 'Extra A2 Ghee', price: 30, isVeg: true })" class="px-2 py-1 rounded-lg bg-white hover:bg-amber-100 border border-amber-300 text-[10px] font-bold text-amber-900 transition">+ Extra A2 Ghee ₹30</button>
+            <button type="button" onclick="window.addMealAddonRow({ name: 'Extra Dry Fruits', price: 45, isVeg: true })" class="px-2 py-1 rounded-lg bg-white hover:bg-amber-100 border border-amber-300 text-[10px] font-bold text-amber-900 transition">+ Extra Dry Fruits ₹45</button>
+            <button type="button" onclick="window.addMealAddonRow({ name: 'Extra Ragi Roti', price: 25, isVeg: true })" class="px-2 py-1 rounded-lg bg-white hover:bg-amber-100 border border-amber-300 text-[10px] font-bold text-amber-900 transition">+ Extra Ragi Roti ₹25</button>
+            <button type="button" onclick="window.addMealAddonRow({ name: 'Extra Paneer (50g)', price: 50, isVeg: true })" class="px-2 py-1 rounded-lg bg-white hover:bg-amber-100 border border-amber-300 text-[10px] font-bold text-amber-900 transition">+ Extra Paneer ₹50</button>
+          </div>
+          <div id="mealAddonsEditorList" class="space-y-1.5"></div>
+        </div>
+
         <div class="flex items-center space-x-2">
           <input type="checkbox" id="singleMealInStock" checked class="rounded text-emerald-600">
           <label for="singleMealInStock" class="text-xs font-bold text-slate-700">Currently In Stock & Ready to Cook</label>
@@ -1720,6 +1756,21 @@
               <option value="Out of Stock">Out of Stock</option>
             </select>
           </div>
+        </div>
+
+        <!-- Product Variants / Pack Sizes (Optional) -->
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <span class="block text-xs font-black text-slate-800">Product Variants / Pack Sizes (Optional)</span>
+              <span class="block text-[10px] text-slate-500">Leave empty to hide variants on the customer storefront.</span>
+            </div>
+            <button type="button" id="btnAddPkgVariantRow" onclick="window.addPkgVariantRow()" class="px-2.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold flex items-center space-x-1 shrink-0">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>Add Variant</span>
+            </button>
+          </div>
+          <div id="pkgVariantsEditorList" class="space-y-1.5"></div>
         </div>
 
         <!-- 5-Image Slot Gallery (Packaged Nutrition) -->
@@ -2394,6 +2445,7 @@
           : (rawImg || 'assets/aistudio/image_6061bdc8.png');
         const imgCount = (p.images || []).length;
         const protein = p.nutritionFacts?.per100g?.protein || p.protein || '30g';
+        const varCount = Array.isArray(p.variants) ? p.variants.length : 0;
         return `
           <tr class="hover:bg-slate-50 transition border-b border-slate-100">
             <td class="p-3.5">
@@ -2405,6 +2457,7 @@
                 <div class="max-w-xs">
                   <span class="font-extrabold text-slate-900 block truncate text-xs">${p.name || p.title || "Nutrolix Product"}</span>
                   <span class="text-[11px] text-slate-500">${p.heroClaim || p.tagline || 'Packaged Nutrition'}</span>
+                  ${varCount > 0 ? `<span class="inline-block mt-0.5 px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[9px] font-bold">${varCount} Variant${varCount > 1 ? 's' : ''}</span>` : ''}
                 </div>
               </div>
             </td>
@@ -2445,6 +2498,96 @@
       }).join('');
     };
 
+    const LEGACY_UNCONFIGURED_VARIANT_IDS = new Set([
+      'prod_high_protein_atta',
+      'prod_complete_nutri_meal',
+      'prod_premium_talbeenah',
+      'prod_multi_millet_flakes',
+      'prod_sprouted_moong_protein',
+      'prod_cold_pressed_black_seed_oil',
+      'prod_raw_forest_honey_shilajit',
+      'prod_chia_flax_omega_blend'
+    ]);
+
+    window.getEffectiveProductVariants = function(p) {
+      if (!p) return [];
+      if (LEGACY_UNCONFIGURED_VARIANT_IDS.has(String(p.id || '').trim()) && p.variantsConfigured !== true) {
+        return [];
+      }
+      if (!Array.isArray(p.variants)) return [];
+      return p.variants
+        .map(v => {
+          const size = String(v.size || v.label || v.weight || '').trim();
+          const price = Number(v.price);
+          const mrp = Number(v.mrp);
+          if (!size || !Number.isFinite(price) || price <= 0) return null;
+          return { size, label: size, price, mrp: (Number.isFinite(mrp) && mrp >= price) ? mrp : price };
+        })
+        .filter(Boolean);
+    };
+
+    window.renderPkgVariantsEditor = function(variants = []) {
+      const container = document.getElementById('pkgVariantsEditorList');
+      if (!container) return;
+      if (!Array.isArray(variants) || variants.length === 0) {
+        container.innerHTML = '<div class="text-[11px] text-slate-400 italic py-1.5 text-center border border-dashed border-slate-200 rounded-xl bg-white">No variants added — customer storefront will show only single price.</div>';
+        return;
+      }
+      container.innerHTML = '';
+      variants.forEach(v => window.addPkgVariantRow(v, false));
+    };
+
+    window.addPkgVariantRow = function(v = {}, replaceEmptyMsg = true) {
+      const container = document.getElementById('pkgVariantsEditorList');
+      if (!container) return;
+      if (replaceEmptyMsg && container.querySelector('.italic')) {
+        container.innerHTML = '';
+      }
+      const row = document.createElement('div');
+      row.className = 'pkg-variant-row grid grid-cols-12 gap-1.5 items-center bg-white p-2 rounded-xl border border-slate-200';
+      const safeSize = String(v.size || v.label || '').replace(/"/g, '&quot;');
+      const safePrice = v.price !== undefined && v.price !== '' ? v.price : '';
+      const safeMrp = v.mrp !== undefined && v.mrp !== '' ? v.mrp : '';
+      row.innerHTML = `
+        <input type="text" data-var-size placeholder="Pack / Weight (e.g. 1 Kg)" value="${safeSize}" class="col-span-5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 font-semibold">
+        <input type="number" step="1" min="1" data-var-price placeholder="Price ₹" value="${safePrice}" class="col-span-3 px-2 py-1.5 text-xs rounded-lg border border-slate-300 font-bold">
+        <input type="number" step="1" min="1" data-var-mrp placeholder="MRP ₹" value="${safeMrp}" class="col-span-3 px-2 py-1.5 text-xs rounded-lg border border-slate-300">
+        <button type="button" onclick="window.removeEditorRow(this, 'pkgVariantsEditorList', 'No variants added — customer storefront will show only single price.')" class="col-span-1 w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center text-xs mx-auto" title="Remove Variant">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      `;
+      container.appendChild(row);
+    };
+
+    window.removeEditorRow = function(btn, listId, emptyMsg) {
+      const row = btn.closest('.pkg-variant-row, .meal-variant-row, .meal-addon-row');
+      if (row) row.remove();
+      const container = document.getElementById(listId);
+      if (container && container.children.length === 0) {
+        container.innerHTML = `<div class="text-[11px] text-slate-400 italic py-1.5 text-center border border-dashed border-slate-200 rounded-xl bg-white">${emptyMsg}</div>`;
+      }
+    };
+
+    window.readPkgVariantsFromForm = function() {
+      const container = document.getElementById('pkgVariantsEditorList');
+      if (!container) return [];
+      const rows = Array.from(container.querySelectorAll('.pkg-variant-row'));
+      const seen = new Set();
+      const variants = [];
+      for (const row of rows) {
+        const size = (row.querySelector('[data-var-size]')?.value || '').trim();
+        const price = parseFloat(row.querySelector('[data-var-price]')?.value);
+        const mrpRaw = parseFloat(row.querySelector('[data-var-mrp]')?.value);
+        if (!size || !Number.isFinite(price) || price <= 0) continue;
+        const key = size.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const mrp = (Number.isFinite(mrpRaw) && mrpRaw >= price) ? mrpRaw : price;
+        variants.push({ size, label: size, price, mrp });
+      }
+      return variants;
+    };
+
     window.openPackagedProductModal = function() {
       const modal = document.getElementById('packagedProductModal');
       if (!modal) return;
@@ -2453,6 +2596,7 @@
       if (saveBtn) saveBtn.innerText = 'Save Product';
       document.getElementById('pkgProductForm').reset();
       document.getElementById('pkgId').value = '';
+      window.renderPkgVariantsEditor([]);
       for (let i = 1; i <= 5; i++) {
         window.updatePkgSlotThumb(i, '');
         window.setAdminProgress(`pkgImgProgressWrap${i}`, 0, '', 'hide');
@@ -2495,6 +2639,7 @@
       document.getElementById('pkgPrice').value = p.price !== undefined ? p.price : 0;
       document.getElementById('pkgMrp').value = p.mrp || p.originalPrice || p.price || 0;
       document.getElementById('pkgStockStatus').value = p.stockStatus || 'In Stock';
+      window.renderPkgVariantsEditor(window.getEffectiveProductVariants(p));
       
       const imgs = (p.images && p.images.length) ? p.images : (p.image ? [p.image] : []);
       for (let i = 1; i <= 5; i++) {
@@ -2539,6 +2684,7 @@
       const price = parseFloat(document.getElementById('pkgPrice').value);
       const mrp = parseFloat(document.getElementById('pkgMrp').value);
       const stockStatus = document.getElementById('pkgStockStatus').value;
+      const variants = window.readPkgVariantsFromForm();
       
       const images = [
         document.getElementById('pkgImg1').value.trim(),
@@ -2576,6 +2722,8 @@
         discountPercent: (mrp && price && mrp > price) ? Math.round(((mrp - price) / mrp) * 100) : 20,
         stockStatus,
         inStock: stockStatus !== 'Out of Stock',
+        variants,
+        variantsConfigured: true,
         images: finalImages,
         image: finalImages[0],
         heroClaim,
@@ -3042,13 +3190,21 @@
         };
       }
 
-      const items = (Array.isArray(raw.items) ? raw.items : []).map(i => ({
-        ...i,
-        title: i.title || i.name || i.mealName || 'Nutrolix Product',
-        variant: i.variant || i.portion || 'Standard',
-        price: Number(i.price || 0),
-        quantity: Number(i.quantity || i.qty || 1)
-      }));
+      const items = (Array.isArray(raw.items) ? raw.items : []).map(i => {
+        const rawVariant = String(i.variant || i.portion || '').trim();
+        const variant = (rawVariant && !['standard', 'standard pack', 'fresh kitchen meal'].includes(rawVariant.toLowerCase())) ? rawVariant : '';
+        const addons = Array.isArray(i.addons)
+          ? i.addons.map(a => ({ name: String(a.name || a.title || '').trim(), price: Number(a.price || 0) })).filter(a => a.name)
+          : [];
+        return {
+          ...i,
+          title: i.title || i.name || i.mealName || 'Nutrolix Product',
+          variant,
+          addons,
+          price: Number(i.price || 0),
+          quantity: Number(i.quantity || i.qty || 1)
+        };
+      });
 
       const ts = Number(raw.timestamp || raw.orderTimeMillis || Date.parse(raw.createdAt || raw.orderTime || 0) || 0);
       const createdAt = raw.createdAt || raw.orderTime || (ts ? new Date(ts).toISOString() : new Date().toISOString());
@@ -3283,7 +3439,13 @@
         const d = new Date(order.createdAt || order.orderTime || Date.now()).toLocaleDateString('en-IN', {
           day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
         });
-        const items = (order.items || []).map(i => `${i.title || i.name || 'Item'} (${i.variant || 'Standard'}) × ${i.quantity || 1}`).join('<br>') || 'Order Items';
+        const items = (order.items || []).map(i => {
+          const varTag = i.variant ? ` (${i.variant})` : '';
+          const addonsTag = (Array.isArray(i.addons) && i.addons.length)
+            ? `<div class="text-[10px] text-amber-700 font-bold pl-2">+ ${i.addons.map(a => `${a.name} (₹${a.price})`).join(', ')}</div>`
+            : '';
+          return `${i.title || i.name || 'Item'}${varTag} × ${i.quantity || 1}${addonsTag}`;
+        }).join('<br>') || 'Order Items';
         const addrObj = order.deliveryAddress;
         const addr = addrObj
           ? (typeof addrObj === 'string' ? addrObj : [addrObj.address1 || addrObj.street, addrObj.city, addrObj.state, addrObj.pincode].filter(Boolean).join(', ')) || 'Direct'
@@ -3551,7 +3713,13 @@
       const targetPhone = cleanPhone.startsWith('91') && cleanPhone.length > 10 ? cleanPhone : ('91' + (cleanPhone.slice(-10) || '9076254354'));
 
       const customerName = order.customer?.name || 'Valued Customer';
-      const itemsList = (order.items || []).map(i => `• ${i.title} (${i.variant || 'Pack'}) × ${i.quantity}`).join('\n');
+      const itemsList = (order.items || []).map(i => {
+        const vStr = i.variant ? ` (${i.variant})` : '';
+        const aStr = (Array.isArray(i.addons) && i.addons.length)
+          ? ` [+ ${i.addons.map(a => `${a.name} ₹${a.price}`).join(', ')}]`
+          : '';
+        return `• ${i.title}${vStr}${aStr} × ${i.quantity}`;
+      }).join('\n');
       const trackingMsg = order.trackingNumber ? `\n🚚 *Courier:* ${order.courierName || 'Partner'} | *AWB:* ${order.trackingNumber}` : '';
 
       const text = `Hello *${customerName}*,\n\nYour Nutrolix Order *#${order.id}* update:\n📊 *Status:* ${order.status || 'Confirmed'}${trackingMsg}\n\n🛍️ *Ordered Items:*\n${itemsList}\n💰 *Total Amount:* ₹${order.grandTotal} (${order.paymentMethod || 'Online'})\n\n🔗 *Track Live Order:* https://nutrolix.in/orders.html?orderId=${order.id}\n\n🌿 *Nutrolix Functional Nutrition*\nNeed help? WhatsApp: +91 90762 54354`;
@@ -3572,14 +3740,20 @@
       const container = document.getElementById('invoiceContentArea');
       if (!container) return;
 
-      const itemsHtml = (order.items || []).map(i => `
+      const itemsHtml = (order.items || []).map(i => {
+        const varTxt = i.variant ? ` (${i.variant})` : '';
+        const addonsTxt = (Array.isArray(i.addons) && i.addons.length)
+          ? `<div class="text-[10px] text-amber-700 font-semibold mt-0.5">Extras: ${i.addons.map(a => `+ ${a.name} (₹${a.price})`).join(', ')}</div>`
+          : '';
+        return `
         <tr class="border-b border-slate-100">
-          <td class="py-2 font-medium">${i.title} (${i.variant || 'Standard'})</td>
+          <td class="py-2 font-medium">${i.title}${varTxt}${addonsTxt}</td>
           <td class="py-2 text-center">${i.quantity}</td>
           <td class="py-2 text-right">₹${i.price}</td>
           <td class="py-2 text-right font-bold">₹${(i.price || 0) * (i.quantity || 1)}</td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
 
       container.innerHTML = `
         <div class="border border-slate-200 rounded-2xl p-4 bg-slate-50 space-y-3">
@@ -3975,13 +4149,19 @@
         const mImg = (typeof window.nutrolixResolveCatalogImage === 'function')
           ? window.nutrolixResolveCatalogImage(m.image)
           : (m.image || 'assets/aistudio/image_6061bdc8.png');
+        const mVarCount = Array.isArray(m.variants) ? m.variants.length : 0;
+        const mAddonCount = Array.isArray(m.addons) ? m.addons.length : 0;
         return `
         <tr class="hover:bg-slate-50 transition border-b border-slate-100">
           <td class="p-3.5 flex items-center space-x-3">
             <img src="${mImg}" alt="${m.name || m.title || "Healthy Meal"}" class="w-12 h-12 rounded-xl object-cover border border-slate-200">
             <div>
               <span class="font-extrabold text-slate-900 block text-xs">${m.name || m.title || "Healthy Meal"}</span>
-              <span class="text-[10px] text-slate-400">${m.id}</span>
+              <span class="text-[10px] text-slate-400 block">${m.id}</span>
+              <div class="flex flex-wrap gap-1 mt-0.5">
+                ${mVarCount > 0 ? `<span class="px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 text-[9px] font-bold">${mVarCount} Portion${mVarCount > 1 ? 's' : ''}</span>` : ''}
+                ${mAddonCount > 0 ? `<span class="px-1.5 py-0.2 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[9px] font-bold">${mAddonCount} Add-on${mAddonCount > 1 ? 's' : ''}</span>` : ''}
+              </div>
             </div>
           </td>
           <td class="p-3.5 text-xs text-slate-600 font-medium">${m.category}</td>
@@ -4009,6 +4189,119 @@
       }).join('');
     };
 
+    window.renderMealVariantsEditor = function(variants = []) {
+      const container = document.getElementById('mealVariantsEditorList');
+      if (!container) return;
+      if (!Array.isArray(variants) || variants.length === 0) {
+        container.innerHTML = '<div class="text-[11px] text-slate-400 italic py-1.5 text-center border border-dashed border-slate-200 rounded-xl bg-white">No portion variants — customer will see base price only.</div>';
+        return;
+      }
+      container.innerHTML = '';
+      variants.forEach(v => window.addMealVariantRow(v, false));
+    };
+
+    window.addMealVariantRow = function(v = {}, replaceEmptyMsg = true) {
+      const container = document.getElementById('mealVariantsEditorList');
+      if (!container) return;
+      if (replaceEmptyMsg && container.querySelector('.italic')) {
+        container.innerHTML = '';
+      }
+      const row = document.createElement('div');
+      row.className = 'meal-variant-row grid grid-cols-12 gap-1.5 items-center bg-white p-2 rounded-xl border border-slate-200';
+      const safeSize = String(v.size || v.label || '').replace(/"/g, '&quot;');
+      const safePrice = v.price !== undefined && v.price !== '' ? v.price : '';
+      row.innerHTML = `
+        <input type="text" data-meal-var-size placeholder="Portion (e.g. Regular 300g / Jumbo)" value="${safeSize}" class="col-span-7 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 font-semibold">
+        <input type="number" step="1" min="1" data-meal-var-price placeholder="Price ₹" value="${safePrice}" class="col-span-4 px-2 py-1.5 text-xs rounded-lg border border-slate-300 font-bold">
+        <button type="button" onclick="window.removeEditorRow(this, 'mealVariantsEditorList', 'No portion variants — customer will see base price only.')" class="col-span-1 w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center text-xs mx-auto" title="Remove Variant">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      `;
+      container.appendChild(row);
+    };
+
+    window.readMealVariantsFromForm = function() {
+      const container = document.getElementById('mealVariantsEditorList');
+      if (!container) return [];
+      const rows = Array.from(container.querySelectorAll('.meal-variant-row'));
+      const seen = new Set();
+      const out = [];
+      for (const row of rows) {
+        const size = (row.querySelector('[data-meal-var-size]')?.value || '').trim();
+        const price = parseFloat(row.querySelector('[data-meal-var-price]')?.value);
+        if (!size || !Number.isFinite(price) || price <= 0) continue;
+        const key = size.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ size, label: size, price, mrp: price });
+      }
+      return out;
+    };
+
+    window.renderMealAddonsEditor = function(addons = []) {
+      const container = document.getElementById('mealAddonsEditorList');
+      if (!container) return;
+      if (!Array.isArray(addons) || addons.length === 0) {
+        container.innerHTML = '<div class="text-[11px] text-amber-700/70 italic py-1.5 text-center border border-dashed border-amber-300 rounded-xl bg-white">No extra add-ons — use buttons above to add extras like Extra Ghee, Dry Fruits, Roti.</div>';
+        return;
+      }
+      container.innerHTML = '';
+      addons.forEach(a => window.addMealAddonRow(a, false));
+    };
+
+    window.addMealAddonRow = function(a = {}, replaceEmptyMsg = true) {
+      const container = document.getElementById('mealAddonsEditorList');
+      if (!container) return;
+      if (replaceEmptyMsg && container.querySelector('.italic')) {
+        container.innerHTML = '';
+      }
+      const safeName = String(a.name || a.title || '').replace(/"/g, '&quot;');
+      if (safeName) {
+        const existingNames = Array.from(container.querySelectorAll('[data-addon-name]')).map(el => el.value.trim().toLowerCase());
+        if (existingNames.includes(safeName.toLowerCase())) return;
+      }
+      const row = document.createElement('div');
+      row.className = 'meal-addon-row grid grid-cols-12 gap-1.5 items-center bg-white p-2 rounded-xl border border-amber-200';
+      const safePrice = a.price !== undefined && a.price !== '' ? a.price : '';
+      const isVeg = a.isVeg !== false;
+      row.innerHTML = `
+        <input type="text" data-addon-name placeholder="Add-on (e.g. Extra A2 Ghee)" value="${safeName}" class="col-span-5 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 font-semibold">
+        <input type="number" step="1" min="0" data-addon-price placeholder="+₹ Price" value="${safePrice}" class="col-span-3 px-2 py-1.5 text-xs rounded-lg border border-slate-300 font-bold">
+        <select data-addon-veg class="col-span-3 px-1.5 py-1.5 text-[11px] rounded-lg border border-slate-300 font-bold ${isVeg ? 'text-emerald-700' : 'text-rose-700'}">
+          <option value="true" ${isVeg ? 'selected' : ''}>🟢 Veg</option>
+          <option value="false" ${!isVeg ? 'selected' : ''}>🔴 Non-Veg</option>
+        </select>
+        <button type="button" onclick="window.removeEditorRow(this, 'mealAddonsEditorList', 'No extra add-ons — use buttons above to add extras like Extra Ghee, Dry Fruits, Roti.')" class="col-span-1 w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center text-xs mx-auto" title="Remove Add-on">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      `;
+      container.appendChild(row);
+    };
+
+    window.readMealAddonsFromForm = function() {
+      const container = document.getElementById('mealAddonsEditorList');
+      if (!container) return [];
+      const rows = Array.from(container.querySelectorAll('.meal-addon-row'));
+      const seen = new Set();
+      const out = [];
+      for (const row of rows) {
+        const name = (row.querySelector('[data-addon-name]')?.value || '').trim();
+        const price = parseFloat(row.querySelector('[data-addon-price]')?.value);
+        const isVegVal = row.querySelector('[data-addon-veg]')?.value !== 'false';
+        if (!name || !Number.isFinite(price) || price < 0) continue;
+        const key = name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({
+          id: 'addon_' + key.replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, ''),
+          name,
+          price,
+          isVeg: isVegVal
+        });
+      }
+      return out;
+    };
+
     window.openAddMealModal = function() {
       document.getElementById('singleMealId').value = '';
       document.getElementById('singleMealTitle').value = '';
@@ -4019,6 +4312,8 @@
       document.getElementById('singleMealImageUrl').value = '';
       document.getElementById('singleMealDescription').value = '';
       document.getElementById('singleMealInStock').checked = true;
+      window.renderMealVariantsEditor([]);
+      window.renderMealAddonsEditor([]);
       document.getElementById('foodMealModalTitle').innerText = 'Add Healthy Food Meal (1 Photo Only)';
       const submitBtn = document.getElementById('saveMealSubmitBtn');
       if (submitBtn) submitBtn.innerText = 'Save Meal';
@@ -4088,6 +4383,8 @@
       const id = document.getElementById('singleMealId').value.trim() || ('meal_' + Date.now());
       const mealTitle = document.getElementById('singleMealTitle').value.trim();
       const mealImg = document.getElementById('singleMealImageUrl').value.trim() || '/assets/aistudio/image_6061bdc8.png';
+      const variants = window.readMealVariantsFromForm();
+      const addons = window.readMealAddonsFromForm();
       const payload = {
         id: id,
         name: mealTitle,
@@ -4100,6 +4397,9 @@
         image: mealImg,
         images: [mealImg],
         description: document.getElementById('singleMealDescription').value.trim() || 'Clean, clinical-grade nutrition prepared fresh with zero palm oil.',
+        variants,
+        variantsConfigured: true,
+        addons,
         inStock: document.getElementById('singleMealInStock').checked
       };
 
@@ -4188,6 +4488,8 @@
       document.getElementById('singleMealImageUrl').value = mealImgRaw;
       document.getElementById('singleMealDescription').value = meal.description || '';
       document.getElementById('singleMealInStock').checked = meal.inStock !== false;
+      window.renderMealVariantsEditor(Array.isArray(meal.variants) ? meal.variants : []);
+      window.renderMealAddonsEditor(Array.isArray(meal.addons) ? meal.addons : []);
       
       const preview = document.getElementById('singleMealPreview');
       const wrapper = document.getElementById('singleMealImagePreviewWrapper');

@@ -194,8 +194,8 @@
           </div>
           <div class="text-[11px] text-slate-400 font-medium">Inclusive of all taxes. Free shipping on orders above ₹499.</div>
 
-          <!-- Variant Selector -->
-          <div class="pt-1">
+          <!-- Variant Selector (Hidden unless Admin configures variants) -->
+          <div id="productVariantsSection" class="pt-1 hidden">
             <div class="text-xs font-bold text-slate-700 mb-2">Available Pack Sizes:</div>
             <div id="productVariantsContainer" class="flex flex-wrap gap-2">
               <!-- Variants buttons injected here -->
@@ -511,6 +511,45 @@
     window.selectedQty = 1;
     window.selectedVariantIndex = 0;
 
+    const LEGACY_UNCONFIGURED_VARIANT_IDS = new Set([
+      'prod_high_protein_atta',
+      'prod_complete_nutri_meal',
+      'prod_premium_talbeenah',
+      'prod_multi_millet_flakes',
+      'prod_sprouted_moong_protein',
+      'prod_cold_pressed_black_seed_oil',
+      'prod_raw_forest_honey_shilajit',
+      'prod_chia_flax_omega_blend'
+    ]);
+
+    function sanitizeProductVariants(p) {
+      if (!p) return [];
+      const pid = String(p.id || '').trim();
+      if (pid && LEGACY_UNCONFIGURED_VARIANT_IDS.has(pid) && p.variantsConfigured !== true) {
+        return [];
+      }
+      if (!Array.isArray(p.variants) || p.variants.length === 0) return [];
+      const seen = new Set();
+      const out = [];
+      for (const v of p.variants) {
+        if (!v || typeof v !== 'object') continue;
+        const size = String(v.size || v.label || v.weight || '').trim();
+        const price = Number(v.price);
+        if (!size || !Number.isFinite(price) || price <= 0) continue;
+        const key = size.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const mrpRaw = Number(v.mrp);
+        out.push({
+          size,
+          label: size,
+          price,
+          mrp: (Number.isFinite(mrpRaw) && mrpRaw >= price) ? mrpRaw : price
+        });
+      }
+      return out;
+    }
+
     function normalizeNutroProduct(p) {
       if (!p) return null;
       const title = p.name || p.title || 'Nutrolix Product';
@@ -522,6 +561,7 @@
       const price = Number(p.price || 349);
       const mrp = Number(p.mrp || Math.round(price * 1.28));
       const discountPercent = Number(p.discountPercent || (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 20));
+      const variants = sanitizeProductVariants(p);
       return {
         ...p,
         id: p.id || ('prod_' + Math.random().toString(36).substring(2, 9)),
@@ -531,6 +571,7 @@
         price,
         mrp,
         discountPercent,
+        variants,
         rating: Number(p.rating || 4.8),
         reviewCount: Number(p.reviewCount || 120),
         images: imgList,
@@ -661,16 +702,21 @@
       // Attach mobile swipe gestures
       initSwipeListeners();
 
-      // Variants
+      // Variants (Strictly hidden when Admin has not configured variants)
+      window.selectedVariantIndex = 0;
+      const variantsSection = document.getElementById('productVariantsSection');
       const variantsContainer = document.getElementById('productVariantsContainer');
-      if (p.variants && p.variants.length) {
+      if (Array.isArray(p.variants) && p.variants.length > 0) {
+        if (variantsSection) variantsSection.classList.remove('hidden');
         variantsContainer.innerHTML = p.variants.map((v, i) => `
-          <button onclick="window.selectVariant(${i})" class="px-4 py-2 rounded-xl border text-xs font-extrabold transition ${i === 0 ? 'bg-nutro-forest text-white border-nutro-forest shadow-sm' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}">
+          <button type="button" onclick="window.selectVariant(${i})" class="px-4 py-2 rounded-xl border text-xs font-extrabold transition ${i === 0 ? 'bg-nutro-forest text-white border-nutro-forest shadow-sm' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}">
             ${v.size} • ₹${v.price}
           </button>
         `).join('');
+        window.selectVariant(0);
       } else {
-        variantsContainer.innerHTML = `<span class="text-xs text-slate-500 font-bold">Standard Pack</span>`;
+        if (variantsSection) variantsSection.classList.add('hidden');
+        if (variantsContainer) variantsContainer.innerHTML = '';
       }
 
       // Key Features
@@ -974,12 +1020,27 @@
     };
 
     window.selectVariant = function(index) {
+      if (!window.currentProduct || !Array.isArray(window.currentProduct.variants) || !window.currentProduct.variants[index]) return;
       window.selectedVariantIndex = index;
       const v = window.currentProduct.variants[index];
-      document.getElementById('productPriceDisplay').textContent = `₹${v.price}`;
-      document.getElementById('productMrpDisplay').textContent = `₹${v.mrp}`;
+      const vPrice = Number(v.price || window.currentProduct.price || 0);
+      const vMrp = Number(v.mrp || window.currentProduct.mrp || vPrice);
+      const savings = Math.max(0, vMrp - vPrice);
+      const discPct = vMrp > vPrice ? Math.round((savings / vMrp) * 100) : (window.currentProduct.discountPercent || 0);
+
+      document.getElementById('productPriceDisplay').textContent = `₹${vPrice}`;
+      document.getElementById('productMrpDisplay').textContent = `₹${vMrp}`;
+      const savingsEl = document.getElementById('productSavingsDisplay');
+      if (savingsEl) {
+        savingsEl.textContent = savings > 0 ? `Save ₹${savings}` : '';
+        savingsEl.classList.toggle('hidden', savings <= 0);
+      }
+      const badgeEl = document.getElementById('productDiscountBadge');
+      if (badgeEl) {
+        badgeEl.textContent = `${discPct}% OFF`;
+      }
       const sPrice = document.getElementById('stickyMobilePrice');
-      if (sPrice) sPrice.textContent = `₹${v.price}`;
+      if (sPrice) sPrice.textContent = `₹${vPrice}`;
       
       const buttons = document.querySelectorAll('#productVariantsContainer button');
       buttons.forEach((b, i) => {
@@ -1012,11 +1073,15 @@
     window.handleAddToCart = function() {
       if (!window.currentProduct) return;
       const p = window.currentProduct;
-      const v = (p.variants && p.variants[window.selectedVariantIndex]) || { price: p.price, size: 'Standard Pack' };
+      const hasVariants = Array.isArray(p.variants) && p.variants.length > 0;
+      const v = hasVariants ? (p.variants[window.selectedVariantIndex] || p.variants[0]) : null;
+      const unitPrice = Number((v && v.price) || p.price);
+      const unitMrp = Number((v && v.mrp) || p.mrp || Math.round(unitPrice * 1.25));
+      const variantLabel = v ? String(v.size || v.label || '').trim() : '';
       const cart = JSON.parse(localStorage.getItem('nutrolix_store_cart') || '[]');
       
-      const itemKey = `${p.id}_${v.size}`;
-      const existing = cart.find(i => i.itemKey === itemKey);
+      const itemKey = variantLabel ? `${p.id}_${variantLabel}` : p.id;
+      const existing = cart.find(i => (i.itemKey || i.id) === itemKey);
       if (existing) {
         existing.quantity += window.selectedQty;
       } else {
@@ -1025,9 +1090,9 @@
           itemKey: itemKey,
           title: p.name,
           name: p.name,
-          variant: v.size,
-          price: v.price,
-          mrp: v.mrp || p.mrp || (v.price * 1.25),
+          variant: variantLabel,
+          price: unitPrice,
+          mrp: unitMrp,
           image: (p.images && p.images[0]) || '',
           quantity: window.selectedQty
         });
@@ -1035,7 +1100,8 @@
       localStorage.setItem('nutrolix_store_cart', JSON.stringify(cart));
       localStorage.setItem('nutrolix_packaged_cart', JSON.stringify(cart));
       updateHeaderBadge();
-      alert(`🎉 Added ${window.selectedQty}x ${p.name} (${v.size}) to your bag!`);
+      const suffix = variantLabel ? ` (${variantLabel})` : '';
+      alert(`🎉 Added ${window.selectedQty}x ${p.name}${suffix} to your bag!`);
     };
 
     function updateHeaderBadge() {

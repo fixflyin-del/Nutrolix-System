@@ -21,18 +21,7 @@ window.nutroProducts = [
     "images": [
       "assets/aistudio/image_6061bdc8.png"
     ],
-    "variants": [
-      {
-        "size": "1 Kg",
-        "price": 349,
-        "mrp": 449
-      },
-      {
-        "size": "5 Kg",
-        "price": 1649,
-        "mrp": 2199
-      }
-    ],
+    "variants": [],
     "description": "Nutrolix High Protein Atta is a scientifically formulated, all-natural functional flour crafted for individuals seeking clean muscle support, steady glucose metabolism, and sustained daily stamina. Made from premium non-GMO whole wheat, defatted roasted peanut protein, isolated soy protein, sprouted ragi, and dietary fiber.",
     "keyFeatures": [
       "46g Verified Plant-Based Protein per 100g",
@@ -87,18 +76,7 @@ window.nutroProducts = [
     "images": [
       "assets/aistudio/image_6061bdc8.png"
     ],
-    "variants": [
-      {
-        "size": "500g",
-        "price": 699,
-        "mrp": 899
-      },
-      {
-        "size": "1 Kg",
-        "price": 1299,
-        "mrp": 1699
-      }
-    ],
+    "variants": [],
     "description": "Nutrolix Complete Nutri Meal is an all-in-one nutritional powerhouse designed for busy professionals, fitness enthusiasts, and health-conscious families. Combining 25+ superfoods, organic plant proteins, digestive enzymes, and essential micronutrients.",
     "keyFeatures": [
       "25+ Authentic Superfoods in One Clinically Balanced Shake",
@@ -153,18 +131,7 @@ window.nutroProducts = [
     "images": [
       "assets/aistudio/image_6061bdc8.png"
     ],
-    "variants": [
-      {
-        "size": "400g",
-        "price": 299,
-        "mrp": 399
-      },
-      {
-        "size": "800g",
-        "price": 549,
-        "mrp": 749
-      }
-    ],
+    "variants": [],
     "description": "Talbeenah is a revered traditional therapeutic porridge mentioned in prophetic medicine and Ayurvedic texts for soothing the digestive tract, calming the nervous system, and restoring vitality. Prepared by slow-roasting pearl barley grains with crushed California almonds, pure Arabian dates, and green cardamom.",
     "keyFeatures": [
       "Slow-Roasted Wholegrain Pearl Barley (Jau) with High Beta-Glucan",
@@ -219,13 +186,7 @@ window.nutroProducts = [
     "images": [
       "assets/aistudio/image_6061bdc8.png"
     ],
-    "variants": [
-      {
-        "size": "400g",
-        "price": 249,
-        "mrp": 329
-      }
-    ],
+    "variants": [],
     "description": "Crispy, oven-toasted multigrain flakes made from four indigenous Indian super-millets combined with South American quinoa. Lightly sweetened with Kakvi liquid jaggery, offering 3x the calcium of conventional cornflakes without palm oil or preservatives.",
     "keyFeatures": [
       "100% Gluten-Free Millets: Ragi, Jowar, Bajra & Royal Quinoa",
@@ -279,18 +240,7 @@ window.nutroProducts = [
     "images": [
       "assets/aistudio/image_6061bdc8.png"
     ],
-    "variants": [
-      {
-        "size": "500g",
-        "price": 379,
-        "mrp": 499
-      },
-      {
-        "size": "1 Kg",
-        "price": 699,
-        "mrp": 899
-      }
-    ],
+    "variants": [],
     "description": "Crafted using the age-old bio-activation process of sprouting and gentle solar drying, this powder unlocks maximum protein digestibility, destroys anti-nutrients (phytic acid), and delivers 32g of pure plant protein per 100g.",
     "keyFeatures": [
       "Bio-Activated Sprouting Multiplies Vitamin & Mineral Bioavailability",
@@ -344,13 +294,7 @@ window.nutroProducts = [
     "images": [
       "assets/aistudio/image_6061bdc8.png"
     ],
-    "variants": [
-      {
-        "size": "200ml",
-        "price": 449,
-        "mrp": 599
-      }
-    ],
+    "variants": [],
     "description": "Cold-pressed from wild-harvested Turkish Nigella Sativa seeds without heat, solvents, or chemicals. Standardized to contain exceptionally high Thymoquinone (TQ > 1.8%), the potent active compound celebrated globally for respiratory, joint, and metabolic wellness.",
     "keyFeatures": [
       "100% Pure Virgin First Cold-Pressed Black Seed Oil",
@@ -404,13 +348,7 @@ window.nutroProducts = [
     "images": [
       "assets/aistudio/image_6061bdc8.png"
     ],
-    "variants": [
-      {
-        "size": "500g",
-        "price": 499,
-        "mrp": 650
-      }
-    ],
+    "variants": [],
     "description": "Harvested from wild multi-floral forest hives and kept raw and unpasteurized to preserve active digestive enzymes and pollen. Synergistically infused with purified Grade-A Himalayan Shilajit resin and KSM-66 Ashwagandha for stamina, cognitive sharpness, and daily vigor.",
     "keyFeatures": [
       "100% Raw, Unfiltered & Non-Pasteurized Wild Forest Honey",
@@ -464,18 +402,7 @@ window.nutroProducts = [
     "images": [
       "assets/aistudio/image_6061bdc8.png"
     ],
-    "variants": [
-      {
-        "size": "250g",
-        "price": 199,
-        "mrp": 260
-      },
-      {
-        "size": "500g",
-        "price": 359,
-        "mrp": 480
-      }
-    ],
+    "variants": [],
     "description": "A precision 50:50 blend of whole organic black chia seeds and slow cold-milled golden flaxseeds. Rich in heart-healthy Alpha-Linolenic Acid (Omega-3 ALA), lignans, and soluble mucilage fiber for digestion.",
     "keyFeatures": [
       "4500mg Plant-Based Omega-3 ALA per 25g Serving",
