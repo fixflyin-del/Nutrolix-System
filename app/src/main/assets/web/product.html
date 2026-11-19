@@ -27,7 +27,7 @@
 
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800;900&display=swap');
-    html, body { max-width: 100%; overflow-x: hidden; }
+    html, body { max-width: 100%; overflow-x: clip; }
     body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #F8FAFC; color: #1E293B; }
     @media (max-width: 768px) {
       .product-mobile-bottom-space { padding-bottom: 6rem; }
@@ -52,7 +52,7 @@
   <!-- Android Mobile Browser Back Navigation Handler (Requirement 3) -->
   <script src="assets/nutrolix-back-handler.js"></script>
 </head>
-<body class="product-mobile-bottom-space flex flex-col min-h-screen overflow-x-hidden">
+<body class="product-mobile-bottom-space flex flex-col min-h-screen overflow-x-clip">
 
   <!-- Header with Nutrolix Original Logo -->
   <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm transition-all duration-200">

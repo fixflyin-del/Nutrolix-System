@@ -49,7 +49,7 @@
     
     html, body {
       max-width: 100%;
-      overflow-x: hidden;
+      overflow-x: clip;
     }
     
     @media (max-width: 768px) {
@@ -77,7 +77,7 @@
   <!-- Android Mobile Browser Back Navigation Handler (Requirement 3) -->
   <script src="assets/nutrolix-back-handler.js"></script>
 </head>
-<body class="mobile-safe-bottom flex flex-col min-h-screen overflow-x-hidden">
+<body class="mobile-safe-bottom flex flex-col min-h-screen overflow-x-clip">
 
   <!-- ============================================================== -->
   <!-- 1. STICKY DESKTOP & MOBILE HEADER WITH ORIGINAL NUTROLIX LOGO -->
@@ -526,155 +526,91 @@
   </section>
 
   <!-- ============================================================== -->
-  <!-- 5. SECTION 3: GOOGLE CUSTOMER REVIEWS (LIVE VERIFIED INTEGRATION) -->
+  <!-- 5. SECTION 3: REAL CUSTOMER REVIEWS (COMPACT & SLOW AUTO-SCROLL) -->
   <!-- ============================================================== -->
-  <section class="py-16 bg-slate-50 border-b border-slate-200">
+  <section class="py-8 sm:py-10 bg-gradient-to-b from-emerald-50/50 via-white to-amber-50/30 border-b border-slate-200/80" id="realCustomerReviewsSection">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      
-      <!-- Section Header with Official Google Profile Link -->
-      <div class="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
-        <div>
-          <div class="inline-flex items-center space-x-2 text-xs font-extrabold text-amber-600 bg-amber-50 px-3 py-1 rounded-full border border-amber-200">
-            <i class="fa-brands fa-google text-amber-500"></i>
-            <span>GOOGLE BUSINESS PROFILE • LIVE CUSTOMER FEEDBACK</span>
-          </div>
-          <h2 class="text-3xl font-black text-slate-900 mt-2">What Real Customers Say on Google</h2>
-          <p class="text-slate-500 text-sm mt-1 max-w-xl">
-            Live, transparent reviews directly synced with our official Google Business Profile. Real people, verified experiences.
-          </p>
-        </div>
 
-        <!-- Rating Summary Box & CTA -->
-        <div class="flex items-center space-x-4 bg-white p-3 rounded-2xl border border-slate-200 shadow-sm shrink-0">
-          <div class="text-right">
-            <div class="flex items-center space-x-1 text-amber-400 text-sm justify-end">
-              <i class="fa-solid fa-star"></i>
-              <i class="fa-solid fa-star"></i>
-              <i class="fa-solid fa-star"></i>
-              <i class="fa-solid fa-star"></i>
-              <i class="fa-solid fa-star"></i>
-            </div>
-            <div class="text-xs font-bold text-slate-800">4.9 / 5.0 Rating • 148+ Reviews</div>
+      <!-- Compact Attractive Header -->
+      <div class="flex items-center justify-between gap-3 mb-4">
+        <div>
+          <div class="inline-flex items-center space-x-1.5 text-[10px] font-black text-emerald-700 bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-200">
+            <i class="fa-solid fa-star text-amber-500"></i>
+            <span>VERIFIED CUSTOMER FEEDBACK</span>
           </div>
-          <a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="bg-nutro-forest hover:bg-nutro-dark text-white text-xs font-extrabold px-4 py-2.5 rounded-xl transition flex items-center space-x-1.5 shadow-sm">
-            <span>Read All Google Reviews</span>
-            <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
-          </a>
+          <h2 class="text-xl sm:text-2xl font-black text-slate-900 mt-1 leading-tight">What Real Customers Say</h2>
         </div>
+        <span class="hidden sm:inline-flex items-center space-x-1.5 text-[11px] font-bold text-emerald-700 bg-white px-3 py-1 rounded-full border border-emerald-200 shadow-xs">
+          <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span>Live Reviews</span>
+        </span>
       </div>
 
-      <!-- Google Reviews Horizontal Scrolling Carousel Layout (Change 6) -->
+      <!-- Smooth Slow Horizontal Auto-Scrolling Reviews Track -->
       <div class="relative">
-        <div class="flex items-center justify-between mb-3">
-          <div class="text-xs font-bold text-slate-500 flex items-center space-x-1.5">
-            <i class="fa-solid fa-arrows-left-right text-emerald-600"></i>
-            <span>Swipe or scroll horizontally to read all verified customer feedback</span>
-          </div>
-          <div class="hidden sm:flex items-center space-x-2">
-            <button onclick="window.scrollGoogleReviews(-1)" class="w-9 h-9 rounded-full bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 shadow-sm flex items-center justify-center transition active:scale-95" title="Previous Reviews">
-              <i class="fa-solid fa-chevron-left text-xs"></i>
-            </button>
-            <button onclick="window.scrollGoogleReviews(1)" class="w-9 h-9 rounded-full bg-white hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-slate-200 shadow-sm flex items-center justify-center transition active:scale-95" title="Next Reviews">
-              <i class="fa-solid fa-chevron-right text-xs"></i>
-            </button>
-          </div>
-        </div>
-
-        <div id="googleReviewsGrid" class="flex space-x-4 overflow-x-auto pb-4 custom-scrollbar snap-x snap-mandatory scroll-smooth">
-          <!-- Dynamic review cards injected here -->
-          <div class="w-[290px] sm:w-[340px] shrink-0 snap-start bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
-            <div class="space-y-2.5">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-full bg-emerald-100 text-emerald-800 font-black text-sm flex items-center justify-center shrink-0">
-                    SK
-                  </div>
-                  <div>
-                    <h4 class="font-extrabold text-sm text-slate-900 leading-snug">Dr. Sameer Kulkarni</h4>
-                    <div class="text-[11px] text-slate-400">Verified Google Reviewer</div>
+        <div id="googleReviewsGrid" class="flex gap-3.5 overflow-x-auto pb-2 hide-scrollbar select-none" style="scroll-behavior: auto;">
+          <!-- Dynamic compact colorful review cards injected & duplicated by JS for seamless slow auto-scroll -->
+          <div class="w-[255px] sm:w-[290px] shrink-0 bg-white p-4 rounded-2xl border border-emerald-100 border-t-[3px] border-t-emerald-500 shadow-sm flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center space-x-2.5 min-w-0">
+                  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">SK</div>
+                  <div class="min-w-0">
+                    <h4 class="font-extrabold text-xs text-slate-900 truncate">Dr. Sameer Kulkarni</h4>
+                    <div class="flex items-center text-amber-400 text-[10px] space-x-0.5">
+                      <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                    </div>
                   </div>
                 </div>
-                <i class="fa-brands fa-google text-slate-300 text-lg"></i>
+                <span class="text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">✓ Verified</span>
               </div>
-              <div class="flex text-amber-400 text-xs">
-                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
-                <span class="text-[11px] font-black text-slate-700 ml-1.5">5.0</span>
-              </div>
-              <p class="text-slate-600 text-xs leading-relaxed line-clamp-4">
-                "As a lifestyle physician, I rigorously test what I recommend to my diabetic and fitness-oriented patients. Nutrolix High Protein Atta is genuinely revolutionary — 46g plant protein with real whole grains and zero glucose spike. Rotis turn out remarkably soft."
+              <p class="text-slate-600 text-xs leading-relaxed line-clamp-3">
+                "Nutrolix High Protein Atta is genuinely revolutionary — 46g plant protein with real whole grains and zero glucose spike. Rotis turn out super soft."
               </p>
-            </div>
-            <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-              <span class="text-emerald-700 font-bold flex items-center">
-                <i class="fa-solid fa-circle-check text-emerald-600 mr-1 text-xs"></i>
-                <span>Verified Purchase</span>
-              </span>
-              <a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="text-slate-400 hover:text-emerald-700 font-bold text-[10px]">Google Review →</a>
             </div>
           </div>
 
-          <div class="w-[290px] sm:w-[340px] shrink-0 snap-start bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
-            <div class="space-y-2.5">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-full bg-teal-100 text-teal-800 font-black text-sm flex items-center justify-center shrink-0">
-                    PH
-                  </div>
-                  <div>
-                    <h4 class="font-extrabold text-sm text-slate-900 leading-snug">Pooja Hegde</h4>
-                    <div class="text-[11px] text-slate-400">Verified Google Reviewer</div>
+          <div class="w-[255px] sm:w-[290px] shrink-0 bg-white p-4 rounded-2xl border border-amber-100 border-t-[3px] border-t-amber-500 shadow-sm flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center space-x-2.5 min-w-0">
+                  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">PH</div>
+                  <div class="min-w-0">
+                    <h4 class="font-extrabold text-xs text-slate-900 truncate">Pooja Hegde</h4>
+                    <div class="flex items-center text-amber-400 text-[10px] space-x-0.5">
+                      <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                    </div>
                   </div>
                 </div>
-                <i class="fa-brands fa-google text-slate-300 text-lg"></i>
+                <span class="text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">✓ Verified</span>
               </div>
-              <div class="flex text-amber-400 text-xs">
-                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
-                <span class="text-[11px] font-black text-slate-700 ml-1.5">5.0</span>
-              </div>
-              <p class="text-slate-600 text-xs leading-relaxed line-clamp-4">
-                "I have been having the Complete Nutri Meal every morning before heading to work for the last 3 months. No afternoon lethargy, clean digestion, and absolutely no artificial sweetener aftertaste. Truly raised the bar for Indian wellness brands."
+              <p class="text-slate-600 text-xs leading-relaxed line-clamp-3">
+                "Complete Nutri Meal is my daily breakfast for 3 months now. Clean digestion, steady energy, and zero artificial sweetener aftertaste."
               </p>
-            </div>
-            <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-              <span class="text-emerald-700 font-bold flex items-center">
-                <i class="fa-solid fa-circle-check text-emerald-600 mr-1 text-xs"></i>
-                <span>Verified Purchase</span>
-              </span>
-              <a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="text-slate-400 hover:text-emerald-700 font-bold text-[10px]">Google Review →</a>
             </div>
           </div>
 
-          <div class="w-[290px] sm:w-[340px] shrink-0 snap-start bg-white p-5 rounded-2xl border border-slate-200/90 shadow-sm flex flex-col justify-between">
-            <div class="space-y-2.5">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
-                  <div class="w-10 h-10 rounded-full bg-amber-100 text-amber-800 font-black text-sm flex items-center justify-center shrink-0">
-                    AV
-                  </div>
-                  <div>
-                    <h4 class="font-extrabold text-sm text-slate-900 leading-snug">Aman Verma</h4>
-                    <div class="text-[11px] text-slate-400">Verified Google Reviewer</div>
+          <div class="w-[255px] sm:w-[290px] shrink-0 bg-white p-4 rounded-2xl border border-teal-100 border-t-[3px] border-t-teal-500 shadow-sm flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center space-x-2.5 min-w-0">
+                  <div class="w-9 h-9 rounded-full bg-gradient-to-br from-teal-500 to-cyan-600 text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">AV</div>
+                  <div class="min-w-0">
+                    <h4 class="font-extrabold text-xs text-slate-900 truncate">Aman Verma</h4>
+                    <div class="flex items-center text-amber-400 text-[10px] space-x-0.5">
+                      <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                    </div>
                   </div>
                 </div>
-                <i class="fa-brands fa-google text-slate-300 text-lg"></i>
+                <span class="text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">✓ Verified</span>
               </div>
-              <div class="flex text-amber-400 text-xs">
-                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
-                <span class="text-[11px] font-black text-slate-700 ml-1.5">5.0</span>
-              </div>
-              <p class="text-slate-600 text-xs leading-relaxed line-clamp-4">
-                "The Talbeenah porridge is simply extraordinary. So gentle on the stomach and tastes comforting with natural date sweetness and cardamom. Their packaging and fast dispatch are top-tier. Highly recommend to everyone!"
+              <p class="text-slate-600 text-xs leading-relaxed line-clamp-3">
+                "The Talbeenah porridge is super gentle on the stomach with natural date sweetness and cardamom. Packaging and dispatch are top-tier!"
               </p>
-            </div>
-            <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
-              <span class="text-emerald-700 font-bold flex items-center">
-                <i class="fa-solid fa-circle-check text-emerald-600 mr-1 text-xs"></i>
-                <span>Verified Purchase</span>
-              </span>
-              <a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="text-slate-400 hover:text-emerald-700 font-bold text-[10px]">Google Review →</a>
             </div>
           </div>
         </div>
+      </div>
 
     </div>
   </section>
@@ -1383,57 +1319,40 @@
   </section>
 
   <!-- ============================================================== -->
-  <!-- 13. SECTION 14: DOWNLOAD OUR APP & GET EXTRA 10% OFF -->
+  <!-- 13. SECTION 14: COMPACT & COLORFUL MOBILE APP DOWNLOAD BANNER -->
   <!-- ============================================================== -->
-  <section class="py-16 bg-gradient-to-r from-emerald-950 via-nutro-forest to-slate-950 text-white relative overflow-hidden" id="downloadAppSection">
-    <div class="absolute -top-24 right-1/4 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none"></div>
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-      <div class="bg-white/10 backdrop-blur-md rounded-3xl p-8 sm:p-12 border border-white/20 flex flex-col lg:flex-row items-center justify-between gap-10 shadow-2xl">
-        
-        <div class="max-w-2xl space-y-4">
-          <div class="inline-flex items-center space-x-2 px-3.5 py-1 rounded-full bg-amber-400 text-slate-950 text-xs font-black">
-            <i class="fa-solid fa-mobile-screen-button text-sm"></i>
-            <span>NUTROLIX OFFICIAL MOBILE APP • ANDROID & WEB</span>
-          </div>
-          
-          <h2 class="text-3xl sm:text-4xl font-black text-white leading-tight">
-            Download Our App and Get Extra 10% OFF on Every Order.
-          </h2>
-          
-          <p class="text-slate-300 text-sm leading-relaxed">
-            Experience ultra-fast reordering, live GPS dispatch tracking, flash drops, and an exclusive automatic 10% discount coupon applied on every app checkout.
-          </p>
+  <section class="py-7 sm:py-9 bg-slate-50" id="downloadAppSection">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-600 to-amber-500 p-5 sm:p-7 text-white shadow-xl border border-white/25">
+        <div class="absolute -top-12 -right-10 w-44 h-44 bg-yellow-300/25 rounded-full blur-2xl pointer-events-none"></div>
+        <div class="absolute -bottom-14 left-1/4 w-48 h-48 bg-emerald-300/20 rounded-full blur-2xl pointer-events-none"></div>
 
-          <!-- App Exclusive Coupon Tag -->
-          <div class="inline-flex items-center space-x-2 bg-emerald-500/20 border border-emerald-400/30 px-3.5 py-1.5 rounded-xl text-emerald-300 text-xs font-bold">
-            <i class="fa-solid fa-tag text-amber-400"></i>
-            <span>App Coupon Code: <strong class="text-white bg-emerald-900/80 px-2 py-0.5 rounded font-black tracking-wider">APP10</strong> (Extra 10% Instant OFF)</span>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-4 text-xs font-bold text-emerald-200 pt-1">
-            <span>✓ 100% Free Direct APK</span>
-            <span>✓ Zero Ads • Zero Spam</span>
-            <span>✓ Instant Live Dispatch Alerts</span>
-          </div>
-        </div>
-
-        <!-- Download Actions Card -->
-        <div class="shrink-0 flex flex-col sm:flex-row items-center gap-4 w-full sm:w-auto">
-          <a href="/api/download/customer-apk" download="Nutrolix_Customer_App.apk" class="w-full sm:w-auto bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 hover:to-teal-300 text-slate-950 font-black px-8 py-4 rounded-2xl shadow-2xl transition text-sm flex items-center justify-center space-x-3 transform hover:scale-105 active:scale-95">
-            <i class="fa-brands fa-android text-2xl text-slate-950"></i>
-            <div class="text-left">
-              <span class="text-[10px] uppercase font-bold block leading-none opacity-80">1-Click Direct Download</span>
-              <span class="text-sm font-black">Download Customer APK</span>
+        <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div class="text-center md:text-left space-y-1.5">
+            <div class="inline-flex items-center space-x-1.5 px-3 py-0.5 rounded-full bg-white text-emerald-800 text-[10px] font-black shadow-sm">
+              <i class="fa-brands fa-android text-emerald-600 text-xs"></i>
+              <span>NUTROLIX APP • EXTRA 10% OFF</span>
             </div>
-            <i class="fa-solid fa-download ml-2 text-xs"></i>
-          </a>
+            <h2 class="text-xl sm:text-2xl font-black text-white leading-tight drop-shadow-xs">
+              Download the Nutrolix App &amp; Save 10%
+            </h2>
+            <p class="text-xs sm:text-sm text-white/95 font-semibold">
+              1-tap ordering, live tracking &amp; code <span class="bg-slate-950/30 border border-white/30 px-2 py-0.5 rounded-md font-black tracking-wider">APP10</span>
+            </p>
+          </div>
 
-          <a href="https://wa.me/919076254354?text=Hi%20Nutrolix,%20please%20send%20me%20the%20official%20app%20download%20link%20and%2010%%20discount%20coupon." target="_blank" class="w-full sm:w-auto bg-white/15 hover:bg-white/25 text-white font-extrabold px-6 py-4 rounded-2xl border border-white/20 transition text-sm flex items-center justify-center space-x-2.5">
-            <i class="fa-brands fa-whatsapp text-emerald-400 text-xl"></i>
-            <span>Get Link on WhatsApp</span>
-          </a>
+          <div class="shrink-0 flex flex-row items-center gap-2.5 w-full md:w-auto justify-center">
+            <a href="/api/download/customer-apk" download="Nutrolix_Customer_App.apk" class="flex-1 md:flex-none bg-white hover:bg-amber-50 text-emerald-900 font-black px-5 py-3 rounded-2xl shadow-lg transition text-xs sm:text-sm flex items-center justify-center space-x-2 active:scale-95">
+              <i class="fa-brands fa-android text-lg text-emerald-600"></i>
+              <span>Download App</span>
+              <i class="fa-solid fa-download text-[11px] text-amber-500"></i>
+            </a>
+            <a href="https://wa.me/919076254354?text=Hi%20Nutrolix,%20please%20send%20me%20the%20official%20app%20download%20link%20and%2010%%20discount%20coupon." target="_blank" class="bg-slate-950/25 hover:bg-slate-950/35 text-white font-extrabold px-4 py-3 rounded-2xl border border-white/30 transition text-xs sm:text-sm flex items-center justify-center space-x-1.5 active:scale-95 shrink-0">
+              <i class="fa-brands fa-whatsapp text-lime-300 text-base"></i>
+              <span>WhatsApp</span>
+            </a>
+          </div>
         </div>
-
       </div>
     </div>
   </section>
@@ -2238,35 +2157,103 @@
       renderFeaturedProducts(filtered);
     };
 
-    // 2. Verified Google Reviews (Instant 0ms render)
+    // 2. Real Customer Reviews (Compact, Attractive & Slow Seamless Auto-Scroll)
     const defaultGoogleReviews = [
       {
         authorName: "Vikram Malhotra",
-        authorPhoto: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
         relativeTime: "3 days ago",
         rating: 5,
-        reviewText: "High Protein Atta has been a gamechanger for my diabetes management. Rotis are super soft and zero post-meal spike. Excellent lab quality!"
+        reviewText: "High Protein Atta has been a gamechanger for my diabetes management. Rotis are super soft and zero post-meal spike!"
       },
       {
         authorName: "Sneha Kulkarni",
-        authorPhoto: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
         relativeTime: "1 week ago",
         rating: 5,
-        reviewText: "Complete Nutri Meal is my daily breakfast now. Pure ingredients, no artificial sweetener aftertaste, and keeps me energetic all through office."
+        reviewText: "Complete Nutri Meal is my daily breakfast now. Pure ingredients, no artificial sweetener aftertaste, and steady energy."
       },
       {
         authorName: "Dr. Arvind Rao",
-        authorPhoto: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
         relativeTime: "2 weeks ago",
         rating: 5,
-        reviewText: "Cold-Pressed Black Seed Oil quality is pristine. Dark amber glass bottle and genuine high thymoquinone scent. Highly recommended."
+        reviewText: "Cold-Pressed Black Seed Oil quality is pristine. Dark amber glass bottle and genuine high thymoquinone potency."
+      },
+      {
+        authorName: "Pooja Hegde",
+        relativeTime: "2 weeks ago",
+        rating: 5,
+        reviewText: "Fresh packaging and fast delivery every single time. Truly raised the bar for clean Indian wellness nutrition."
+      },
+      {
+        authorName: "Aman Verma",
+        relativeTime: "3 weeks ago",
+        rating: 5,
+        reviewText: "The Talbeenah porridge is super gentle on the stomach with natural date sweetness and cardamom. Highly recommended!"
       }
     ];
 
     window.scrollGoogleReviews = function(direction) {
       const el = document.getElementById('googleReviewsGrid');
-      if (el) el.scrollBy({ left: direction * 350, behavior: 'smooth' });
+      if (el) el.scrollBy({ left: direction * 280, behavior: 'smooth' });
     };
+
+    window._reviewsAutoScrollRaf = null;
+    window._reviewsAutoScrollPaused = false;
+    window._reviewsAutoScrollResumeTimer = null;
+    window._reviewsAutoScrollPos = 0;
+
+    function startGoogleReviewsAutoScroll() {
+      const el = document.getElementById('googleReviewsGrid');
+      if (!el) return;
+      if (window._reviewsAutoScrollRaf) {
+        cancelAnimationFrame(window._reviewsAutoScrollRaf);
+        window._reviewsAutoScrollRaf = null;
+      }
+
+      if (!el.dataset.autoScrollBound) {
+        el.dataset.autoScrollBound = '1';
+        const pause = () => {
+          window._reviewsAutoScrollPaused = true;
+          if (window._reviewsAutoScrollResumeTimer) {
+            clearTimeout(window._reviewsAutoScrollResumeTimer);
+            window._reviewsAutoScrollResumeTimer = null;
+          }
+        };
+        const resumeSoon = () => {
+          if (window._reviewsAutoScrollResumeTimer) clearTimeout(window._reviewsAutoScrollResumeTimer);
+          window._reviewsAutoScrollResumeTimer = setTimeout(() => {
+            window._reviewsAutoScrollPos = el.scrollLeft;
+            window._reviewsAutoScrollPaused = false;
+          }, 1200);
+        };
+        el.addEventListener('mouseenter', pause);
+        el.addEventListener('mouseleave', resumeSoon);
+        el.addEventListener('touchstart', pause, { passive: true });
+        el.addEventListener('touchend', resumeSoon, { passive: true });
+        el.addEventListener('pointerdown', pause, { passive: true });
+        el.addEventListener('pointerup', resumeSoon, { passive: true });
+      }
+
+      window._reviewsAutoScrollPos = el.scrollLeft || 0;
+      let lastTs = 0;
+      const SPEED_PX_PER_SEC = 24; // Slow, smooth horizontal glide
+
+      function step(ts) {
+        if (!lastTs) lastTs = ts;
+        const dt = Math.min(64, ts - lastTs);
+        lastTs = ts;
+
+        if (!window._reviewsAutoScrollPaused && el.scrollWidth > el.clientWidth + 10) {
+          const halfWidth = el.scrollWidth / 2;
+          window._reviewsAutoScrollPos += (SPEED_PX_PER_SEC * dt) / 1000;
+          if (halfWidth > 0 && window._reviewsAutoScrollPos >= halfWidth) {
+            window._reviewsAutoScrollPos -= halfWidth;
+          }
+          el.scrollLeft = window._reviewsAutoScrollPos;
+        }
+        window._reviewsAutoScrollRaf = requestAnimationFrame(step);
+      }
+      window._reviewsAutoScrollRaf = requestAnimationFrame(step);
+    }
 
     function renderGoogleReviews(revs) {
       const container = document.getElementById('googleReviewsGrid');
@@ -2281,56 +2268,53 @@
         ? revs
         : ((Array.isArray(localReviews) && localReviews.length) ? localReviews : defaultGoogleReviews);
 
-      container.innerHTML = allReviews.map(rev => {
+      const cardThemes = [
+        { border: 'border-emerald-100 border-t-emerald-500', avatar: 'from-emerald-500 to-teal-600' },
+        { border: 'border-amber-100 border-t-amber-500', avatar: 'from-amber-500 to-orange-500' },
+        { border: 'border-teal-100 border-t-teal-500', avatar: 'from-teal-500 to-cyan-600' },
+        { border: 'border-orange-100 border-t-orange-500', avatar: 'from-orange-500 to-rose-500' }
+      ];
+
+      const buildCard = (rev, idx) => {
         const displayName = rev.authorName || rev.author || 'Verified Customer';
         const displayText = rev.reviewText || rev.text || '';
-        const initial = displayName ? displayName.charAt(0) : 'G';
-        const avatarHtml = rev.authorPhoto 
-          ? `<img src="${rev.authorPhoto}" alt="${displayName}" class="w-11 h-11 rounded-full object-cover border border-slate-100 shrink-0">`
-          : `<div class="w-11 h-11 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-500 text-white font-black text-sm flex items-center justify-center shrink-0 shadow-sm">${initial}</div>`;
+        const initials = String(displayName).trim().split(/\s+/).map(w => w[0]).join('').slice(0, 2).toUpperCase() || 'NC';
+        const theme = cardThemes[idx % cardThemes.length];
+        const avatarHtml = (rev.authorPhoto && !String(rev.authorPhoto).includes('unsplash.com'))
+          ? `<img src="${rev.authorPhoto}" alt="${displayName}" class="w-9 h-9 rounded-full object-cover border border-slate-100 shrink-0">`
+          : `<div class="w-9 h-9 rounded-full bg-gradient-to-br ${theme.avatar} text-white font-black text-xs flex items-center justify-center shrink-0 shadow-xs">${initials}</div>`;
         
-        const ratingStars = '<i class="fa-solid fa-star text-amber-400 text-xs"></i>'.repeat(rev.rating || 5);
+        const ratingStars = '<i class="fa-solid fa-star text-amber-400 text-[10px]"></i>'.repeat(Math.min(5, Math.max(1, Number(rev.rating) || 5)));
 
         return `
-          <div class="w-80 sm:w-96 shrink-0 snap-start bg-white p-6 rounded-3xl border border-slate-200/90 shadow-sm hover:shadow-md transition flex flex-col justify-between group">
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <div class="flex items-center space-x-3">
+          <div class="w-[255px] sm:w-[290px] shrink-0 bg-white p-4 rounded-2xl border ${theme.border} border-t-[3px] shadow-sm hover:shadow-md transition flex flex-col justify-between">
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center space-x-2.5 min-w-0">
                   ${avatarHtml}
-                  <div>
-                    <h4 class="font-black text-sm text-slate-900 group-hover:text-emerald-700 transition leading-snug">${displayName}</h4>
-                    <div class="flex items-center space-x-1.5 text-[10px] text-slate-400">
-                      <i class="fa-brands fa-google text-blue-500"></i>
-                      <span>Verified Google Reviewer</span>
-                    </div>
+                  <div class="min-w-0">
+                    <h4 class="font-extrabold text-xs text-slate-900 truncate leading-snug">${displayName}</h4>
+                    <div class="flex items-center space-x-0.5 mt-0.5">${ratingStars}</div>
                   </div>
                 </div>
-                <span class="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md">${rev.relativeTime || 'Recent'}</span>
+                <span class="text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full shrink-0">✓ Verified</span>
               </div>
-
-              <div class="flex items-center space-x-1">
-                <div class="flex space-x-0.5">${ratingStars}</div>
-                <span class="text-[11px] font-black text-slate-700 ml-1.5">${rev.rating || 5}.0</span>
-              </div>
-
-              <p class="text-slate-600 text-xs leading-relaxed line-clamp-4">
+              <p class="text-slate-600 text-xs leading-relaxed line-clamp-3">
                 "${displayText}"
               </p>
             </div>
-
-            <div class="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between text-[11px]">
-              <span class="text-emerald-700 font-bold flex items-center">
-                <i class="fa-solid fa-circle-check text-emerald-600 mr-1 text-xs"></i>
-                <span>Verified Purchase</span>
-              </span>
-              <a href="https://share.google/VKolmxSnf5D05l7pu" target="_blank" class="text-slate-400 hover:text-emerald-700 font-bold transition flex items-center space-x-1">
-                <span>Google Profile</span>
-                <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
-              </a>
+            <div class="pt-2 mt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400 font-semibold">
+              <span class="text-emerald-700 font-bold"><i class="fa-solid fa-circle-check text-emerald-500 mr-1"></i>Verified Buyer</span>
+              <span>${rev.relativeTime || 'Recent'}</span>
             </div>
           </div>
         `;
-      }).join('');
+      };
+
+      const singleTrack = allReviews.map(buildCard).join('');
+      // Duplicate cards for seamless infinite slow horizontal auto-scroll
+      container.innerHTML = singleTrack + singleTrack;
+      startGoogleReviewsAutoScroll();
     }
     // 2.1 Video Reviews (YouTube Shorts Carousel)
     if (!window.nutroVideoReviews || !window.nutroVideoReviews.length) {

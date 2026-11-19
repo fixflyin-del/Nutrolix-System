@@ -1760,6 +1760,50 @@ test('Slim shop banner, removed factory dispatch bar, unified 5-image multi-uplo
   assert.ok(adminKt.includes('Intent.EXTRA_ALLOW_MULTIPLE') && adminKt.includes('data?.clipData'), 'AdminActivity.kt must support multi-file selection in WebView');
 });
 
+test('Sticky header overflow-x clip fix, compact slow auto-scroll reviews, and compact colorful app download section', () => {
+  const rootDir = path.join(__dirname, '..');
+  const mainPages = [
+    'index.html',
+    'shop.html',
+    'product.html',
+    'food.html',
+    'cart.html',
+    'orders.html',
+    'account.html',
+    'admin.html'
+  ];
+
+  // 1. Sticky header must not be broken by overflow-x: hidden / overflow-x-hidden on html/body across Web & APK assets
+  for (const base of ['public', 'app/src/main/assets/web']) {
+    for (const page of mainPages) {
+      const html = fs.readFileSync(path.join(rootDir, base, page), 'utf8');
+      assert.equal(/overflow-x:\s*hidden/i.test(html), false, `${base}/${page} must not use overflow-x: hidden (breaks position: sticky header)`);
+      assert.equal(/<body[^>]*overflow-x-hidden/i.test(html), false, `${base}/${page} <body> must not use overflow-x-hidden (breaks position: sticky header)`);
+      assert.ok(html.includes('overflow-x: clip') || html.includes('overflow-x-clip'), `${base}/${page} should use overflow-x: clip / overflow-x-clip`);
+      assert.ok(html.includes('sticky top-0'), `${base}/${page} must preserve sticky top-0 header`);
+    }
+
+    // 2. Home page real customer reviews: compact, attractive, no 4.9/5.0 148+ or Read All Google Reviews block, slow auto-scroll
+    const idxHtml = fs.readFileSync(path.join(rootDir, base, 'index.html'), 'utf8');
+    assert.ok(idxHtml.includes('id="realCustomerReviewsSection"'), `${base}/index.html must contain realCustomerReviewsSection`);
+    assert.equal(idxHtml.includes('4.9 / 5.0 Rating'), false, `${base}/index.html must remove 4.9 / 5.0 Rating summary block`);
+    assert.equal(idxHtml.includes('Read All Google Reviews'), false, `${base}/index.html must remove Read All Google Reviews CTA`);
+    assert.ok(idxHtml.includes('function startGoogleReviewsAutoScroll()'), `${base}/index.html must define startGoogleReviewsAutoScroll()`);
+    assert.ok(idxHtml.includes('container.innerHTML = singleTrack + singleTrack;'), `${base}/index.html must duplicate review cards for seamless slow auto-scroll`);
+
+    // 3. Home page mobile app download section: compact, reduced text, colorful gradient, preserves real APK download link
+    const appSectionStart = idxHtml.indexOf('id="downloadAppSection"');
+    assert.ok(appSectionStart > -1, `${base}/index.html must contain downloadAppSection`);
+    const appSectionEnd = idxHtml.indexOf('</section>', appSectionStart);
+    const appSectionHtml = idxHtml.slice(appSectionStart, appSectionEnd);
+    assert.ok(appSectionHtml.includes('from-emerald-600 via-teal-600 to-amber-500'), `${base}/index.html downloadAppSection must use vibrant colorful gradient`);
+    assert.ok(appSectionHtml.includes('/api/download/customer-apk'), `${base}/index.html downloadAppSection must preserve real APK download link`);
+    assert.ok(appSectionHtml.includes('APP10'), `${base}/index.html downloadAppSection must preserve APP10 coupon highlight`);
+    assert.equal(appSectionHtml.includes('Experience ultra-fast reordering, live GPS dispatch tracking'), false, `${base}/index.html downloadAppSection must remove verbose paragraph text`);
+  }
+});
+
+
 
 
 
