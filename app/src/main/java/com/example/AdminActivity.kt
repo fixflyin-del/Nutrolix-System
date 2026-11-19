@@ -189,6 +189,9 @@ fun NutrolixAdminWebViewApp(
       prefs.edit().putString("device_id", it).apply()
     }
     try {
+      val hasFirebase = com.google.firebase.FirebaseApp.getApps(context).isNotEmpty() ||
+        com.google.firebase.FirebaseApp.initializeApp(context) != null
+      if (!hasFirebase) return
       com.google.firebase.messaging.FirebaseMessaging.getInstance().token.addOnCompleteListener { task ->
         if (task.isSuccessful && !task.result.isNullOrBlank()) {
           val fcmTok = task.result!!

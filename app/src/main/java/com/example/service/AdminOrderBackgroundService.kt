@@ -53,6 +53,8 @@ class AdminOrderBackgroundService : Service() {
   private var isPollInFlight = false
   @Volatile
   private var hasCompletedBaselineSeed = false
+  @Volatile
+  private var firebaseSdkUnavailable = false
   private val serviceCreatedAtMs = System.currentTimeMillis()
 
   companion object {
@@ -278,17 +280,31 @@ class AdminOrderBackgroundService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
 
   private fun ensureFirestoreListeners() {
+    if (firebaseSdkUnavailable) return
     if (defaultFirestoreListener == null || namedFirestoreListener == null) {
       startListeningToOrders()
     }
   }
 
-  private fun startListeningToOrders() {
-    try {
-      if (FirebaseApp.getApps(this).isEmpty()) {
-        FirebaseApp.initializeApp(this)
+  private fun isDefaultFirebaseAppReady(): Boolean {
+    return try {
+      if (FirebaseApp.getApps(this).isNotEmpty()) {
+        true
+      } else {
+        FirebaseApp.initializeApp(this) != null && FirebaseApp.getApps(this).isNotEmpty()
       }
-    } catch (_: Exception) {}
+    } catch (_: Throwable) {
+      false
+    }
+  }
+
+  private fun startListeningToOrders() {
+    if (firebaseSdkUnavailable) return
+    if (!isDefaultFirebaseAppReady()) {
+      firebaseSdkUnavailable = true
+      Log.i(TAG, "Default FirebaseApp not configured in this build; using Firestore REST & HTTP polling for live orders")
+      return
+    }
 
     // 1. Listen to the (default) Firestore database (used by nutrolixweb.vercel.app, cart.html, and Customer APK)
     if (defaultFirestoreListener == null) {
@@ -304,7 +320,7 @@ class AdminOrderBackgroundService : Service() {
           handleIncomingOrders(orders, sourceName = "default_firestore")
         }
       } catch (e: Exception) {
-        Log.e(TAG, "Failed attaching default Firestore listener: ${e.message}")
+        Log.w(TAG, "Default Firestore listener unavailable: ${e.message}")
       }
     }
 
@@ -324,7 +340,7 @@ class AdminOrderBackgroundService : Service() {
           }
         }
       } catch (e: Exception) {
-        Log.e(TAG, "Failed attaching named Firestore listener: ${e.message}")
+        Log.w(TAG, "Named Firestore listener unavailable: ${e.message}")
       }
     }
   }

@@ -15,27 +15,36 @@ class FirestoreService(
   private val context: Context,
   overrideDb: FirebaseFirestore? = null
 ) {
-  val db: FirebaseFirestore? = overrideDb ?: try {
-    if (com.google.firebase.FirebaseApp.getApps(context).isEmpty()) {
-      com.google.firebase.FirebaseApp.initializeApp(context)
-    }
-    val databaseId = try {
-      context.getString(R.string.firestore_database_id)
-    } catch (_: Exception) { "" }
+  val db: FirebaseFirestore? = overrideDb ?: run {
+    try {
+      val hasFirebaseApp = if (com.google.firebase.FirebaseApp.getApps(context).isNotEmpty()) {
+        true
+      } else {
+        com.google.firebase.FirebaseApp.initializeApp(context) != null &&
+          com.google.firebase.FirebaseApp.getApps(context).isNotEmpty()
+      }
+      if (!hasFirebaseApp) {
+        Log.i(TAG, "Default FirebaseApp not configured in this build; native Firestore SDK inactive")
+        return@run null
+      }
+      val databaseId = try {
+        context.getString(R.string.firestore_database_id)
+      } catch (_: Exception) { "" }
 
-    if (databaseId.isNotBlank() && databaseId != "(default)") {
-      try {
-        FirebaseFirestore.getInstance(databaseId)
-      } catch (e: Throwable) {
-        Log.w(TAG, "Named database '$databaseId' failed, falling back to default instance: ${e.message}")
+      if (databaseId.isNotBlank() && databaseId != "(default)") {
+        try {
+          FirebaseFirestore.getInstance(databaseId)
+        } catch (e: Throwable) {
+          Log.w(TAG, "Named database '$databaseId' failed, falling back to default instance: ${e.message}")
+          FirebaseFirestore.getInstance()
+        }
+      } else {
         FirebaseFirestore.getInstance()
       }
-    } else {
-      FirebaseFirestore.getInstance()
+    } catch (e: Throwable) {
+      Log.w(TAG, "Native FirebaseFirestore unavailable: ${e.message}")
+      null
     }
-  } catch (e: Throwable) {
-    Log.e(TAG, "Critical: Failed to initialize FirebaseFirestore: ${e.message}", e)
-    try { FirebaseFirestore.getInstance() } catch (_: Throwable) { null }
   }
 
   // -------------------------------------------------------------
