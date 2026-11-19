@@ -584,6 +584,8 @@
         "value": "180 mg"
       }
     ],
+    "rating": 4.8,
+    "reviewCount": 5,
     "reviews": [
       {
         "name": "Dr. Sameer Verma",
@@ -594,6 +596,21 @@
         "name": "Pooja Malhotra",
         "rating": 5,
         "comment": "Best healthy meal I have ordered! Paneer was super soft and the quinoa dressing was delicious without being oily."
+      },
+      {
+        "name": "Aarav Deshpande",
+        "rating": 5,
+        "comment": "34g protein in one clean bowl and delivered piping hot. My post-workout favorite."
+      },
+      {
+        "name": "Ritika Nair",
+        "rating": 4,
+        "comment": "Very fresh broccoli and edamame with light olive oil herb seasoning."
+      },
+      {
+        "name": "Saurabh Kulkarni",
+        "rating": 5,
+        "comment": "Filling without feeling heavy. Zero refined oil taste."
       }
     ]
   },
@@ -640,6 +657,8 @@
         "value": "420 mg"
       }
     ],
+    "rating": 5.0,
+    "reviewCount": 3,
     "reviews": [
       {
         "name": "Ananya Sen",
@@ -650,6 +669,11 @@
         "name": "Vikram Rathore",
         "rating": 5,
         "comment": "Great portion size and zero bloat. Finally a healthy kitchen that doesn't sacrifice traditional Indian flavors."
+      },
+      {
+        "name": "Neha Patil",
+        "rating": 5,
+        "comment": "Warm, soothing and full of sprouted moong & millet goodness. Ideal for light weeknight dinners."
       }
     ]
   },
@@ -752,6 +776,8 @@
         "value": "280 mg"
       }
     ],
+    "rating": 4.7,
+    "reviewCount": 3,
     "reviews": [
       {
         "name": "Rohan Mehra",
@@ -762,6 +788,11 @@
         "name": "Chef Devendra",
         "rating": 5,
         "comment": "Excellent culinary execution. The ragi rotis were soft and the dal had minimal clean seasoning."
+      },
+      {
+        "name": "Imran Shaikh",
+        "rating": 4,
+        "comment": "Great protein-to-calorie ratio and fresh cucumber raita on the side."
       }
     ]
   },
@@ -864,6 +895,8 @@
         "value": "4500+"
       }
     ],
+    "rating": 4.7,
+    "reviewCount": 3,
     "reviews": [
       {
         "name": "Siddharth B.",
@@ -874,6 +907,11 @@
         "name": "Nidhi Agarwal",
         "rating": 5,
         "comment": "My favorite morning drink. Pure energy and great digestion."
+      },
+      {
+        "name": "Pranav Joshi",
+        "rating": 4,
+        "comment": "Fresh almond milk base with zero sugar crash. Feels super clean."
       }
     ]
   },
@@ -1391,16 +1429,35 @@
           comment: r.comment || r.text || ''
         }));
 
-        const combined = [...matchingLive, ...(dish.reviews || [])];
+        const seen = new Set();
+        const combined = [];
+        const addItem = (r) => {
+          if (!r) return;
+          const nm = String(r.name || r.customerName || 'Verified Customer').trim();
+          const cm = String(r.comment || r.text || '').trim();
+          if (!cm) return;
+          const key = `${nm.toLowerCase()}::${cm.toLowerCase().slice(0, 60)}`;
+          if (seen.has(key)) return;
+          seen.add(key);
+          combined.push({ name: nm, rating: Math.min(5, Math.max(1, Number(r.rating || 5) || 5)), comment: cm });
+        };
+        matchingLive.forEach(addItem);
+        (dish.reviews || []).forEach(addItem);
+
+        const esc = (s) => String(s || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+        if (!combined.length) {
+          reviewsList.innerHTML = '<div class="p-3 rounded-xl bg-slate-50 border border-slate-100 text-xs text-slate-400 text-center">No customer reviews yet for this dish.</div>';
+          return;
+        }
         reviewsList.innerHTML = combined.map(r => `
           <div class="p-3 rounded-xl bg-slate-50 border border-slate-100 space-y-1">
             <div class="flex items-center justify-between">
-              <span class="font-bold text-xs text-slate-900">${r.name}</span>
+              <span class="font-bold text-xs text-slate-900">${esc(r.name)}</span>
               <div class="flex text-amber-400 text-[10px]">
                 ${Array(r.rating || 5).fill('<i class="fa-solid fa-star"></i>').join('')}
               </div>
             </div>
-            <p class="text-xs text-slate-600 leading-snug font-medium">${r.comment}</p>
+            <p class="text-xs text-slate-600 leading-snug font-medium">${esc(r.comment)}</p>
           </div>
         `).join('');
       };

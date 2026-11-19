@@ -1578,5 +1578,140 @@ test('Packaged product variants & Healthy Food Zomato-style add-ons work end-to-
   }
 });
 
+test('Product detail removes thumbnail hint, enforces 2-3-5 reviews + Admin review creation, and renders 2-column recommended products', async () => {
+  const vm = require('node:vm');
+  const rootDir = path.join(__dirname, '..');
+
+  // 1. Thumbnail swipe caption must be removed from product.html and APK mirror; recommended grid must be 2-column horizontal
+  for (const rel of ['public/product.html', 'app/src/main/assets/web/product.html']) {
+    const html = fs.readFileSync(path.join(rootDir, rel), 'utf8');
+    assert.equal(
+      html.includes('Tap thumbnails or swipe left/right to view packaging, nutrition tables & benefits'),
+      false,
+      `${rel} must not contain removed thumbnail swipe caption`
+    );
+    assert.equal(
+      html.includes('Tap thumbnails or swipe left/right'),
+      false,
+      `${rel} must not contain partial thumbnail swipe caption`
+    );
+    assert.ok(
+      html.includes('id="relatedProductsGrid" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4'),
+      `${rel} must render recommended products in a 2-column horizontal grid`
+    );
+  }
+
+  // 2. Every seed packaged product & healthy food dish must have 2, 3, or 5 reviews (no legacy 184/148/142 inflated counts)
+  const allowedCounts = new Set([2, 3, 5]);
+  const seedProducts = JSON.parse(fs.readFileSync(path.join(rootDir, 'public/data/nutrition_products.json'), 'utf8'))
+    .filter(p => p && p.name && Array.isArray(p.images));
+  assert.equal(seedProducts.length, 8, 'Expected all 8 core packaged products');
+  for (const p of seedProducts) {
+    assert.ok(Array.isArray(p.reviews) && allowedCounts.has(p.reviews.length), `nutrition_products.json ${p.id} reviews length ${p.reviews?.length} must be in {2,3,5}`);
+    assert.equal(p.reviewCount, p.reviews.length, `nutrition_products.json ${p.id} reviewCount must match reviews.length`);
+    const coreSeed = core.getSeedReviewsForProduct(p.id);
+    assert.ok(allowedCounts.has(coreSeed.length), `nutrolix-core seed for ${p.id} must be in {2,3,5}`);
+  }
+
+  const dataJsCtx = { window: {} };
+  vm.runInNewContext(fs.readFileSync(path.join(rootDir, 'public/assets/nutrolix-data.js'), 'utf8'), dataJsCtx);
+  for (const p of dataJsCtx.window.nutroProducts) {
+    assert.ok(allowedCounts.has(Number(p.reviewCount)), `nutrolix-data.js ${p.id} reviewCount ${p.reviewCount} must be in {2,3,5}`);
+    assert.ok(Array.isArray(p.reviews) && p.reviews.length === p.reviewCount, `nutrolix-data.js ${p.id} reviews must match reviewCount`);
+  }
+
+  const healthyMenu = JSON.parse(fs.readFileSync(path.join(rootDir, 'public/data/healthy_food_menu.json'), 'utf8'))
+    .filter(d => d && d.id && d.id.startsWith('food_') && d.name);
+  assert.equal(healthyMenu.length, 8, 'Expected all 8 core healthy food dishes');
+  for (const dish of healthyMenu) {
+    assert.ok(Array.isArray(dish.reviews) && allowedCounts.has(dish.reviews.length), `healthy_food_menu.json ${dish.id} reviews length ${dish.reviews?.length} must be in {2,3,5}`);
+    assert.equal(dish.reviewCount, dish.reviews.length, `healthy_food_menu.json ${dish.id} reviewCount must match reviews.length`);
+  }
+
+  // 3. Admin Panel exposes Product Reviews tab, Add Product Review modal & handlers, and removes hardcoded reviewCount: 148
+  for (const rel of ['public/admin.html', 'app/src/main/assets/web/admin.html']) {
+    const adminHtml = fs.readFileSync(path.join(rootDir, rel), 'utf8');
+    for (const marker of [
+      'id="tabBtn-reviews"',
+      'id="addProductReviewModal"',
+      'id="adminRevProductSelect"',
+      'openAddProductReviewModal',
+      'submitAdminProductReview',
+      'loadProductReviewsAdmin',
+      'moderateProductReviewAdmin'
+    ]) {
+      assert.ok(adminHtml.includes(marker), `${rel} missing ${marker}`);
+    }
+    assert.equal(adminHtml.includes('reviewCount: 148'), false, `${rel} must not hardcode reviewCount: 148`);
+  }
+
+  // 4. Live HTTP roundtrip: GET /api/nutrition-products returns 2/3/5 counts; Admin POST /api/product-reviews increments count & cleans up via moderate delete
+  const reviewsFile = path.join(rootDir, 'public/data/product_reviews.json');
+  const origReviews = fs.existsSync(reviewsFile) ? fs.readFileSync(reviewsFile, 'utf8') : null;
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const addr = server.address();
+  const port = typeof addr === 'object' && addr ? addr.port : 0;
+
+  const requestJson = (method, reqPath, bodyObj = null) => new Promise((resolve, reject) => {
+    const payload = bodyObj ? JSON.stringify(bodyObj) : null;
+    const req = http.request({
+      hostname: '127.0.0.1',
+      port,
+      path: reqPath,
+      method,
+      headers: payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}
+    }, (res) => {
+      let raw = '';
+      res.on('data', c => raw += c);
+      res.on('end', () => resolve({ status: res.statusCode, json: JSON.parse(raw) }));
+    });
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+
+  try {
+    const beforeProds = await requestJson('GET', '/api/nutrition-products');
+    assert.equal(beforeProds.status, 200);
+    const attaBefore = beforeProds.json.find(p => p.id === 'prod_high_protein_atta');
+    assert.ok(attaBefore, 'prod_high_protein_atta must exist');
+    const baseCount = attaBefore.reviewCount;
+    assert.ok(baseCount >= 2 && baseCount < 50, `Expected realistic seed reviewCount, got ${baseCount}`);
+
+    const addRes = await requestJson('POST', '/api/product-reviews', {
+      productId: 'prod_high_protein_atta',
+      productName: attaBefore.name,
+      customerName: 'Admin Verified Tester',
+      rating: 5,
+      date: '18 Nov 2026',
+      comment: 'Soft rotis and crisp macro profile added via Admin Panel.',
+      verified: true,
+      source: 'admin'
+    });
+    assert.equal(addRes.status, 200);
+    assert.equal(addRes.json.success, true);
+    assert.equal(addRes.json.review.source, 'admin');
+    const createdId = addRes.json.review.id;
+
+    const afterProds = await requestJson('GET', '/api/nutrition-products');
+    const attaAfter = afterProds.json.find(p => p.id === 'prod_high_protein_atta');
+    assert.equal(attaAfter.reviewCount, baseCount + 1, 'Adding an admin review must increment product reviewCount by 1');
+
+    const prodRevs = await requestJson('GET', '/api/product-reviews?productId=prod_high_protein_atta');
+    assert.equal(prodRevs.status, 200);
+    assert.ok(prodRevs.json.some(r => r.id === createdId && r.customerName === 'Admin Verified Tester'));
+
+    const delRes = await requestJson('POST', '/api/product-reviews/moderate', { id: createdId, action: 'delete' });
+    assert.equal(delRes.status, 200);
+    assert.equal(delRes.json.success, true);
+  } finally {
+    if (origReviews !== null) fs.writeFileSync(reviewsFile, origReviews, 'utf8');
+    else if (fs.existsSync(reviewsFile)) fs.unlinkSync(reviewsFile);
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+
 
 

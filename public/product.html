@@ -158,10 +158,6 @@
           <div id="imageThumbnails" class="flex gap-2.5 overflow-x-auto py-1 px-1 custom-scrollbar w-full justify-start sm:justify-center">
             <!-- Injected by JS for only available images -->
           </div>
-          <div class="text-[11px] text-slate-400 text-center sm:text-left flex items-center justify-center sm:justify-start space-x-2">
-            <i class="fa-solid fa-hand-pointer text-emerald-600"></i>
-            <span>Tap thumbnails or swipe left/right to view packaging, nutrition tables & benefits</span>
-          </div>
         </div>
 
         <!-- Right: Product Purchase & Attributes Panel -->
@@ -181,9 +177,9 @@
             <div class="flex text-amber-400 text-xs sm:text-sm">
               <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
             </div>
-            <span id="productRatingNum" class="text-xs sm:text-sm font-black text-slate-900">4.9 / 5.0</span>
+            <span id="productRatingNum" class="text-xs sm:text-sm font-black text-slate-900">4.8 / 5.0</span>
             <span class="text-slate-400 text-xs">|</span>
-            <a href="#reviewsSection" id="productReviewCountLink" class="text-xs font-bold text-nutro-dark hover:underline">184 Customer Reviews</a>
+            <a href="#reviewsSection" id="productReviewCountLink" class="text-xs font-bold text-nutro-dark hover:underline">5 Customer Reviews</a>
           </div>
 
           <!-- Price Row -->
@@ -319,12 +315,12 @@
           
           <!-- Rating Score Box -->
           <div class="md:col-span-4 bg-slate-50 p-6 rounded-2xl border border-slate-200 text-center space-y-2">
-            <div class="text-5xl font-black text-slate-900" id="detailedScoreDisplay">4.9</div>
+            <div class="text-5xl font-black text-slate-900" id="detailedScoreDisplay">4.8</div>
             <div class="flex text-amber-400 text-base justify-center">
               <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
             </div>
-            <div class="text-xs font-bold text-slate-500" id="detailedReviewsCount">Based on 184 reviews</div>
-            <div class="text-[11px] text-emerald-700 font-extrabold">98% of customers recommend this</div>
+            <div class="text-xs font-bold text-slate-500" id="detailedReviewsCount">Based on 5 verified reviews</div>
+            <div class="text-[11px] text-emerald-700 font-extrabold" id="detailedRecommendText">100% of customers recommend this</div>
           </div>
 
           <!-- Star Distribution Bars -->
@@ -332,37 +328,37 @@
             <div class="flex items-center space-x-3">
               <span class="w-12">5 Star</span>
               <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                <div class="h-full bg-amber-400 rounded-full" style="width: 88%"></div>
+                <div id="starBar5" class="h-full bg-amber-400 rounded-full transition-all duration-300" style="width: 80%"></div>
               </div>
-              <span class="w-10 text-right">88%</span>
+              <span id="starPct5" class="w-10 text-right">80%</span>
             </div>
             <div class="flex items-center space-x-3">
               <span class="w-12">4 Star</span>
               <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                <div class="h-full bg-amber-400 rounded-full" style="width: 9%"></div>
+                <div id="starBar4" class="h-full bg-amber-400 rounded-full transition-all duration-300" style="width: 20%"></div>
               </div>
-              <span class="w-10 text-right">9%</span>
+              <span id="starPct4" class="w-10 text-right">20%</span>
             </div>
             <div class="flex items-center space-x-3">
               <span class="w-12">3 Star</span>
               <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                <div class="h-full bg-amber-400 rounded-full" style="width: 2%"></div>
+                <div id="starBar3" class="h-full bg-amber-400 rounded-full transition-all duration-300" style="width: 0%"></div>
               </div>
-              <span class="w-10 text-right">2%</span>
+              <span id="starPct3" class="w-10 text-right">0%</span>
             </div>
             <div class="flex items-center space-x-3">
               <span class="w-12">2 Star</span>
               <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                <div class="h-full bg-amber-400 rounded-full" style="width: 1%"></div>
+                <div id="starBar2" class="h-full bg-amber-400 rounded-full transition-all duration-300" style="width: 0%"></div>
               </div>
-              <span class="w-10 text-right">1%</span>
+              <span id="starPct2" class="w-10 text-right">0%</span>
             </div>
             <div class="flex items-center space-x-3">
               <span class="w-12">1 Star</span>
               <div class="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
-                <div class="h-full bg-slate-200 rounded-full" style="width: 0%"></div>
+                <div id="starBar1" class="h-full bg-slate-200 rounded-full transition-all duration-300" style="width: 0%"></div>
               </div>
-              <span class="w-10 text-right">0%</span>
+              <span id="starPct1" class="w-10 text-right">0%</span>
             </div>
           </div>
 
@@ -377,8 +373,8 @@
 
       <!-- Related Products -->
       <section class="mt-16">
-        <h3 class="text-2xl font-black text-slate-900 mb-6">Frequently Bought Together</h3>
-        <div id="relatedProductsGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <h3 class="text-xl sm:text-2xl font-black text-slate-900 mb-4 sm:mb-6">Frequently Bought Together</h3>
+        <div id="relatedProductsGrid" class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           <!-- Injected by JS -->
         </div>
       </section>
@@ -562,6 +558,15 @@
       const mrp = Number(p.mrp || Math.round(price * 1.28));
       const discountPercent = Number(p.discountPercent || (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 20));
       const variants = sanitizeProductVariants(p);
+      const seedMap = window.nutroSeedProductReviews || {};
+      const baseReviews = (Array.isArray(p.reviews) && p.reviews.length > 0)
+        ? p.reviews
+        : (p.id && Array.isArray(seedMap[p.id]) ? seedMap[p.id] : []);
+      const rawCount = Number(p.reviewCount);
+      const hasLegacyInflated = baseReviews.length > 0 && Number.isFinite(rawCount) && rawCount >= 50;
+      const reviewCount = (!hasLegacyInflated && Number.isFinite(rawCount) && rawCount >= 0)
+        ? rawCount
+        : baseReviews.length;
       return {
         ...p,
         id: p.id || ('prod_' + Math.random().toString(36).substring(2, 9)),
@@ -572,8 +577,9 @@
         mrp,
         discountPercent,
         variants,
+        reviews: baseReviews,
         rating: Number(p.rating || 4.8),
-        reviewCount: Number(p.reviewCount || 120),
+        reviewCount,
         images: imgList,
         image: imgList[0],
         category: p.category || 'High Protein Foods',
@@ -761,27 +767,36 @@
       document.getElementById('tabUsageText').textContent = p.usageInstructions || "Use daily as part of a wholesome balanced lifestyle.";
       document.getElementById('tabStorageText').textContent = p.storageInstructions || "Store in an airtight container in a dry, cool cabinet.";
 
-      // Sample Detailed Reviews
+      // Detailed Reviews (2-3-5 seed + live verified reviews)
       renderReviewsList(p);
 
-      // Related Products
+      // Related Products (Horizontal 2-card layout on mobile & tablet, 4-card on desktop)
       const related = all.filter(item => item.id !== p.id).slice(0, 4);
-      document.getElementById('relatedProductsGrid').innerHTML = related.map(rel => `
-        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:shadow-lg transition p-4 flex flex-col justify-between">
+      document.getElementById('relatedProductsGrid').innerHTML = related.map(rel => {
+        const relPrice = (Array.isArray(rel.variants) && rel.variants.length > 0) ? rel.variants[0].price : rel.price;
+        const relImg = resolveCatImg((rel.images && rel.images[0]) || rel.image || 'assets/aistudio/image_6061bdc8.png');
+        const relRevCount = Number.isFinite(Number(rel.reviewCount)) ? Number(rel.reviewCount) : 0;
+        return `
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-lg transition p-2.5 sm:p-4 flex flex-col justify-between group">
           <div>
-            <img src="${rel.images[0]}" class="w-full h-40 object-cover rounded-xl mb-3">
-            <span class="text-[10px] font-bold text-emerald-700 uppercase">${rel.category}</span>
-            <h4 class="font-extrabold text-sm text-slate-900 mt-1"><a href="/product?id=${rel.id}">${rel.name}</a></h4>
-            <div class="flex text-amber-400 text-xs mt-1">
-              <i class="fa-solid fa-star"></i><span class="font-black text-slate-900 text-xs ml-1">${rel.rating}</span>
+            <a href="/product?id=${encodeURIComponent(rel.id)}" class="block aspect-square overflow-hidden rounded-xl bg-slate-100 mb-2.5 sm:mb-3">
+              <img src="${relImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${escRevHtml(rel.name)}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+            </a>
+            <span class="text-[9px] sm:text-[10px] font-bold text-emerald-700 uppercase line-clamp-1">${escRevHtml(rel.category)}</span>
+            <h4 class="font-extrabold text-xs sm:text-sm text-slate-900 mt-0.5 line-clamp-2 leading-snug"><a href="/product?id=${encodeURIComponent(rel.id)}" class="hover:text-emerald-700 transition">${escRevHtml(rel.name)}</a></h4>
+            <div class="flex items-center space-x-1 text-amber-400 text-[10px] sm:text-xs mt-1">
+              <i class="fa-solid fa-star"></i>
+              <span class="font-black text-slate-900 text-[10px] sm:text-xs">${rel.rating || 4.8}</span>
+              <span class="text-slate-400 text-[9px] sm:text-[11px]">(${relRevCount})</span>
             </div>
           </div>
-          <div class="mt-4 flex items-center justify-between pt-3 border-t border-slate-100">
-            <span class="font-black text-base">₹${rel.price}</span>
-            <a href="/product?id=${rel.id}" class="text-xs font-bold bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg">View</a>
+          <div class="mt-2.5 sm:mt-4 flex items-center justify-between pt-2 sm:pt-3 border-t border-slate-100 gap-1">
+            <span class="font-black text-sm sm:text-base text-slate-900">₹${relPrice}</span>
+            <a href="/product?id=${encodeURIComponent(rel.id)}" class="text-[10px] sm:text-xs font-extrabold bg-nutro-forest hover:bg-nutro-dark text-white px-2.5 sm:px-3 py-1.5 rounded-lg transition">View</a>
           </div>
         </div>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function escRevHtml(str) {
@@ -810,12 +825,16 @@
       return false;
     }
 
+    function getBaseReviewsForProduct(p) {
+      if (!p) return [];
+      const seedMap = window.nutroSeedProductReviews || {};
+      if (Array.isArray(p.reviews) && p.reviews.length > 0) return p.reviews;
+      if (p.id && Array.isArray(seedMap[p.id])) return seedMap[p.id];
+      return [];
+    }
+
     function paintProductReviewsDOM(p, remoteReviews = []) {
-      const defaultList = [
-        { name: "Vikram S.", rating: 5, date: "October 28, 2026", text: "The texture and taste are unbelievable. Making phulkas with this high-protein atta is so simple and the rotis remain soft for hours.", verified: true },
-        { name: "Ananya Mehta", rating: 5, date: "October 20, 2026", text: "Verified quality. Checked the NABL QR code on the packaging. Genuine 46g protein and no bloating whatsoever. Will be a permanent subscriber.", verified: true },
-        { name: "Karan Johar", rating: 4, date: "October 14, 2026", text: "High quality functional flour. Slightly thicker dough kneading required with warm water, but results are extraordinary.", verified: true }
-      ];
+      const baseReviews = getBaseReviewsForProduct(p);
 
       let storedPerProd = [];
       let storedGlobal = [];
@@ -828,8 +847,8 @@
       } catch (_) {}
 
       const seenKey = new Set();
-      const verifiedLive = [];
-      const addLive = (raw) => {
+      const list = [];
+      const pushReview = (raw) => {
         if (!raw || typeof raw !== 'object' || raw.approved === false) return;
         const name = String(raw.customerName || raw.name || 'Verified Customer').trim();
         const text = String(raw.comment || raw.text || '').trim();
@@ -839,7 +858,7 @@
           : String(raw.id || `${name.toLowerCase()}::${text.toLowerCase().slice(0, 60)}`);
         if (seenKey.has(key)) return;
         seenKey.add(key);
-        verifiedLive.push({
+        list.push({
           id: raw.id,
           name,
           rating: Math.min(5, Math.max(1, Number(raw.rating || 5) || 5)),
@@ -849,28 +868,53 @@
         });
       };
 
-      (Array.isArray(remoteReviews) ? remoteReviews : []).forEach(addLive);
-      (Array.isArray(storedGlobal) ? storedGlobal : []).forEach(addLive);
-      (Array.isArray(storedPerProd) ? storedPerProd : []).forEach(addLive);
+      (Array.isArray(remoteReviews) ? remoteReviews : []).forEach(pushReview);
+      (Array.isArray(storedGlobal) ? storedGlobal : []).forEach(pushReview);
+      (Array.isArray(storedPerProd) ? storedPerProd : []).forEach(pushReview);
+      baseReviews.forEach(pushReview);
 
-      const list = [...verifiedLive, ...defaultList];
+      const totalCount = list.length;
+      const avgNum = totalCount > 0
+        ? Number((list.reduce((sum, r) => sum + r.rating, 0) / totalCount).toFixed(1))
+        : Number(p.rating || 4.9);
 
-      if (verifiedLive.length > 0) {
-        const baseCount = Number(p.reviewCount || 0);
-        const totalCount = baseCount + verifiedLive.length;
-        const avgNum = Number(p.rating || 4.8);
-        const countEl = document.getElementById('productReviewCountLink');
-        const detCountEl = document.getElementById('detailedReviewsCount');
-        const rateEl = document.getElementById('productRatingNum');
-        const detRateEl = document.getElementById('detailedScoreDisplay');
-        if (countEl) countEl.textContent = `${totalCount} Customer Reviews`;
-        if (detCountEl) detCountEl.textContent = `Based on ${totalCount} verified reviews`;
-        if (rateEl) rateEl.textContent = `${avgNum} / 5.0`;
-        if (detRateEl) detRateEl.textContent = avgNum;
+      const countEl = document.getElementById('productReviewCountLink');
+      const detCountEl = document.getElementById('detailedReviewsCount');
+      const rateEl = document.getElementById('productRatingNum');
+      const detRateEl = document.getElementById('detailedScoreDisplay');
+      const recEl = document.getElementById('detailedRecommendText');
+      if (countEl) countEl.textContent = `${totalCount} Customer Review${totalCount === 1 ? '' : 's'}`;
+      if (detCountEl) detCountEl.textContent = `Based on ${totalCount} verified review${totalCount === 1 ? '' : 's'}`;
+      if (rateEl) rateEl.textContent = `${avgNum} / 5.0`;
+      if (detRateEl) detRateEl.textContent = avgNum;
+      if (recEl) {
+        const recPct = totalCount > 0
+          ? Math.round((list.filter(r => r.rating >= 4).length / totalCount) * 100)
+          : 100;
+        recEl.textContent = `${recPct}% of customers recommend this`;
+      }
+
+      for (let star = 1; star <= 5; star++) {
+        const pct = totalCount > 0
+          ? Math.round((list.filter(r => Math.round(r.rating) === star).length / totalCount) * 100)
+          : 0;
+        const bar = document.getElementById('starBar' + star);
+        const pctLabel = document.getElementById('starPct' + star);
+        if (bar) bar.style.width = pct + '%';
+        if (pctLabel) pctLabel.textContent = pct + '%';
       }
 
       const container = document.getElementById('productReviewsList');
       if (!container) return;
+
+      if (!list.length) {
+        container.innerHTML = `
+          <div class="p-6 bg-slate-50 rounded-2xl border border-slate-200 text-center text-xs text-slate-500 font-semibold">
+            No customer reviews yet for this product. Be the first to share your experience!
+          </div>
+        `;
+        return;
+      }
 
       container.innerHTML = list.map(r => `
         <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200">

@@ -407,8 +407,8 @@
               <div>
                 <div class="flex items-center space-x-1 text-amber-500 text-xs">
                   <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
-                  <span class="text-xs font-extrabold text-slate-900 ml-1.5">4.9 / 5.0</span>
-                  <span class="text-xs text-slate-500">(184 Reviews)</span>
+                  <span class="text-xs font-extrabold text-slate-900 ml-1.5">4.8 / 5.0</span>
+                  <span id="heroShowcaseReviewCount" class="text-xs text-slate-500">(5 Reviews)</span>
                 </div>
                 <h4 class="text-lg font-black text-slate-950 mt-1 hover:text-emerald-700 transition">
                   <a id="heroShowcaseTitle" href="product.html?id=prod_high_protein_atta" class="hover:underline cursor-pointer" title="Click to view product details">Nutrolix High Protein Atta</a>
@@ -729,8 +729,8 @@
                 <div class="flex text-amber-400 text-[9px] sm:text-[11px]">
                   <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
                 </div>
-                <span class="font-black text-slate-800 text-[10px] sm:text-xs">4.9</span>
-                <span class="text-slate-400 text-[9px]">(184)</span>
+                <span class="font-black text-slate-800 text-[10px] sm:text-xs">4.8</span>
+                <span class="text-slate-400 text-[9px]">(5)</span>
               </div>
               <p class="text-[11px] text-slate-500 line-clamp-1 mt-1">46g Plant Protein Per 100g • 100% Whole Grain</p>
             </div>
@@ -770,8 +770,8 @@
                 <div class="flex text-amber-400 text-[9px] sm:text-[11px]">
                   <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
                 </div>
-                <span class="font-black text-slate-800 text-[10px] sm:text-xs">4.8</span>
-                <span class="text-slate-400 text-[9px]">(142)</span>
+                <span class="font-black text-slate-800 text-[10px] sm:text-xs">4.7</span>
+                <span class="text-slate-400 text-[9px]">(3)</span>
               </div>
               <p class="text-[11px] text-slate-500 line-clamp-1 mt-1">25+ Superfoods Daily Wellness & Clean Shake</p>
             </div>
@@ -811,8 +811,8 @@
                 <div class="flex text-amber-400 text-[9px] sm:text-[11px]">
                   <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
                 </div>
-                <span class="font-black text-slate-800 text-[10px] sm:text-xs">4.9</span>
-                <span class="text-slate-400 text-[9px]">(96)</span>
+                <span class="font-black text-slate-800 text-[10px] sm:text-xs">5.0</span>
+                <span class="text-slate-400 text-[9px]">(3)</span>
               </div>
               <p class="text-[11px] text-slate-500 line-clamp-1 mt-1">Ancient Roasted Barley, Almond & Date Porridge</p>
             </div>
@@ -852,8 +852,8 @@
                 <div class="flex text-amber-400 text-[9px] sm:text-[11px]">
                   <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
                 </div>
-                <span class="font-black text-slate-800 text-[10px] sm:text-xs">4.9</span>
-                <span class="text-slate-400 text-[9px]">(110)</span>
+                <span class="font-black text-slate-800 text-[10px] sm:text-xs">4.8</span>
+                <span class="text-slate-400 text-[9px]">(5)</span>
               </div>
               <p class="text-[11px] text-slate-500 line-clamp-1 mt-1">Virgin Nigella Sativa • High Thymoquinone</p>
             </div>
@@ -1803,6 +1803,15 @@
       const mrp = Number(p.mrp || Math.round(price * 1.28));
       const discountPercent = Number(p.discountPercent || (mrp > price ? Math.round(((mrp - price) / mrp) * 100) : 20));
       const variants = sanitizeProductVariants(p);
+      const seedMap = window.nutroSeedProductReviews || {};
+      const baseReviews = (Array.isArray(p.reviews) && p.reviews.length > 0)
+        ? p.reviews
+        : (p.id && Array.isArray(seedMap[p.id]) ? seedMap[p.id] : []);
+      const rawCount = Number(p.reviewCount);
+      const hasLegacyInflated = baseReviews.length > 0 && Number.isFinite(rawCount) && rawCount >= 50;
+      const reviewCount = (!hasLegacyInflated && Number.isFinite(rawCount) && rawCount >= 0)
+        ? rawCount
+        : baseReviews.length;
       return {
         ...p,
         id: p.id || ('prod_' + Math.random().toString(36).substring(2, 9)),
@@ -1813,8 +1822,9 @@
         mrp,
         discountPercent,
         variants,
+        reviews: baseReviews,
         rating: Number(p.rating || 4.8),
-        reviewCount: Number(p.reviewCount || 120),
+        reviewCount,
         images: imgList,
         image: imgList[0],
         category: p.category || 'Protein Atta',
@@ -2149,6 +2159,12 @@
             renderBestSellers(window.nutroProducts.filter(p => p.isBestSeller));
             const allCountBadge = document.getElementById('catCountAll');
             if (allCountBadge) allCountBadge.textContent = window.nutroProducts.length;
+            const heroAtta = window.nutroProducts.find(p => p.id === 'prod_high_protein_atta');
+            const heroRevEl = document.getElementById('heroShowcaseReviewCount');
+            if (heroAtta && heroRevEl) {
+              const rc = Number.isFinite(Number(heroAtta.reviewCount)) ? Number(heroAtta.reviewCount) : 5;
+              heroRevEl.textContent = `(${rc} Review${rc === 1 ? '' : 's'})`;
+            }
           }
         }).catch(() => {});
 
@@ -2543,7 +2559,7 @@
       const mainImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(rawImg) : rawImg;
       const discount = p.discountPercent || (p.mrp && p.price ? Math.max(10, Math.round(((p.mrp - p.price) / p.mrp) * 100)) : 20);
       const rating = p.rating || 4.8;
-      const reviewCount = p.reviewCount || 142;
+      const reviewCount = Number.isFinite(Number(p.reviewCount)) ? Number(p.reviewCount) : 0;
       const tagline = p.tagline || p.heroClaim || 'Clinical Grade Nutrition • 100% Pure & Lab Tested';
       const category = p.category || 'High Protein Foods';
 

@@ -187,19 +187,52 @@ function normalizeCatalogImageUrl(url) {
   return isDefaultOrStockCatalogImage(url) ? DEFAULT_SAMPLE_IMAGE_URL : String(url).trim();
 }
 
-function normalizeProductMediaFields(p) {
+async function loadAllMergedReviews() {
+  const reviewsFile = path.join(PUBLIC_DIR, 'data', 'product_reviews.json');
+  const [catalogReviews, defCol, namedCol] = await Promise.all([
+    readCatalogDocOrFallback('product_reviews', reviewsFile, []),
+    nutrolixCore.firestoreListAllDocuments('productReviews', nutrolixCore.DEFAULT_DB_ID, 500).catch(() => ({ docs: [] })),
+    nutrolixCore.firestoreListAllDocuments('productReviews', nutrolixCore.NAMED_DB_ID, 500).catch(() => ({ docs: [] }))
+  ]);
+  const localRevs = safeReadJson(reviewsFile, []);
+  const mergedMap = new Map();
+
+  const addRev = (raw) => {
+    if (!raw || typeof raw !== 'object') return;
+    const rid = String(raw.id || raw._docId || '').trim();
+    if (!rid) return;
+    const prev = mergedMap.get(rid) || {};
+    mergedMap.set(rid, { ...prev, ...raw, id: rid });
+  };
+
+  (Array.isArray(localRevs) ? localRevs : []).forEach(addRev);
+  (Array.isArray(catalogReviews) ? catalogReviews : []).forEach(addRev);
+  [...(defCol.docs || []), ...(namedCol.docs || [])].forEach(addRev);
+
+  return Array.from(mergedMap.values()).sort((a, b) => {
+    const ta = Number(a.createdAtMillis || Date.parse(a.createdAt || 0) || 0);
+    const tb = Number(b.createdAtMillis || Date.parse(b.createdAt || 0) || 0);
+    return tb - ta;
+  });
+}
+
+function normalizeProductMediaFields(p, liveReviews = []) {
   if (!p || typeof p !== 'object') return p;
   const rawImgs = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
   const imgs = rawImgs.length ? rawImgs.map(normalizeCatalogImageUrl) : [normalizeCatalogImageUrl(p.image)];
   const realImgs = imgs.filter(x => x !== DEFAULT_SAMPLE_IMAGE_URL);
   const finalImgs = realImgs.length ? realImgs : [DEFAULT_SAMPLE_IMAGE_URL];
   const variants = nutrolixCore.normalizeProductVariants(p.variants, p);
+  const reviewSummary = nutrolixCore.computeProductReviewSummary(p, liveReviews);
   return {
     ...p,
     images: finalImgs,
     image: finalImgs[0] || DEFAULT_SAMPLE_IMAGE_URL,
     variants,
-    variantsConfigured: Boolean(p.variantsConfigured)
+    variantsConfigured: Boolean(p.variantsConfigured),
+    reviews: reviewSummary.reviews,
+    reviewCount: reviewSummary.reviewCount,
+    rating: reviewSummary.rating
   };
 }
 
@@ -213,13 +246,17 @@ function normalizeSingleImageRecord(item) {
   };
 }
 
-function normalizeFoodMenuRecord(item) {
+function normalizeFoodMenuRecord(item, liveReviews = []) {
   if (!item || typeof item !== 'object') return item;
   const base = normalizeSingleImageRecord(item);
+  const reviewSummary = nutrolixCore.computeProductReviewSummary(item, liveReviews);
   return {
     ...base,
     variants: nutrolixCore.normalizeProductVariants(item.variants, { id: item.id, variantsConfigured: true }),
-    addons: nutrolixCore.normalizeFoodAddons(item.addons)
+    addons: nutrolixCore.normalizeFoodAddons(item.addons),
+    reviews: reviewSummary.reviews,
+    reviewCount: reviewSummary.reviewCount,
+    rating: reviewSummary.rating
   };
 }
 
@@ -2241,8 +2278,13 @@ const server = http.createServer(async (req, res) => {
     const productsFile = path.join(PUBLIC_DIR, 'data', 'nutrition_products.json');
     if (req.method === 'GET') {
       try {
-        const products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
-        const normalized = Array.isArray(products) ? products.map(normalizeProductMediaFields) : [];
+        const [products, liveReviews] = await Promise.all([
+          readCatalogDocOrFallback('nutrition_products', productsFile, []),
+          loadAllMergedReviews().catch(() => [])
+        ]);
+        const normalized = Array.isArray(products)
+          ? products.map(p => normalizeProductMediaFields(p, liveReviews))
+          : [];
         res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify(normalized));
       } catch (e) {
@@ -2262,17 +2304,32 @@ const server = http.createServer(async (req, res) => {
           const variantsConfigured = true;
           item.variantsConfigured = variantsConfigured;
           item.variants = nutrolixCore.normalizeProductVariants(item.variants, { id: item.id, variantsConfigured });
-          let products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
+          const [productsRaw, liveReviews] = await Promise.all([
+            readCatalogDocOrFallback('nutrition_products', productsFile, []),
+            loadAllMergedReviews().catch(() => [])
+          ]);
+          const products = Array.isArray(productsRaw) ? productsRaw : [];
           const existingIdx = products.findIndex(p => p.id === item.id);
+          let savedItem;
           if (existingIdx >= 0) {
-            products[existingIdx] = { ...products[existingIdx], ...item, variants: item.variants, variantsConfigured: true };
+            const existingProd = products[existingIdx] || {};
+            const merged = {
+              ...existingProd,
+              ...item,
+              variants: item.variants,
+              variantsConfigured: true,
+              reviews: Array.isArray(item.reviews) ? item.reviews : existingProd.reviews
+            };
+            savedItem = normalizeProductMediaFields(merged, liveReviews);
+            products[existingIdx] = savedItem;
           } else {
             if (!item.id) item.id = 'prod_' + Date.now().toString(36);
-            products.unshift(item);
+            savedItem = normalizeProductMediaFields(item, liveReviews);
+            products.unshift(savedItem);
           }
           await writeCatalogDocAndLocal('nutrition_products', productsFile, products);
           res.writeHead(200, NO_STORE_JSON_HEADERS);
-          res.end(JSON.stringify({ success: true, product: normalizeProductMediaFields(item) }));
+          res.end(JSON.stringify({ success: true, product: savedItem }));
         } catch (err) {
           res.writeHead(400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
@@ -3591,8 +3648,11 @@ const server = http.createServer(async (req, res) => {
     const foodFile = path.join(PUBLIC_DIR, 'data', 'healthy_food_menu.json');
     if (req.method === 'GET') {
       try {
-        const meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
-        const normalized = Array.isArray(meals) ? meals.map(normalizeFoodMenuRecord) : [];
+        const [meals, liveReviews] = await Promise.all([
+          readCatalogDocOrFallback('healthy_food_menu', foodFile, []),
+          loadAllMergedReviews().catch(() => [])
+        ]);
+        const normalized = Array.isArray(meals) ? meals.map(m => normalizeFoodMenuRecord(m, liveReviews)) : [];
         res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify(normalized));
       } catch (e) {
@@ -3606,22 +3666,33 @@ const server = http.createServer(async (req, res) => {
       req.on('end', async () => {
         try {
           const meal = JSON.parse(body || '{}');
-          let meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
+          const [mealsRaw, liveReviews] = await Promise.all([
+            readCatalogDocOrFallback('healthy_food_menu', foodFile, []),
+            loadAllMergedReviews().catch(() => [])
+          ]);
+          let meals = Array.isArray(mealsRaw) ? mealsRaw : [];
           if (Array.isArray(meal)) {
-            meals = meal.map(normalizeFoodMenuRecord);
+            meals = meal.map(m => normalizeFoodMenuRecord(m, liveReviews));
           } else {
-            const cleanMeal = normalizeFoodMenuRecord(meal);
-            const idx = meals.findIndex(m => m.id === cleanMeal.id);
+            const idx = meals.findIndex(m => m.id === meal.id);
             if (idx >= 0) {
-              meals[idx] = { ...meals[idx], ...cleanMeal, variants: cleanMeal.variants, addons: cleanMeal.addons };
+              const existingMeal = meals[idx] || {};
+              const merged = {
+                ...existingMeal,
+                ...meal,
+                reviews: Array.isArray(meal.reviews) ? meal.reviews : existingMeal.reviews
+              };
+              const cleanMeal = normalizeFoodMenuRecord(merged, liveReviews);
+              meals[idx] = cleanMeal;
             } else {
+              const cleanMeal = normalizeFoodMenuRecord(meal, liveReviews);
               if (!cleanMeal.id) cleanMeal.id = 'food_' + Date.now();
               meals.unshift(cleanMeal);
             }
           }
           await writeCatalogDocAndLocal('healthy_food_menu', foodFile, meals);
           res.writeHead(200, NO_STORE_JSON_HEADERS);
-          res.end(JSON.stringify({ success: true, meals: meals.map(normalizeFoodMenuRecord) }));
+          res.end(JSON.stringify({ success: true, meals: meals.map(m => normalizeFoodMenuRecord(m, liveReviews)) }));
         } catch (err) {
           res.writeHead(400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
@@ -4645,34 +4716,6 @@ const server = http.createServer(async (req, res) => {
   // -------------------------------------------------------------
   // PHASE 2 API: DURABLE FIRESTORE-BACKED PRODUCT REVIEWS
   // -------------------------------------------------------------
-  async function loadAllMergedReviews() {
-    const reviewsFile = path.join(PUBLIC_DIR, 'data', 'product_reviews.json');
-    const [catalogReviews, defCol, namedCol] = await Promise.all([
-      readCatalogDocOrFallback('product_reviews', reviewsFile, []),
-      nutrolixCore.firestoreListAllDocuments('productReviews', nutrolixCore.DEFAULT_DB_ID, 500).catch(() => ({ docs: [] })),
-      nutrolixCore.firestoreListAllDocuments('productReviews', nutrolixCore.NAMED_DB_ID, 500).catch(() => ({ docs: [] }))
-    ]);
-    const localRevs = safeReadJson(reviewsFile, []);
-    const mergedMap = new Map();
-
-    const addRev = (raw) => {
-      if (!raw || typeof raw !== 'object') return;
-      const rid = String(raw.id || raw._docId || '').trim();
-      if (!rid) return;
-      const prev = mergedMap.get(rid) || {};
-      mergedMap.set(rid, { ...prev, ...raw, id: rid });
-    };
-
-    (Array.isArray(localRevs) ? localRevs : []).forEach(addRev);
-    (Array.isArray(catalogReviews) ? catalogReviews : []).forEach(addRev);
-    [...(defCol.docs || []), ...(namedCol.docs || [])].forEach(addRev);
-
-    return Array.from(mergedMap.values()).sort((a, b) => {
-      const ta = Number(a.createdAtMillis || Date.parse(a.createdAt || 0) || 0);
-      const tb = Number(b.createdAtMillis || Date.parse(b.createdAt || 0) || 0);
-      return tb - ta;
-    });
-  }
 
   function reviewMatchesProductQuery(rev, qProductId, qProductName) {
     if (!qProductId && !qProductName) return true;
@@ -4778,6 +4821,8 @@ const server = http.createServer(async (req, res) => {
             customerEmail: normalizeEmail(rawRev.customerEmail || (primaryExisting && primaryExisting.customerEmail) || ''),
             customerPhone: normalizePhone(rawRev.customerPhone || (primaryExisting && primaryExisting.customerPhone) || ''),
             uid: String(rawRev.uid || (primaryExisting && primaryExisting.uid) || '').trim(),
+            date: String(rawRev.date || (primaryExisting && primaryExisting.date) || '').trim(),
+            source: String(rawRev.source || (primaryExisting && primaryExisting.source) || (orderIdClean ? 'customer' : 'admin')).trim(),
             verified: rawRev.verified !== false,
             approved: primaryExisting ? (primaryExisting.approved !== false) : true,
             edited: isEdit,

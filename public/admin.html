@@ -208,7 +208,16 @@
             </div>
           </button>
 
-          <!-- 6. Google & Customer Reviews -->
+          <!-- 6. Product Reviews Manager -->
+          <button onclick="window.switchTab('reviews')" id="tabBtn-reviews" class="tab-btn w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-between transition">
+            <div class="flex items-center space-x-2.5 truncate">
+              <i class="fa-solid fa-star text-amber-500 text-sm"></i>
+              <span class="truncate">Product Reviews</span>
+            </div>
+            <span id="productReviewsCountBadge" class="bg-amber-100 text-amber-800 text-[10px] px-2 py-0.5 rounded-full font-bold">0</span>
+          </button>
+
+          <!-- 6b. Google & Customer Reviews -->
           <button onclick="window.switchTab('google-profile')" id="tabBtn-google-profile" class="tab-btn w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-between transition">
             <div class="flex items-center space-x-2.5 truncate">
               <i class="fa-brands fa-google text-amber-500 text-sm"></i>
@@ -567,13 +576,29 @@
         <div id="couponsList" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
       </div>
 
-      <!-- TAB 5: REVIEWS -->
+      <!-- TAB 5: PRODUCT REVIEWS MANAGER -->
       <div id="tabContent-reviews" class="p-3 sm:p-6 hidden">
-        <div class="mb-6">
-          <h2 class="text-base font-extrabold text-slate-900">Verified Customer Feedback</h2>
-          <p class="text-xs text-slate-500">Ratings and reviews submitted by customers upon verified order delivery.</p>
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          <div>
+            <h2 class="text-base sm:text-lg font-black text-slate-900 flex items-center space-x-2">
+              <i class="fa-solid fa-star text-amber-500"></i>
+              <span>Product &amp; Dish Customer Reviews</span>
+            </h2>
+            <p class="text-xs text-slate-500">Add new reviews for any Packaged Product or Healthy Food Dish, or moderate live customer reviews.</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <select id="adminReviewsFilterProduct" onchange="window.renderProductReviewsAdmin()" class="px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 bg-white text-slate-800">
+              <option value="ALL">All Products &amp; Dishes</option>
+            </select>
+            <button type="button" onclick="window.openAddProductReviewModal()" class="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md transition flex items-center space-x-1.5">
+              <i class="fa-solid fa-plus"></i>
+              <span>Add Product Review</span>
+            </button>
+          </div>
         </div>
-        <div id="reviewsList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+        <div id="reviewsList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="col-span-full p-8 text-center text-slate-400 text-xs">Loading product reviews...</div>
+        </div>
       </div>
 
       <!-- TAB 6: STORE SETTINGS -->
@@ -881,10 +906,16 @@
             </h3>
             <p class="text-xs text-slate-500">Manage high-protein flours, nutri meals, talbeenah, superfoods, prices, 5-image galleries, and stock</p>
           </div>
-          <button onclick="window.openPackagedProductModal()" class="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md transition flex items-center space-x-1.5 self-start sm:self-auto">
-            <i class="fa-solid fa-plus"></i>
-            <span>Add New Product</span>
-          </button>
+          <div class="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+            <button type="button" onclick="window.openAddProductReviewModal()" class="px-3.5 py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 font-extrabold text-xs border border-amber-300 shadow-xs transition flex items-center space-x-1.5">
+              <i class="fa-solid fa-star text-amber-500"></i>
+              <span>Add Product Review</span>
+            </button>
+            <button onclick="window.openPackagedProductModal()" class="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md transition flex items-center space-x-1.5">
+              <i class="fa-solid fa-plus"></i>
+              <span>Add New Product</span>
+            </button>
+          </div>
         </div>
 
         <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
@@ -2209,6 +2240,67 @@
     </div>
   </div>
 
+  <!-- MODAL: Add Product / Healthy Dish Review -->
+  <div id="addProductReviewModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 overflow-y-auto max-h-[90vh]">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+        <h3 class="text-base font-black text-slate-900 flex items-center space-x-2">
+          <i class="fa-solid fa-star text-amber-500 text-lg"></i>
+          <span>Add Product Customer Review</span>
+        </h3>
+        <button type="button" onclick="window.closeModal('addProductReviewModal')" class="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:text-slate-800 flex items-center justify-center text-sm">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="adminProductReviewForm" onsubmit="window.submitAdminProductReview(event)" class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Select Product / Dish *</label>
+          <select id="adminRevProductSelect" required class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-bold text-slate-900 focus:outline-none focus:border-emerald-600 bg-white">
+            <option value="">-- Choose Product --</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Customer / Reviewer Name *</label>
+          <input type="text" id="adminRevCustomerName" required placeholder="e.g. Priya Sharma" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-bold focus:outline-none focus:border-emerald-600">
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Star Rating (1-5) *</label>
+            <select id="adminRevRating" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-bold focus:outline-none">
+              <option value="5" selected>★★★★★ 5 Stars</option>
+              <option value="4">★★★★☆ 4 Stars</option>
+              <option value="3">★★★☆☆ 3 Stars</option>
+              <option value="2">★★☆☆☆ 2 Stars</option>
+              <option value="1">★☆☆☆☆ 1 Star</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Review Date</label>
+            <input type="text" id="adminRevDate" placeholder="e.g. Nov 18, 2026" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Customer Review Comment *</label>
+          <textarea id="adminRevComment" required rows="4" placeholder="Write the customer review for this product..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 leading-relaxed focus:outline-none focus:border-emerald-600"></textarea>
+        </div>
+
+        <div class="flex items-center space-x-2 pt-1">
+          <input type="checkbox" id="adminRevVerified" checked class="w-4 h-4 rounded text-emerald-600 accent-emerald-600">
+          <label for="adminRevVerified" class="text-xs font-bold text-slate-700 cursor-pointer">Show "✓ Verified Buyer" badge</label>
+        </div>
+
+        <div class="flex justify-end space-x-2 pt-3 border-t border-slate-100">
+          <button type="button" onclick="window.closeModal('addProductReviewModal')" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Cancel</button>
+          <button type="submit" id="saveAdminProdRevBtn" class="px-5 py-2 text-xs font-bold bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl shadow">Publish Review</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- STANDALONE CORE JAVASCRIPT: GUARANTEED ZERO-FAILURE EXECUTION -->
   <script>
     // Single Deduplicated Admin Toast Notification + Progress Bar Helper
@@ -2336,6 +2428,7 @@
       }
       if (tabId === 'coupons' || tabId === 'settings') window.loadStoreSettings();
       if (tabId === 'notifications') window.loadNotificationHistory();
+      if (tabId === 'reviews') window.loadProductReviewsAdmin();
       if (tabId === 'google-profile') window.loadGoogleProfile();
       if (tabId === 'video-reviews') window.loadVideoReviewsAdmin();
       if (tabId === 'blogs') window.loadBlogsAdmin();
@@ -2475,9 +2568,9 @@
             </td>
             <td class="p-3.5">
               <div class="flex items-center space-x-1 font-bold text-slate-800">
-                <span class="text-amber-500 font-black">${p.rating || 4.9}</span>
+                <span class="text-amber-500 font-black">${p.rating || 4.8}</span>
                 <i class="fa-solid fa-star text-amber-400 text-xs"></i>
-                <span class="text-slate-400 text-[10px]">(${p.reviewCount || 148})</span>
+                <span class="text-slate-400 text-[10px]">(${Number.isFinite(Number(p.reviewCount)) ? Number(p.reviewCount) : 0})</span>
               </div>
             </td>
             <td class="p-3.5">
@@ -2486,6 +2579,9 @@
               </span>
             </td>
             <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
+              <button onclick="window.openAddProductReviewModal('${p.id}')" class="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 font-bold transition text-[11px]" title="Add Review for this Product">
+                <i class="fa-solid fa-star text-amber-500"></i> + Review
+              </button>
               <button onclick="window.editPackagedProduct('${p.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition">
                 <i class="fa-solid fa-pen-to-square"></i>
               </button>
@@ -2710,6 +2806,9 @@
       const storage = document.getElementById('pkgStorage').value.trim();
 
       const finalImages = images.length ? images : ['/assets/aistudio/image_6061bdc8.png'];
+      const existingProd = (window.packagedProducts || []).find(p => p.id === id);
+      const preservedRating = (existingProd && Number.isFinite(Number(existingProd.rating))) ? Number(existingProd.rating) : 4.8;
+      const preservedReviewCount = (existingProd && Number.isFinite(Number(existingProd.reviewCount))) ? Number(existingProd.reviewCount) : 0;
       const payload = {
         id,
         name: title,
@@ -2731,8 +2830,8 @@
         benefits,
         howToUse,
         storage,
-        rating: 4.9,
-        reviewCount: 148,
+        rating: preservedRating,
+        reviewCount: preservedReviewCount,
         nutritionFacts: {
           servingSize: '100g',
           per100g: { calories, protein, carbs, fat, dietaryFiber, addedSugar }
@@ -4176,7 +4275,10 @@
               ${m.inStock !== false ? 'In Stock' : 'Out of Stock'}
             </span>
           </td>
-          <td class="p-3.5 text-right space-x-1">
+          <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
+            <button onclick="window.openAddProductReviewModal('${m.id}')" class="px-2.5 py-1 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs" title="Add Review for this Dish">
+              ★ Review
+            </button>
             <button onclick="window.editHealthyMeal('${m.id}')" class="px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs">
               Edit
             </button>
@@ -4640,7 +4742,260 @@
       window.checkAdminAuth();
       window.loadPackagedOrders();
       window.loadPackagedProducts();
+      window.loadProductReviewsAdmin();
     });
+
+    // -------------------------------------------------------------
+    // PRODUCT & HEALTHY DISH REVIEWS MANAGER (Admin Add & Moderate)
+    // -------------------------------------------------------------
+    window.adminProductReviews = [];
+
+    window.getAllCatalogReviewTargets = function() {
+      const pkg = (window.packagedProducts && window.packagedProducts.length)
+        ? window.packagedProducts
+        : (window.nutroProducts || []);
+      let meals = (window.healthyMeals && window.healthyMeals.length) ? window.healthyMeals : [];
+      if (!meals.length) {
+        try {
+          const cachedMeals = JSON.parse(localStorage.getItem('nutrolix_healthy_food_menu') || localStorage.getItem('nutrolix_healthy_food') || '[]');
+          if (Array.isArray(cachedMeals)) meals = cachedMeals;
+        } catch (_) {}
+      }
+      return {
+        packaged: pkg.map(p => ({ id: String(p.id || ''), name: String(p.name || p.title || 'Nutrolix Product'), type: 'packaged' })).filter(x => x.id),
+        meals: meals.map(m => ({ id: String(m.id || ''), name: String(m.name || m.title || 'Healthy Food Dish'), type: 'meal' })).filter(x => x.id)
+      };
+    };
+
+    window.populateProductReviewSelectors = function(preselectId = '') {
+      const { packaged, meals } = window.getAllCatalogReviewTargets();
+      const esc = (s) => String(s || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+
+      const modalSel = document.getElementById('adminRevProductSelect');
+      if (modalSel) {
+        let html = '<option value="">-- Choose Product / Dish --</option>';
+        if (packaged.length) {
+          html += '<optgroup label="Packaged Nutrition Store">' + packaged.map(p => `<option value="${esc(p.id)}" data-name="${esc(p.name)}">${esc(p.name)}</option>`).join('') + '</optgroup>';
+        }
+        if (meals.length) {
+          html += '<optgroup label="Healthy Food Kitchen">' + meals.map(m => `<option value="${esc(m.id)}" data-name="${esc(m.name)}">${esc(m.name)}</option>`).join('') + '</optgroup>';
+        }
+        modalSel.innerHTML = html;
+        if (preselectId) {
+          const exists = Array.from(modalSel.options).some(o => o.value === preselectId);
+          if (exists) modalSel.value = preselectId;
+        }
+      }
+
+      const filterSel = document.getElementById('adminReviewsFilterProduct');
+      if (filterSel) {
+        const prevVal = filterSel.value || 'ALL';
+        let fHtml = '<option value="ALL">All Products &amp; Dishes</option>';
+        if (packaged.length) {
+          fHtml += '<optgroup label="Packaged Nutrition Store">' + packaged.map(p => `<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('') + '</optgroup>';
+        }
+        if (meals.length) {
+          fHtml += '<optgroup label="Healthy Food Kitchen">' + meals.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('') + '</optgroup>';
+        }
+        filterSel.innerHTML = fHtml;
+        if (Array.from(filterSel.options).some(o => o.value === prevVal)) {
+          filterSel.value = prevVal;
+        }
+      }
+    };
+
+    window.openAddProductReviewModal = async function(preselectProductId = '') {
+      if (!window.packagedProducts || !window.packagedProducts.length) {
+        try { await window.loadPackagedProducts(); } catch (_) {}
+      }
+      if (!window.healthyMeals || !window.healthyMeals.length) {
+        try { await window.loadFoodMenuAdmin(); } catch (_) {}
+      }
+      window.populateProductReviewSelectors(preselectProductId);
+      const form = document.getElementById('adminProductReviewForm');
+      if (form) form.reset();
+      if (preselectProductId) {
+        const sel = document.getElementById('adminRevProductSelect');
+        if (sel) sel.value = preselectProductId;
+      }
+      const dateInput = document.getElementById('adminRevDate');
+      if (dateInput) {
+        dateInput.value = new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+      const verCheck = document.getElementById('adminRevVerified');
+      if (verCheck) verCheck.checked = true;
+      const modal = document.getElementById('addProductReviewModal');
+      if (modal) modal.classList.remove('hidden');
+    };
+
+    window.loadProductReviewsAdmin = async function() {
+      window.populateProductReviewSelectors();
+      try {
+        const cached = JSON.parse(localStorage.getItem('nutrolix_product_reviews') || '[]');
+        if (Array.isArray(cached) && cached.length && !window.adminProductReviews.length) {
+          window.adminProductReviews = cached;
+          window.renderProductReviewsAdmin();
+        }
+      } catch (_) {}
+
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/product-reviews?includeHidden=1', { cache: 'no-store' });
+        if (res && res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data)) {
+            window.adminProductReviews = data;
+            try { localStorage.setItem('nutrolix_product_reviews', JSON.stringify(data)); } catch (_) {}
+            window.renderProductReviewsAdmin();
+          }
+        }
+      } catch (err) {
+        console.warn('Product reviews sync:', err.message);
+      }
+    };
+
+    window.renderProductReviewsAdmin = function() {
+      const listEl = document.getElementById('reviewsList');
+      const badgeEl = document.getElementById('productReviewsCountBadge');
+      const filterVal = (document.getElementById('adminReviewsFilterProduct')?.value || 'ALL').trim();
+
+      const allLive = Array.isArray(window.adminProductReviews) ? window.adminProductReviews : [];
+      if (badgeEl) badgeEl.innerText = allLive.length;
+      if (!listEl) return;
+
+      const filtered = filterVal === 'ALL'
+        ? allLive
+        : allLive.filter(r => {
+            const ids = [r.productId, ...(Array.isArray(r.productIds) ? r.productIds : [])].filter(Boolean).map(String);
+            return ids.includes(filterVal);
+          });
+
+      if (!filtered.length) {
+        listEl.innerHTML = `
+          <div class="col-span-full p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-2">
+            <p class="text-xs font-bold text-slate-600">No custom or customer-submitted reviews found for this selection yet.</p>
+            <p class="text-[11px] text-slate-400">Default 2–5 reviews are active on every product. Click "+ Add Product Review" above to publish a new review live.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const esc = (s) => String(s || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+      listEl.innerHTML = filtered.map(r => {
+        const isHidden = r.approved === false;
+        const stars = '<i class="fa-solid fa-star text-amber-400 text-xs"></i>'.repeat(Math.min(5, Math.max(1, Number(r.rating || 5))));
+        const dateStr = r.date || (r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Recent');
+        return `
+          <div class="p-4 rounded-2xl border ${isHidden ? 'bg-slate-50 border-slate-200 opacity-75' : 'bg-white border-slate-200 shadow-xs'} flex flex-col justify-between space-y-3">
+            <div class="space-y-2">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <span class="inline-block px-2 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold mb-1">${esc(r.productName || r.productId || 'Nutrolix Product')}</span>
+                  <div class="flex items-center space-x-2">
+                    <span class="font-black text-xs text-slate-900">${esc(r.customerName || r.name || 'Verified Customer')}</span>
+                    ${r.verified !== false ? '<span class="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-full">✓ Verified</span>' : ''}
+                    ${r.source === 'admin' ? '<span class="text-[9px] font-bold bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-full">Admin Added</span>' : ''}
+                    ${isHidden ? '<span class="text-[9px] font-bold bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-full">Hidden</span>' : ''}
+                  </div>
+                </div>
+                <span class="text-[10px] text-slate-400 whitespace-nowrap">${esc(dateStr)}</span>
+              </div>
+              <div class="flex items-center space-x-0.5">${stars}</div>
+              <p class="text-xs text-slate-700 leading-relaxed">${esc(r.comment || r.text || '')}</p>
+            </div>
+            <div class="pt-2.5 border-t border-slate-100 flex items-center justify-end space-x-1.5">
+              ${isHidden
+                ? `<button type="button" onclick="window.moderateProductReviewAdmin('${esc(r.id)}', 'approve')" class="px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-[11px] font-bold">Approve</button>`
+                : `<button type="button" onclick="window.moderateProductReviewAdmin('${esc(r.id)}', 'hide')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold">Hide</button>`}
+              <button type="button" onclick="window.moderateProductReviewAdmin('${esc(r.id)}', 'delete')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold">Delete</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    };
+
+    window.submitAdminProductReview = async function(e) {
+      if (e && e.preventDefault) e.preventDefault();
+      const sel = document.getElementById('adminRevProductSelect');
+      const productId = (sel?.value || '').trim();
+      const selectedOpt = sel && sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex] : null;
+      const productName = (selectedOpt?.getAttribute('data-name') || selectedOpt?.text || 'Nutrolix Product').trim();
+      const customerName = (document.getElementById('adminRevCustomerName')?.value || '').trim();
+      const rating = Math.min(5, Math.max(1, parseInt(document.getElementById('adminRevRating')?.value || '5', 10) || 5));
+      const date = (document.getElementById('adminRevDate')?.value || '').trim();
+      const comment = (document.getElementById('adminRevComment')?.value || '').trim();
+      const verified = document.getElementById('adminRevVerified')?.checked !== false;
+
+      if (!productId || !customerName || !comment) {
+        window.showAdminNotification('Please select a product, enter reviewer name, and write the review.', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('saveAdminProdRevBtn');
+      const payload = {
+        productId,
+        productIds: [productId],
+        productName,
+        productNames: [productName],
+        customerName,
+        name: customerName,
+        rating,
+        date,
+        comment,
+        text: comment,
+        verified,
+        source: 'admin'
+      };
+
+      try {
+        if (btn) { btn.disabled = true; btn.innerText = 'Publishing...'; }
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/product-reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || (data && data.success === false)) {
+          throw new Error((data && data.error) || `Server error (${res.status})`);
+        }
+        window.closeModal('addProductReviewModal');
+        await Promise.all([
+          window.loadProductReviewsAdmin(),
+          window.loadPackagedProducts(),
+          window.loadFoodMenuAdmin()
+        ]);
+        window.showAdminNotification(`✓ Review published live for "${productName}"!`);
+      } catch (err) {
+        window.showAdminNotification('Failed to publish review: ' + err.message, 'error');
+      } finally {
+        if (btn) { btn.disabled = false; btn.innerText = 'Publish Review'; }
+      }
+    };
+
+    window.moderateProductReviewAdmin = async function(reviewId, action) {
+      if (action === 'delete' && !confirm('Delete this product review permanently?')) return;
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/product-reviews/moderate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ reviewId, action })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || (data && data.success === false)) {
+          throw new Error((data && data.error) || 'Moderation failed');
+        }
+        await Promise.all([
+          window.loadProductReviewsAdmin(),
+          window.loadPackagedProducts(),
+          window.loadFoodMenuAdmin()
+        ]);
+        window.showAdminNotification(action === 'delete' ? '✓ Review deleted' : (action === 'hide' ? '✓ Review hidden' : '✓ Review approved'));
+      } catch (err) {
+        window.showAdminNotification('Error: ' + err.message, 'error');
+      }
+    };
 
     // YouTube Shorts Video Reviews (Instant 0ms in-memory + network sync)
     window.videoReviews = [];

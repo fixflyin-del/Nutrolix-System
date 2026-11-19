@@ -38,7 +38,10 @@
         "isVeg": true
       }
     ],
-    "image": "/assets/aistudio/image_6061bdc8.png"
+    "image": "/assets/aistudio/image_6061bdc8.png",
+    "reviews": [],
+    "reviewCount": 0,
+    "rating": 4.9
   },
   {
     "title": "Test Healthy Meal",
@@ -89,6 +92,8 @@
         "value": "180 mg"
       }
     ],
+    "rating": 4.8,
+    "reviewCount": 5,
     "reviews": [
       {
         "name": "Dr. Sameer Verma",
@@ -99,6 +104,21 @@
         "name": "Pooja Malhotra",
         "rating": 5,
         "comment": "Best healthy meal I have ordered! Paneer was super soft and the quinoa dressing was delicious without being oily."
+      },
+      {
+        "name": "Aarav Deshpande",
+        "rating": 5,
+        "comment": "34g protein in one clean bowl and delivered piping hot. My post-workout favorite."
+      },
+      {
+        "name": "Ritika Nair",
+        "rating": 4,
+        "comment": "Very fresh broccoli and edamame with light olive oil herb seasoning."
+      },
+      {
+        "name": "Saurabh Kulkarni",
+        "rating": 5,
+        "comment": "Filling without feeling heavy. Zero refined oil taste."
       }
     ]
   },
@@ -145,6 +165,8 @@
         "value": "420 mg"
       }
     ],
+    "rating": 5,
+    "reviewCount": 3,
     "reviews": [
       {
         "name": "Ananya Sen",
@@ -155,6 +177,11 @@
         "name": "Vikram Rathore",
         "rating": 5,
         "comment": "Great portion size and zero bloat. Finally a healthy kitchen that doesn't sacrifice traditional Indian flavors."
+      },
+      {
+        "name": "Neha Patil",
+        "rating": 5,
+        "comment": "Warm, soothing and full of sprouted moong & millet goodness. Ideal for light weeknight dinners."
       }
     ]
   },
@@ -201,6 +228,8 @@
         "value": "1.8 g"
       }
     ],
+    "rating": 5,
+    "reviewCount": 2,
     "reviews": [
       {
         "name": "Kavita Rao",
@@ -257,6 +286,8 @@
         "value": "280 mg"
       }
     ],
+    "rating": 4.7,
+    "reviewCount": 3,
     "reviews": [
       {
         "name": "Rohan Mehra",
@@ -267,6 +298,11 @@
         "name": "Chef Devendra",
         "rating": 5,
         "comment": "Excellent culinary execution. The ragi rotis were soft and the dal had minimal clean seasoning."
+      },
+      {
+        "name": "Imran Shaikh",
+        "rating": 4,
+        "comment": "Great protein-to-calorie ratio and fresh cucumber raita on the side."
       }
     ]
   },
@@ -313,6 +349,8 @@
         "value": "2.4 mg"
       }
     ],
+    "rating": 5,
+    "reviewCount": 2,
     "reviews": [
       {
         "name": "Meera Joshi",
@@ -369,6 +407,8 @@
         "value": "4500+"
       }
     ],
+    "rating": 4.7,
+    "reviewCount": 3,
     "reviews": [
       {
         "name": "Siddharth B.",
@@ -379,6 +419,11 @@
         "name": "Nidhi Agarwal",
         "rating": 5,
         "comment": "My favorite morning drink. Pure energy and great digestion."
+      },
+      {
+        "name": "Pranav Joshi",
+        "rating": 4,
+        "comment": "Fresh almond milk base with zero sugar crash. Feels super clean."
       }
     ]
   },
@@ -425,6 +470,8 @@
         "value": "210 mg"
       }
     ],
+    "rating": 5,
+    "reviewCount": 2,
     "reviews": [
       {
         "name": "Coach Tarun",
@@ -481,6 +528,8 @@
         "value": "3.1 mg"
       }
     ],
+    "rating": 5,
+    "reviewCount": 2,
     "reviews": [
       {
         "name": "Shweta Tiwari",
