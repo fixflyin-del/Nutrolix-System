@@ -1803,6 +1803,145 @@ test('Sticky header overflow-x clip fix, compact slow auto-scroll reviews, and c
   }
 });
 
+test('Healthy Food Nutrition Highlights (no Clinical word) & Nutrition Facts Admin-to-User live sync across Healthy Food and Packaged catalogs', async () => {
+  const rootDir = path.join(__dirname, '..');
+
+  // 1. UI checks across both public/ and Android WebView assets
+  for (const base of ['public', 'app/src/main/assets/web']) {
+    const foodHtml = fs.readFileSync(path.join(rootDir, base, 'food.html'), 'utf8');
+    assert.equal(foodHtml.includes('Clinical Nutrition Highlights'), false, `${base}/food.html must remove the word "Clinical" from Nutrition Highlights`);
+    assert.ok(foodHtml.includes('<span>Nutrition Highlights:</span>'), `${base}/food.html must render "Nutrition Highlights:" heading`);
+    assert.ok(foodHtml.includes('id="modalDishHighlightsSection"'), `${base}/food.html must have toggleable highlights container`);
+    assert.ok(foodHtml.includes('id="modalDishNutritionSection"'), `${base}/food.html must have nutrition facts container`);
+    assert.ok(foodHtml.includes('function sanitizeMealHighlights('), `${base}/food.html must sanitize meal highlights`);
+    assert.ok(foodHtml.includes('function sanitizeMealNutritionFacts('), `${base}/food.html must sanitize meal nutritionFacts`);
+
+    const adminHtml = fs.readFileSync(path.join(rootDir, base, 'admin.html'), 'utf8');
+    for (const marker of [
+      'id="mealHighlightsEditorList"',
+      'id="btnAddMealHighlightRow"',
+      'window.renderMealHighlightsEditor',
+      'window.addMealHighlightRow',
+      'window.readMealHighlightsFromForm',
+      'id="singleMealFiber"',
+      'id="singleMealCarbs"',
+      'id="singleMealFats"',
+      'id="singleMealSodium"',
+      'id="mealCustomNutritionEditorList"',
+      'window.readMealNutritionFactsFromForm',
+      'Nutrition Highlights (Bullet Points)'
+    ]) {
+      assert.ok(adminHtml.includes(marker), `${base}/admin.html missing ${marker}`);
+    }
+    assert.equal(adminHtml.includes('Clinical Nutrition Highlights'), false, `${base}/admin.html must not use "Clinical Nutrition Highlights"`);
+
+    const productHtml = fs.readFileSync(path.join(rootDir, base, 'product.html'), 'utf8');
+    assert.ok(productHtml.includes('facts.per100g') && productHtml.includes('formatFact('), `${base}/product.html must read both flat and per100g nutritionFacts`);
+  }
+
+  // 2. End-to-end HTTP server roundtrip verification (Healthy Food & Packaged Products)
+  const foodFile = path.join(rootDir, 'public/data/healthy_food_menu.json');
+  const prodFile = path.join(rootDir, 'public/data/nutrition_products.json');
+  const origFood = fs.existsSync(foodFile) ? fs.readFileSync(foodFile, 'utf8') : null;
+  const origProd = fs.existsSync(prodFile) ? fs.readFileSync(prodFile, 'utf8') : null;
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  try {
+    // Healthy Food Meal with custom Nutrition Highlights & Nutrition Facts
+    const testMealId = 'meal_test_nutr_sync_' + Date.now();
+    const postMealRes = await fetch(`${baseUrl}/api/food-menu`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: testMealId,
+        name: 'Paneer Quinoa Power Bowl',
+        category: 'High Protein Meals',
+        price: 269,
+        calories: 445,
+        protein: 38,
+        fiber: 12,
+        carbs: 36,
+        fats: 11,
+        sodium: 165,
+        highlights: [
+          '38g Complete Plant & Paneer Protein',
+          'Zero Palm Oil, Zero Refined Sugar'
+        ],
+        nutritionFacts: [
+          { name: 'Calories', value: '445 kcal' },
+          { name: 'Protein', value: '38 g' },
+          { name: 'Dietary Fiber', value: '12 g' },
+          { name: 'Total Carbs', value: '36 g' },
+          { name: 'Healthy Fats', value: '11 g' },
+          { name: 'Sodium', value: '165 mg' },
+          { name: 'Iron', value: '4.5 mg' }
+        ]
+      })
+    });
+    assert.equal(postMealRes.status, 200);
+
+    const getMealsRes = await fetch(`${baseUrl}/api/food-menu`);
+    assert.equal(getMealsRes.status, 200);
+    const meals = await getMealsRes.json();
+    const savedMeal = meals.find(m => m.id === testMealId);
+    assert.ok(savedMeal, 'Saved healthy meal must be returned by GET /api/food-menu');
+    assert.deepEqual(savedMeal.highlights, [
+      '38g Complete Plant & Paneer Protein',
+      'Zero Palm Oil, Zero Refined Sugar'
+    ]);
+    assert.equal(savedMeal.nutritionFacts.length, 7);
+    assert.deepEqual(savedMeal.nutritionFacts[0], { name: 'Calories', value: '445 kcal' });
+    assert.deepEqual(savedMeal.nutritionFacts[6], { name: 'Iron', value: '4.5 mg' });
+
+    // Packaged Product saved with nested per100g must expose flat numeric fields too
+    const testProdId = 'prod_test_nutr_sync_' + Date.now();
+    const postProdRes = await fetch(`${baseUrl}/api/nutrition-products`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: testProdId,
+        name: 'Nutrolix Test Protein Mix',
+        category: 'Nutrition Meal',
+        price: 599,
+        mrp: 799,
+        nutritionFacts: {
+          servingSize: '100g',
+          per100g: {
+            calories: '415 kcal',
+            protein: '48g',
+            carbs: '29g',
+            fat: '6.2g',
+            dietaryFiber: '14g',
+            addedSugar: '0g'
+          }
+        }
+      })
+    });
+    assert.equal(postProdRes.status, 200);
+
+    const getProdsRes = await fetch(`${baseUrl}/api/nutrition-products`);
+    assert.equal(getProdsRes.status, 200);
+    const prods = await getProdsRes.json();
+    const savedProd = prods.find(p => p.id === testProdId);
+    assert.ok(savedProd, 'Saved packaged product must be returned by GET /api/nutrition-products');
+    assert.equal(savedProd.nutritionFacts.calories, 415);
+    assert.equal(savedProd.nutritionFacts.protein, 48);
+    assert.equal(savedProd.nutritionFacts.carbs, 29);
+    assert.equal(savedProd.nutritionFacts.fats, 6.2);
+    assert.equal(savedProd.nutritionFacts.dietaryFiber, 14);
+    assert.equal(savedProd.nutritionFacts.addedSugar, 0);
+    assert.equal(savedProd.nutritionFacts.per100g.protein, '48g');
+  } finally {
+    if (origFood !== null) fs.writeFileSync(foodFile, origFood, 'utf8');
+    if (origProd !== null) fs.writeFileSync(prodFile, origProd, 'utf8');
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+
 
 
 

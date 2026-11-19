@@ -1392,7 +1392,7 @@
         <div class="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
           <div>
             <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Calories (kcal)</label>
-            <input type="number" id="singleMealCalories" required placeholder="420" class="w-full px-2 py-1 text-xs rounded border border-slate-300">
+            <input type="number" step="1" id="singleMealCalories" required placeholder="420" class="w-full px-2 py-1 text-xs rounded border border-slate-300">
           </div>
           <div>
             <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Protein (g)</label>
@@ -1402,6 +1402,39 @@
             <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Prep Time (min)</label>
             <input type="number" id="singleMealPrep" placeholder="20" class="w-full px-2 py-1 text-xs rounded border border-slate-300">
           </div>
+        </div>
+
+        <!-- Nutrition Facts (Per Serving) — Syncs Live to Healthy Food Store -->
+        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <span class="block text-xs font-black text-slate-800">Nutrition Facts (Per Serving)</span>
+              <span class="block text-[10px] text-slate-500">Calories &amp; Protein auto-sync from above. Add Fiber, Carbs, Fats, Sodium or custom nutrients.</span>
+            </div>
+            <button type="button" id="btnAddMealNutritionRow" onclick="window.addMealNutritionRow()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold flex items-center space-x-1 shrink-0">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>Add Nutrient</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div>
+              <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Dietary Fiber (g)</label>
+              <input type="number" step="0.1" id="singleMealFiber" placeholder="11" class="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Total Carbs (g)</label>
+              <input type="number" step="0.1" id="singleMealCarbs" placeholder="38" class="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Healthy Fats (g)</label>
+              <input type="number" step="0.1" id="singleMealFats" placeholder="12" class="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white">
+            </div>
+            <div>
+              <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Sodium (mg)</label>
+              <input type="number" step="1" id="singleMealSodium" placeholder="180" class="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white">
+            </div>
+          </div>
+          <div id="mealCustomNutritionEditorList" class="space-y-1.5"></div>
         </div>
         
         <!-- STRICTLY SINGLE IMAGE UPLOAD -->
@@ -1430,8 +1463,23 @@
         </div>
 
         <div>
-          <label class="block text-xs font-bold text-slate-700 mb-1">Description / Nutrition Highlights</label>
+          <label class="block text-xs font-bold text-slate-700 mb-1">Description &amp; Ingredients</label>
           <textarea id="singleMealDescription" rows="2" placeholder="Freshly prepared with cold-pressed olive oil..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"></textarea>
+        </div>
+
+        <!-- Nutrition Highlights (Bullet Points) — Syncs Live to Healthy Food Store -->
+        <div class="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <span class="block text-xs font-black text-emerald-950">Nutrition Highlights (Bullet Points)</span>
+              <span class="block text-[10px] text-emerald-800/80">Shown under "Nutrition Highlights" on the Healthy Food dish card.</span>
+            </div>
+            <button type="button" id="btnAddMealHighlightRow" onclick="window.addMealHighlightRow()" class="px-2.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold flex items-center space-x-1 shrink-0">
+              <i class="fa-solid fa-plus text-[10px]"></i>
+              <span>Add Point</span>
+            </button>
+          </div>
+          <div id="mealHighlightsEditorList" class="space-y-1.5"></div>
         </div>
 
         <!-- Portion / Meal Variants (Optional) -->
@@ -2686,26 +2734,32 @@
       window.setAdminProgress('pkgMultiUploadProgressWrap', 0, '', 'hide');
       window.setAdminProgress('pkgSaveProgressWrap', 0, '', 'hide');
 
-      const per100g = p.nutritionFacts?.per100g || {};
-      const calVal = per100g.calories || p.calories || '368';
-      const protVal = per100g.protein || p.protein || '30';
-      const carbVal = per100g.carbs || p.carbs || '42';
-      const fatVal = per100g.fat || p.fat || '4.5';
-      const fibVal = per100g.dietaryFiber || p.fiber || '12';
-      const sugVal = per100g.addedSugar || p.sugar || '0';
+      const nf = (p.nutritionFacts && typeof p.nutritionFacts === 'object') ? p.nutritionFacts : {};
+      const per100g = (nf.per100g && typeof nf.per100g === 'object') ? nf.per100g : {};
+      const pickNum = (vals, fallback) => {
+        for (const v of vals) {
+          if (v === undefined || v === null || String(v).trim() === '') continue;
+          const m = String(v).trim().match(/-?\d+(?:\.\d+)?/);
+          if (m) {
+            const n = Number(m[0]);
+            if (Number.isFinite(n)) return n;
+          }
+        }
+        return fallback;
+      };
 
-      document.getElementById('pkgCalories').value = parseFloat(calVal) || 368;
-      document.getElementById('pkgProtein').value = parseFloat(protVal) || 30;
-      document.getElementById('pkgCarbs').value = parseFloat(carbVal) || 42;
-      document.getElementById('pkgFat').value = parseFloat(fatVal) || 4.5;
-      document.getElementById('pkgFiber').value = parseFloat(fibVal) || 12;
-      document.getElementById('pkgSugar').value = parseFloat(sugVal) || 0;
+      document.getElementById('pkgCalories').value = pickNum([per100g.calories, nf.calories, p.calories], 368);
+      document.getElementById('pkgProtein').value = pickNum([per100g.protein, nf.protein, p.protein], 30);
+      document.getElementById('pkgCarbs').value = pickNum([per100g.carbs, nf.carbs, p.carbs], 42);
+      document.getElementById('pkgFat').value = pickNum([per100g.fat, per100g.fats, nf.fats, nf.fat, p.fat], 4.5);
+      document.getElementById('pkgFiber').value = pickNum([per100g.dietaryFiber, nf.dietaryFiber, p.fiber], 12);
+      document.getElementById('pkgSugar').value = pickNum([per100g.addedSugar, nf.addedSugar, p.sugar], 0);
 
       document.getElementById('pkgHeroClaim').value = p.heroClaim || p.tagline || '';
       document.getElementById('pkgIngredients').value = Array.isArray(p.ingredients) ? p.ingredients.join(', ') : (p.ingredients || '');
       document.getElementById('pkgBenefits').value = Array.isArray(p.benefits) ? p.benefits.join('; ') : (p.benefits || '');
-      document.getElementById('pkgUsage').value = p.howToUse || p.usage || '';
-      document.getElementById('pkgStorage').value = p.storage || p.howToStore || '';
+      document.getElementById('pkgUsage').value = p.usageInstructions || p.howToUse || p.usage || '';
+      document.getElementById('pkgStorage').value = p.storageInstructions || p.storage || p.howToStore || '';
 
       document.getElementById('packagedProductModal').classList.remove('hidden');
     };
@@ -2727,12 +2781,25 @@
       }
       const images = (window.pkgFormImages || []).map(u => String(u || '').trim()).filter(Boolean).slice(0, 5);
 
-      const calories = document.getElementById('pkgCalories').value ? `${document.getElementById('pkgCalories').value} kcal` : '368 kcal';
-      const protein = document.getElementById('pkgProtein').value ? `${document.getElementById('pkgProtein').value}g` : '30g';
-      const carbs = document.getElementById('pkgCarbs').value ? `${document.getElementById('pkgCarbs').value}g` : '42g';
-      const fat = document.getElementById('pkgFat').value ? `${document.getElementById('pkgFat').value}g` : '4.5g';
-      const dietaryFiber = document.getElementById('pkgFiber').value ? `${document.getElementById('pkgFiber').value}g` : '12g';
-      const addedSugar = document.getElementById('pkgSugar').value ? `${document.getElementById('pkgSugar').value}g` : '0g';
+      const parseInputNum = (elId, fallback) => {
+        const raw = document.getElementById(elId)?.value;
+        if (raw === undefined || raw === null || String(raw).trim() === '') return fallback;
+        const n = Number(raw);
+        return Number.isFinite(n) ? n : fallback;
+      };
+      const calNum = parseInputNum('pkgCalories', 368);
+      const protNum = parseInputNum('pkgProtein', 30);
+      const carbNum = parseInputNum('pkgCarbs', 42);
+      const fatNum = parseInputNum('pkgFat', 4.5);
+      const fibNum = parseInputNum('pkgFiber', 12);
+      const sugNum = parseInputNum('pkgSugar', 0);
+
+      const calories = `${calNum} kcal`;
+      const protein = `${protNum}g`;
+      const carbs = `${carbNum}g`;
+      const fat = `${fatNum}g`;
+      const dietaryFiber = `${fibNum}g`;
+      const addedSugar = `${sugNum}g`;
 
       const heroClaim = document.getElementById('pkgHeroClaim').value.trim();
       const ingText = document.getElementById('pkgIngredients').value.trim();
@@ -2744,13 +2811,14 @@
 
       const finalImages = images.length ? images : ['/assets/aistudio/image_6061bdc8.png'];
       const existingProd = (window.packagedProducts || []).find(p => p.id === id);
+      const existingNf = (existingProd && existingProd.nutritionFacts && typeof existingProd.nutritionFacts === 'object') ? existingProd.nutritionFacts : {};
       const preservedRating = (existingProd && Number.isFinite(Number(existingProd.rating))) ? Number(existingProd.rating) : 4.8;
       const preservedReviewCount = (existingProd && Number.isFinite(Number(existingProd.reviewCount))) ? Number(existingProd.reviewCount) : 0;
       const payload = {
         id,
         name: title,
         title,
-        tagline: heroClaim || subcategory || 'Clinical Grade Nutrition • 100% Pure & Lab Tested',
+        tagline: heroClaim || subcategory || 'Clean Grade Nutrition • 100% Pure & Lab Tested',
         category,
         subcategory,
         price,
@@ -2766,11 +2834,21 @@
         ingredients,
         benefits,
         howToUse,
+        usageInstructions: howToUse,
         storage,
+        storageInstructions: storage,
         rating: preservedRating,
         reviewCount: preservedReviewCount,
         nutritionFacts: {
-          servingSize: '100g',
+          ...existingNf,
+          servingSize: existingNf.servingSize || '100g',
+          calories: calNum,
+          protein: protNum,
+          carbs: carbNum,
+          fats: fatNum,
+          fat: fatNum,
+          dietaryFiber: fibNum,
+          addedSugar: sugNum,
           per100g: { calories, protein, carbs, fat, dietaryFiber, addedSugar }
         }
       };
@@ -4586,6 +4664,124 @@
       return out;
     };
 
+    // -------------------------------------------------------------
+    // HEALTHY FOOD: NUTRITION HIGHLIGHTS & NUTRITION FACTS EDITORS
+    // -------------------------------------------------------------
+    function escMealAttr(s) {
+      return String(s ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function extractMealNumStr(val) {
+      if (val === undefined || val === null || String(val).trim() === '') return '';
+      const m = String(val).trim().match(/-?\d+(?:\.\d+)?/);
+      return m ? m[0] : '';
+    }
+
+    window.renderMealHighlightsEditor = function(highlights = []) {
+      const list = document.getElementById('mealHighlightsEditorList');
+      if (!list) return;
+      list.innerHTML = '';
+      const arr = Array.isArray(highlights) ? highlights.map(h => String(h || '').trim()).filter(Boolean) : [];
+      if (!arr.length) {
+        list.innerHTML = '<p class="text-[10px] text-emerald-800/70 italic px-1" data-empty-highlights>No nutrition highlights added yet. Click "+ Add Point" to add bullet points.</p>';
+        return;
+      }
+      arr.forEach(text => window.addMealHighlightRow(text));
+    };
+
+    window.addMealHighlightRow = function(text = '') {
+      const list = document.getElementById('mealHighlightsEditorList');
+      if (!list) return;
+      const emptyMsg = list.querySelector('[data-empty-highlights]');
+      if (emptyMsg) emptyMsg.remove();
+      const row = document.createElement('div');
+      row.className = 'meal-highlight-row flex items-center gap-1.5';
+      row.innerHTML = `
+        <i class="fa-solid fa-circle-check text-emerald-600 text-xs shrink-0"></i>
+        <input type="text" data-meal-highlight-text value="${escMealAttr(text)}" placeholder="e.g. Zero Palm Oil, Zero Refined Flours, Zero Sugar" class="flex-1 px-2.5 py-1.5 text-xs rounded-xl border border-emerald-200 bg-white font-medium">
+        <button type="button" onclick="this.closest('.meal-highlight-row').remove(); if(!document.querySelector('#mealHighlightsEditorList .meal-highlight-row')) window.renderMealHighlightsEditor([]);" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center text-xs shrink-0" title="Remove point">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      `;
+      list.appendChild(row);
+    };
+
+    window.readMealHighlightsFromForm = function() {
+      const rows = document.querySelectorAll('#mealHighlightsEditorList .meal-highlight-row');
+      const out = [];
+      const seen = new Set();
+      rows.forEach(row => {
+        const val = (row.querySelector('[data-meal-highlight-text]')?.value || '').trim();
+        if (!val) return;
+        const key = val.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push(val);
+      });
+      return out;
+    };
+
+    window.renderMealCustomNutritionEditor = function(rows = []) {
+      const list = document.getElementById('mealCustomNutritionEditorList');
+      if (!list) return;
+      list.innerHTML = '';
+      (Array.isArray(rows) ? rows : []).forEach(r => {
+        if (r && r.name && r.value) window.addMealNutritionRow(r);
+      });
+    };
+
+    window.addMealNutritionRow = function(item = {}) {
+      const list = document.getElementById('mealCustomNutritionEditorList');
+      if (!list) return;
+      const row = document.createElement('div');
+      row.className = 'meal-custom-nutr-row grid grid-cols-12 gap-1.5 items-center';
+      row.innerHTML = `
+        <input type="text" data-nutr-name value="${escMealAttr(item.name || '')}" placeholder="Nutrient (e.g. Sugar / Iron)" class="col-span-6 px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white font-semibold">
+        <input type="text" data-nutr-val value="${escMealAttr(item.value || '')}" placeholder="Value (e.g. 2 g)" class="col-span-5 px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white font-bold">
+        <button type="button" onclick="this.closest('.meal-custom-nutr-row').remove()" class="col-span-1 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center text-xs" title="Remove nutrient">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      `;
+      list.appendChild(row);
+    };
+
+    window.readMealNutritionFactsFromForm = function() {
+      const facts = [];
+      const seen = new Set();
+      const pushFact = (name, rawVal, unit) => {
+        const cleanName = String(name || '').trim();
+        const s = String(rawVal ?? '').trim();
+        if (!cleanName || !s) return;
+        const key = cleanName.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        const formatted = unit ? (/[a-zA-Z]/.test(s) ? s : `${s} ${unit}`) : s;
+        facts.push({ name: cleanName, value: formatted });
+      };
+
+      const calRaw = document.getElementById('singleMealCalories')?.value;
+      const protRaw = document.getElementById('singleMealProtein')?.value;
+      const fibRaw = document.getElementById('singleMealFiber')?.value;
+      const carbRaw = document.getElementById('singleMealCarbs')?.value;
+      const fatRaw = document.getElementById('singleMealFats')?.value;
+      const sodRaw = document.getElementById('singleMealSodium')?.value;
+
+      pushFact('Calories', calRaw !== '' ? calRaw : '400', 'kcal');
+      pushFact('Protein', protRaw !== '' ? protRaw : '25', 'g');
+      pushFact('Dietary Fiber', fibRaw, 'g');
+      pushFact('Total Carbs', carbRaw, 'g');
+      pushFact('Healthy Fats', fatRaw, 'g');
+      pushFact('Sodium', sodRaw, 'mg');
+
+      document.querySelectorAll('#mealCustomNutritionEditorList .meal-custom-nutr-row').forEach(row => {
+        const nm = (row.querySelector('[data-nutr-name]')?.value || '').trim();
+        const vl = (row.querySelector('[data-nutr-val]')?.value || '').trim();
+        if (nm && vl) pushFact(nm, vl, '');
+      });
+
+      return facts;
+    };
+
     window.openAddMealModal = function() {
       document.getElementById('singleMealId').value = '';
       document.getElementById('singleMealTitle').value = '';
@@ -4593,9 +4789,15 @@
       document.getElementById('singleMealCalories').value = '';
       document.getElementById('singleMealProtein').value = '';
       document.getElementById('singleMealPrep').value = '20';
+      document.getElementById('singleMealFiber').value = '';
+      document.getElementById('singleMealCarbs').value = '';
+      document.getElementById('singleMealFats').value = '';
+      document.getElementById('singleMealSodium').value = '';
       document.getElementById('singleMealImageUrl').value = '';
       document.getElementById('singleMealDescription').value = '';
       document.getElementById('singleMealInStock').checked = true;
+      window.renderMealCustomNutritionEditor([]);
+      window.renderMealHighlightsEditor([]);
       window.renderMealVariantsEditor([]);
       window.renderMealAddonsEditor([]);
       document.getElementById('foodMealModalTitle').innerText = 'Add Healthy Food Meal (1 Photo Only)';
@@ -4669,18 +4871,37 @@
       const mealImg = document.getElementById('singleMealImageUrl').value.trim() || '/assets/aistudio/image_6061bdc8.png';
       const variants = window.readMealVariantsFromForm();
       const addons = window.readMealAddonsFromForm();
+      const highlights = window.readMealHighlightsFromForm();
+      const nutritionFacts = window.readMealNutritionFactsFromForm();
+
+      const calRaw = document.getElementById('singleMealCalories').value;
+      const protRaw = document.getElementById('singleMealProtein').value;
+      const fibRaw = document.getElementById('singleMealFiber').value;
+      const carbRaw = document.getElementById('singleMealCarbs').value;
+      const fatRaw = document.getElementById('singleMealFats').value;
+      const sodRaw = document.getElementById('singleMealSodium').value;
+
+      const calNum = (calRaw !== '' && Number.isFinite(Number(calRaw))) ? Number(calRaw) : 400;
+      const protNum = (protRaw !== '' && Number.isFinite(Number(protRaw))) ? Number(protRaw) : 25;
+
       const payload = {
         id: id,
         name: mealTitle,
         title: mealTitle,
         category: document.getElementById('singleMealCategory').value,
         price: parseFloat(document.getElementById('singleMealPrice').value) || 199,
-        calories: parseInt(document.getElementById('singleMealCalories').value) || 400,
-        protein: parseFloat(document.getElementById('singleMealProtein').value) || 25,
-        prepTime: document.getElementById('singleMealPrep').value + ' mins',
+        calories: calNum,
+        protein: protNum,
+        ...(fibRaw !== '' ? { fiber: Number(fibRaw) } : {}),
+        ...(carbRaw !== '' ? { carbs: Number(carbRaw) } : {}),
+        ...(fatRaw !== '' ? { fats: Number(fatRaw) } : {}),
+        ...(sodRaw !== '' ? { sodium: Number(sodRaw) } : {}),
+        prepTime: (document.getElementById('singleMealPrep').value || '20') + ' mins',
         image: mealImg,
         images: [mealImg],
-        description: document.getElementById('singleMealDescription').value.trim() || 'Clean, clinical-grade nutrition prepared fresh with zero palm oil.',
+        description: document.getElementById('singleMealDescription').value.trim() || 'Clean, wholesome nutrition prepared fresh with zero palm oil.',
+        highlights,
+        nutritionFacts,
         variants,
         variantsConfigured: true,
         addons,
@@ -4761,9 +4982,33 @@
       }
 
       document.getElementById('singleMealPrice').value = meal.price !== undefined ? meal.price : 199;
-      document.getElementById('singleMealCalories').value = parseInt(meal.calories) || 400;
-      document.getElementById('singleMealProtein').value = parseFloat(meal.protein) || 25;
+
+      // Parse Nutrition Facts array into standard inputs + custom rows
+      const factsArr = Array.isArray(meal.nutritionFacts) ? meal.nutritionFacts : [];
+      let calFromFacts = '', protFromFacts = '', fibFromFacts = '', carbFromFacts = '', fatFromFacts = '', sodFromFacts = '';
+      const customFacts = [];
+      factsArr.forEach(f => {
+        if (!f || !f.name) return;
+        const k = String(f.name).toLowerCase().trim();
+        if (k === 'calories' || k === 'energy' || k === 'energy / calories') calFromFacts = extractMealNumStr(f.value);
+        else if (k === 'protein') protFromFacts = extractMealNumStr(f.value);
+        else if (k === 'dietary fiber' || k === 'fiber' || k === 'fibre') fibFromFacts = extractMealNumStr(f.value);
+        else if (k === 'total carbs' || k === 'carbs' || k === 'carbohydrates' || k === 'total carbohydrates') carbFromFacts = extractMealNumStr(f.value);
+        else if (k === 'healthy fats' || k === 'fats' || k === 'total fats' || k === 'fat' || k === 'total fat') fatFromFacts = extractMealNumStr(f.value);
+        else if (k === 'sodium') sodFromFacts = extractMealNumStr(f.value);
+        else customFacts.push({ name: f.name, value: f.value });
+      });
+
+      const calVal = extractMealNumStr(meal.calories) || calFromFacts || '400';
+      const protVal = extractMealNumStr(meal.protein) || protFromFacts || '25';
+      document.getElementById('singleMealCalories').value = calVal;
+      document.getElementById('singleMealProtein').value = protVal;
+      document.getElementById('singleMealFiber').value = fibFromFacts || extractMealNumStr(meal.fiber);
+      document.getElementById('singleMealCarbs').value = carbFromFacts || extractMealNumStr(meal.carbs);
+      document.getElementById('singleMealFats').value = fatFromFacts || extractMealNumStr(meal.fats ?? meal.fat);
+      document.getElementById('singleMealSodium').value = sodFromFacts || extractMealNumStr(meal.sodium);
       document.getElementById('singleMealPrep').value = String(meal.prepTime || '20').replace(/[^0-9]/g, '');
+      window.renderMealCustomNutritionEditor(customFacts);
       
       const mealImgRaw = meal.image || (Array.isArray(meal.images) ? meal.images[0] : '') || '';
       const mealImg = (typeof window.nutrolixResolveCatalogImage === 'function')
@@ -4772,6 +5017,7 @@
       document.getElementById('singleMealImageUrl').value = mealImgRaw;
       document.getElementById('singleMealDescription').value = meal.description || '';
       document.getElementById('singleMealInStock').checked = meal.inStock !== false;
+      window.renderMealHighlightsEditor(Array.isArray(meal.highlights) ? meal.highlights : []);
       window.renderMealVariantsEditor(Array.isArray(meal.variants) ? meal.variants : []);
       window.renderMealAddonsEditor(Array.isArray(meal.addons) ? meal.addons : []);
       

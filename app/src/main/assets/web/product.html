@@ -626,7 +626,7 @@
       // Non-blocking background fetch with no-store cache
       const host = window.NUTROLIX_API_HOST || '';
       if (window.location.protocol !== 'file:' || host) {
-        fetch(host + '/api/nutrition-products', { cache: 'no-store' })
+        fetch(host + '/api/nutrition-products?t=' + Date.now(), { cache: 'no-store' })
           .then(res => res.ok ? res.json() : null)
           .then(remoteList => {
             if (remoteList && Array.isArray(remoteList) && remoteList.length) {
@@ -734,21 +734,32 @@
         "NABL Accredited Third-Party Lab Certified"
       ]).map(f => `<li class="flex items-start space-x-2"><i class="fa-solid fa-check text-emerald-600 mt-0.5"></i><span>${f}</span></li>`).join('');
 
-      // Nutrition Facts Table
+      // Nutrition Facts Table (Supports both flat nutritionFacts and Admin-saved nutritionFacts.per100g)
       const nutBody = document.getElementById('nutritionTableBody');
       const facts = p.nutritionFacts || {};
+      const per100g = (facts && typeof facts.per100g === 'object' && facts.per100g) ? facts.per100g : {};
+      const formatFact = (flatVal, nestedVal, fallback, unit, zeroSuffix = '') => {
+        const raw = (nestedVal !== undefined && nestedVal !== null && String(nestedVal).trim() !== '')
+          ? nestedVal
+          : ((flatVal !== undefined && flatVal !== null && String(flatVal).trim() !== '') ? flatVal : fallback);
+        const s = String(raw).trim();
+        const numMatch = s.match(/-?\d+(?:\.\d+)?/);
+        const num = numMatch ? Number(numMatch[0]) : NaN;
+        const formatted = /[a-zA-Z]/.test(s) ? s : `${s} ${unit}`;
+        return (zeroSuffix && Number.isFinite(num) && num === 0) ? `${formatted} ${zeroSuffix}` : formatted;
+      };
       const rows = [
         ["Serving Size", facts.servingSize || "100g"],
-        ["Energy / Calories", (facts.calories || 360) + " kcal"],
-        ["Protein", (facts.protein || 30) + " g"],
-        ["Total Carbohydrates", (facts.carbs || 35) + " g"],
-        ["Dietary Fiber", (facts.dietaryFiber || 10) + " g"],
-        ["Total Sugars", (facts.totalSugar || 1.5) + " g"],
-        ["Added Sugars", (facts.addedSugar || 0.0) + " g (Zero)"],
-        ["Total Fats", (facts.fats || 4.2) + " g"],
-        ["Saturated Fat", (facts.saturatedFat || 0.6) + " g"],
-        ["Trans Fat", (facts.transFat || 0.0) + " g (Zero)"],
-        ["Sodium", (facts.sodium || 60) + " mg"]
+        ["Energy / Calories", formatFact(facts.calories, per100g.calories, 360, "kcal")],
+        ["Protein", formatFact(facts.protein, per100g.protein, 30, "g")],
+        ["Total Carbohydrates", formatFact(facts.carbs, per100g.carbs, 35, "g")],
+        ["Dietary Fiber", formatFact(facts.dietaryFiber, per100g.dietaryFiber, 10, "g")],
+        ["Total Sugars", formatFact(facts.totalSugar, per100g.totalSugar, 1.5, "g")],
+        ["Added Sugars", formatFact(facts.addedSugar, per100g.addedSugar, 0, "g", "(Zero)")],
+        ["Total Fats", formatFact(facts.fats ?? facts.fat, per100g.fat ?? per100g.fats, 4.2, "g")],
+        ["Saturated Fat", formatFact(facts.saturatedFat, per100g.saturatedFat, 0.6, "g")],
+        ["Trans Fat", formatFact(facts.transFat, per100g.transFat, 0, "g", "(Zero)")],
+        ["Sodium", formatFact(facts.sodium, per100g.sodium, 60, "mg")]
       ];
       nutBody.innerHTML = rows.map(([label, val]) => `
         <tr class="hover:bg-slate-50">
@@ -758,14 +769,15 @@
       `).join('');
 
       // Ingredients, Benefits, Usage
-      document.getElementById('tabIngredientsText').textContent = p.ingredients || "Whole Non-GMO plant matrix.";
-      document.getElementById('tabBenefitsList').innerHTML = (p.benefits || [
+      const ingDisplay = Array.isArray(p.ingredients) ? p.ingredients.filter(Boolean).join(', ') : (p.ingredients || '');
+      document.getElementById('tabIngredientsText').textContent = ingDisplay || "Whole Non-GMO plant matrix.";
+      document.getElementById('tabBenefitsList').innerHTML = (Array.isArray(p.benefits) && p.benefits.length ? p.benefits : [
         "Builds and sustains lean muscular tissues",
         "Zero glycemic insulin spike",
         "Encourages active microbial gut balance"
       ]).map(b => `<li class="flex items-start space-x-2"><i class="fa-solid fa-heart-pulse text-rose-500 mt-1"></i><span>${b}</span></li>`).join('');
-      document.getElementById('tabUsageText').textContent = p.usageInstructions || "Use daily as part of a wholesome balanced lifestyle.";
-      document.getElementById('tabStorageText').textContent = p.storageInstructions || "Store in an airtight container in a dry, cool cabinet.";
+      document.getElementById('tabUsageText').textContent = p.usageInstructions || p.howToUse || "Use daily as part of a wholesome balanced lifestyle.";
+      document.getElementById('tabStorageText').textContent = p.storageInstructions || p.storage || "Store in an airtight container in a dry, cool cabinet.";
 
       // Detailed Reviews (2-3-5 seed + live verified reviews)
       renderReviewsList(p);

@@ -41,7 +41,9 @@
     "image": "/assets/aistudio/image_6061bdc8.png",
     "reviews": [],
     "reviewCount": 0,
-    "rating": 4.9
+    "rating": 4.9,
+    "highlights": [],
+    "nutritionFacts": []
   },
   {
     "title": "Test Healthy Meal",

@@ -374,11 +374,11 @@
           <div id="modalDishAddonsList" class="space-y-2"></div>
         </div>
 
-        <!-- Key Bullet Points (Requirement 1) -->
-        <div class="bg-emerald-50/70 border border-emerald-200/60 rounded-2xl p-4 space-y-2">
+        <!-- Key Bullet Points (Nutrition Highlights) -->
+        <div id="modalDishHighlightsSection" class="bg-emerald-50/70 border border-emerald-200/60 rounded-2xl p-4 space-y-2">
           <h4 class="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center space-x-1.5">
             <i class="fa-solid fa-certificate text-emerald-600"></i>
-            <span>Clinical Nutrition Highlights:</span>
+            <span>Nutrition Highlights:</span>
           </h4>
           <ul id="modalDishHighlights" class="space-y-1.5 text-xs text-emerald-950 font-medium">
             <!-- Dynamic bullets -->
@@ -394,7 +394,7 @@
         </div>
 
         <!-- Nutrition Facts Table (Requirement 1) -->
-        <div class="border border-slate-200 rounded-2xl overflow-hidden">
+        <div id="modalDishNutritionSection" class="border border-slate-200 rounded-2xl overflow-hidden">
           <div class="bg-slate-900 text-white p-3 flex items-center justify-between">
             <div class="flex items-center space-x-2">
               <i class="fa-solid fa-chart-pie text-emerald-400 text-sm"></i>
@@ -1075,6 +1075,76 @@
       return out;
     }
 
+    function sanitizeMealHighlights(rawHighlights) {
+      if (Array.isArray(rawHighlights)) {
+        return rawHighlights.map(h => String(h || '').trim()).filter(Boolean);
+      }
+      if (typeof rawHighlights === 'string' && rawHighlights.trim()) {
+        return rawHighlights.split(/\r?\n|;/).map(s => s.trim()).filter(Boolean);
+      }
+      return [];
+    }
+
+    function sanitizeMealNutritionFacts(rawFacts, m = {}) {
+      const out = [];
+      const seen = new Set();
+      const pushRow = (nameRaw, valRaw) => {
+        const name = String(nameRaw || '').trim();
+        const value = String(valRaw ?? '').trim();
+        if (!name || !value) return;
+        const key = name.toLowerCase();
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({ name, value });
+      };
+
+      if (Array.isArray(rawFacts)) {
+        rawFacts.forEach(f => {
+          if (f && typeof f === 'object') pushRow(f.name || f.label || f.key, f.value);
+        });
+      } else if (rawFacts && typeof rawFacts === 'object') {
+        const src = (rawFacts.per100g && typeof rawFacts.per100g === 'object') ? { ...rawFacts, ...rawFacts.per100g } : rawFacts;
+        const map = [
+          ['calories', 'Calories', 'kcal'],
+          ['protein', 'Protein', 'g'],
+          ['dietaryFiber', 'Dietary Fiber', 'g'],
+          ['fiber', 'Dietary Fiber', 'g'],
+          ['carbs', 'Total Carbs', 'g'],
+          ['fats', 'Healthy Fats', 'g'],
+          ['fat', 'Healthy Fats', 'g'],
+          ['sodium', 'Sodium', 'mg']
+        ];
+        map.forEach(([k, label, unit]) => {
+          if (src[k] !== undefined && src[k] !== null && String(src[k]).trim() !== '') {
+            const s = String(src[k]).trim();
+            pushRow(label, /[a-zA-Z]/.test(s) ? s : `${s} ${unit}`);
+          }
+        });
+      }
+
+      if (out.length === 0) {
+        const formatVal = (val, unit) => {
+          if (val === undefined || val === null || String(val).trim() === '') return '';
+          const s = String(val).replace(/protein/i, '').trim();
+          if (!s) return '';
+          return /[a-zA-Z]/.test(s) ? s : `${s} ${unit}`;
+        };
+        const calV = formatVal(m.calories, 'kcal');
+        const protV = formatVal(m.protein, 'g');
+        const fibV = formatVal(m.fiber, 'g');
+        const carbV = formatVal(m.carbs, 'g');
+        const fatV = formatVal(m.fats ?? m.fat, 'g');
+        const sodV = formatVal(m.sodium, 'mg');
+        if (calV) pushRow('Calories', calV);
+        if (protV) pushRow('Protein', protV);
+        if (fibV) pushRow('Dietary Fiber', fibV);
+        if (carbV) pushRow('Total Carbs', carbV);
+        if (fatV) pushRow('Healthy Fats', fatV);
+        if (sodV) pushRow('Sodium', sodV);
+      }
+      return out;
+    }
+
     function normalizeMeal(m) {
       if (!m) return null;
       const name = m.name || m.title || 'Nutrolix Healthy Meal';
@@ -1084,6 +1154,8 @@
         : (rawImg || 'assets/aistudio/image_6061bdc8.png');
       const variants = sanitizeMealVariants(m.variants);
       const addons = sanitizeMealAddons(m.addons);
+      const highlights = sanitizeMealHighlights(m.highlights);
+      const nutritionFacts = sanitizeMealNutritionFacts(m.nutritionFacts, m);
       return {
         ...m,
         id: m.id || ('meal_' + Math.random().toString(36).substring(2, 8)),
@@ -1094,9 +1166,15 @@
         price: Number(m.price || 199),
         variants,
         addons,
-        protein: m.protein ? (String(m.protein).includes('g') ? m.protein : m.protein + 'g Protein') : '25g Protein',
-        calories: m.calories ? (String(m.calories).includes('kcal') ? m.calories : m.calories + ' kcal') : '350 kcal',
-        description: m.description || 'Clean, clinical-grade nutrition prepared fresh with zero palm oil.',
+        highlights,
+        nutritionFacts,
+        protein: m.protein !== undefined && m.protein !== null && String(m.protein).trim() !== ''
+          ? (String(m.protein).toLowerCase().includes('g') ? String(m.protein) : `${m.protein}g Protein`)
+          : '25g Protein',
+        calories: m.calories !== undefined && m.calories !== null && String(m.calories).trim() !== ''
+          ? (String(m.calories).toLowerCase().includes('kcal') ? String(m.calories) : `${m.calories} kcal`)
+          : '350 kcal',
+        description: m.description || 'Clean, wholesome nutrition prepared fresh with zero palm oil.',
         isVeg: m.isVeg !== undefined ? m.isVeg : (m.category !== 'Non-Veg Meals')
       };
     }
@@ -1391,23 +1469,44 @@
 
       renderModalCustomizationSections(dish);
 
-      // Populate Key Highlights Bullet Points (Requirement 1)
+      // Populate Key Highlights Bullet Points (Hide section cleanly when empty)
+      const escFood = (s) => String(s || '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+      const highlightsSection = document.getElementById('modalDishHighlightsSection');
       const highlightsList = document.getElementById('modalDishHighlights');
-      highlightsList.innerHTML = (dish.highlights || []).map(hl => `
-        <li class="flex items-start space-x-2">
-          <i class="fa-solid fa-circle-check text-emerald-600 mt-0.5 text-xs shrink-0"></i>
-          <span>${hl}</span>
-        </li>
-      `).join('');
+      const cleanHighlights = Array.isArray(dish.highlights) ? dish.highlights.filter(Boolean) : [];
+      if (highlightsSection && highlightsList) {
+        if (cleanHighlights.length > 0) {
+          highlightsSection.classList.remove('hidden');
+          highlightsList.innerHTML = cleanHighlights.map(hl => `
+            <li class="flex items-start space-x-2">
+              <i class="fa-solid fa-circle-check text-emerald-600 mt-0.5 text-xs shrink-0"></i>
+              <span>${escFood(hl)}</span>
+            </li>
+          `).join('');
+        } else {
+          highlightsSection.classList.add('hidden');
+          highlightsList.innerHTML = '';
+        }
+      }
 
-      // Populate Nutrition Facts Table (Requirement 1)
+      // Populate Nutrition Facts Table (Live Admin-synced Per Serving macros)
+      const nutritionSection = document.getElementById('modalDishNutritionSection');
       const nutritionGrid = document.getElementById('modalDishNutritionGrid');
-      nutritionGrid.innerHTML = (dish.nutritionFacts || []).map(f => `
-        <div class="p-3">
-          <span class="text-[10px] text-slate-400 uppercase font-black block">${f.name}</span>
-          <span class="text-sm font-black text-slate-900">${f.value}</span>
-        </div>
-      `).join('');
+      const cleanFacts = Array.isArray(dish.nutritionFacts) ? dish.nutritionFacts.filter(f => f && f.name && f.value) : [];
+      if (nutritionSection && nutritionGrid) {
+        if (cleanFacts.length > 0) {
+          nutritionSection.classList.remove('hidden');
+          nutritionGrid.innerHTML = cleanFacts.map(f => `
+            <div class="p-3">
+              <span class="text-[10px] text-slate-400 uppercase font-black block">${escFood(f.name)}</span>
+              <span class="text-sm font-black text-slate-900">${escFood(f.value)}</span>
+            </div>
+          `).join('');
+        } else {
+          nutritionSection.classList.add('hidden');
+          nutritionGrid.innerHTML = '';
+        }
+      }
 
       // Populate Customer Reviews Section (Requirement 1 + Live Verified Reviews)
       const renderModalReviews = (liveRevs = []) => {
@@ -1727,7 +1826,7 @@
       const host = window.NUTROLIX_API_HOST || '';
       if (window.location.protocol === 'file:' && !host) return;
       loadDynamicCategories();
-      fetch(host + '/api/food-menu', { cache: 'no-store' })
+      fetch(host + '/api/food-menu?t=' + Date.now(), { cache: 'no-store' })
         .then(r => r.ok ? r.json() : null)
         .then(meals => {
           if (Array.isArray(meals) && meals.length > 0) {
@@ -1736,6 +1835,18 @@
               localStorage.setItem('nutrolix_healthy_food_menu', JSON.stringify(meals));
             } catch (_) {}
             renderFoodMenu();
+            const modalEl = document.getElementById('foodDishDetailModal');
+            if (modalEl && !modalEl.classList.contains('hidden') && currentSelectedModalDish && currentSelectedModalDish.id) {
+              const preservedQty = modalSelectedQuantity;
+              const preservedVar = modalSelectedVariantIndex;
+              const preservedAddons = new Set(modalSelectedAddonIndices);
+              window.openFoodDetailModal(currentSelectedModalDish.id);
+              modalSelectedQuantity = preservedQty;
+              modalSelectedVariantIndex = preservedVar;
+              modalSelectedAddonIndices = preservedAddons;
+              renderModalCustomizationSections(currentSelectedModalDish);
+              updateModalPriceAndQty();
+            }
           }
         })
         .catch(() => {});

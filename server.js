@@ -216,6 +216,153 @@ async function loadAllMergedReviews() {
   });
 }
 
+function parseNumericNutritionValue(raw) {
+  if (raw === null || raw === undefined || raw === '') return null;
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
+  const m = String(raw).trim().match(/-?\d+(?:\.\d+)?/);
+  if (!m) return null;
+  const n = Number(m[0]);
+  return Number.isFinite(n) ? n : null;
+}
+
+function normalizePackagedNutritionFacts(rawFacts, fallbackObj = {}) {
+  const src = (rawFacts && typeof rawFacts === 'object' && !Array.isArray(rawFacts)) ? rawFacts : {};
+  const per = (src.per100g && typeof src.per100g === 'object') ? src.per100g : {};
+  const pick = (flatKey, perKey, fallbackKey) => {
+    const candidates = [
+      per[perKey],
+      src[flatKey],
+      perKey !== flatKey ? src[perKey] : undefined,
+      fallbackKey ? fallbackObj[fallbackKey] : undefined
+    ];
+    for (const c of candidates) {
+      const n = parseNumericNutritionValue(c);
+      if (n !== null) return n;
+    }
+    return null;
+  };
+  const servingSize = String(src.servingSize || '100g').trim() || '100g';
+  const calories = pick('calories', 'calories', 'calories');
+  const protein = pick('protein', 'protein', 'protein');
+  const carbs = pick('carbs', 'carbs', 'carbs');
+  const fats = pick('fats', 'fat', 'fat');
+  const dietaryFiber = pick('dietaryFiber', 'dietaryFiber', 'fiber');
+  const addedSugar = pick('addedSugar', 'addedSugar', 'sugar');
+  const totalSugar = pick('totalSugar', 'totalSugar', null);
+  const saturatedFat = pick('saturatedFat', 'saturatedFat', null);
+  const transFat = pick('transFat', 'transFat', null);
+  const sodium = pick('sodium', 'sodium', null);
+
+  if (
+    calories === null && protein === null && carbs === null &&
+    fats === null && dietaryFiber === null && addedSugar === null &&
+    totalSugar === null && saturatedFat === null && transFat === null && sodium === null
+  ) {
+    return rawFacts;
+  }
+
+  const normalized = {
+    ...src,
+    servingSize,
+    ...(calories !== null ? { calories } : {}),
+    ...(protein !== null ? { protein } : {}),
+    ...(carbs !== null ? { carbs } : {}),
+    ...(fats !== null ? { fats, fat: fats } : {}),
+    ...(dietaryFiber !== null ? { dietaryFiber } : {}),
+    ...(addedSugar !== null ? { addedSugar } : {}),
+    ...(totalSugar !== null ? { totalSugar } : {}),
+    ...(saturatedFat !== null ? { saturatedFat } : {}),
+    ...(transFat !== null ? { transFat } : {}),
+    ...(sodium !== null ? { sodium } : {}),
+    per100g: {
+      ...per,
+      ...(calories !== null ? { calories: `${calories} kcal` } : {}),
+      ...(protein !== null ? { protein: `${protein}g` } : {}),
+      ...(carbs !== null ? { carbs: `${carbs}g` } : {}),
+      ...(fats !== null ? { fat: `${fats}g` } : {}),
+      ...(dietaryFiber !== null ? { dietaryFiber: `${dietaryFiber}g` } : {}),
+      ...(addedSugar !== null ? { addedSugar: `${addedSugar}g` } : {})
+    }
+  };
+  return normalized;
+}
+
+function normalizeFoodHighlights(rawHighlights) {
+  if (!Array.isArray(rawHighlights)) {
+    if (typeof rawHighlights === 'string' && rawHighlights.trim()) {
+      return rawHighlights.split(/\r?\n|;/).map(s => s.trim()).filter(Boolean);
+    }
+    return [];
+  }
+  const seen = new Set();
+  const out = [];
+  for (const h of rawHighlights) {
+    const text = String(h || '').trim();
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(text);
+  }
+  return out;
+}
+
+function normalizeFoodNutritionFacts(rawFacts, item = {}) {
+  const out = [];
+  const seen = new Set();
+  const pushRow = (nameRaw, valRaw) => {
+    const name = String(nameRaw || '').trim();
+    const value = String(valRaw ?? '').trim();
+    if (!name || !value) return;
+    const key = name.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ name, value });
+  };
+
+  if (Array.isArray(rawFacts)) {
+    for (const row of rawFacts) {
+      if (!row || typeof row !== 'object') continue;
+      pushRow(row.name || row.label || row.key, row.value);
+    }
+  } else if (rawFacts && typeof rawFacts === 'object') {
+    const src = (rawFacts.per100g && typeof rawFacts.per100g === 'object') ? { ...rawFacts, ...rawFacts.per100g } : rawFacts;
+    const labelMap = [
+      ['calories', 'Calories', 'kcal'],
+      ['protein', 'Protein', 'g'],
+      ['dietaryFiber', 'Dietary Fiber', 'g'],
+      ['fiber', 'Dietary Fiber', 'g'],
+      ['carbs', 'Total Carbs', 'g'],
+      ['fats', 'Healthy Fats', 'g'],
+      ['fat', 'Healthy Fats', 'g'],
+      ['sodium', 'Sodium', 'mg']
+    ];
+    for (const [k, label, unit] of labelMap) {
+      if (src[k] !== undefined && src[k] !== null && String(src[k]).trim() !== '') {
+        const s = String(src[k]).trim();
+        pushRow(label, /[a-zA-Z]/.test(s) ? s : `${s} ${unit}`);
+      }
+    }
+  }
+
+  if (out.length === 0) {
+    const calN = parseNumericNutritionValue(item.calories);
+    const protN = parseNumericNutritionValue(item.protein);
+    const fibN = parseNumericNutritionValue(item.fiber);
+    const carbN = parseNumericNutritionValue(item.carbs);
+    const fatN = parseNumericNutritionValue(item.fats ?? item.fat);
+    const sodN = parseNumericNutritionValue(item.sodium);
+    if (calN !== null) pushRow('Calories', `${calN} kcal`);
+    if (protN !== null) pushRow('Protein', `${protN} g`);
+    if (fibN !== null) pushRow('Dietary Fiber', `${fibN} g`);
+    if (carbN !== null) pushRow('Total Carbs', `${carbN} g`);
+    if (fatN !== null) pushRow('Healthy Fats', `${fatN} g`);
+    if (sodN !== null) pushRow('Sodium', `${sodN} mg`);
+  }
+
+  return out;
+}
+
 function normalizeProductMediaFields(p, liveReviews = []) {
   if (!p || typeof p !== 'object') return p;
   const rawImgs = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
@@ -224,12 +371,14 @@ function normalizeProductMediaFields(p, liveReviews = []) {
   const finalImgs = realImgs.length ? realImgs : [DEFAULT_SAMPLE_IMAGE_URL];
   const variants = nutrolixCore.normalizeProductVariants(p.variants, p);
   const reviewSummary = nutrolixCore.computeProductReviewSummary(p, liveReviews);
+  const nutritionFacts = normalizePackagedNutritionFacts(p.nutritionFacts, p);
   return {
     ...p,
     images: finalImgs,
     image: finalImgs[0] || DEFAULT_SAMPLE_IMAGE_URL,
     variants,
     variantsConfigured: Boolean(p.variantsConfigured),
+    ...(nutritionFacts !== undefined ? { nutritionFacts } : {}),
     reviews: reviewSummary.reviews,
     reviewCount: reviewSummary.reviewCount,
     rating: reviewSummary.rating
@@ -250,8 +399,12 @@ function normalizeFoodMenuRecord(item, liveReviews = []) {
   if (!item || typeof item !== 'object') return item;
   const base = normalizeSingleImageRecord(item);
   const reviewSummary = nutrolixCore.computeProductReviewSummary(item, liveReviews);
+  const highlights = normalizeFoodHighlights(item.highlights);
+  const nutritionFacts = normalizeFoodNutritionFacts(item.nutritionFacts, item);
   return {
     ...base,
+    highlights,
+    nutritionFacts,
     variants: nutrolixCore.normalizeProductVariants(item.variants, { id: item.id, variantsConfigured: true }),
     addons: nutrolixCore.normalizeFoodAddons(item.addons),
     reviews: reviewSummary.reviews,
