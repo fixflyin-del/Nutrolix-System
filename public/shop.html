@@ -217,21 +217,21 @@
   </div>
 
 
-  <!-- Page Banner -->
-  <div class="bg-gradient-to-r from-nutro-forest via-emerald-900 to-slate-900 text-white py-10 px-4">
-    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+  <!-- Page Banner (Slim & Compact) -->
+  <div class="bg-gradient-to-r from-nutro-forest via-emerald-900 to-slate-900 text-white py-3.5 sm:py-4 px-4">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2">
       <div>
-        <div class="inline-flex items-center space-x-2 text-xs font-bold text-emerald-300 bg-white/10 px-3 py-1 rounded-full border border-white/15 mb-2">
+        <div class="inline-flex items-center space-x-1.5 text-[10px] sm:text-xs font-bold text-emerald-300 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/15 mb-1">
           <i class="fa-solid fa-certificate text-amber-400"></i>
           <span>100% CLINICAL GRADE PACKAGED NUTRITION</span>
         </div>
-        <h1 class="text-3xl sm:text-4xl font-black">Nutrition Store Catalog</h1>
-        <p class="text-slate-300 text-xs sm:text-sm mt-1 max-w-xl">
+        <h1 class="text-xl sm:text-2xl font-black leading-tight">Nutrition Store Catalog</h1>
+        <p class="text-slate-300 text-[11px] sm:text-xs mt-0.5 max-w-xl">
           All packaged functional foods, high protein flours, seed matrices, and wellness elixirs. 100% lab certified.
         </p>
       </div>
-      <div class="flex items-center space-x-3 text-xs text-slate-300">
-        <span class="px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-extrabold flex items-center space-x-1.5">
+      <div class="flex items-center space-x-2 text-[11px] text-slate-300">
+        <span class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-extrabold flex items-center space-x-1.5">
           <i class="fa-solid fa-shield-halved"></i>
           <span>FSSAI Lic. 21526024003044</span>
         </span>
@@ -240,10 +240,10 @@
   </div>
 
   <!-- Catalog Viewport Full-Width Products Grid -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-5 pb-8 flex-1 w-full">
     
     <!-- 6 Authorized Packaged Categories Filter Bar (Requirement 6) -->
-    <div class="mb-6 overflow-x-auto pb-2 scrollbar-none">
+    <div class="mb-4 overflow-x-auto pb-1 scrollbar-none">
       <div class="flex items-center space-x-2 min-w-max" id="packagedCategoryTabs">
         <button onclick="window.selectCategory('All', this)" class="shop-cat-btn active px-4 py-2 rounded-xl text-xs font-black bg-nutro-forest text-white shadow-sm transition shrink-0">
           All Products
@@ -266,17 +266,6 @@
         <button onclick="window.selectCategory('Body Building & Strength', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
           💪 Body Building & Strength
         </button>
-      </div>
-    </div>
-
-    <!-- Store Status Bar -->
-    <div class="bg-white p-4 rounded-2xl border border-slate-200 mb-6 flex items-center justify-between text-xs shadow-sm">
-      <div class="text-slate-700 font-bold">
-        Showing <span id="productsCount" class="text-slate-900 font-black text-sm">8</span> Lab-Tested Nutrition Products
-      </div>
-      <div class="text-xs text-emerald-700 font-bold flex items-center space-x-1.5">
-        <i class="fa-solid fa-shield-check text-emerald-600"></i>
-        <span>100% Direct Factory Dispatch</span>
       </div>
     </div>
 

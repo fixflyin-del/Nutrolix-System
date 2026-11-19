@@ -61,7 +61,12 @@ class AdminActivity : ComponentActivity() {
   ) { result ->
     if (result.resultCode == Activity.RESULT_OK) {
       val data = result.data
-      val uris = WebChromeClient.FileChooserParams.parseResult(result.resultCode, data)
+      val clipData = data?.clipData
+      val uris = if (clipData != null && clipData.itemCount > 0) {
+        Array(clipData.itemCount) { i -> clipData.getItemAt(i).uri }
+      } else {
+        WebChromeClient.FileChooserParams.parseResult(result.resultCode, data)
+      }
       filePathCallback?.onReceiveValue(uris)
     } else {
       filePathCallback?.onReceiveValue(null)
@@ -89,6 +94,9 @@ class AdminActivity : ComponentActivity() {
             filePathCallback = callback
             try {
               val intent = params.createIntent()
+              if (params.mode == WebChromeClient.FileChooserParams.MODE_OPEN_MULTIPLE) {
+                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+              }
               fileChooserLauncher.launch(intent)
               true
             } catch (_: Exception) {

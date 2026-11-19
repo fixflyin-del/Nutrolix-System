@@ -1366,7 +1366,7 @@ test('Unique Cloudinary filenames (no blob.webp overwrite), progress bars, and s
 
   // 4. Admin progress bars & single deduplicated toast notification (zero alert() spam on image/product upload)
   for (const id of [
-    'pkgImgProgressWrap1', 'pkgImgProgressWrap2', 'pkgImgProgressWrap3', 'pkgImgProgressWrap4', 'pkgImgProgressWrap5',
+    'pkgMultiUploadProgressWrap',
     'pkgSaveProgressWrap', 'singleMealProgressWrap', 'mealSaveProgressWrap',
     'adminHeroProgressWrap1', 'adminHeroProgressWrap2', 'adminHeroProgressWrap3', 'heroSaveProgressWrap',
     'blogImageProgressWrap', 'blogSaveProgressWrap', 'bannerImageProgressWrap', 'bannerSaveProgressWrap',
@@ -1711,6 +1711,55 @@ test('Product detail removes thumbnail hint, enforces 2-3-5 reviews + Admin revi
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('Slim shop banner, removed factory dispatch bar, unified 5-image multi-upload with reorder & auto-save, and square user product images', () => {
+  const rootDir = path.join(__dirname, '..');
+
+  // 1. Shop page removes status bar & slims down dark green Nutrition Store Catalog banner
+  for (const rel of ['public/shop.html', 'app/src/main/assets/web/shop.html']) {
+    const shopHtml = fs.readFileSync(path.join(rootDir, rel), 'utf8');
+    assert.equal(shopHtml.includes('100% Direct Factory Dispatch'), false, `${rel} must not contain removed Direct Factory Dispatch bar`);
+    assert.equal(shopHtml.includes('Lab-Tested Nutrition Products'), false, `${rel} must not contain removed Showing X Lab-Tested Nutrition Products bar`);
+    assert.ok(shopHtml.includes('py-3.5 sm:py-4 px-4'), `${rel} must use slim Nutrition Store Catalog banner padding`);
+    assert.ok(shopHtml.includes('relative aspect-square overflow-hidden bg-slate-100'), `${rel} product cards must use 1:1 square images`);
+  }
+
+  // 2. User product detail & homepage hero showcase use 1:1 square product images (not rectangular)
+  for (const rel of ['public/product.html', 'app/src/main/assets/web/product.html']) {
+    const prodHtml = fs.readFileSync(path.join(rootDir, rel), 'utf8');
+    assert.ok(prodHtml.includes('id="mainImageContainer"') && prodHtml.includes('aspect-square'), `${rel} main product image container must be 1:1 square`);
+    assert.equal(prodHtml.includes('min-h-[280px] max-h-[380px]'), false, `${rel} must not use rectangular main image height`);
+  }
+  for (const rel of ['public/index.html', 'app/src/main/assets/web/index.html']) {
+    const idxHtml = fs.readFileSync(path.join(rootDir, rel), 'utf8');
+    assert.ok(idxHtml.includes('id="heroShowcaseLinkImg" class="block aspect-square'), `${rel} hero showcase must use 1:1 square image`);
+    assert.equal(idxHtml.includes('h-64 sm:h-72 object-cover rounded-2xl'), false, `${rel} must not use rectangular hero showcase image`);
+  }
+
+  // 3. Admin Panel unified 5-image multi-upload, up/down & drag reorder, scrollable list, and auto-save
+  for (const rel of ['public/admin.html', 'app/src/main/assets/web/admin.html']) {
+    const adminHtml = fs.readFileSync(path.join(rootDir, rel), 'utf8');
+    for (const marker of [
+      'id="pkgMultiImageInput" accept="image/*" multiple',
+      'id="pkgMultiUploadProgressWrap"',
+      'id="pkgImagesSortableList"',
+      'id="pkgImgAutoSaveBadge"',
+      'handlePkgMultiImageUpload',
+      'movePkgImage',
+      'reorderPkgImage',
+      'scheduleAutoSavePkgImages',
+      'autoSavePkgProductImages'
+    ]) {
+      assert.ok(adminHtml.includes(marker), `${rel} missing ${marker}`);
+    }
+    assert.equal(adminHtml.includes('id="pkgImg1"'), false, `${rel} must replace separate 5 slots with unified multi-upload`);
+  }
+
+  // 4. Android Admin APK WebView file chooser supports multi-image selection (EXTRA_ALLOW_MULTIPLE + clipData)
+  const adminKt = fs.readFileSync(path.join(rootDir, 'app/src/main/java/com/example/AdminActivity.kt'), 'utf8');
+  assert.ok(adminKt.includes('Intent.EXTRA_ALLOW_MULTIPLE') && adminKt.includes('data?.clipData'), 'AdminActivity.kt must support multi-file selection in WebView');
+});
+
 
 
 
