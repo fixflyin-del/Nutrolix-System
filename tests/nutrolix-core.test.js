@@ -1941,6 +1941,85 @@ test('Healthy Food Nutrition Highlights (no Clinical word) & Nutrition Facts Adm
   }
 });
 
+test('Healthy Food bulk-paste 5 Nutrition Highlights and strictly optional Calories, Protein & Nutrition Facts', async () => {
+  const rootDir = path.join(__dirname, '..');
+
+  // 1. Admin & User UI checks across Web and Android assets
+  for (const base of ['public', 'app/src/main/assets/web']) {
+    const adminHtml = fs.readFileSync(path.join(rootDir, base, 'admin.html'), 'utf8');
+    assert.ok(adminHtml.includes('id="singleMealHighlightsBulk"'), `${base}/admin.html must include bulk-paste highlights textarea`);
+    assert.ok(adminHtml.includes('window.parseBulkMealHighlights'), `${base}/admin.html must define parseBulkMealHighlights`);
+    assert.ok(adminHtml.includes('id="mealHighlightsCountBadge"'), `${base}/admin.html must show live highlight point count badge`);
+    assert.equal(/id="singleMealCalories"[^>]*\brequired\b/.test(adminHtml), false, `${base}/admin.html singleMealCalories must be optional (no required attribute)`);
+    assert.equal(/id="singleMealProtein"[^>]*\brequired\b/.test(adminHtml), false, `${base}/admin.html singleMealProtein must be optional (no required attribute)`);
+    assert.ok(adminHtml.includes('Nutrition Facts (Per Serving — Optional)'), `${base}/admin.html must mark Nutrition Facts as optional`);
+
+    const foodHtml = fs.readFileSync(path.join(rootDir, base, 'food.html'), 'utf8');
+    assert.equal(foodHtml.includes(": '25g Protein'"), false, `${base}/food.html must not fabricate default '25g Protein' when blank`);
+    assert.equal(foodHtml.includes(": '350 kcal'"), false, `${base}/food.html must not fabricate default '350 kcal' when blank`);
+    assert.ok(foodHtml.includes("macroPillEl.classList.add('hidden')"), `${base}/food.html must hide modal macro pill when calories & protein are blank`);
+    assert.ok(foodHtml.includes("nutritionSection.classList.add('hidden')"), `${base}/food.html must hide Nutrition Facts section when empty`);
+  }
+
+  // 2. Live HTTP roundtrip: 5 bulk-pasted highlights (with bullet/number prefixes) + completely empty nutrition/calories/protein
+  const foodFile = path.join(rootDir, 'public/data/healthy_food_menu.json');
+  const origFood = fs.existsSync(foodFile) ? fs.readFileSync(foodFile, 'utf8') : null;
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  try {
+    const optionalMealId = 'meal_optional_nutr_' + Date.now();
+    const postRes = await fetch(`${baseUrl}/api/food-menu`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: optionalMealId,
+        name: 'Pure Fruit Bowl',
+        category: 'Fresh Salads',
+        price: 149,
+        calories: '',
+        protein: '',
+        fiber: '',
+        carbs: '',
+        fats: '',
+        sodium: '',
+        nutritionFacts: [],
+        nutritionConfigured: true,
+        highlights: [
+          '1. 100% Seasonal Farm-Fresh Cut Fruits',
+          '• Zero Added Sugar or Syrups',
+          '✓ Rich in Natural Antioxidants & Vitamin C',
+          '- Freshly Cut Just Before Dispatch',
+          '5) Naturally Hydrating & Light on Digestion'
+        ]
+      })
+    });
+    assert.equal(postRes.status, 200);
+
+    const getRes = await fetch(`${baseUrl}/api/food-menu`);
+    assert.equal(getRes.status, 200);
+    const meals = await getRes.json();
+    const saved = meals.find(m => m.id === optionalMealId);
+    assert.ok(saved, 'Saved optional-nutrition meal must exist');
+    assert.deepEqual(saved.highlights, [
+      '100% Seasonal Farm-Fresh Cut Fruits',
+      'Zero Added Sugar or Syrups',
+      'Rich in Natural Antioxidants & Vitamin C',
+      'Freshly Cut Just Before Dispatch',
+      'Naturally Hydrating & Light on Digestion'
+    ]);
+    assert.equal(saved.calories, '');
+    assert.equal(saved.protein, '');
+    assert.deepEqual(saved.nutritionFacts, []);
+  } finally {
+    if (origFood !== null) fs.writeFileSync(foodFile, origFood, 'utf8');
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+
 
 
 

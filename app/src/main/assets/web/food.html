@@ -1102,6 +1102,7 @@
         rawFacts.forEach(f => {
           if (f && typeof f === 'object') pushRow(f.name || f.label || f.key, f.value);
         });
+        if (m && m.nutritionConfigured) return out;
       } else if (rawFacts && typeof rawFacts === 'object') {
         const src = (rawFacts.per100g && typeof rawFacts.per100g === 'object') ? { ...rawFacts, ...rawFacts.per100g } : rawFacts;
         const map = [
@@ -1169,11 +1170,11 @@
         highlights,
         nutritionFacts,
         protein: m.protein !== undefined && m.protein !== null && String(m.protein).trim() !== ''
-          ? (String(m.protein).toLowerCase().includes('g') ? String(m.protein) : `${m.protein}g Protein`)
-          : '25g Protein',
+          ? (String(m.protein).toLowerCase().includes('g') ? String(m.protein).trim() : `${String(m.protein).trim()}g Protein`)
+          : '',
         calories: m.calories !== undefined && m.calories !== null && String(m.calories).trim() !== ''
-          ? (String(m.calories).toLowerCase().includes('kcal') ? String(m.calories) : `${m.calories} kcal`)
-          : '350 kcal',
+          ? (String(m.calories).toLowerCase().includes('kcal') ? String(m.calories).trim() : `${String(m.calories).trim()} kcal`)
+          : '',
         description: m.description || 'Clean, wholesome nutrition prepared fresh with zero palm oil.',
         isVeg: m.isVeg !== undefined ? m.isVeg : (m.category !== 'Non-Veg Meals')
       };
@@ -1238,10 +1239,13 @@
                 <div class="w-2.5 h-2.5 rounded-full ${item.isVeg ? 'bg-emerald-600' : 'bg-rose-600'}"></div>
               </div>
 
-              <!-- Macro Nutritional Tag -->
-              <span class="absolute bottom-2 left-2 bg-slate-900/90 backdrop-blur-sm text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-lg border border-white/10">
-                ${item.protein} • ${item.calories}
-              </span>
+              <!-- Macro Nutritional Tag (Hidden when Admin leaves Protein & Calories blank) -->
+              ${(() => {
+                const macroText = [item.protein, item.calories].filter(Boolean).join(' • ');
+                return macroText
+                  ? `<span class="absolute bottom-2 left-2 bg-slate-900/90 backdrop-blur-sm text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-lg border border-white/10">${macroText}</span>`
+                  : '';
+              })()}
 
               <!-- Tap to view details hint -->
               <span class="absolute top-2.5 right-2.5 bg-white/90 backdrop-blur-sm text-slate-700 text-[9px] font-black px-2 py-0.5 rounded-md shadow-sm">
@@ -1451,7 +1455,17 @@
         document.getElementById('modalDishImage').src = dish.image;
       }
       document.getElementById('modalDishImage').alt = dish.name;
-      document.getElementById('modalDishMacroPill').textContent = `${dish.protein} • ${dish.calories}`;
+      const macroPillEl = document.getElementById('modalDishMacroPill');
+      const modalMacroText = [dish.protein, dish.calories].filter(Boolean).join(' • ');
+      if (macroPillEl) {
+        if (modalMacroText) {
+          macroPillEl.textContent = modalMacroText;
+          macroPillEl.classList.remove('hidden');
+        } else {
+          macroPillEl.textContent = '';
+          macroPillEl.classList.add('hidden');
+        }
+      }
       document.getElementById('modalDishTitle').textContent = dish.name;
       document.getElementById('modalDishPrice').textContent = `₹${(Array.isArray(dish.variants) && dish.variants.length) ? dish.variants[0].price : dish.price}`;
       document.getElementById('modalDishDescription').textContent = dish.description;
@@ -1797,10 +1811,12 @@
                   <span class="text-[9px] font-bold text-emerald-800 uppercase tracking-wider truncate">${dish.category}</span>
                 </div>
                 <h4 class="text-xs font-black text-slate-900 truncate">${dish.name}</h4>
+                ${(dish.protein || dish.calories) ? `
                 <div class="flex items-center space-x-2 text-[10px] font-bold text-slate-500 mt-0.5">
-                  <span class="text-emerald-700 bg-emerald-100/70 px-1.5 py-0.2 rounded">${dish.protein}</span>
-                  <span>${dish.calories}</span>
+                  ${dish.protein ? `<span class="text-emerald-700 bg-emerald-100/70 px-1.5 py-0.2 rounded">${dish.protein}</span>` : ''}
+                  ${dish.calories ? `<span>${dish.calories}</span>` : ''}
                 </div>
+                ` : ''}
               </div>
             </div>
             <div class="flex flex-col items-end shrink-0 ml-3">

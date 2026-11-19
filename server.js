@@ -288,16 +288,16 @@ function normalizePackagedNutritionFacts(rawFacts, fallbackObj = {}) {
 }
 
 function normalizeFoodHighlights(rawHighlights) {
-  if (!Array.isArray(rawHighlights)) {
-    if (typeof rawHighlights === 'string' && rawHighlights.trim()) {
-      return rawHighlights.split(/\r?\n|;/).map(s => s.trim()).filter(Boolean);
-    }
-    return [];
-  }
+  const rawList = Array.isArray(rawHighlights)
+    ? rawHighlights
+    : (typeof rawHighlights === 'string' && rawHighlights.trim()
+      ? rawHighlights.split(/\r?\n|;/)
+      : []);
   const seen = new Set();
   const out = [];
-  for (const h of rawHighlights) {
-    const text = String(h || '').trim();
+  for (const h of rawList) {
+    let text = String(h || '').trim();
+    text = text.replace(/^[\s•·▪▸►➤✓✔✅☑️\-–—*]+/, '').replace(/^\d+[\.\)\-:\s]+/, '').trim();
     if (!text) continue;
     const key = text.toLowerCase();
     if (seen.has(key)) continue;
@@ -324,6 +324,9 @@ function normalizeFoodNutritionFacts(rawFacts, item = {}) {
     for (const row of rawFacts) {
       if (!row || typeof row !== 'object') continue;
       pushRow(row.name || row.label || row.key, row.value);
+    }
+    if (item && item.nutritionConfigured) {
+      return out;
     }
   } else if (rawFacts && typeof rawFacts === 'object') {
     const src = (rawFacts.per100g && typeof rawFacts.per100g === 'object') ? { ...rawFacts, ...rawFacts.per100g } : rawFacts;

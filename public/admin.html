@@ -1391,25 +1391,25 @@
         </div>
         <div class="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
           <div>
-            <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Calories (kcal)</label>
-            <input type="number" step="1" id="singleMealCalories" required placeholder="420" class="w-full px-2 py-1 text-xs rounded border border-slate-300">
+            <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Calories (kcal) <span class="text-slate-400 font-normal">(Opt.)</span></label>
+            <input type="number" step="1" id="singleMealCalories" placeholder="Optional" class="w-full px-2 py-1 text-xs rounded border border-slate-300 bg-white">
           </div>
           <div>
-            <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Protein (g)</label>
-            <input type="number" step="0.1" id="singleMealProtein" required placeholder="32" class="w-full px-2 py-1 text-xs rounded border border-slate-300">
+            <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Protein (g) <span class="text-slate-400 font-normal">(Opt.)</span></label>
+            <input type="number" step="0.1" id="singleMealProtein" placeholder="Optional" class="w-full px-2 py-1 text-xs rounded border border-slate-300 bg-white">
           </div>
           <div>
             <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Prep Time (min)</label>
-            <input type="number" id="singleMealPrep" placeholder="20" class="w-full px-2 py-1 text-xs rounded border border-slate-300">
+            <input type="number" id="singleMealPrep" placeholder="20" class="w-full px-2 py-1 text-xs rounded border border-slate-300 bg-white">
           </div>
         </div>
 
-        <!-- Nutrition Facts (Per Serving) — Syncs Live to Healthy Food Store -->
+        <!-- Nutrition Facts (Per Serving — Optional) — Hidden on User App when left blank -->
         <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3 space-y-2">
           <div class="flex items-center justify-between gap-2">
             <div>
-              <span class="block text-xs font-black text-slate-800">Nutrition Facts (Per Serving)</span>
-              <span class="block text-[10px] text-slate-500">Calories &amp; Protein auto-sync from above. Add Fiber, Carbs, Fats, Sodium or custom nutrients.</span>
+              <span class="block text-xs font-black text-slate-800">Nutrition Facts (Per Serving — Optional)</span>
+              <span class="block text-[10px] text-slate-500">Leave blank if not needed — Nutrition Facts won't show to users when empty.</span>
             </div>
             <button type="button" id="btnAddMealNutritionRow" onclick="window.addMealNutritionRow()" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-[11px] font-bold flex items-center space-x-1 shrink-0">
               <i class="fa-solid fa-plus text-[10px]"></i>
@@ -1419,19 +1419,19 @@
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <div>
               <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Dietary Fiber (g)</label>
-              <input type="number" step="0.1" id="singleMealFiber" placeholder="11" class="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white">
+              <input type="number" step="0.1" id="singleMealFiber" placeholder="Optional" class="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white">
             </div>
             <div>
               <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Total Carbs (g)</label>
-              <input type="number" step="0.1" id="singleMealCarbs" placeholder="38" class="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white">
+              <input type="number" step="0.1" id="singleMealCarbs" placeholder="Optional" class="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white">
             </div>
             <div>
               <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Healthy Fats (g)</label>
-              <input type="number" step="0.1" id="singleMealFats" placeholder="12" class="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white">
+              <input type="number" step="0.1" id="singleMealFats" placeholder="Optional" class="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white">
             </div>
             <div>
               <label class="block text-[10px] font-bold text-slate-600 mb-0.5">Sodium (mg)</label>
-              <input type="number" step="1" id="singleMealSodium" placeholder="180" class="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white">
+              <input type="number" step="1" id="singleMealSodium" placeholder="Optional" class="w-full px-2 py-1 text-xs rounded-lg border border-slate-300 bg-white">
             </div>
           </div>
           <div id="mealCustomNutritionEditorList" class="space-y-1.5"></div>
@@ -1467,19 +1467,24 @@
           <textarea id="singleMealDescription" rows="2" placeholder="Freshly prepared with cold-pressed olive oil..." class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300"></textarea>
         </div>
 
-        <!-- Nutrition Highlights (Bullet Points) — Syncs Live to Healthy Food Store -->
+        <!-- Nutrition Highlights (Bullet Points) — Paste 5 Points at Once -->
         <div class="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-3 space-y-2">
           <div class="flex items-center justify-between gap-2">
             <div>
               <span class="block text-xs font-black text-emerald-950">Nutrition Highlights (Bullet Points)</span>
-              <span class="block text-[10px] text-emerald-800/80">Shown under "Nutrition Highlights" on the Healthy Food dish card.</span>
+              <span class="block text-[10px] text-emerald-800/80">Paste all 5 points at once (1 point per line) — bullets/numbers auto-clean.</span>
             </div>
-            <button type="button" id="btnAddMealHighlightRow" onclick="window.addMealHighlightRow()" class="px-2.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-bold flex items-center space-x-1 shrink-0">
-              <i class="fa-solid fa-plus text-[10px]"></i>
-              <span>Add Point</span>
-            </button>
+            <div class="flex items-center space-x-1.5 shrink-0">
+              <span id="mealHighlightsCountBadge" class="px-2 py-1 rounded-lg bg-white border border-emerald-200 text-[10px] font-black text-emerald-800">0 points</span>
+              <button type="button" id="btnAddMealHighlightRow" onclick="window.addMealHighlightRow()" class="px-2 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-[10px] font-bold flex items-center space-x-1">
+                <i class="fa-solid fa-plus text-[9px]"></i>
+                <span>Add</span>
+              </button>
+              <button type="button" onclick="window.clearMealHighlightsBulk()" class="px-2 py-1 rounded-lg bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-[10px] font-bold">Clear</button>
+            </div>
           </div>
-          <div id="mealHighlightsEditorList" class="space-y-1.5"></div>
+          <textarea id="singleMealHighlightsBulk" rows="5" oninput="window.syncMealHighlightsPreview()" onpaste="setTimeout(() => window.syncMealHighlightsPreview(), 0)" placeholder="Paste all 5 bullet points together (1 per line):&#10;34g Bioavailable Plant &amp; Dairy Protein per bowl&#10;Zero Palm Oil, Zero Refined Flours, Zero Sugar&#10;Tri-Color Organic Quinoa with Complete Amino Acid Profile&#10;Slow-burning low-GI complex carbohydrates for sustained energy&#10;Rich in natural magnesium, zinc, and dietary fiber" class="w-full px-3 py-2 text-xs rounded-xl border border-emerald-200 bg-white font-medium leading-relaxed"></textarea>
+          <div id="mealHighlightsEditorList" class="space-y-1"></div>
         </div>
 
         <!-- Portion / Meal Variants (Optional) -->
@@ -4526,8 +4531,19 @@
           <td class="p-3.5 text-xs text-slate-600 font-medium">${m.category}</td>
           <td class="p-3.5 font-black text-slate-900 text-xs">₹${m.price}</td>
           <td class="p-3.5 text-xs">
-            <span class="font-bold text-amber-700">${m.calories} kcal</span> • 
-            <span class="font-extrabold text-emerald-700">${m.protein}g P</span>
+            ${(() => {
+              const calStr = (m.calories !== undefined && m.calories !== null && String(m.calories).trim() !== '')
+                ? (String(m.calories).toLowerCase().includes('kcal') ? String(m.calories).trim() : `${m.calories} kcal`)
+                : '';
+              const protStr = (m.protein !== undefined && m.protein !== null && String(m.protein).trim() !== '')
+                ? (String(m.protein).toLowerCase().includes('g') ? String(m.protein).trim() : `${m.protein}g P`)
+                : '';
+              if (!calStr && !protStr) return '<span class="text-slate-400 italic">Not set</span>';
+              const parts = [];
+              if (calStr) parts.push(`<span class="font-bold text-amber-700">${calStr}</span>`);
+              if (protStr) parts.push(`<span class="font-extrabold text-emerald-700">${protStr}</span>`);
+              return parts.join(' • ');
+            })()}
           </td>
           <td class="p-3.5 text-xs text-slate-500">${m.prepTime || '20 mins'}</td>
           <td class="p-3.5">
@@ -4677,48 +4693,71 @@
       return m ? m[0] : '';
     }
 
-    window.renderMealHighlightsEditor = function(highlights = []) {
+    window.parseBulkMealHighlights = function(rawText) {
+      const lines = String(rawText || '').split(/\r?\n/);
+      const out = [];
+      const seen = new Set();
+      for (const rawLine of lines) {
+        let cleaned = String(rawLine || '').trim();
+        // Strip leading bullets, checkmarks, dashes, or numbered prefixes (e.g. "1.", "2)", "•", "✓", "-")
+        cleaned = cleaned.replace(/^[\s•·▪▸►➤✓✔✅☑️\-–—*]+/, '').replace(/^\d+[\.\)\-:\s]+/, '').trim();
+        if (!cleaned) continue;
+        const key = cleaned.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push(cleaned);
+      }
+      return out;
+    };
+
+    window.syncMealHighlightsPreview = function() {
+      const ta = document.getElementById('singleMealHighlightsBulk');
+      const badge = document.getElementById('mealHighlightsCountBadge');
       const list = document.getElementById('mealHighlightsEditorList');
+      const points = window.parseBulkMealHighlights(ta ? ta.value : '');
+      if (badge) badge.innerText = `${points.length} point${points.length === 1 ? '' : 's'}`;
       if (!list) return;
-      list.innerHTML = '';
-      const arr = Array.isArray(highlights) ? highlights.map(h => String(h || '').trim()).filter(Boolean) : [];
-      if (!arr.length) {
-        list.innerHTML = '<p class="text-[10px] text-emerald-800/70 italic px-1" data-empty-highlights>No nutrition highlights added yet. Click "+ Add Point" to add bullet points.</p>';
+      if (!points.length) {
+        list.innerHTML = '<p class="text-[10px] text-emerald-800/70 italic px-1">Optional — paste 5 points above (1 per line) or leave empty to hide Nutrition Highlights.</p>';
         return;
       }
-      arr.forEach(text => window.addMealHighlightRow(text));
+      list.innerHTML = points.map((pt, idx) => `
+        <div class="flex items-start space-x-1.5 text-[11px] text-emerald-950 bg-white/80 border border-emerald-100 rounded-lg px-2 py-1">
+          <span class="text-[10px] font-black text-emerald-600 mt-0.5 shrink-0">${idx + 1}.</span>
+          <span class="font-medium leading-snug">${escMealAttr(pt)}</span>
+        </div>
+      `).join('');
+    };
+
+    window.clearMealHighlightsBulk = function() {
+      const ta = document.getElementById('singleMealHighlightsBulk');
+      if (ta) ta.value = '';
+      window.syncMealHighlightsPreview();
+    };
+
+    window.renderMealHighlightsEditor = function(highlights = []) {
+      const ta = document.getElementById('singleMealHighlightsBulk');
+      const arr = Array.isArray(highlights) ? highlights.map(h => String(h || '').trim()).filter(Boolean) : [];
+      if (ta) ta.value = arr.join('\n');
+      window.syncMealHighlightsPreview();
     };
 
     window.addMealHighlightRow = function(text = '') {
-      const list = document.getElementById('mealHighlightsEditorList');
-      if (!list) return;
-      const emptyMsg = list.querySelector('[data-empty-highlights]');
-      if (emptyMsg) emptyMsg.remove();
-      const row = document.createElement('div');
-      row.className = 'meal-highlight-row flex items-center gap-1.5';
-      row.innerHTML = `
-        <i class="fa-solid fa-circle-check text-emerald-600 text-xs shrink-0"></i>
-        <input type="text" data-meal-highlight-text value="${escMealAttr(text)}" placeholder="e.g. Zero Palm Oil, Zero Refined Flours, Zero Sugar" class="flex-1 px-2.5 py-1.5 text-xs rounded-xl border border-emerald-200 bg-white font-medium">
-        <button type="button" onclick="this.closest('.meal-highlight-row').remove(); if(!document.querySelector('#mealHighlightsEditorList .meal-highlight-row')) window.renderMealHighlightsEditor([]);" class="w-7 h-7 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 flex items-center justify-center text-xs shrink-0" title="Remove point">
-          <i class="fa-solid fa-xmark"></i>
-        </button>
-      `;
-      list.appendChild(row);
+      const ta = document.getElementById('singleMealHighlightsBulk');
+      if (!ta) return;
+      const clean = String(text || '').trim();
+      if (clean) {
+        ta.value = ta.value.trim() ? `${ta.value.trim()}\n${clean}` : clean;
+      } else {
+        if (ta.value.trim() && !ta.value.endsWith('\n')) ta.value += '\n';
+        ta.focus();
+      }
+      window.syncMealHighlightsPreview();
     };
 
     window.readMealHighlightsFromForm = function() {
-      const rows = document.querySelectorAll('#mealHighlightsEditorList .meal-highlight-row');
-      const out = [];
-      const seen = new Set();
-      rows.forEach(row => {
-        const val = (row.querySelector('[data-meal-highlight-text]')?.value || '').trim();
-        if (!val) return;
-        const key = val.toLowerCase();
-        if (seen.has(key)) return;
-        seen.add(key);
-        out.push(val);
-      });
-      return out;
+      const ta = document.getElementById('singleMealHighlightsBulk');
+      return window.parseBulkMealHighlights(ta ? ta.value : '');
     };
 
     window.renderMealCustomNutritionEditor = function(rows = []) {
@@ -4759,15 +4798,16 @@
         facts.push({ name: cleanName, value: formatted });
       };
 
-      const calRaw = document.getElementById('singleMealCalories')?.value;
-      const protRaw = document.getElementById('singleMealProtein')?.value;
-      const fibRaw = document.getElementById('singleMealFiber')?.value;
-      const carbRaw = document.getElementById('singleMealCarbs')?.value;
-      const fatRaw = document.getElementById('singleMealFats')?.value;
-      const sodRaw = document.getElementById('singleMealSodium')?.value;
+      const calRaw = (document.getElementById('singleMealCalories')?.value || '').trim();
+      const protRaw = (document.getElementById('singleMealProtein')?.value || '').trim();
+      const fibRaw = (document.getElementById('singleMealFiber')?.value || '').trim();
+      const carbRaw = (document.getElementById('singleMealCarbs')?.value || '').trim();
+      const fatRaw = (document.getElementById('singleMealFats')?.value || '').trim();
+      const sodRaw = (document.getElementById('singleMealSodium')?.value || '').trim();
 
-      pushFact('Calories', calRaw !== '' ? calRaw : '400', 'kcal');
-      pushFact('Protein', protRaw !== '' ? protRaw : '25', 'g');
+      // Strictly optional: only include fields that Admin actually filled in
+      pushFact('Calories', calRaw, 'kcal');
+      pushFact('Protein', protRaw, 'g');
       pushFact('Dietary Fiber', fibRaw, 'g');
       pushFact('Total Carbs', carbRaw, 'g');
       pushFact('Healthy Fats', fatRaw, 'g');
@@ -4874,15 +4914,19 @@
       const highlights = window.readMealHighlightsFromForm();
       const nutritionFacts = window.readMealNutritionFactsFromForm();
 
-      const calRaw = document.getElementById('singleMealCalories').value;
-      const protRaw = document.getElementById('singleMealProtein').value;
-      const fibRaw = document.getElementById('singleMealFiber').value;
-      const carbRaw = document.getElementById('singleMealCarbs').value;
-      const fatRaw = document.getElementById('singleMealFats').value;
-      const sodRaw = document.getElementById('singleMealSodium').value;
+      const calRaw = (document.getElementById('singleMealCalories').value || '').trim();
+      const protRaw = (document.getElementById('singleMealProtein').value || '').trim();
+      const fibRaw = (document.getElementById('singleMealFiber').value || '').trim();
+      const carbRaw = (document.getElementById('singleMealCarbs').value || '').trim();
+      const fatRaw = (document.getElementById('singleMealFats').value || '').trim();
+      const sodRaw = (document.getElementById('singleMealSodium').value || '').trim();
 
-      const calNum = (calRaw !== '' && Number.isFinite(Number(calRaw))) ? Number(calRaw) : 400;
-      const protNum = (protRaw !== '' && Number.isFinite(Number(protRaw))) ? Number(protRaw) : 25;
+      const calVal = (calRaw !== '' && Number.isFinite(Number(calRaw))) ? Number(calRaw) : '';
+      const protVal = (protRaw !== '' && Number.isFinite(Number(protRaw))) ? Number(protRaw) : '';
+      const fibVal = (fibRaw !== '' && Number.isFinite(Number(fibRaw))) ? Number(fibRaw) : '';
+      const carbVal = (carbRaw !== '' && Number.isFinite(Number(carbRaw))) ? Number(carbRaw) : '';
+      const fatVal = (fatRaw !== '' && Number.isFinite(Number(fatRaw))) ? Number(fatRaw) : '';
+      const sodVal = (sodRaw !== '' && Number.isFinite(Number(sodRaw))) ? Number(sodRaw) : '';
 
       const payload = {
         id: id,
@@ -4890,18 +4934,19 @@
         title: mealTitle,
         category: document.getElementById('singleMealCategory').value,
         price: parseFloat(document.getElementById('singleMealPrice').value) || 199,
-        calories: calNum,
-        protein: protNum,
-        ...(fibRaw !== '' ? { fiber: Number(fibRaw) } : {}),
-        ...(carbRaw !== '' ? { carbs: Number(carbRaw) } : {}),
-        ...(fatRaw !== '' ? { fats: Number(fatRaw) } : {}),
-        ...(sodRaw !== '' ? { sodium: Number(sodRaw) } : {}),
+        calories: calVal,
+        protein: protVal,
+        fiber: fibVal,
+        carbs: carbVal,
+        fats: fatVal,
+        sodium: sodVal,
         prepTime: (document.getElementById('singleMealPrep').value || '20') + ' mins',
         image: mealImg,
         images: [mealImg],
         description: document.getElementById('singleMealDescription').value.trim() || 'Clean, wholesome nutrition prepared fresh with zero palm oil.',
         highlights,
         nutritionFacts,
+        nutritionConfigured: true,
         variants,
         variantsConfigured: true,
         addons,
@@ -4983,7 +5028,7 @@
 
       document.getElementById('singleMealPrice').value = meal.price !== undefined ? meal.price : 199;
 
-      // Parse Nutrition Facts array into standard inputs + custom rows
+      // Parse Nutrition Facts array into optional inputs + custom rows (never fabricate defaults when blank)
       const factsArr = Array.isArray(meal.nutritionFacts) ? meal.nutritionFacts : [];
       let calFromFacts = '', protFromFacts = '', fibFromFacts = '', carbFromFacts = '', fatFromFacts = '', sodFromFacts = '';
       const customFacts = [];
@@ -4999,10 +5044,8 @@
         else customFacts.push({ name: f.name, value: f.value });
       });
 
-      const calVal = extractMealNumStr(meal.calories) || calFromFacts || '400';
-      const protVal = extractMealNumStr(meal.protein) || protFromFacts || '25';
-      document.getElementById('singleMealCalories').value = calVal;
-      document.getElementById('singleMealProtein').value = protVal;
+      document.getElementById('singleMealCalories').value = extractMealNumStr(meal.calories) || calFromFacts;
+      document.getElementById('singleMealProtein').value = extractMealNumStr(meal.protein) || protFromFacts;
       document.getElementById('singleMealFiber').value = fibFromFacts || extractMealNumStr(meal.fiber);
       document.getElementById('singleMealCarbs').value = carbFromFacts || extractMealNumStr(meal.carbs);
       document.getElementById('singleMealFats').value = fatFromFacts || extractMealNumStr(meal.fats ?? meal.fat);
