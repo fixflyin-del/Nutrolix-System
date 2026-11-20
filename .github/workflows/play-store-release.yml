@@ -6,12 +6,12 @@ on:
       version_name:
         description: "Customer app version name"
         required: true
-        default: "1.0"
+        default: "1.0.1"
         type: string
       version_code:
         description: "Customer app version code (must increase for every upload)"
         required: true
-        default: "1"
+        default: "2"
         type: string
 
 permissions:
