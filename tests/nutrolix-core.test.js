@@ -2065,3 +2065,145 @@ test('41) Stylish circular-image category pills (shop & food), checkout multi-of
     assert.ok(indexHtml.includes('id="homeHeroDots"'), 'index.html hero must include modern geometric dot-grid graphics');
   }
 });
+
+test('42) Custom brand domain https://nutrolix.in is configured across Web, Android, and Backend with no dead nutrolixweb.vercel.app URLs and /api/store-settings saves cleanly', async () => {
+  const rootDir = path.resolve(__dirname, '..');
+
+  const filesMustUseNutrolixIn = [
+    'public/admin.html',
+    'public/cart.html',
+    'public/index.html',
+    'public/product.html',
+    'public/assets/nutrolix-auth.js',
+    'public/assets/nutrolix-firebase.js',
+    'public/assets/nutrolix-image-loader.js',
+    'public/assets/nutrolix-notifications.js',
+    'public/assets/nutrolix-reviews.js',
+    'public/assets/cloudinary-uploader.js',
+    'app/src/main/assets/web/admin.html',
+    'app/src/main/assets/web/cart.html',
+    'app/src/main/java/com/example/MainActivity.kt',
+    'app/src/main/java/com/example/AdminActivity.kt',
+    'app/src/main/java/com/example/service/AdminOrderBackgroundService.kt',
+    'app/src/main/java/com/example/data/FoodAiKnowledgeBase.kt',
+    'app/src/main/java/com/example/data/GeminiVisionFoodScanner.kt',
+    'lib/nutrolix-core.js'
+  ];
+
+  for (const rel of filesMustUseNutrolixIn) {
+    const content = fs.readFileSync(path.join(rootDir, rel), 'utf8');
+    assert.ok(!content.includes('https://nutrolixweb.vercel.app'), `${rel} must not call retired https://nutrolixweb.vercel.app`);
+    assert.ok(content.includes('https://nutrolix.in'), `${rel} must reference live https://nutrolix.in`);
+  }
+
+  const settingsFile = path.join(rootDir, 'public/data/store_settings.json');
+  const origSettings = fs.existsSync(settingsFile) ? fs.readFileSync(settingsFile, 'utf8') : null;
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  try {
+    for (const ep of ['/api/store-settings', '/api/store-settings/']) {
+      const res = await fetch(`${baseUrl}${ep}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ storeName: 'Nutrolix', deliveryFee: 49, freeDeliveryAbove: 499 })
+      });
+      assert.equal(res.status, 200, `${ep} must return 200`);
+      const json = await res.json();
+      assert.equal(json.success, true, `${ep} must return success: true`);
+    }
+  } finally {
+    if (origSettings !== null) fs.writeFileSync(settingsFile, origSettings, 'utf8');
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('43) First-visit live product loading uses retry + skeletons, homepage Google reviews display 4-color Google G icon, and Admin Panel supports adding/deleting Homepage Google Reviews', async () => {
+  const rootDir = path.resolve(__dirname, '..');
+  const roots = [
+    path.join(rootDir, 'public'),
+    path.join(rootDir, 'app/src/main/assets/web')
+  ];
+
+  for (const base of roots) {
+    const indexHtml = fs.readFileSync(path.join(base, 'index.html'), 'utf8');
+    assert.ok(indexHtml.includes('async function fetchJsonWithRetry'), 'index.html must include fetchJsonWithRetry');
+    assert.ok(indexHtml.includes('function renderCatalogSkeletons'), 'index.html must show loading skeletons on first visit before live products arrive');
+    assert.ok(indexHtml.includes('data.featuredReviews') && indexHtml.includes('data.reviews'), 'index.html must accept both data.featuredReviews and data.reviews');
+    assert.ok(indexHtml.includes('#4285F4') && indexHtml.includes('#34A853') && indexHtml.includes('#FBBC05') && indexHtml.includes('#EA4335'), 'index.html must render 4-color Google G SVG icon on every review card');
+    assert.ok(indexHtml.includes('Google Review'), 'index.html review cards must include Google Review badge label');
+
+    const shopHtml = fs.readFileSync(path.join(base, 'shop.html'), 'utf8');
+    assert.ok(shopHtml.includes('async function fetchShopProductsWithRetry'), 'shop.html must retry live product fetches on cold start');
+    assert.ok(shopHtml.includes('function renderShopSkeletons'), 'shop.html must render loading skeletons for first-time visitors');
+
+    const foodHtml = fs.readFileSync(path.join(base, 'food.html'), 'utf8');
+    assert.ok(foodHtml.includes('async function fetchFoodJsonWithRetry'), 'food.html must retry live healthy meal fetches on cold start');
+
+    const adminHtml = fs.readFileSync(path.join(base, 'admin.html'), 'utf8');
+    assert.ok(!adminHtml.includes('bg-nutro-forest'), 'admin.html must not use undefined bg-nutro-forest class that hides buttons');
+    assert.ok(adminHtml.includes('Add Homepage Google Review'), 'admin.html Reviews tab must include visible + Add Homepage Google Review button');
+    assert.ok(adminHtml.includes('window.deleteGoogleReview'), 'admin.html must expose deleteGoogleReview handler');
+    assert.ok(adminHtml.includes('openAddGoogleReviewModal'), 'admin.html must expose openAddGoogleReviewModal handler');
+  }
+
+  const grFile = path.join(rootDir, 'public/data/google_reviews.json');
+  const origGr = fs.existsSync(grFile) ? fs.readFileSync(grFile, 'utf8') : null;
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  try {
+    const markerAuthor = 'Test Google Reviewer 43';
+    const markerText = 'Authentic Nutrolix quality delivered fast on first visit.';
+
+    const addRes = await fetch(`${baseUrl}/api/google-reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'add',
+        review: {
+          authorName: markerAuthor,
+          rating: 5,
+          reviewText: markerText,
+          relativeTime: 'Just now'
+        }
+      })
+    });
+    assert.equal(addRes.status, 200, 'POST /api/google-reviews add must return 200');
+    const addJson = await addRes.json();
+    assert.equal(addJson.success, true);
+
+    const getRes = await fetch(`${baseUrl}/api/google-reviews`);
+    assert.equal(getRes.status, 200, 'GET /api/google-reviews must return 200');
+    const getJson = await getRes.json();
+    const listAfterAdd = getJson.featuredReviews || getJson.reviews || [];
+    assert.ok(listAfterAdd.some(r => r.authorName === markerAuthor && r.reviewText === markerText), 'Added Google review must appear in GET /api/google-reviews');
+
+    const delRes = await fetch(`${baseUrl}/api/google-reviews`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'delete',
+        authorName: markerAuthor,
+        reviewText: markerText
+      })
+    });
+    assert.equal(delRes.status, 200, 'POST /api/google-reviews delete must return 200');
+    const delJson = await delRes.json();
+    assert.equal(delJson.success, true);
+
+    const getRes2 = await fetch(`${baseUrl}/api/google-reviews`);
+    const getJson2 = await getRes2.json();
+    const listAfterDel = getJson2.featuredReviews || getJson2.reviews || [];
+    assert.ok(!listAfterDel.some(r => r.authorName === markerAuthor && r.reviewText === markerText), 'Deleted Google review must be removed from GET /api/google-reviews');
+  } finally {
+    if (origGr !== null) fs.writeFileSync(grFile, origGr, 'utf8');
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+

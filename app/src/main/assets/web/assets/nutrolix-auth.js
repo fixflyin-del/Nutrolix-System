@@ -4,8 +4,8 @@
  */
 (function() {
   if (typeof window.NUTROLIX_API_HOST === 'undefined') {
-    window.NUTROLIX_API_HOST = (window.location && window.location.protocol === 'file:')
-      ? 'https://nutrolixweb.vercel.app'
+    window.NUTROLIX_API_HOST = (window.location && (window.location.protocol === 'file:' || window.location.hostname === 'nutrolixweb.vercel.app'))
+      ? 'https://nutrolix.in'
       : '';
   }
 
@@ -337,8 +337,8 @@
   // -------------------------------------------------------------
   // WHATSAPP MOBILE NUMBER + OTP (FAST2SMS + FIREBASE CUSTOM AUTH)
   // -------------------------------------------------------------
-  const FAST2SMS_AUTH_API_BASE = (window.location && window.location.protocol === 'file:')
-    ? 'https://nutrolixweb.vercel.app'
+  const FAST2SMS_AUTH_API_BASE = (window.location && (window.location.protocol === 'file:' || window.location.hostname === 'nutrolixweb.vercel.app'))
+    ? 'https://nutrolix.in'
     : (window.NUTROLIX_API_HOST || '');
 
   window.startNutrolixPhoneOtp = async function(rawPhone) {

@@ -50,7 +50,7 @@ class AdminActivity : ComponentActivity() {
 
   companion object {
     const val PRIMARY_ADMIN_URL = "file:///android_asset/web/admin.html"
-    const val LIVE_SERVER_ADMIN_URL = "https://nutrolixweb.vercel.app/admin.html"
+    const val LIVE_SERVER_ADMIN_URL = "https://nutrolix.in/admin.html"
   }
 
   // File upload callback for WebChromeClient (Product Image uploads)
@@ -205,7 +205,7 @@ fun NutrolixAdminWebViewApp(
           val fcmTok = task.result!!
           Thread {
             try {
-              val url = java.net.URL("https://nutrolixweb.vercel.app/api/notifications/register-token")
+              val url = java.net.URL("https://nutrolix.in/api/notifications/register-token")
               val conn = (url.openConnection() as java.net.HttpURLConnection).apply {
                 requestMethod = "POST"
                 connectTimeout = 8000

@@ -142,17 +142,29 @@ function safeReadJson(filePath, defaultValue = []) {
   return defaultValue;
 }
 
+// Short-lived in-memory read cache for Vercel serverless warm instances (immediately invalidated on every write)
+const CATALOG_MEM_CACHE = new Map();
+const CATALOG_MEM_TTL_MS = 8000;
+
 // Firestore-backed catalog & settings persistence helper (read-through & write-through across both DBs)
 async function readCatalogDocOrFallback(docKey, localFile, fallbackValue) {
+  if (process.env.VERCEL && CATALOG_MEM_CACHE.has(docKey)) {
+    const entry = CATALOG_MEM_CACHE.get(docKey);
+    if (entry && (Date.now() - entry.ts) < CATALOG_MEM_TTL_MS) {
+      return entry.val;
+    }
+  }
   try {
     const fsDoc = await nutrolixCore.firestoreGetFirstAvailable(`catalogStore/${docKey}`);
     if (fsDoc && fsDoc.dataJson) {
       const parsed = JSON.parse(fsDoc.dataJson);
       safeWriteJson(localFile, parsed);
+      if (process.env.VERCEL) CATALOG_MEM_CACHE.set(docKey, { val: parsed, ts: Date.now() });
       return parsed;
     }
     if (fsDoc && fsDoc.items !== undefined) {
       safeWriteJson(localFile, fsDoc.items);
+      if (process.env.VERCEL) CATALOG_MEM_CACHE.set(docKey, { val: fsDoc.items, ts: Date.now() });
       return fsDoc.items;
     }
   } catch (_) {}
@@ -160,6 +172,7 @@ async function readCatalogDocOrFallback(docKey, localFile, fallbackValue) {
 }
 
 async function writeCatalogDocAndLocal(docKey, localFile, value) {
+  CATALOG_MEM_CACHE.delete(docKey);
   safeWriteJson(localFile, value);
   try {
     await nutrolixCore.firestorePatchBothDbs(`catalogStore/${docKey}`, {
@@ -169,6 +182,9 @@ async function writeCatalogDocAndLocal(docKey, localFile, value) {
       updatedAtMillis: Date.now()
     });
   } catch (_) {}
+  if (process.env.VERCEL) {
+    CATALOG_MEM_CACHE.set(docKey, { val: value, ts: Date.now() });
+  }
 }
 
 const DEFAULT_SAMPLE_IMAGE_URL = '/assets/aistudio/image_6061bdc8.png';
@@ -2051,6 +2067,9 @@ const server = http.createServer(async (req, res) => {
       reqPath = sub.startsWith('/api') ? sub : ('/api/' + String(sub).replace(/^\/+/, ''));
     }
   }
+  if (reqPath && reqPath.startsWith('/api/') && reqPath.length > 5 && reqPath.endsWith('/')) {
+    reqPath = reqPath.replace(/\/+$/, '');
+  }
 
   // -------------------------------------------------------------
   // HERO PRODUCTS & BANNERS API (Homepage Customizer)
@@ -2434,9 +2453,14 @@ const server = http.createServer(async (req, res) => {
     const productsFile = path.join(PUBLIC_DIR, 'data', 'nutrition_products.json');
     if (req.method === 'GET') {
       try {
+        const localReviewsFallback = safeReadJson(path.join(PUBLIC_DIR, 'data', 'product_reviews.json'), []);
+        const boundedReviewsPromise = Promise.race([
+          loadAllMergedReviews().catch(() => localReviewsFallback),
+          new Promise(resolve => setTimeout(() => resolve(localReviewsFallback), 2500))
+        ]);
         const [products, liveReviews] = await Promise.all([
           readCatalogDocOrFallback('nutrition_products', productsFile, []),
-          loadAllMergedReviews().catch(() => [])
+          boundedReviewsPromise
         ]);
         const normalized = Array.isArray(products)
           ? products.map(p => normalizeProductMediaFields(p, liveReviews))
@@ -2574,7 +2598,20 @@ const server = http.createServer(async (req, res) => {
           let current = await readCatalogDocOrFallback('google_reviews', reviewsFile, defaultGoogleData);
           if (!current || typeof current !== 'object') current = { ...defaultGoogleData };
           if (!Array.isArray(current.reviews)) current.reviews = [];
-          if (payload.review) {
+          if (payload.action === 'delete') {
+            const idx = Number(payload.index);
+            if (Number.isInteger(idx) && idx >= 0 && idx < current.reviews.length) {
+              current.reviews.splice(idx, 1);
+            } else if (payload.authorName || payload.author) {
+              const targetAuthor = String(payload.authorName || payload.author).trim().toLowerCase();
+              const targetText = String(payload.reviewText || payload.text || '').trim().toLowerCase();
+              current.reviews = current.reviews.filter(r => {
+                const a = String(r.authorName || r.author || '').trim().toLowerCase();
+                const t = String(r.reviewText || r.text || '').trim().toLowerCase();
+                return !(a === targetAuthor && (!targetText || t === targetText));
+              });
+            }
+          } else if (payload.review) {
             const norm = normalizeGoogleReviewItem(payload.review);
             if (norm) current.reviews.unshift(norm);
             current.totalReviews = (Number(current.totalReviews) || 148) + 1;
@@ -3305,7 +3342,7 @@ const server = http.createServer(async (req, res) => {
         const hashString = `${PAYU_KEY}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${PAYU_SALT}`;
         const hash = crypto.createHash('sha512').update(hashString).digest('hex');
 
-        const host = req.headers['host'] || 'nutrolixweb.vercel.app';
+        const host = req.headers['host'] || 'nutrolix.in';
         const protocol = (req.headers['x-forwarded-proto'] || 'https');
         const baseUrl = `${protocol}://${host}`;
 

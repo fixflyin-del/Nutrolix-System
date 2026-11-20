@@ -1913,12 +1913,32 @@
       }).join('');
     };
 
+    async function fetchFoodJsonWithRetry(url, retries = 3, timeoutMs = 15000) {
+      const delays = [0, 700, 1800];
+      let lastErr = null;
+      for (let i = 0; i < retries; i++) {
+        if (i > 0) await new Promise(r => setTimeout(r, delays[i] || 1500));
+        const ac = new AbortController();
+        const tid = setTimeout(() => ac.abort(), timeoutMs);
+        try {
+          const sep = url.includes('?') ? '&' : '?';
+          const res = await fetch(`${url}${sep}t=${Date.now()}_r${i}`, { cache: 'no-store', signal: ac.signal });
+          clearTimeout(tid);
+          if (res && res.ok) return await res.json();
+          lastErr = new Error('HTTP ' + (res ? res.status : '0'));
+        } catch (err) {
+          clearTimeout(tid);
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error('Fetch failed');
+    }
+
     function syncLiveFoodCatalog() {
       const host = window.NUTROLIX_API_HOST || '';
       if (window.location.protocol === 'file:' && !host) return;
       loadDynamicCategories();
-      fetch(host + '/api/food-menu?t=' + Date.now(), { cache: 'no-store' })
-        .then(r => r.ok ? r.json() : null)
+      fetchFoodJsonWithRetry(host + '/api/food-menu', 3, 15000)
         .then(meals => {
           if (Array.isArray(meals) && meals.length > 0) {
             try {

@@ -33,7 +33,7 @@
     var clean = String(url).trim();
     try {
       if (global.location && global.location.protocol === 'file:') {
-        var host = global.NUTROLIX_API_HOST || 'https://nutrolixweb.vercel.app';
+        var host = global.NUTROLIX_API_HOST || 'https://nutrolix.in';
         if (clean.indexOf('/api/media/') === 0 || clean.indexOf('/uploads/') === 0) {
           return host + clean;
         }

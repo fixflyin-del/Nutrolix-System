@@ -306,7 +306,7 @@ class AdminOrderBackgroundService : Service() {
       return
     }
 
-    // 1. Listen to the (default) Firestore database (used by nutrolixweb.vercel.app, cart.html, and Customer APK)
+    // 1. Listen to the (default) Firestore database (used by nutrolix.in, cart.html, and Customer APK)
     if (defaultFirestoreListener == null) {
       try {
         val defaultDb = FirebaseFirestore.getInstance()
@@ -418,7 +418,7 @@ class AdminOrderBackgroundService : Service() {
   }
 
   private val remoteOrderEndpoints = listOf(
-    "https://nutrolixweb.vercel.app/api/nutrition-orders"
+    "https://nutrolix.in/api/nutrition-orders"
   )
 
   private val firestoreRestOrdersUrl =

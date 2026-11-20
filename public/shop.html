@@ -606,10 +606,51 @@
       }).join('');
     }
 
+    function renderShopSkeletons(count = 4) {
+      const container = document.getElementById('shopProductsGrid');
+      if (!container) return;
+      container.innerHTML = Array.from({ length: count }).map(() => `
+        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden animate-pulse flex flex-col">
+          <div class="aspect-square bg-slate-200/80"></div>
+          <div class="p-3 sm:p-4 space-y-2.5">
+            <div class="h-2.5 w-20 bg-emerald-100 rounded"></div>
+            <div class="h-3.5 w-4/5 bg-slate-200 rounded"></div>
+            <div class="pt-2 flex items-center justify-between">
+              <div class="h-4 w-14 bg-slate-200 rounded"></div>
+              <div class="h-7 w-14 bg-emerald-200/70 rounded-xl"></div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function fetchShopProductsWithRetry(url, retries = 3, timeoutMs = 15000) {
+      const delays = [0, 700, 1800];
+      let lastErr = null;
+      for (let i = 0; i < retries; i++) {
+        if (i > 0) await new Promise(r => setTimeout(r, delays[i] || 1500));
+        const ac = new AbortController();
+        const tid = setTimeout(() => ac.abort(), timeoutMs);
+        try {
+          const sep = url.includes('?') ? '&' : '?';
+          const res = await fetch(i === 0 ? url : `${url}${sep}_r=${i}_${Date.now()}`, { cache: 'no-store', signal: ac.signal });
+          clearTimeout(tid);
+          if (res && res.ok) return await res.json();
+          lastErr = new Error('HTTP ' + (res ? res.status : '0'));
+        } catch (err) {
+          clearTimeout(tid);
+          lastErr = err;
+        }
+      }
+      throw lastErr || new Error('Fetch failed');
+    }
+
     function loadLiveProducts() {
+      let hasLocal = false;
       try {
         const local = JSON.parse(localStorage.getItem('nutrolix_products') || 'null');
         if (Array.isArray(local) && local.length > 0) {
+          hasLocal = true;
           window.nutroProducts = local.map(normalizeProduct).filter(Boolean);
           window.allProducts = [...window.nutroProducts];
           renderPackagedCategoryTabs();
@@ -619,8 +660,8 @@
 
       const host = window.NUTROLIX_API_HOST || '';
       if (window.location.protocol !== 'file:' || host) {
-        fetch(host + '/api/nutrition-products', { cache: 'no-store' })
-          .then(res => res.ok ? res.json() : null)
+        if (!hasLocal) renderShopSkeletons(4);
+        fetchShopProductsWithRetry(host + '/api/nutrition-products', 3, 15000)
           .then(srv => {
             if (srv && Array.isArray(srv) && srv.length) {
               window.nutroProducts = srv.map(normalizeProduct).filter(Boolean);
@@ -628,9 +669,15 @@
               try { localStorage.setItem('nutrolix_products', JSON.stringify(window.nutroProducts)); } catch (_) {}
               renderPackagedCategoryTabs();
               applyFilters();
+            } else if (!hasLocal) {
+              applyFilters();
             }
           })
-          .catch(() => {});
+          .catch(() => {
+            if (!hasLocal) applyFilters();
+          });
+      } else if (!hasLocal) {
+        applyFilters();
       }
     }
 

@@ -948,7 +948,7 @@
     async function renderReviewsList(p) {
       paintProductReviewsDOM(p, []);
       try {
-        const host = window.NUTROLIX_API_HOST || (window.location && window.location.protocol === 'file:' ? 'https://nutrolixweb.vercel.app' : '');
+        const host = window.NUTROLIX_API_HOST || (window.location && window.location.protocol === 'file:' ? 'https://nutrolix.in' : '');
         const qs = new URLSearchParams();
         if (p.id) qs.set('productId', p.id);
         if (p.name) qs.set('productName', p.name);
@@ -1241,7 +1241,7 @@
       };
 
       try {
-        const host = window.NUTROLIX_API_HOST || (window.location && window.location.protocol === 'file:' ? 'https://nutrolixweb.vercel.app' : '');
+        const host = window.NUTROLIX_API_HOST || (window.location && window.location.protocol === 'file:' ? 'https://nutrolix.in' : '');
         await fetch(host + '/api/product-reviews', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

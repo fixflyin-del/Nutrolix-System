@@ -8,8 +8,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script>
     (function() {
-      const LIVE_SERVER = 'https://nutrolixweb.vercel.app';
-      const isLocalFile = (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null');
+      const LIVE_SERVER = 'https://nutrolix.in';
+      const hostName = (window.location && window.location.hostname) ? window.location.hostname.toLowerCase() : '';
+      const isLocalFile = (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null' || hostName === 'nutrolixweb.vercel.app');
       window.NUTROLIX_API_HOST = isLocalFile ? LIVE_SERVER : '';
     })();
   </script>

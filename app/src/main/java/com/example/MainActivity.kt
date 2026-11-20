@@ -65,7 +65,7 @@ class MainActivity : ComponentActivity() {
 
   companion object {
     const val PRIMARY_APP_URL = "file:///android_asset/web/index.html"
-    const val LIVE_SERVER_URL = "https://nutrolixweb.vercel.app/"
+    const val LIVE_SERVER_URL = "https://nutrolix.in/"
     const val PREFS_AUTH = "nutrolix_auth_prefs"
     const val KEY_AUTH_UID = "uid"
     const val KEY_AUTH_PHONE = "verified_phone"

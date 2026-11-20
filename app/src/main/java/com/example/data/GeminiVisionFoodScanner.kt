@@ -45,7 +45,7 @@ object GeminiVisionFoodScanner {
     .writeTimeout(45, TimeUnit.SECONDS)
     .build()
 
-  private const val BACKEND_URL = "https://nutrolixweb.vercel.app/api/scan-food"
+  private const val BACKEND_URL = "https://nutrolix.in/api/scan-food"
 
   fun bitmapToBase64(bitmap: Bitmap, quality: Int = 85): String {
     val outputStream = ByteArrayOutputStream()

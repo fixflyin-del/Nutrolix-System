@@ -1,0 +1,21 @@
+{
+  "storeName": "Nutrolix",
+  "tagline": "Nutrition That Works",
+  "isOpen": true,
+  "storeOpen": true,
+  "deliveryFee": 49,
+  "freeDeliveryAbove": 499,
+  "freeDeliveryThreshold": 499,
+  "announcement": "⚡ SPECIAL OFFER: Get 15% OFF on your first nutrition order with code NUTRO15! Free Delivery on orders above ₹499",
+  "announcementActive": true,
+  "taxPercent": 5,
+  "payuEnabled": true,
+  "payuIsLive": true,
+  "cloudinaryCloudName": "muy6zdcd",
+  "cloudinaryPreset": "ml_default",
+  "cloudinaryApiKey": "",
+  "cloudinaryApiSecret": "",
+  "announcementText": "Live Test Banner!",
+  "freeDeliveryMin": 599,
+  "updatedAt": "2026-11-20T18:16:59.311Z"
+}

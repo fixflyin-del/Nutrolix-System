@@ -50,7 +50,7 @@ window.CloudinaryService = {
 
   getApiHost() {
     if (window.NUTROLIX_API_HOST) return window.NUTROLIX_API_HOST;
-    return (window.location && window.location.protocol === "file:") ? "https://nutrolixweb.vercel.app" : "";
+    return (window.location && (window.location.protocol === "file:" || window.location.hostname === "nutrolixweb.vercel.app")) ? "https://nutrolix.in" : "";
   },
 
   resolveMediaUrl(url) {

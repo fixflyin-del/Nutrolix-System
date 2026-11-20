@@ -10,18 +10,31 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
   <script>
-    // Universal API Bridge: Redirects relative API requests to live Cloud Run server when running inside Android WebView
+    // Universal API Bridge: Routes relative API requests to live brand domain (https://nutrolix.in) when running inside Android WebView or retired alias
     (function() {
-      const LIVE_SERVER = 'https://nutrolixweb.vercel.app';
-      const isLocalOrFile = (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null');
+      const LIVE_SERVER = 'https://nutrolix.in';
+      const hostName = (window.location && window.location.hostname) ? window.location.hostname.toLowerCase() : '';
+      const isLegacyVercel = hostName === 'nutrolixweb.vercel.app';
+      const isLocalOrFile = (window.location.protocol === 'file:' || !window.location.origin || window.location.origin === 'null' || isLegacyVercel);
       window.NUTROLIX_API_HOST = isLocalOrFile ? LIVE_SERVER : '';
       
       const origFetch = window.fetch;
       window.fetch = function(input, init) {
+        let origPath = null;
         if (typeof input === 'string' && input.startsWith('/')) {
+          origPath = input;
           input = window.NUTROLIX_API_HOST + input;
         }
-        return origFetch.call(this, input, init);
+        const reqPromise = origFetch.call(this, input, init);
+        if (origPath && origPath.startsWith('/api/') && !window.NUTROLIX_API_HOST && hostName && hostName !== 'nutrolix.in' && hostName !== 'www.nutrolix.in' && hostName !== 'localhost' && hostName !== '127.0.0.1') {
+          return reqPromise.then(function(res) {
+            if (res && res.status === 404) {
+              return origFetch.call(window, LIVE_SERVER + origPath, init);
+            }
+            return res;
+          });
+        }
+        return reqPromise;
       };
     })();
   </script>
@@ -404,7 +417,7 @@
                   <div data-progress-bar class="h-full bg-emerald-600 rounded-full transition-all duration-200" style="width:0%"></div>
                 </div>
               </div>
-              <button id="saveHeroCardsBtn" onclick="window.saveHeroProductsAdmin()" class="px-5 py-2.5 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-extrabold text-xs shadow-md transition flex items-center space-x-1.5">
+              <button id="saveHeroCardsBtn" onclick="window.saveHeroProductsAdmin()" class="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md transition flex items-center space-x-1.5">
                 <i class="fa-solid fa-floppy-disk text-emerald-400"></i>
                 <span>Save & Publish Hero Images</span>
               </button>
@@ -590,6 +603,10 @@
             <select id="adminReviewsFilterProduct" onchange="window.renderProductReviewsAdmin()" class="px-3 py-2 text-xs font-bold rounded-xl border border-slate-300 bg-white text-slate-800">
               <option value="ALL">All Products &amp; Dishes</option>
             </select>
+            <button type="button" onclick="window.openAddGoogleReviewModal()" class="px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 font-extrabold text-xs shadow-sm transition flex items-center space-x-1.5">
+              <svg class="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.45a5.52 5.52 0 0 1-2.39 3.62v3h3.87c2.26-2.08 3.56-5.15 3.56-8.65z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.93-2.91l-3.87-3c-1.07.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.72-4.95H1.28v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.28 14.29A7.22 7.22 0 0 1 4.9 12c0-.79.14-1.56.38-2.29v-3.1H1.28A12 12 0 0 0 0 12c0 1.94.46 3.77 1.28 5.39l4-3.1z"/><path fill="#EA4335" d="M12 4.75c1.76 0 3.34.61 4.58 1.8l3.44-3.44C17.94 1.19 15.24 0 12 0A12 12 0 0 0 1.28 6.61l4 3.1C6.23 6.86 8.88 4.75 12 4.75z"/></svg>
+              <span>+ Add Homepage Google Review</span>
+            </button>
             <button type="button" onclick="window.openAddProductReviewModal()" class="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-xs shadow-md transition flex items-center space-x-1.5">
               <i class="fa-solid fa-plus"></i>
               <span>Add Product Review</span>
@@ -1056,10 +1073,10 @@
           </div>
 
           <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-            <div class="flex items-center justify-between mb-4">
+            <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
               <h4 class="font-bold text-sm text-slate-900">Verified Reviews Featured on Store Homepage</h4>
-              <button onclick="window.openAddGoogleReviewModal()" class="px-3.5 py-1.5 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-black text-xs transition flex items-center space-x-1.5 shadow">
-                <i class="fa-solid fa-plus text-[10px]"></i>
+              <button type="button" onclick="window.openAddGoogleReviewModal()" class="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs transition flex items-center space-x-2 shadow-md">
+                <i class="fa-solid fa-plus text-[11px]"></i>
                 <span>Add Google Review</span>
               </button>
             </div>
@@ -3451,8 +3468,8 @@
       const endpoints = [{ key: 'cloudRun', url: '/api/nutrition-orders' }];
       const hostStr = String(window.NUTROLIX_API_HOST || '');
       const originStr = String(window.location && window.location.origin || '');
-      if (originStr && originStr !== 'null' && !originStr.includes('nutrolixweb.vercel.app') && !hostStr.includes('nutrolixweb.vercel.app')) {
-        endpoints.push({ key: 'vercel', url: 'https://nutrolixweb.vercel.app/api/nutrition-orders' });
+      if (originStr && originStr !== 'null' && !originStr.includes('nutrolix.in') && !hostStr.includes('nutrolix.in')) {
+        endpoints.push({ key: 'vercel', url: 'https://nutrolix.in/api/nutrition-orders' });
       } else if (window.liveOrderBuckets) {
         window.liveOrderBuckets.vercel = [];
       }
@@ -5890,16 +5907,46 @@
       // 2. Post to API
       try {
         const host = window.NUTROLIX_API_HOST || "";
-        await fetch(host + '/api/google-reviews', {
+        const res = await fetch(host + '/api/google-reviews', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(reviewObj)
         });
+        if (res && res.ok) {
+          const saved = await res.json().catch(() => null);
+          const srvList = saved && (Array.isArray(saved.featuredReviews) ? saved.featuredReviews : (Array.isArray(saved.reviews) ? saved.reviews : null));
+          if (srvList) {
+            try { localStorage.setItem('nutrolix_google_reviews', JSON.stringify(srvList)); } catch (_) {}
+          }
+        }
       } catch (_) {}
 
       window.closeModal('addGoogleReviewModal');
       if (e.target && e.target.reset) e.target.reset();
-      window.showAdminNotification(`✓ Google Review from "${author}" published!`);
+      window.showAdminNotification(`✓ Google Review from "${author}" published live on Homepage!`);
+      window.loadGoogleProfile();
+    };
+
+    window.deleteGoogleReview = async function(index) {
+      if (!confirm('Remove this Google Review from the Homepage?')) return;
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/google-reviews', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'delete', index })
+        });
+        if (res && res.ok) {
+          const data = await res.json().catch(() => null);
+          const srvList = data && (Array.isArray(data.featuredReviews) ? data.featuredReviews : (Array.isArray(data.reviews) ? data.reviews : null));
+          if (srvList) {
+            try { localStorage.setItem('nutrolix_google_reviews', JSON.stringify(srvList)); } catch (_) {}
+            window.renderGoogleReviewsList(srvList);
+          }
+          window.showAdminNotification('✓ Google Review removed from Homepage.');
+          return;
+        }
+      } catch (_) {}
       window.loadGoogleProfile();
     };
 
@@ -5922,7 +5969,9 @@
         const res = await fetch(host + '/api/google-reviews', { cache: 'no-store' });
         if (res && res.ok) {
           const data = await res.json();
-          const serverRevs = Array.isArray(data && data.featuredReviews) ? data.featuredReviews : (Array.isArray(data) ? data : null);
+          const serverRevs = Array.isArray(data && data.featuredReviews)
+            ? data.featuredReviews
+            : (Array.isArray(data && data.reviews) ? data.reviews : (Array.isArray(data) ? data : null));
           if (serverRevs && serverRevs.length) {
             try { localStorage.setItem('nutrolix_google_reviews', JSON.stringify(serverRevs)); } catch (_) {}
             window.renderGoogleReviewsList(serverRevs);
@@ -5939,19 +5988,30 @@
 
     window.renderGoogleReviewsList = function(reviews) {
       const list = document.getElementById('googleReviewsList');
-      if (!list || !reviews || !reviews.length) return;
-      list.innerHTML = reviews.map(r => {
+      if (!list) return;
+      if (!reviews || !reviews.length) {
+        list.innerHTML = '<div class="p-6 text-center text-xs text-slate-400">No Google reviews yet. Click "Add Google Review" above to publish one on the homepage.</div>';
+        return;
+      }
+      const gSvg = `<svg class="w-4 h-4 shrink-0" viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M23.49 12.27c0-.79-.07-1.54-.2-2.27H12v4.3h6.45a5.52 5.52 0 0 1-2.39 3.62v3h3.87c2.26-2.08 3.56-5.15 3.56-8.65z"/><path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.93-2.91l-3.87-3c-1.07.72-2.45 1.15-4.06 1.15-3.12 0-5.77-2.11-6.72-4.95H1.28v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.28 14.29A7.22 7.22 0 0 1 4.9 12c0-.79.14-1.56.38-2.29v-3.1H1.28A12 12 0 0 0 0 12c0 1.94.46 3.77 1.28 5.39l4-3.1z"/><path fill="#EA4335" d="M12 4.75c1.76 0 3.34.61 4.58 1.8l3.44-3.44C17.94 1.19 15.24 0 12 0A12 12 0 0 0 1.28 6.61l4 3.1C6.23 6.86 8.88 4.75 12 4.75z"/></svg>`;
+      list.innerHTML = reviews.map((r, idx) => {
         const authorName = r.author || r.authorName || 'Google Customer';
         const reviewBody = r.text || r.reviewText || '';
         return `
-        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
-          <div class="flex items-center justify-between">
+        <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-1.5">
+          <div class="flex items-center justify-between gap-2">
             <div class="flex items-center space-x-2">
+              ${gSvg}
               <span class="font-bold text-xs text-slate-900">${authorName}</span>
               ${r.isLocalGuide ? '<span class="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded">Local Guide</span>' : ''}
             </div>
-            <div class="flex text-amber-400 text-xs">
-              ${'<i class="fa-solid fa-star"></i>'.repeat(r.rating || 5)}
+            <div class="flex items-center gap-2">
+              <div class="flex text-amber-400 text-xs">
+                ${'<i class="fa-solid fa-star"></i>'.repeat(r.rating || 5)}
+              </div>
+              <button type="button" onclick="window.deleteGoogleReview(${idx})" class="text-[11px] font-bold text-rose-600 hover:text-rose-800 px-2 py-0.5 rounded-lg hover:bg-rose-50 transition" title="Delete Review">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
             </div>
           </div>
           <p class="text-xs text-slate-600 italic">"${reviewBody}"</p>
