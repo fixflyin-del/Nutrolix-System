@@ -46,8 +46,9 @@ jobs:
               exit 1
             fi
           done
-          echo "$UPLOAD_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/nutrolix-upload-key.jks"
-          echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > app/google-services.json
+          # Strip whitespace/newlines that may be introduced when copying long Base64 secrets.
+          printf '%s' "$UPLOAD_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$RUNNER_TEMP/nutrolix-upload-key.jks"
+          printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | tr -d '[:space:]' | base64 --decode > app/google-services.json
           test -s "$RUNNER_TEMP/nutrolix-upload-key.jks"
           test -s app/google-services.json
           keytool -list -keystore "$RUNNER_TEMP/nutrolix-upload-key.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
