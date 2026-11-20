@@ -30,6 +30,23 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      - name: Install Android SDK build tools for APK signature verification
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! command -v sdkmanager >/dev/null 2>&1; then
+            SDKMANAGER="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}" -type f -name sdkmanager 2>/dev/null | head -n 1)"
+            if [ -z "$SDKMANAGER" ]; then
+              echo "::error::Android sdkmanager was not found on the runner."
+              exit 1
+            fi
+          else
+            SDKMANAGER="$(command -v sdkmanager)"
+          fi
+          yes | "$SDKMANAGER" --licenses >/dev/null || true
+          "$SDKMANAGER" --install "build-tools;36.0.0"
+          echo "${ANDROID_HOME:-/usr/local/lib/android/sdk}/build-tools/36.0.0" >> "$GITHUB_PATH"
+
       - name: Validate and restore Play upload credentials
         shell: bash
         env:
