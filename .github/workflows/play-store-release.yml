@@ -42,17 +42,40 @@ jobs:
           set -euo pipefail
           for name in UPLOAD_KEYSTORE_BASE64 STORE_PASSWORD KEY_PASSWORD KEY_ALIAS GOOGLE_SERVICES_JSON_BASE64; do
             if [ -z "${!name:-}" ]; then
-              echo "::error::Missing GitHub Actions secret: $name"
+              echo "::error::Missing or empty GitHub Actions secret: $name"
               exit 1
             fi
           done
-          # Strip whitespace/newlines that may be introduced when copying long Base64 secrets.
-          printf '%s' "$UPLOAD_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$RUNNER_TEMP/nutrolix-upload-key.jks"
-          printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | tr -d '[:space:]' | base64 --decode > app/google-services.json
-          test -s "$RUNNER_TEMP/nutrolix-upload-key.jks"
-          test -s app/google-services.json
-          keytool -list -keystore "$RUNNER_TEMP/nutrolix-upload-key.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null
-          jq -e '[.client[].client_info.android_client_info.package_name] | index("com.aistudio.nutrolix.fooddelivery") != null' app/google-services.json >/dev/null
+
+          echo "Checking Base64 keystore secret..."
+          if ! printf '%s' "$UPLOAD_KEYSTORE_BASE64" | tr -d '[:space:]' | base64 --decode > "$RUNNER_TEMP/nutrolix-upload-key.jks"; then
+            echo "::error::UPLOAD_KEYSTORE_BASE64 is not valid Base64. Recreate this secret from the supplied TXT file."
+            exit 1
+          fi
+          test -s "$RUNNER_TEMP/nutrolix-upload-key.jks" || { echo "::error::Decoded keystore is empty"; exit 1; }
+          echo "Keystore Base64 decoded successfully."
+
+          echo "Checking Firebase JSON secret..."
+          if ! printf '%s' "$GOOGLE_SERVICES_JSON_BASE64" | tr -d '[:space:]' | base64 --decode > app/google-services.json; then
+            echo "::error::GOOGLE_SERVICES_JSON_BASE64 is not valid Base64. Recreate this secret from the supplied TXT file."
+            exit 1
+          fi
+          test -s app/google-services.json || { echo "::error::Decoded Firebase JSON is empty"; exit 1; }
+          echo "Firebase JSON Base64 decoded successfully."
+
+          echo "Checking keystore password and alias..."
+          if ! keytool -list -keystore "$RUNNER_TEMP/nutrolix-upload-key.jks" -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::Keystore could not be opened with STORE_PASSWORD and KEY_ALIAS. Check those two GitHub secrets."
+            exit 1
+          fi
+          echo "Keystore password and alias verified."
+
+          echo "Checking Firebase package name..."
+          if ! jq -e '[.client[].client_info.android_client_info.package_name] | index("com.aistudio.nutrolix.fooddelivery") != null' app/google-services.json >/dev/null 2>&1; then
+            echo "::error::Firebase JSON is invalid or does not contain package com.aistudio.nutrolix.fooddelivery."
+            exit 1
+          fi
+          echo "Firebase package name verified."
           echo "KEYSTORE_PATH=$RUNNER_TEMP/nutrolix-upload-key.jks" >> "$GITHUB_ENV"
 
       - name: Validate version inputs
