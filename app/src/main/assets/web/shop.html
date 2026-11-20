@@ -217,22 +217,39 @@
   </div>
 
 
-  <!-- Page Banner (Slim & Compact) -->
-  <div class="bg-gradient-to-r from-nutro-forest via-emerald-900 to-slate-900 text-white py-3.5 sm:py-4 px-4">
-    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2">
+  <!-- Page Banner (Slim & Compact with Modern Geometric Graphics) -->
+  <div class="relative overflow-hidden bg-gradient-to-r from-[#033d29] via-[#065f46] to-[#044932] text-white py-3.5 sm:py-4 px-4">
+    <!-- Decorative Diamond Dot Grid & Translucent Emerald Orb Graphics -->
+    <svg class="absolute inset-0 w-full h-full opacity-20 pointer-events-none" aria-hidden="true">
+      <defs>
+        <pattern id="shopBannerDots" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+          <rect x="9" y="9" width="3.5" height="3.5" rx="0.8" transform="rotate(45 10.75 10.75)" fill="#a7f3d0" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#shopBannerDots)" />
+    </svg>
+    <div class="absolute -right-12 -top-16 w-56 h-56 sm:w-72 sm:h-72 rounded-full bg-emerald-400/20 pointer-events-none"></div>
+    <div class="absolute right-20 -bottom-24 w-44 h-44 rounded-full bg-lime-300/10 pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-2">
       <div>
-        <div class="inline-flex items-center space-x-1.5 text-[10px] sm:text-xs font-bold text-emerald-300 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/15 mb-1">
+        <div class="inline-flex items-center space-x-1.5 text-[10px] sm:text-xs font-bold text-lime-300 bg-white/10 px-2.5 py-0.5 rounded-full border border-white/15 mb-1 backdrop-blur-xs">
           <i class="fa-solid fa-certificate text-amber-400"></i>
           <span>100% CLINICAL GRADE PACKAGED NUTRITION</span>
         </div>
-        <h1 class="text-xl sm:text-2xl font-black leading-tight">Nutrition Store Catalog</h1>
-        <p class="text-slate-300 text-[11px] sm:text-xs mt-0.5 max-w-xl">
+        <h1 class="text-xl sm:text-2xl font-black leading-tight flex items-center gap-2">
+          <span>Nutrition Store Catalog</span>
+          <svg class="w-5 h-5 text-amber-400 shrink-0 drop-shadow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
+          </svg>
+        </h1>
+        <p class="text-emerald-100/90 text-[11px] sm:text-xs mt-0.5 max-w-xl">
           All packaged functional foods, high protein flours, seed matrices, and wellness elixirs. 100% lab certified.
         </p>
       </div>
-      <div class="flex items-center space-x-2 text-[11px] text-slate-300">
-        <span class="px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-400/30 text-emerald-300 font-extrabold flex items-center space-x-1.5">
-          <i class="fa-solid fa-shield-halved"></i>
+      <div class="flex items-center space-x-2 text-[11px] text-emerald-100">
+        <span class="px-2.5 py-1 rounded-xl bg-white/10 backdrop-blur-xs border border-emerald-300/30 text-lime-200 font-extrabold flex items-center space-x-1.5 shadow-sm">
+          <i class="fa-solid fa-shield-halved text-amber-300"></i>
           <span>FSSAI Lic. 21526024003044</span>
         </span>
       </div>
@@ -242,29 +259,51 @@
   <!-- Catalog Viewport Full-Width Products Grid -->
   <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-5 pb-8 flex-1 w-full">
     
-    <!-- 6 Authorized Packaged Categories Filter Bar (Requirement 6) -->
-    <div class="mb-4 overflow-x-auto pb-1 scrollbar-none">
-      <div class="flex items-center space-x-2 min-w-max" id="packagedCategoryTabs">
-        <button onclick="window.selectCategory('All', this)" class="shop-cat-btn active px-4 py-2 rounded-xl text-xs font-black bg-nutro-forest text-white shadow-sm transition shrink-0">
-          All Products
+    <!-- 6 Authorized Packaged Categories Filter Bar (Stylish Rounded Pills with Circular Images) -->
+    <div class="mb-5 overflow-x-auto pb-1.5 pt-0.5 scrollbar-none">
+      <div class="flex items-center gap-2.5 sm:gap-3 min-w-max" id="packagedCategoryTabs">
+        <!-- Rendered & hydrated dynamically with circular product/studio imagery -->
+        <button data-category="All" onclick="window.selectCategory('All', this)" class="shop-cat-btn active pl-1.5 pr-4 py-1.5 rounded-full text-xs sm:text-[13px] font-black bg-[#05442e] text-lime-300 border border-emerald-700/60 shadow-md shadow-emerald-950/15 transition-all duration-200 shrink-0 flex items-center gap-2.5">
+          <span class="shop-cat-ring w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-emerald-400 flex items-center justify-center overflow-hidden shrink-0">
+            <img src="assets/graphics/cat_packaged_all.jpg" alt="All Products" class="w-full h-full object-cover rounded-full">
+          </span>
+          <span>All Products</span>
         </button>
-        <button onclick="window.selectCategory('Protein Atta', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-          🌾 Protein Atta
+        <button data-category="Protein Atta" onclick="window.selectCategory('Protein Atta', this)" class="shop-cat-btn pl-1.5 pr-4 py-1.5 rounded-full text-xs sm:text-[13px] font-extrabold bg-white hover:bg-emerald-50/50 text-slate-900 border border-slate-200/90 shadow-xs transition-all duration-200 shrink-0 flex items-center gap-2.5">
+          <span class="shop-cat-ring w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-amber-300 flex items-center justify-center overflow-hidden shrink-0">
+            <img src="assets/graphics/cat_protein_atta.jpg" alt="Protein Atta" class="w-full h-full object-cover rounded-full">
+          </span>
+          <span>Protein Atta</span>
         </button>
-        <button onclick="window.selectCategory('Protein Snacks', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-          🥜 Protein Snacks
+        <button data-category="Protein Snacks" onclick="window.selectCategory('Protein Snacks', this)" class="shop-cat-btn pl-1.5 pr-4 py-1.5 rounded-full text-xs sm:text-[13px] font-extrabold bg-white hover:bg-emerald-50/50 text-slate-900 border border-slate-200/90 shadow-xs transition-all duration-200 shrink-0 flex items-center gap-2.5">
+          <span class="shop-cat-ring w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-teal-300 flex items-center justify-center overflow-hidden shrink-0">
+            <img src="assets/graphics/cat_protein_snacks.jpg" alt="Protein Snacks" class="w-full h-full object-cover rounded-full">
+          </span>
+          <span>Protein Snacks</span>
         </button>
-        <button onclick="window.selectCategory('Nutrition Meal', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-          🥣 Nutrition Meal
+        <button data-category="Nutrition Meal" onclick="window.selectCategory('Nutrition Meal', this)" class="shop-cat-btn pl-1.5 pr-4 py-1.5 rounded-full text-xs sm:text-[13px] font-extrabold bg-white hover:bg-emerald-50/50 text-slate-900 border border-slate-200/90 shadow-xs transition-all duration-200 shrink-0 flex items-center gap-2.5">
+          <span class="shop-cat-ring w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-emerald-300 flex items-center justify-center overflow-hidden shrink-0">
+            <img src="assets/graphics/cat_healthy_bowls.jpg" alt="Nutrition Meal" class="w-full h-full object-cover rounded-full">
+          </span>
+          <span>Nutrition Meal</span>
         </button>
-        <button onclick="window.selectCategory('Nutrition Drink', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-          🥤 Nutrition Drink
+        <button data-category="Nutrition Drink" onclick="window.selectCategory('Nutrition Drink', this)" class="shop-cat-btn pl-1.5 pr-4 py-1.5 rounded-full text-xs sm:text-[13px] font-extrabold bg-white hover:bg-emerald-50/50 text-slate-900 border border-slate-200/90 shadow-xs transition-all duration-200 shrink-0 flex items-center gap-2.5">
+          <span class="shop-cat-ring w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-sky-300 flex items-center justify-center overflow-hidden shrink-0">
+            <img src="assets/graphics/cat_detox_drinks.jpg" alt="Nutrition Drink" class="w-full h-full object-cover rounded-full">
+          </span>
+          <span>Nutrition Drink</span>
         </button>
-        <button onclick="window.selectCategory('Healthy Flakes', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-          🥣 Healthy Flakes
+        <button data-category="Healthy Flakes" onclick="window.selectCategory('Healthy Flakes', this)" class="shop-cat-btn pl-1.5 pr-4 py-1.5 rounded-full text-xs sm:text-[13px] font-extrabold bg-white hover:bg-emerald-50/50 text-slate-900 border border-slate-200/90 shadow-xs transition-all duration-200 shrink-0 flex items-center gap-2.5">
+          <span class="shop-cat-ring w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-lime-400 flex items-center justify-center overflow-hidden shrink-0">
+            <img src="assets/graphics/cat_protein_snacks.jpg" alt="Healthy Flakes" class="w-full h-full object-cover rounded-full">
+          </span>
+          <span>Healthy Flakes</span>
         </button>
-        <button onclick="window.selectCategory('Body Building & Strength', this)" class="shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0">
-          💪 Body Building & Strength
+        <button data-category="Body Building & Strength" onclick="window.selectCategory('Body Building & Strength', this)" class="shop-cat-btn pl-1.5 pr-4 py-1.5 rounded-full text-xs sm:text-[13px] font-extrabold bg-white hover:bg-emerald-50/50 text-slate-900 border border-slate-200/90 shadow-xs transition-all duration-200 shrink-0 flex items-center gap-2.5">
+          <span class="shop-cat-ring w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-orange-300 flex items-center justify-center overflow-hidden shrink-0">
+            <img src="assets/graphics/cat_packaged_all.jpg" alt="Body Building & Strength" class="w-full h-full object-cover rounded-full">
+          </span>
+          <span>Body Building & Strength</span>
         </button>
       </div>
     </div>
@@ -525,12 +564,55 @@
     window.allProducts = (window.nutroProducts || []).map(normalizeProduct).filter(Boolean);
     window.activeCategory = 'All';
 
+    const SHOP_CATEGORY_META = [
+      { key: 'All', label: 'All Products', fallbackImg: 'assets/graphics/cat_packaged_all.jpg', ring: 'ring-emerald-400' },
+      { key: 'Protein Atta', label: 'Protein Atta', fallbackImg: 'assets/graphics/cat_protein_atta.jpg', ring: 'ring-amber-300' },
+      { key: 'Protein Snacks', label: 'Protein Snacks', fallbackImg: 'assets/graphics/cat_protein_snacks.jpg', ring: 'ring-teal-300' },
+      { key: 'Nutrition Meal', label: 'Nutrition Meal', fallbackImg: 'assets/graphics/cat_healthy_bowls.jpg', ring: 'ring-emerald-300' },
+      { key: 'Nutrition Drink', label: 'Nutrition Drink', fallbackImg: 'assets/graphics/cat_detox_drinks.jpg', ring: 'ring-sky-300' },
+      { key: 'Healthy Flakes', label: 'Healthy Flakes', fallbackImg: 'assets/graphics/cat_protein_snacks.jpg', ring: 'ring-lime-400' },
+      { key: 'Body Building & Strength', label: 'Body Building & Strength', fallbackImg: 'assets/graphics/cat_packaged_all.jpg', ring: 'ring-orange-300' }
+    ];
+
+    function getShopCategoryThumb(catKey, fallbackImg) {
+      if (catKey === 'All') return fallbackImg;
+      const products = Array.isArray(window.allProducts) ? window.allProducts : [];
+      const match = products.find(p => p && p.category === catKey && p.image && !String(p.image).includes('image_6061bdc8'));
+      if (match && match.image) {
+        return window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(match.image) : match.image;
+      }
+      return fallbackImg;
+    }
+
+    function renderPackagedCategoryTabs() {
+      const container = document.getElementById('packagedCategoryTabs');
+      if (!container) return;
+      container.innerHTML = SHOP_CATEGORY_META.map(cat => {
+        const isActive = (window.activeCategory || 'All') === cat.key;
+        const imgUrl = getShopCategoryThumb(cat.key, cat.fallbackImg);
+        const btnCls = isActive
+          ? 'shop-cat-btn active pl-1.5 pr-4 py-1.5 rounded-full text-xs sm:text-[13px] font-black bg-[#05442e] text-lime-300 border border-emerald-700/60 shadow-md shadow-emerald-950/15 transition-all duration-200 shrink-0 flex items-center gap-2.5'
+          : 'shop-cat-btn pl-1.5 pr-4 py-1.5 rounded-full text-xs sm:text-[13px] font-extrabold bg-white hover:bg-emerald-50/50 text-slate-900 border border-slate-200/90 hover:border-emerald-300 shadow-xs transition-all duration-200 shrink-0 flex items-center gap-2.5';
+        const ringCls = isActive ? 'ring-[#22c55e]' : cat.ring;
+        const safeKey = cat.key.replace(/'/g, "\\'");
+        return `
+          <button data-category="${cat.key}" onclick="window.selectCategory('${safeKey}', this)" class="${btnCls}">
+            <span class="shop-cat-ring w-9 h-9 rounded-full bg-white p-0.5 ring-2 ${ringCls} flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
+              <img src="${imgUrl}" onerror="this.onerror=null;this.src='${cat.fallbackImg}'" alt="${cat.label}" class="w-full h-full object-cover rounded-full">
+            </span>
+            <span>${cat.label}</span>
+          </button>
+        `;
+      }).join('');
+    }
+
     function loadLiveProducts() {
       try {
         const local = JSON.parse(localStorage.getItem('nutrolix_products') || 'null');
         if (Array.isArray(local) && local.length > 0) {
           window.nutroProducts = local.map(normalizeProduct).filter(Boolean);
           window.allProducts = [...window.nutroProducts];
+          renderPackagedCategoryTabs();
           applyFilters();
         }
       } catch (_) {}
@@ -544,6 +626,7 @@
               window.nutroProducts = srv.map(normalizeProduct).filter(Boolean);
               window.allProducts = [...window.nutroProducts];
               try { localStorage.setItem('nutrolix_products', JSON.stringify(window.nutroProducts)); } catch (_) {}
+              renderPackagedCategoryTabs();
               applyFilters();
             }
           })
@@ -556,16 +639,9 @@
       const catParam = urlParams.get('cat');
       if (catParam) {
         window.activeCategory = catParam;
-        // Highlight active pill if matched
-        document.querySelectorAll('.shop-cat-btn').forEach(b => {
-          if (b.textContent.trim().includes(catParam)) {
-            b.className = 'shop-cat-btn active px-4 py-2 rounded-xl text-xs font-black bg-nutro-forest text-white shadow-sm transition shrink-0';
-          } else {
-            b.className = 'shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0';
-          }
-        });
       }
 
+      renderPackagedCategoryTabs();
       loadLiveProducts();
       updateShopCartBadge();
 
@@ -582,12 +658,7 @@
 
     window.selectCategory = function(cat, btn) {
       window.activeCategory = cat;
-      document.querySelectorAll('.shop-cat-btn').forEach(b => {
-        b.className = 'shop-cat-btn px-4 py-2 rounded-xl text-xs font-extrabold bg-slate-100 hover:bg-slate-200 text-slate-700 transition shrink-0';
-      });
-      if (btn) {
-        btn.className = 'shop-cat-btn active px-4 py-2 rounded-xl text-xs font-black bg-nutro-forest text-white shadow-sm transition shrink-0';
-      }
+      renderPackagedCategoryTabs();
       applyFilters();
     };
 

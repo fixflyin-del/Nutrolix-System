@@ -237,50 +237,81 @@
     </div>
   </div>
 
-  <!-- Hero Banner: Healthy Kitchen Delivery -->
-  <section class="bg-gradient-to-r from-emerald-950 via-nutro-forest to-slate-950 text-white py-8 px-4 sm:px-6 lg:px-8 shadow-inner">
-    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+  <!-- Hero Banner: Healthy Kitchen Delivery (with Modern Geometric Graphics) -->
+  <section class="relative overflow-hidden bg-gradient-to-r from-[#033d29] via-[#065f46] to-[#044932] text-white py-6 sm:py-7 px-4 sm:px-6 lg:px-8 shadow-inner">
+    <!-- Decorative Diamond Dot Grid & Translucent Emerald Orb Graphics -->
+    <svg class="absolute inset-0 w-full h-full opacity-20 pointer-events-none" aria-hidden="true">
+      <defs>
+        <pattern id="foodBannerDots" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+          <rect x="9" y="9" width="3.5" height="3.5" rx="0.8" transform="rotate(45 10.75 10.75)" fill="#a7f3d0" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#foodBannerDots)" />
+    </svg>
+    <div class="absolute -right-14 -top-16 w-64 h-64 sm:w-80 sm:h-80 rounded-full bg-emerald-400/20 pointer-events-none"></div>
+    <div class="absolute right-24 -bottom-24 w-48 h-48 rounded-full bg-lime-300/10 pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div>
-        <div class="inline-flex items-center space-x-2 bg-emerald-500/20 text-emerald-300 text-xs font-black uppercase px-3 py-1 rounded-full border border-emerald-400/30 mb-2">
+        <div class="inline-flex items-center space-x-2 bg-white/10 text-lime-300 text-xs font-black uppercase px-3 py-1 rounded-full border border-white/15 backdrop-blur-xs mb-2">
           <i class="fa-solid fa-fire-flame-curved text-amber-400"></i>
           <span>Nutrolix Cloud Kitchen • Fast & Fresh Delivery</span>
         </div>
-        <h1 class="text-2xl sm:text-3xl font-black text-white">Clean Healthy Food Dining Menu</h1>
-        <p class="text-xs sm:text-sm text-slate-300 mt-1 max-w-xl">
-          Zero Palm Oil • Zero Maida • Formulated with clinical macro-balance and whole organic grains. Tap any dish for complete nutrition facts, reviews & details!
+        <h1 class="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
+          <span>Clean Healthy Food Dining Menu</span>
+          <svg class="w-6 h-6 text-amber-400 shrink-0 drop-shadow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
+          </svg>
+        </h1>
+        <p class="text-xs sm:text-sm text-emerald-100/90 mt-1 max-w-xl">
+          Zero Palm Oil • Zero Maida • Formulated with balanced macros and whole organic grains. Tap any dish for complete nutrition facts, reviews & details!
         </p>
       </div>
       <div class="flex items-center space-x-3 shrink-0">
-        <div class="p-3 bg-white/10 rounded-2xl border border-white/10 flex items-center space-x-3 text-xs">
+        <div class="p-3 bg-white/10 backdrop-blur-xs rounded-2xl border border-emerald-300/25 flex items-center space-x-3 text-xs shadow-sm">
           <i class="fa-solid fa-clock text-amber-400 text-lg"></i>
           <div>
             <div class="font-bold text-white">Delivery Time: 30-40 Mins</div>
-            <div class="text-[10px] text-emerald-300">Live Kitchen Active • FSSAI Lic. 21526024003044</div>
+            <div class="text-[10px] text-lime-200">Live Kitchen Active • FSSAI Lic. 21526024003044</div>
           </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Sticky Category Bar -->
-  <div class="sticky top-20 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200 py-3 px-4 shadow-sm">
-    <div class="max-w-7xl mx-auto flex items-center space-x-2 overflow-x-auto custom-scrollbar text-xs font-bold" id="foodCategoriesContainer">
-      <button onclick="filterFoodCategory('All', this)" class="food-cat-btn active px-4 py-2 rounded-full bg-nutro-forest text-white shadow-sm shrink-0 flex items-center space-x-1.5">
-        <i class="fa-solid fa-sparkles text-amber-400"></i>
-        <span>All Dishes</span>
-        <span class="ml-1 px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]" id="totalFoodCountBadge">8</span>
+  <!-- Sticky Category Bar (Stylish Rounded Pills with Circular Images) -->
+  <div class="sticky top-20 z-30 bg-[#fbfcf8]/95 backdrop-blur-md border-b border-emerald-100/80 py-3 px-4 shadow-xs">
+    <div class="max-w-7xl mx-auto flex items-center gap-2.5 sm:gap-3 overflow-x-auto custom-scrollbar pb-0.5 text-xs font-bold" id="foodCategoriesContainer">
+      <button onclick="filterFoodCategory('All', this)" class="food-cat-btn active pl-1.5 pr-4 py-1.5 rounded-full bg-[#05442e] text-lime-300 border border-emerald-700/60 shadow-md shadow-emerald-950/15 shrink-0 flex items-center gap-2.5 transition-all duration-200">
+        <span class="w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-[#22c55e] flex items-center justify-center overflow-hidden shrink-0">
+          <img src="assets/graphics/cat_healthy_bowls.jpg" alt="All Dishes" class="w-full h-full object-cover rounded-full">
+        </span>
+        <span class="font-black">All Dishes</span>
+        <span class="px-1.5 py-0.5 rounded-full bg-white/15 text-white text-[10px] font-black" id="totalFoodCountBadge">8</span>
       </button>
-      <button onclick="filterFoodCategory('High Protein Meals', this)" class="food-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 shrink-0">
-        💪 High Protein Meals
+      <button onclick="filterFoodCategory('High Protein Meals', this)" class="food-cat-btn pl-1.5 pr-4 py-1.5 rounded-full bg-white hover:bg-emerald-50/50 text-slate-900 border border-slate-200/90 shadow-xs shrink-0 flex items-center gap-2.5 transition-all duration-200">
+        <span class="w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-amber-300 flex items-center justify-center overflow-hidden shrink-0">
+          <img src="assets/graphics/cat_healthy_bowls.jpg" alt="High Protein Meals" class="w-full h-full object-cover rounded-full">
+        </span>
+        <span class="font-extrabold">High Protein Meals</span>
       </button>
-      <button onclick="filterFoodCategory('Diet & Calorie Conscious', this)" class="food-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 shrink-0">
-        🥗 Diet & Calorie Conscious
+      <button onclick="filterFoodCategory('Diet & Calorie Conscious', this)" class="food-cat-btn pl-1.5 pr-4 py-1.5 rounded-full bg-white hover:bg-emerald-50/50 text-slate-900 border border-slate-200/90 shadow-xs shrink-0 flex items-center gap-2.5 transition-all duration-200">
+        <span class="w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-teal-300 flex items-center justify-center overflow-hidden shrink-0">
+          <img src="assets/graphics/cat_protein_snacks.jpg" alt="Diet & Calorie Conscious" class="w-full h-full object-cover rounded-full">
+        </span>
+        <span class="font-extrabold">Diet & Calorie Conscious</span>
       </button>
-      <button onclick="filterFoodCategory('Detox Juices & Smoothies', this)" class="food-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 shrink-0">
-        🥤 Detox Juices & Smoothies
+      <button onclick="filterFoodCategory('Detox Juices & Smoothies', this)" class="food-cat-btn pl-1.5 pr-4 py-1.5 rounded-full bg-white hover:bg-emerald-50/50 text-slate-900 border border-slate-200/90 shadow-xs shrink-0 flex items-center gap-2.5 transition-all duration-200">
+        <span class="w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-sky-300 flex items-center justify-center overflow-hidden shrink-0">
+          <img src="assets/graphics/cat_detox_drinks.jpg" alt="Detox Juices & Smoothies" class="w-full h-full object-cover rounded-full">
+        </span>
+        <span class="font-extrabold">Detox Juices & Smoothies</span>
       </button>
-      <button onclick="filterFoodCategory('Salads & Bowls', this)" class="food-cat-btn px-4 py-2 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700 shrink-0">
-        🥑 Superfood Bowls & Salads
+      <button onclick="filterFoodCategory('Salads & Bowls', this)" class="food-cat-btn pl-1.5 pr-4 py-1.5 rounded-full bg-white hover:bg-emerald-50/50 text-slate-900 border border-slate-200/90 shadow-xs shrink-0 flex items-center gap-2.5 transition-all duration-200">
+        <span class="w-9 h-9 rounded-full bg-white p-0.5 ring-2 ring-lime-400 flex items-center justify-center overflow-hidden shrink-0">
+          <img src="assets/graphics/cat_healthy_bowls.jpg" alt="Salads & Bowls" class="w-full h-full object-cover rounded-full">
+        </span>
+        <span class="font-extrabold">Salads & Bowls</span>
       </button>
     </div>
   </div>
@@ -1296,17 +1327,46 @@
       updateCartBadges();
     }
 
+    const FOOD_CAT_RING_PALETTE = ['ring-amber-300', 'ring-teal-300', 'ring-sky-300', 'ring-lime-400', 'ring-orange-300', 'ring-emerald-300'];
+    let lastLoadedFoodCategories = [
+      { name: 'High Protein Meals' },
+      { name: 'Diet & Calorie Conscious' },
+      { name: 'Detox Juices & Smoothies' },
+      { name: 'Salads & Bowls' }
+    ];
+
+    function getFoodCategoryFallbackGraphic(catName) {
+      const lower = String(catName || '').toLowerCase();
+      if (lower.includes('juice') || lower.includes('smoothie') || lower.includes('detox') || lower.includes('drink') || lower.includes('shake')) {
+        return 'assets/graphics/cat_detox_drinks.jpg';
+      }
+      if (lower.includes('snack') || lower.includes('chaat') || lower.includes('diet') || lower.includes('calorie') || lower.includes('makhana')) {
+        return 'assets/graphics/cat_protein_snacks.jpg';
+      }
+      if (lower.includes('atta') || lower.includes('roti') || lower.includes('grain') || lower.includes('thali')) {
+        return 'assets/graphics/cat_protein_atta.jpg';
+      }
+      return 'assets/graphics/cat_healthy_bowls.jpg';
+    }
+
+    function getFoodCategoryThumb(cat, meals) {
+      const catName = typeof cat === 'string' ? cat : (cat && (cat.name || cat.title)) || '';
+      const fallback = getFoodCategoryFallbackGraphic(catName);
+      if (cat && typeof cat === 'object' && cat.image) {
+        return window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(cat.image) : cat.image;
+      }
+      if (catName && Array.isArray(meals)) {
+        const match = meals.find(m => m && m.category && m.category.toLowerCase() === catName.toLowerCase() && m.image && !String(m.image).includes('image_6061bdc8'));
+        if (match && match.image) {
+          return window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(match.image) : match.image;
+        }
+      }
+      return fallback;
+    }
+
     function filterFoodCategory(cat, btn) {
       currentCategory = cat;
-      const pills = document.querySelectorAll('.food-cat-btn');
-      pills.forEach(p => {
-        p.classList.remove('bg-nutro-forest', 'text-white', 'active');
-        p.classList.add('bg-slate-100', 'text-slate-700');
-      });
-      if (btn) {
-        btn.classList.remove('bg-slate-100', 'text-slate-700');
-        btn.classList.add('bg-nutro-forest', 'text-white', 'active');
-      }
+      renderCategoryPills(lastLoadedFoodCategories);
       renderFoodMenu();
     }
     window.filterFoodCategory = filterFoodCategory;
@@ -1319,7 +1379,10 @@
       } catch(_) {}
 
       if (cats && cats.length) {
+        lastLoadedFoodCategories = cats;
         renderCategoryPills(cats);
+      } else {
+        renderCategoryPills(lastLoadedFoodCategories);
       }
 
       try {
@@ -1329,6 +1392,7 @@
           const freshCats = await res.json();
           if (Array.isArray(freshCats) && freshCats.length) {
             cats = freshCats;
+            lastLoadedFoodCategories = freshCats;
             try { localStorage.setItem('nutrolix_food_categories', JSON.stringify(freshCats)); } catch (_) {}
             renderCategoryPills(freshCats);
           }
@@ -1339,23 +1403,34 @@
     function renderCategoryPills(categories) {
       const container = document.getElementById('foodCategoriesContainer');
       if (!container) return;
-      
-      const totalCount = getLiveHealthyFoodMenu().length;
+      const list = Array.isArray(categories) && categories.length ? categories : lastLoadedFoodCategories;
+      const meals = getLiveHealthyFoodMenu();
+      const totalCount = meals.length;
+      const allActive = currentCategory === 'All';
+
       let html = `
-        <button onclick="filterFoodCategory('All', this)" class="food-cat-btn ${currentCategory === 'All' ? 'active bg-nutro-forest text-white' : 'bg-slate-100 text-slate-700'} px-4 py-2 rounded-full shadow-sm shrink-0 flex items-center space-x-1.5 transition">
-          <i class="fa-solid fa-sparkles text-amber-400"></i>
-          <span>All Dishes</span>
-          <span class="ml-1 px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]" id="totalFoodCountBadge">${totalCount}</span>
+        <button onclick="filterFoodCategory('All', this)" class="food-cat-btn ${allActive ? 'active bg-[#05442e] text-lime-300 border-emerald-700/60 shadow-md shadow-emerald-950/15' : 'bg-white hover:bg-emerald-50/50 text-slate-900 border-slate-200/90 hover:border-emerald-300 shadow-xs'} pl-1.5 pr-4 py-1.5 rounded-full border shrink-0 flex items-center gap-2.5 transition-all duration-200">
+          <span class="w-9 h-9 rounded-full bg-white p-0.5 ring-2 ${allActive ? 'ring-[#22c55e]' : 'ring-emerald-300'} flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
+            <img src="assets/graphics/cat_healthy_bowls.jpg" alt="All Dishes" class="w-full h-full object-cover rounded-full">
+          </span>
+          <span class="${allActive ? 'font-black' : 'font-extrabold'} text-xs sm:text-[13px]">All Dishes</span>
+          <span class="px-1.5 py-0.5 rounded-full ${allActive ? 'bg-white/15 text-white' : 'bg-emerald-50 text-emerald-800'} text-[10px] font-black" id="totalFoodCountBadge">${totalCount}</span>
         </button>
       `;
 
-      categories.forEach(cat => {
+      list.forEach((cat, idx) => {
         const catName = typeof cat === 'string' ? cat : (cat.name || cat.title);
-        const icon = typeof cat === 'object' && cat.icon ? cat.icon : '🥗';
+        if (!catName) return;
         const isActive = currentCategory === catName;
+        const fallbackImg = getFoodCategoryFallbackGraphic(catName);
+        const thumbImg = getFoodCategoryThumb(cat, meals);
+        const ringCls = isActive ? 'ring-[#22c55e]' : FOOD_CAT_RING_PALETTE[idx % FOOD_CAT_RING_PALETTE.length];
         html += `
-          <button onclick="filterFoodCategory('${catName.replace(/'/g, "\\'")}', this)" class="food-cat-btn ${isActive ? 'active bg-nutro-forest text-white' : 'bg-slate-100 hover:bg-slate-200 text-slate-700'} px-4 py-2 rounded-full shrink-0 transition">
-            ${icon} ${catName}
+          <button onclick="filterFoodCategory('${catName.replace(/'/g, "\\'")}', this)" class="food-cat-btn ${isActive ? 'active bg-[#05442e] text-lime-300 border-emerald-700/60 shadow-md shadow-emerald-950/15' : 'bg-white hover:bg-emerald-50/50 text-slate-900 border-slate-200/90 hover:border-emerald-300 shadow-xs'} pl-1.5 pr-4 py-1.5 rounded-full border shrink-0 flex items-center gap-2.5 transition-all duration-200">
+            <span class="w-9 h-9 rounded-full bg-white p-0.5 ring-2 ${ringCls} flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
+              <img src="${thumbImg}" onerror="this.onerror=null;this.src='${fallbackImg}'" alt="${catName}" class="w-full h-full object-cover rounded-full">
+            </span>
+            <span class="${isActive ? 'font-black' : 'font-extrabold'} text-xs sm:text-[13px]">${catName}</span>
           </button>
         `;
       });
@@ -1851,6 +1926,7 @@
               localStorage.setItem('nutrolix_healthy_food_menu', JSON.stringify(meals));
             } catch (_) {}
             renderFoodMenu();
+            renderCategoryPills(lastLoadedFoodCategories);
             const modalEl = document.getElementById('foodDishDetailModal');
             if (modalEl && !modalEl.classList.contains('hidden') && currentSelectedModalDish && currentSelectedModalDish.id) {
               const preservedQty = modalSelectedQuantity;

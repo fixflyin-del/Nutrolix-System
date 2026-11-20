@@ -213,15 +213,31 @@
     </div>
   </div>
 
-  <!-- Page Header Banner -->
-  <div class="bg-gradient-to-r from-nutro-forest via-emerald-900 to-slate-900 text-white py-8 px-4">
-    <div class="max-w-7xl mx-auto flex items-center justify-between">
+  <!-- Page Header Banner (with Modern Geometric Graphics) -->
+  <div class="relative overflow-hidden bg-gradient-to-r from-[#033d29] via-[#065f46] to-[#044932] text-white py-6 sm:py-7 px-4">
+    <svg class="absolute inset-0 w-full h-full opacity-20 pointer-events-none" aria-hidden="true">
+      <defs>
+        <pattern id="cartBannerDots" x="0" y="0" width="22" height="22" patternUnits="userSpaceOnUse">
+          <rect x="9" y="9" width="3.5" height="3.5" rx="0.8" transform="rotate(45 10.75 10.75)" fill="#a7f3d0" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#cartBannerDots)" />
+    </svg>
+    <div class="absolute -right-12 -top-16 w-60 h-60 rounded-full bg-emerald-400/20 pointer-events-none"></div>
+    <div class="absolute right-24 -bottom-24 w-44 h-44 rounded-full bg-lime-300/10 pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto relative z-10 flex items-center justify-between gap-4">
       <div>
-        <h1 class="text-2xl sm:text-3xl font-black">Shopping Bag & Checkout</h1>
-        <p class="text-slate-300 text-xs sm:text-sm mt-1">Review selected nutrition items and confirm delivery address</p>
+        <h1 class="text-2xl sm:text-3xl font-black flex items-center gap-2">
+          <span>Shopping Bag & Checkout</span>
+          <svg class="w-5 h-5 text-amber-400 shrink-0 drop-shadow" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2L14.4 9.6L22 12L14.4 14.4L12 22L9.6 14.4L2 12L9.6 9.6L12 2Z" />
+          </svg>
+        </h1>
+        <p class="text-emerald-100/90 text-xs sm:text-sm mt-1">Review selected nutrition items and confirm delivery address</p>
       </div>
-      <span class="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white/10 text-emerald-300 text-xs font-bold border border-white/15">
-        <i class="fa-solid fa-shield-halved"></i>
+      <span class="hidden sm:inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-white/10 backdrop-blur-xs text-lime-200 text-xs font-bold border border-emerald-300/30 shadow-sm">
+        <i class="fa-solid fa-shield-halved text-amber-300"></i>
         <span>100% Secure Checkout</span>
       </span>
     </div>
@@ -230,18 +246,23 @@
   <!-- ========================================== -->
   <!-- 2. MAIN CONTAINER -->
   <!-- ========================================== -->
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 flex-1 w-full">
 
     <!-- EMPTY CART VIEW -->
-    <div id="emptyCartView" class="hidden text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm max-w-lg mx-auto p-8 space-y-4">
-      <div class="w-20 h-20 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-3xl mx-auto">
+    <div id="emptyCartView" class="hidden relative overflow-hidden text-center py-14 bg-white rounded-3xl border border-emerald-100 shadow-sm max-w-lg mx-auto p-8 space-y-4">
+      <div class="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-emerald-50 pointer-events-none"></div>
+      <div class="absolute -bottom-10 -left-10 w-32 h-32 rounded-full bg-amber-50 pointer-events-none"></div>
+      <div class="relative w-24 h-24 rounded-full bg-gradient-to-br from-emerald-50 to-lime-50 border border-emerald-200/70 text-emerald-600 flex items-center justify-center text-3xl mx-auto shadow-inner">
         <i class="fa-solid fa-bag-shopping"></i>
+        <span class="absolute -top-1 -right-1 w-7 h-7 rounded-full bg-amber-400 text-slate-950 text-xs flex items-center justify-center shadow">
+          <i class="fa-solid fa-sparkles"></i>
+        </span>
       </div>
-      <h2 class="text-xl sm:text-2xl font-black text-slate-900">Your Shopping Cart is Empty</h2>
-      <p class="text-xs sm:text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
+      <h2 class="relative text-xl sm:text-2xl font-black text-slate-900">Your Shopping Cart is Empty</h2>
+      <p class="relative text-xs sm:text-sm text-slate-500 max-w-sm mx-auto leading-relaxed">
         You haven't added any clinical nutrition products or healthy meals yet. Discover our high-protein flours and superfoods.
       </p>
-      <div class="pt-4 flex flex-col sm:flex-row gap-3 justify-center">
+      <div class="relative pt-4 flex flex-col sm:flex-row gap-3 justify-center">
         <a href="shop.html" class="px-6 py-3 rounded-xl bg-nutro-forest hover:bg-nutro-dark text-white font-extrabold text-xs transition shadow flex items-center justify-center space-x-2">
           <i class="fa-solid fa-store"></i>
           <span>Shop Packaged Store</span>
@@ -254,8 +275,15 @@
     </div>
 
     <!-- ACTIVE CART VIEW -->
-    <div id="cartView" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      
+    <div id="cartView" class="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
+
+      <!-- LIVE FREE DELIVERY & ALL OFFERS PROGRESS BAR CARD -->
+      <div id="cartOfferProgressBanner" class="lg:col-span-3 hidden rounded-2xl bg-gradient-to-r from-[#e5fbd6] via-[#effcf4] to-[#fff7cc] border border-emerald-200/80 p-4 sm:p-5 shadow-sm">
+        <div id="cartOfferProgressList" class="space-y-3.5">
+          <!-- Dynamically populated by renderOfferProgressBars() -->
+        </div>
+      </div>
+
       <!-- Left 2 Cols: Cart Items & Address Form -->
       <div class="lg:col-span-2 space-y-6">
         
@@ -1040,6 +1068,126 @@
       document.getElementById('summaryShipping').innerText = shipping === 0 ? 'FREE' : `₹${shipping}`;
       document.getElementById('summaryGrandTotal').innerText = `₹${grandTotal}`;
       document.getElementById('totalSavedText').innerText = `You save ₹${totalSaved}`;
+
+      renderOfferProgressBars({
+        subtotal,
+        healthyFoodSubtotal,
+        settings,
+        minRequired,
+        discountAmount,
+        offerLabel
+      });
+    }
+
+    window.applyOfferProgressCoupon = function(code) {
+      const inp = document.getElementById('couponInput');
+      if (inp) inp.value = code;
+      applyCoupon();
+    };
+
+    function renderOfferProgressBars(ctx) {
+      const banner = document.getElementById('cartOfferProgressBanner');
+      const listEl = document.getElementById('cartOfferProgressList');
+      if (!banner || !listEl) return;
+
+      const subtotal = Number(ctx && ctx.subtotal) || 0;
+      const healthyFoodSubtotal = Number(ctx && ctx.healthyFoodSubtotal) || 0;
+      const settings = (ctx && ctx.settings) || getStoreSettings();
+      const freeThreshold = Math.max(1, Number(settings.freeDeliveryThreshold || 499));
+
+      if (subtotal <= 0) {
+        banner.classList.add('hidden');
+        listEl.innerHTML = '';
+        return;
+      }
+
+      const rows = [];
+
+      // 1. Free Delivery Progress Bar (Green Truck + Forest-to-Lime Gradient)
+      const freeRemaining = Math.max(0, Math.ceil(freeThreshold - subtotal));
+      const freePct = Math.min(100, Math.max(0, Math.round((subtotal / freeThreshold) * 100)));
+      rows.push({
+        iconHtml: `<i class="fa-solid fa-truck-fast text-emerald-700 text-base sm:text-lg shrink-0"></i>`,
+        labelHtml: freeRemaining > 0
+          ? `Add <span class="font-black text-slate-950">₹${freeRemaining}</span> for <span class="text-emerald-700 font-black">FREE Delivery</span>`
+          : `<span class="text-emerald-800 font-black">FREE Delivery Unlocked!</span> <span class="text-xs font-bold text-emerald-700">🎉 Saved ₹${settings.deliveryFee || 49}</span>`,
+        pct: freePct,
+        barGradient: 'from-[#047857] via-[#22c55e] to-[#84cc16]',
+        actionHtml: ''
+      });
+
+      // 2. Healthy Meal Special Offer Bar (when cart has Healthy Food items)
+      if (healthyFoodSubtotal > 0) {
+        const mealMin = Math.max(1, Number(ctx.minRequired || 349));
+        const mealDisc = Number(ctx.discountAmount || 100);
+        const mealRemaining = Math.max(0, Math.ceil(mealMin - healthyFoodSubtotal));
+        const mealPct = Math.min(100, Math.max(0, Math.round((healthyFoodSubtotal / mealMin) * 100)));
+        rows.push({
+          iconHtml: `<i class="fa-solid fa-utensils text-orange-500 text-base sm:text-lg shrink-0"></i>`,
+          labelHtml: mealRemaining > 0
+            ? `Add <span class="font-black text-slate-950">₹${mealRemaining}</span> Healthy Food for <span class="text-orange-700 font-black">₹${mealDisc} OFF</span>`
+            : `<span class="text-emerald-800 font-black">₹${mealDisc} OFF Healthy Meal Unlocked!</span> <span class="text-xs font-bold text-emerald-700">✨ Auto-applied</span>`,
+          pct: mealPct,
+          barGradient: mealRemaining > 0 ? 'from-[#fbbf24] via-[#f97316] to-[#ea580c]' : 'from-[#059669] via-[#22c55e] to-[#84cc16]',
+          actionHtml: ''
+        });
+      }
+
+      // 3. All Active Discount / Coupon Offers (Threshold-based first, plus instant offers if available)
+      const activeCoupons = (getStoreCoupons() || []).filter(c => c && c.active !== false && c.code);
+      const thresholdCoupons = activeCoupons
+        .filter(c => Number(c.minOrder || 0) > 0)
+        .sort((a, b) => Number(a.minOrder || 0) - Number(b.minOrder || 0));
+
+      const couponsToShow = thresholdCoupons.length > 0
+        ? thresholdCoupons.slice(0, 3)
+        : activeCoupons.slice(0, 1);
+
+      couponsToShow.forEach(c => {
+        const minOrder = Math.max(0, Number(c.minOrder || 0));
+        const offerTitle = c.type === 'flat' ? `₹${c.value} OFF` : `${c.value}% OFF`;
+        const isApplied = appliedCoupon && appliedCoupon.code === c.code;
+        const remaining = minOrder > 0 ? Math.max(0, Math.ceil(minOrder - subtotal)) : 0;
+        const pct = minOrder > 0 ? Math.min(100, Math.max(0, Math.round((subtotal / minOrder) * 100))) : 100;
+        const safeCode = String(c.code).replace(/'/g, "\\'");
+
+        let actionHtml = '';
+        if (remaining === 0) {
+          actionHtml = isApplied
+            ? `<span class="px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-black tracking-wide">APPLIED ✓</span>`
+            : `<button type="button" onclick="window.applyOfferProgressCoupon('${safeCode}')" class="px-2.5 py-0.5 rounded-full bg-[#05442e] hover:bg-emerald-800 text-lime-300 text-[10px] font-black tracking-wide shadow-xs transition cursor-pointer">Apply ${c.code}</button>`;
+        }
+
+        rows.push({
+          iconHtml: `<i class="fa-solid fa-gift text-orange-500 text-base sm:text-lg shrink-0"></i>`,
+          labelHtml: remaining > 0
+            ? `Add <span class="font-black text-slate-950">₹${remaining}</span> for <span class="text-slate-900 font-black">${offerTitle}</span> <span class="text-[10px] font-black text-amber-800 bg-amber-200/70 px-1.5 py-0.5 rounded-md ml-1">${c.code}</span>`
+            : `<span class="text-emerald-800 font-black">${offerTitle} Unlocked!</span> <span class="text-[10px] font-black text-emerald-800 bg-emerald-200/70 px-1.5 py-0.5 rounded-md ml-1">${c.code}</span>`,
+          pct,
+          barGradient: remaining > 0 ? 'from-[#fbbf24] via-[#f97316] to-[#ea580c]' : 'from-[#059669] via-[#22c55e] to-[#84cc16]',
+          actionHtml
+        });
+      });
+
+      listEl.innerHTML = rows.map(row => `
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between gap-2 text-xs sm:text-sm font-extrabold text-slate-900">
+            <div class="flex items-center gap-2 min-w-0">
+              ${row.iconHtml}
+              <div class="truncate sm:whitespace-normal leading-snug">${row.labelHtml}</div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              ${row.actionHtml}
+              <span class="font-black text-slate-900 text-xs sm:text-sm tabular-nums">${row.pct}%</span>
+            </div>
+          </div>
+          <div class="w-full h-2.5 bg-white/95 rounded-full overflow-hidden shadow-inner border border-emerald-100/80">
+            <div class="h-full rounded-full bg-gradient-to-r ${row.barGradient} transition-all duration-500 ease-out" style="width: ${Math.max(row.pct > 0 ? 6 : 0, row.pct)}%"></div>
+          </div>
+        </div>
+      `).join('');
+
+      banner.classList.remove('hidden');
     }
 
     function renderCart() {

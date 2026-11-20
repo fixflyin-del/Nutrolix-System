@@ -2019,10 +2019,49 @@ test('Healthy Food bulk-paste 5 Nutrition Highlights and strictly optional Calor
   }
 });
 
+test('41) Stylish circular-image category pills (shop & food), checkout multi-offer progress bars, and modern studio graphics exist in public and Android web assets', () => {
+  const rootDir = path.resolve(__dirname, '..');
+  const roots = [
+    path.join(rootDir, 'public'),
+    path.join(rootDir, 'app/src/main/assets/web')
+  ];
 
+  const requiredGraphics = [
+    'assets/graphics/cat_packaged_all.jpg',
+    'assets/graphics/cat_protein_atta.jpg',
+    'assets/graphics/cat_protein_snacks.jpg',
+    'assets/graphics/cat_healthy_bowls.jpg',
+    'assets/graphics/cat_detox_drinks.jpg'
+  ];
 
+  for (const base of roots) {
+    for (const rel of requiredGraphics) {
+      const fullPath = path.join(base, rel);
+      assert.ok(fs.existsSync(fullPath), `${fullPath} must exist`);
+      assert.ok(fs.statSync(fullPath).size > 5000, `${fullPath} must be a non-empty image`);
+    }
 
+    const shopHtml = fs.readFileSync(path.join(base, 'shop.html'), 'utf8');
+    assert.ok(shopHtml.includes('id="shopBannerDots"'), 'shop.html must include geometric dot-grid banner graphics');
+    assert.ok(shopHtml.includes('renderPackagedCategoryTabs'), 'shop.html must dynamically render stylish circular-image category pills');
+    assert.ok(shopHtml.includes('bg-[#05442e] text-lime-300'), 'shop.html must use deep forest green + lime active pill style');
+    assert.ok(shopHtml.includes('assets/graphics/cat_protein_atta.jpg'), 'shop.html must wire circular studio category thumbnails');
 
+    const foodHtml = fs.readFileSync(path.join(base, 'food.html'), 'utf8');
+    assert.ok(foodHtml.includes('id="foodBannerDots"'), 'food.html must include geometric dot-grid banner graphics');
+    assert.ok(foodHtml.includes('getFoodCategoryThumb'), 'food.html must resolve circular dish/studio thumbnails for category pills');
+    assert.ok(foodHtml.includes('bg-[#05442e] text-lime-300'), 'food.html must use deep forest green + lime active pill style');
+    assert.ok(foodHtml.includes('assets/graphics/cat_healthy_bowls.jpg'), 'food.html must wire circular healthy meal studio thumbnails');
 
+    const cartHtml = fs.readFileSync(path.join(base, 'cart.html'), 'utf8');
+    assert.ok(cartHtml.includes('id="cartOfferProgressBanner"'), 'cart.html must include checkout multi-offer progress bar banner');
+    assert.ok(cartHtml.includes('function renderOfferProgressBars'), 'cart.html must implement live renderOfferProgressBars()');
+    assert.ok(cartHtml.includes('FREE Delivery'), 'cart.html progress bar must show Free Delivery milestone');
+    assert.ok(cartHtml.includes('Healthy Food for'), 'cart.html progress bar must show Healthy Meal offer milestone');
+    assert.ok(cartHtml.includes('applyOfferProgressCoupon'), 'cart.html progress bar must support 1-tap apply for unlocked coupon offers');
+    assert.ok(cartHtml.includes('from-[#e5fbd6] via-[#effcf4] to-[#fff7cc]'), 'cart.html progress bar card must use pastel mint-to-cream gradient');
 
-
+    const indexHtml = fs.readFileSync(path.join(base, 'index.html'), 'utf8');
+    assert.ok(indexHtml.includes('id="homeHeroDots"'), 'index.html hero must include modern geometric dot-grid graphics');
+  }
+});
