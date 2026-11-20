@@ -641,7 +641,7 @@ test('Checkout horizontal Payment & Promo UI and Healthy Food Nutrition Facts he
   for (const rel of ['public/cart.html', 'app/src/main/assets/web/cart.html']) {
     const cartHtml = fs.readFileSync(path.join(root, rel), 'utf8');
     assert.ok(cartHtml.includes('grid-cols-2 gap-2'), `${rel} must use compact 2-column horizontal payment selector`);
-    assert.ok(cartHtml.includes('overflow-x-auto') && cartHtml.includes('whitespace-nowrap'), `${rel} must lay out promo chips in compact horizontal row`);
+    assert.ok(cartHtml.includes('applyOfferProgressCoupon') && cartHtml.includes('whitespace-nowrap'), `${rel} must render inline Apply promo button inside progress banner`);
   }
   for (const rel of ['public/food.html', 'app/src/main/assets/web/food.html']) {
     const foodHtml = fs.readFileSync(path.join(root, rel), 'utf8');
@@ -2205,5 +2205,64 @@ test('43) First-visit live product loading uses retry + skeletons, homepage Goog
     await new Promise((resolve) => server.close(resolve));
   }
 });
+
+test('44) Checkout PIN detection rejects bogus state-mismatched PINs (497586 in Maharashtra), resolves Taloja GPS to 410208, and Checkout uses inline progress-bar mini Apply button with bottom coupon box removed', async () => {
+  const rootDir = path.resolve(__dirname, '..');
+
+  // 1. State-to-PIN prefix validation rejects 497586 for Maharashtra and accepts 410208
+  assert.equal(core.isValidIndianPincodeForState('497586', 'Maharashtra'), false, '497586 must be rejected for Maharashtra');
+  assert.equal(core.isValidIndianPincodeForState('410208', 'Maharashtra'), true, '410208 must be valid for Maharashtra');
+  assert.equal(core.isValidIndianPincodeForState('497586', 'Chhattisgarh'), true, '497xxx belongs to Chhattisgarh');
+
+  // 2. GPS coordinates in Taloja Phase 1/2/MIDC resolve directly to 410208 even if geocoder only says Panvel
+  const talojaGeo = await core.verifyAndResolveIndianPincode(
+    {
+      success: true,
+      lat: 19.075,
+      lon: 73.098,
+      pincode: '497586',
+      city: 'Panvel',
+      state: 'Maharashtra',
+      district: 'Raigad',
+      formattedAddress: 'Panvel, Maharashtra 497586'
+    },
+    {
+      lookupPincodeFn: async () => [],
+      lookupPostOfficeFn: async () => []
+    }
+  );
+  assert.equal(talojaGeo.pincode, '410208', 'Taloja GPS coordinates must resolve to 410208');
+  assert.equal(talojaGeo.city, 'Taloja, Panvel');
+
+  // 3. Even offline/unknown locality, bogus state-mismatched PIN (497586 for Maharashtra) must never pass through
+  const panvelBogus = await core.verifyAndResolveIndianPincode(
+    {
+      success: true,
+      pincode: '497586',
+      city: 'Panvel',
+      state: 'Maharashtra',
+      district: 'Raigad'
+    },
+    {
+      lookupPincodeFn: async () => [],
+      lookupPostOfficeFn: async () => []
+    }
+  );
+  assert.notEqual(panvelBogus.pincode, '497586', 'Bogus cross-state PIN 497586 must never be returned for Maharashtra');
+
+  // 4. Verify Web + Android web cart.html UI & logic
+  for (const rel of ['public/cart.html', 'app/src/main/assets/web/cart.html']) {
+    const cartHtml = fs.readFileSync(path.join(rootDir, rel), 'utf8');
+    assert.equal(cartHtml.includes('id="couponInput"'), false, `${rel} must remove bottom manual coupon input box`);
+    assert.equal(cartHtml.includes('id="couponSuggestionsContainer"'), false, `${rel} must remove bottom coupon selection section`);
+    assert.ok(cartHtml.includes('id="offerProgressFeedback"'), `${rel} must show coupon feedback inside progress banner`);
+    assert.ok(cartHtml.includes('window.applyOfferProgressCoupon') && cartHtml.includes('window.removeOfferProgressCoupon'), `${rel} must support inline Apply and Remove on unlocked progress bars`);
+    assert.ok(cartHtml.includes('>Apply</button>'), `${rel} must render mini Apply button right on unlocked offer progress bar`);
+    assert.ok(cartHtml.includes('isValidIndianPincodeForState') && cartHtml.includes('verifyCandidatePinWithIndiaPost'), `${rel} must validate IP & cached PINs against India Post state rules`);
+    assert.ok(cartHtml.includes('enableHighAccuracy: true'), `${rel} must request high-accuracy GPS for checkout PIN detection`);
+    assert.ok(cartHtml.includes('lat >= 19.050 && lat <= 19.118'), `${rel} must include Taloja 410208 GPS bounding box`);
+  }
+});
+
 
 

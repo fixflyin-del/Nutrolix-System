@@ -283,6 +283,7 @@
         <div id="cartOfferProgressList" class="space-y-3.5">
           <!-- Dynamically populated by renderOfferProgressBars() -->
         </div>
+        <div id="offerProgressFeedback" class="hidden mt-2.5 pt-2 border-t border-emerald-200/70 text-xs font-bold"></div>
       </div>
 
       <!-- Left 2 Cols: Cart Items & Address Form -->
@@ -494,18 +495,6 @@
 
       <!-- Right 1 Col: Summary & Checkout -->
       <div class="space-y-6">
-        
-        <!-- Coupon Card (Compact Horizontal Layout) -->
-        <div class="bg-white rounded-2xl p-3.5 sm:p-4 shadow-sm border border-slate-200">
-          <div class="flex items-center gap-2">
-            <input type="text" id="couponInput" placeholder="Promo Code (NUTRO10 / NUTRO20)" class="flex-1 min-w-0 uppercase font-bold text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
-            <button onclick="applyCoupon()" class="px-4 py-2 rounded-xl bg-slate-900 text-white font-black text-xs hover:bg-slate-800 transition shrink-0">Apply</button>
-          </div>
-          <div id="couponMessage" class="mt-1.5 text-[11px]"></div>
-          <div id="couponSuggestionsContainer" class="mt-2 flex items-center gap-1.5 overflow-x-auto pb-0.5 whitespace-nowrap">
-            <!-- Dynamically populated from getStoreCoupons() -->
-          </div>
-        </div>
 
         <!-- Price Breakdown Card -->
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
@@ -928,44 +917,57 @@
       saveCart(cart);
     }
 
-    function setCoupon(code) {
-      document.getElementById('couponInput').value = code;
-      applyCoupon();
+    function setOfferProgressFeedback(html, isError = false) {
+      const fb = document.getElementById('offerProgressFeedback');
+      if (!fb) return;
+      if (!html) {
+        fb.classList.add('hidden');
+        fb.innerHTML = '';
+        return;
+      }
+      fb.className = `mt-2.5 pt-2 border-t border-emerald-200/70 text-xs font-bold ${isError ? 'text-rose-600' : 'text-emerald-800'}`;
+      fb.innerHTML = html;
+      fb.classList.remove('hidden');
     }
 
-    function applyCoupon() {
-      const code = (document.getElementById('couponInput').value || '').trim().toUpperCase();
-      const msgEl = document.getElementById('couponMessage');
+    function setCoupon(code) {
+      applyCoupon(code);
+    }
+
+    function applyCoupon(explicitCode) {
+      const inp = document.getElementById('couponInput');
+      const code = String(explicitCode !== undefined ? explicitCode : (inp ? inp.value : '')).trim().toUpperCase();
       const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
       if (!code) {
         appliedCoupon = null;
-        msgEl.innerHTML = '';
+        setOfferProgressFeedback('');
         renderSummary();
         return;
       }
 
       const allCoupons = getStoreCoupons();
-      const match = allCoupons.find(c => c.code === code && c.active);
+      const match = allCoupons.find(c => c.code === code && c.active !== false);
 
       if (match) {
         const minOrder = Number(match.minOrder || 0);
         if (subtotal < minOrder) {
-          msgEl.innerHTML = `<span class="text-rose-600 font-bold">⚠️ ${match.code} requires minimum order value of ₹${minOrder}.</span>`;
+          setOfferProgressFeedback(`⚠️ ${match.code} requires minimum order value of ₹${minOrder}.`, true);
           appliedCoupon = null;
         } else {
-          appliedCoupon = { 
-            code: match.code, 
-            type: match.type, 
+          appliedCoupon = {
+            code: match.code,
+            type: match.type,
             value: match.value,
-            discountPercent: match.type === 'percentage' ? match.value : 0 
+            minOrder: minOrder,
+            discountPercent: match.type === 'percentage' ? match.value : 0
           };
-          const savedText = match.type === 'flat' ? `₹${match.value} FLAT OFF` : `${match.value}% OFF`;
-          msgEl.innerHTML = `<span class="text-emerald-600 font-bold">🎉 Coupon ${match.code} applied! ${savedText} saved.</span>`;
+          const savedText = match.type === 'flat' ? `₹${match.value} OFF` : `${match.value}% OFF`;
+          setOfferProgressFeedback(`🎉 Coupon ${match.code} applied! ${savedText} saved.`, false);
         }
       } else {
         appliedCoupon = null;
-        msgEl.innerHTML = '<span class="text-rose-600 font-bold">Invalid coupon code. Try NUTRO10</span>';
+        setOfferProgressFeedback('Invalid coupon code.', true);
       }
       renderSummary();
     }
@@ -975,7 +977,13 @@
       const mrpTotal = cart.reduce((sum, item) => sum + ((item.mrp || item.price) * item.quantity), 0);
       const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       const productDiscount = Math.max(0, mrpTotal - subtotal);
-      
+
+      // Automatically revoke applied coupon if cart subtotal drops below its minimum threshold
+      if (appliedCoupon && Number(appliedCoupon.minOrder || 0) > 0 && subtotal < Number(appliedCoupon.minOrder || 0)) {
+        appliedCoupon = null;
+        setOfferProgressFeedback('');
+      }
+
       let couponDiscount = 0;
       if (appliedCoupon) {
         if (appliedCoupon.type === 'flat') {
@@ -1081,9 +1089,13 @@
     }
 
     window.applyOfferProgressCoupon = function(code) {
-      const inp = document.getElementById('couponInput');
-      if (inp) inp.value = code;
-      applyCoupon();
+      applyCoupon(code);
+    };
+
+    window.removeOfferProgressCoupon = function() {
+      appliedCoupon = null;
+      setOfferProgressFeedback('');
+      renderSummary();
     };
 
     function renderOfferProgressBars(ctx) {
@@ -1114,7 +1126,8 @@
           : `<span class="text-emerald-800 font-black">FREE Delivery Unlocked!</span> <span class="text-xs font-bold text-emerald-700">🎉 Saved ₹${settings.deliveryFee || 49}</span>`,
         pct: freePct,
         barGradient: 'from-[#047857] via-[#22c55e] to-[#84cc16]',
-        actionHtml: ''
+        actionHtml: '',
+        hidePctWhenAction: false
       });
 
       // 2. Healthy Meal Special Offer Bar (when cart has Healthy Food items)
@@ -1130,21 +1143,17 @@
             : `<span class="text-emerald-800 font-black">₹${mealDisc} OFF Healthy Meal Unlocked!</span> <span class="text-xs font-bold text-emerald-700">✨ Auto-applied</span>`,
           pct: mealPct,
           barGradient: mealRemaining > 0 ? 'from-[#fbbf24] via-[#f97316] to-[#ea580c]' : 'from-[#059669] via-[#22c55e] to-[#84cc16]',
-          actionHtml: ''
+          actionHtml: '',
+          hidePctWhenAction: false
         });
       }
 
-      // 3. All Active Discount / Coupon Offers (Threshold-based first, plus instant offers if available)
-      const activeCoupons = (getStoreCoupons() || []).filter(c => c && c.active !== false && c.code);
-      const thresholdCoupons = activeCoupons
-        .filter(c => Number(c.minOrder || 0) > 0)
+      // 3. All Active Discount / Coupon Offers (sorted by minOrder ascending; mini Apply button appears inline right when 100% unlocked)
+      const activeCoupons = (getStoreCoupons() || [])
+        .filter(c => c && c.active !== false && c.code)
         .sort((a, b) => Number(a.minOrder || 0) - Number(b.minOrder || 0));
 
-      const couponsToShow = thresholdCoupons.length > 0
-        ? thresholdCoupons.slice(0, 3)
-        : activeCoupons.slice(0, 1);
-
-      couponsToShow.forEach(c => {
+      activeCoupons.forEach(c => {
         const minOrder = Math.max(0, Number(c.minOrder || 0));
         const offerTitle = c.type === 'flat' ? `₹${c.value} OFF` : `${c.value}% OFF`;
         const isApplied = appliedCoupon && appliedCoupon.code === c.code;
@@ -1155,8 +1164,8 @@
         let actionHtml = '';
         if (remaining === 0) {
           actionHtml = isApplied
-            ? `<span class="px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-black tracking-wide">APPLIED ✓</span>`
-            : `<button type="button" onclick="window.applyOfferProgressCoupon('${safeCode}')" class="px-2.5 py-0.5 rounded-full bg-[#05442e] hover:bg-emerald-800 text-lime-300 text-[10px] font-black tracking-wide shadow-xs transition cursor-pointer">Apply ${c.code}</button>`;
+            ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-black tracking-wide shadow-xs whitespace-nowrap">Applied ✓ <button type="button" onclick="window.removeOfferProgressCoupon()" title="Remove coupon" aria-label="Remove coupon" class="ml-0.5 w-3.5 h-3.5 rounded-full bg-emerald-800/80 hover:bg-emerald-900 text-emerald-100 inline-flex items-center justify-center text-[10px] leading-none cursor-pointer">×</button></span>`
+            : `<button type="button" onclick="window.applyOfferProgressCoupon('${safeCode}')" class="px-3 py-1 rounded-full bg-[#05442e] hover:bg-emerald-800 text-lime-300 text-[11px] font-black tracking-wide shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap">Apply</button>`;
         }
 
         rows.push({
@@ -1166,7 +1175,8 @@
             : `<span class="text-emerald-800 font-black">${offerTitle} Unlocked!</span> <span class="text-[10px] font-black text-emerald-800 bg-emerald-200/70 px-1.5 py-0.5 rounded-md ml-1">${c.code}</span>`,
           pct,
           barGradient: remaining > 0 ? 'from-[#fbbf24] via-[#f97316] to-[#ea580c]' : 'from-[#059669] via-[#22c55e] to-[#84cc16]',
-          actionHtml
+          actionHtml,
+          hidePctWhenAction: remaining === 0
         });
       });
 
@@ -1179,7 +1189,7 @@
             </div>
             <div class="flex items-center gap-2 shrink-0">
               ${row.actionHtml}
-              <span class="font-black text-slate-900 text-xs sm:text-sm tabular-nums">${row.pct}%</span>
+              ${row.hidePctWhenAction ? '' : `<span class="font-black text-slate-900 text-xs sm:text-sm tabular-nums">${row.pct}%</span>`}
             </div>
           </div>
           <div class="w-full h-2.5 bg-white/95 rounded-full overflow-hidden shadow-inner border border-emerald-100/80">
@@ -1463,8 +1473,23 @@
           return;
         }
 
-        // Online lookup fallback via zippopotam
+        // Official India Post server lookup first, then zippopotam fallback
         if (statusEl) statusEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i>Locating PIN...';
+        try {
+          const host = window.NUTROLIX_API_HOST || '';
+          const ipRes = await fetch(`${host}/api/location/pincode?pin=${encodeURIComponent(pin)}`);
+          if (ipRes.ok) {
+            const ipData = await ipRes.json();
+            if (ipData && ipData.success && (ipData.city || ipData.state)) {
+              document.getElementById('custCity').value = ipData.city || ipData.district || '';
+              document.getElementById('custState').value = ipData.state || 'Maharashtra';
+              if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>${ipData.area || ipData.city}, ${ipData.state}`;
+              window.refreshLocationSummaryText();
+              saveUserProfile();
+              return;
+            }
+          }
+        } catch (_) {}
         try {
           const res = await fetch(`https://api.zippopotam.us/in/${pin}`);
           if (res.ok) {
@@ -1504,6 +1529,18 @@
           return;
         }
         try {
+          const host = window.NUTROLIX_API_HOST || '';
+          const ipRes = await fetch(`${host}/api/location/pincode?pin=${encodeURIComponent(pin)}`);
+          if (ipRes.ok) {
+            const ipData = await ipRes.json();
+            if (ipData && ipData.success && (ipData.city || ipData.state)) {
+              document.getElementById('delivModalCity').value = ipData.city || ipData.district || ipData.state;
+              if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>${ipData.area || ipData.city}, ${ipData.state}`;
+              return;
+            }
+          }
+        } catch (_) {}
+        try {
           const res = await fetch(`https://api.zippopotam.us/in/${pin}`);
           if (res.ok) {
             const data = await res.json();
@@ -1524,6 +1561,64 @@
     let locationConsentGranted = false;
     let pendingOrderConfirmAfterAuth = false;
 
+    // Official India Post 2-digit PIN prefix table by State / UT
+    // Rejects bogus ISP/GeoIP PINs (e.g. 497586 for Panvel, Maharashtra — valid Maharashtra PINs are strictly 40-44).
+    const INDIA_STATE_PIN_PREFIXES = {
+      'delhi': ['11'],
+      'haryana': ['12', '13'],
+      'punjab': ['14', '15', '16'],
+      'chandigarh': ['16'],
+      'himachal pradesh': ['17'],
+      'jammu and kashmir': ['18', '19'],
+      'jammu & kashmir': ['18', '19'],
+      'ladakh': ['19'],
+      'uttar pradesh': ['20', '21', '22', '23', '24', '25', '26', '27', '28'],
+      'uttarakhand': ['24', '26'],
+      'rajasthan': ['30', '31', '32', '33', '34'],
+      'gujarat': ['36', '37', '38', '39'],
+      'dadra and nagar haveli': ['39'],
+      'daman and diu': ['39', '36'],
+      'maharashtra': ['40', '41', '42', '43', '44'],
+      'goa': ['40'],
+      'madhya pradesh': ['45', '46', '47', '48'],
+      'chhattisgarh': ['49'],
+      'telangana': ['50'],
+      'andhra pradesh': ['51', '52', '53'],
+      'karnataka': ['56', '57', '58', '59'],
+      'tamil nadu': ['60', '61', '62', '63', '64'],
+      'puducherry': ['60', '53', '67'],
+      'kerala': ['67', '68', '69'],
+      'lakshadweep': ['68'],
+      'west bengal': ['70', '71', '72', '73', '74'],
+      'sikkim': ['73'],
+      'andaman and nicobar': ['74'],
+      'odisha': ['75', '76', '77'],
+      'orissa': ['75', '76', '77'],
+      'assam': ['78'],
+      'arunachal pradesh': ['79'],
+      'manipur': ['79'],
+      'meghalaya': ['79'],
+      'mizoram': ['79'],
+      'nagaland': ['79'],
+      'tripura': ['79'],
+      'bihar': ['80', '81', '82', '83', '84', '85'],
+      'jharkhand': ['81', '82', '83']
+    };
+
+    function isValidIndianPincodeForState(pin, state) {
+      const cleanPin = String(pin || '').replace(/\D/g, '');
+      if (!/^[1-9][0-9]{5}$/.test(cleanPin)) return false;
+      const normState = String(state || '').toLowerCase().replace(/[^a-z\s&]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!normState) return true;
+      const prefix2 = cleanPin.slice(0, 2);
+      for (const [stateKey, prefixes] of Object.entries(INDIA_STATE_PIN_PREFIXES)) {
+        if (normState === stateKey || normState.includes(stateKey) || stateKey.includes(normState)) {
+          return prefixes.includes(prefix2);
+        }
+      }
+      return true;
+    }
+
     window.refreshLocationSummaryText = function() {
       const pin = (document.getElementById('custPincode')?.value || '').trim();
       const city = (document.getElementById('custCity')?.value || '').trim();
@@ -1531,9 +1626,13 @@
       const el = document.getElementById('locationAutoSummaryText');
       if (!el) return;
 
-      const parts = [pin, city, state].filter(Boolean);
-      if (parts.length > 0) {
-        el.innerHTML = `<span class="text-emerald-700 font-black">Auto-Detected:</span> ${pin ? pin + ' • ' : ''}${[city, state].filter(Boolean).join(', ')}`;
+      const pinValid = pin.length === 6 && isValidIndianPincodeForState(pin, state);
+      if (pinValid && (city || state)) {
+        el.innerHTML = `<span class="text-emerald-700 font-black">Auto-Detected:</span> ${pin} • ${[city, state].filter(Boolean).join(', ')}`;
+      } else if (city || state) {
+        el.innerHTML = `<span class="text-amber-700 font-black">Location:</span> ${[city, state].filter(Boolean).join(', ')} <span class="text-slate-500 font-semibold">— Tap Edit to enter exact PIN</span>`;
+      } else if (pinValid) {
+        el.innerHTML = `<span class="text-emerald-700 font-black">PIN Code:</span> ${pin}`;
       } else {
         el.textContent = 'PIN, City & State not set — Tap Edit to fill';
       }
@@ -1554,11 +1653,27 @@
       }
     };
 
-    // India Post PIN overrides for localities where free reverse geocoders
-    // commonly return a broad/incorrect neighbouring postal code.
-    // Taloja A.V. and Taloja B.O. are served by PIN 410208.
+    // India Post PIN overrides using both GPS coordinates and locality names.
+    // Taloja Phase 1, Phase 2, MIDC Taloja, Navde & Pendhar are strictly PIN 410208.
     function resolveKnownIndianPostalCode(geocode) {
       if (!geocode || typeof geocode !== 'object') return null;
+      const lat = Number(geocode.lat ?? geocode.latitude);
+      const lon = Number(geocode.lon ?? geocode.lng ?? geocode.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lon)) {
+        if (lat >= 19.050 && lat <= 19.118 && lon >= 73.078 && lon <= 73.138) {
+          return { pincode: '410208', city: 'Taloja, Panvel', state: 'Maharashtra' };
+        }
+        if (lat >= 19.028 && lat <= 19.076 && lon >= 73.048 && lon < 73.078) {
+          return { pincode: '410210', city: 'Kharghar, Navi Mumbai', state: 'Maharashtra' };
+        }
+        if (lat >= 19.024 && lat < 19.050 && lon >= 73.084 && lon <= 73.112) {
+          return { pincode: '410218', city: 'Kalamboli, Navi Mumbai', state: 'Maharashtra' };
+        }
+        if (lat >= 19.010 && lat < 19.028 && lon >= 73.078 && lon <= 73.104) {
+          return { pincode: '410209', city: 'Kamothe, Navi Mumbai', state: 'Maharashtra' };
+        }
+      }
+
       const localityText = [
         geocode.city,
         geocode.neighborhood,
@@ -1566,7 +1681,7 @@
         geocode.district,
         geocode.formattedAddress
       ].filter(Boolean).join(' ').toLowerCase();
-      if (/\btaloja\b|\btaloje\b|\bnavde\b|\bpendhar\b/.test(localityText)) {
+      if (/\btaloja\b|\btaloje\b|\bnavde\b|\bpendhar\b|\bpanchanand\b/.test(localityText)) {
         return { pincode: '410208', city: 'Taloja, Panvel', state: 'Maharashtra' };
       }
       if (/\bkharghar\b/.test(localityText)) {
@@ -1574,6 +1689,9 @@
       }
       if (/\bkalamboli\b|\broadpali\b/.test(localityText)) {
         return { pincode: '410218', city: 'Kalamboli, Navi Mumbai', state: 'Maharashtra' };
+      }
+      if (/\bkamothe\b/.test(localityText)) {
+        return { pincode: '410209', city: 'Kamothe, Navi Mumbai', state: 'Maharashtra' };
       }
       if (/\bulwe\b|\bulwa\b/.test(localityText)) {
         return { pincode: '410206', city: 'Ulwe, Panvel', state: 'Maharashtra' };
@@ -1613,15 +1731,52 @@
         resolved = nativeGeocoder;
       }
 
-      if (resolved) {
-        const knownPostal = resolveKnownIndianPostalCode(resolved);
-        const finalPostal = knownPostal || resolved;
-        if (finalPostal.pincode) document.getElementById('custPincode').value = finalPostal.pincode;
+      const knownPostal = resolveKnownIndianPostalCode({ ...(resolved || {}), lat, lon });
+      const finalPostal = knownPostal || resolved;
+      if (finalPostal) {
+        const finalState = finalPostal.state || '';
+        const finalPin = String(finalPostal.pincode || '').replace(/\D/g, '').slice(0, 6);
+        if (finalPin && isValidIndianPincodeForState(finalPin, finalState)) {
+          document.getElementById('custPincode').value = finalPin;
+        } else {
+          // Never preserve a stale corrupt PIN when GPS resolved a different verified area
+          const currPin = (document.getElementById('custPincode').value || '').trim();
+          if (currPin && !isValidIndianPincodeForState(currPin, finalState)) {
+            document.getElementById('custPincode').value = '';
+          }
+        }
         if (finalPostal.city) document.getElementById('custCity').value = finalPostal.city;
-        if (finalPostal.state) document.getElementById('custState').value = finalPostal.state;
+        if (finalState) document.getElementById('custState').value = finalState;
       }
       window.refreshLocationSummaryText();
       saveUserProfile();
+    }
+
+    async function verifyCandidatePinWithIndiaPost(pin, expectedState, expectedCity) {
+      if (!isValidIndianPincodeForState(pin, expectedState)) return false;
+      if (PINCODE_LOOKUP_MAP[pin]) {
+        const entry = PINCODE_LOOKUP_MAP[pin];
+        const stMatch = !expectedState || entry.state.toLowerCase().includes(expectedState.toLowerCase()) || expectedState.toLowerCase().includes(entry.state.toLowerCase());
+        return stMatch;
+      }
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(`${host}/api/location/pincode?pin=${encodeURIComponent(pin)}`);
+        if (!res.ok) return false;
+        const info = await res.json();
+        if (!info || !info.success) return false;
+        const poState = String(info.state || '').toLowerCase();
+        const expSt = String(expectedState || '').toLowerCase();
+        if (expSt && poState && !poState.includes(expSt) && !expSt.includes(poState)) return false;
+        const poBlob = [info.city, info.district, info.area].filter(Boolean).join(' ').toLowerCase();
+        const expCity = String(expectedCity || '').toLowerCase().trim();
+        if (expCity && expCity.length >= 3 && poBlob && !poBlob.includes(expCity)) {
+          return false;
+        }
+        return true;
+      } catch (_) {
+        return false;
+      }
     }
 
     async function tryFreeIpLocationFallback() {
@@ -1630,21 +1785,46 @@
         if (!res.ok) return false;
         const data = await res.json();
         if (data && data.success) {
-          const pin = String(data.postal || '').replace(/\D/g, '').slice(0, 6);
+          const rawPin = String(data.postal || '').replace(/\D/g, '').slice(0, 6);
           const city = data.city || '';
           const state = data.region || '';
-          if (pin && !document.getElementById('custPincode').value.trim()) {
-            document.getElementById('custPincode').value = pin;
+
+          // Check if IP coords/locality match an authoritative known locality override
+          const knownOverride = resolveKnownIndianPostalCode({
+            city,
+            state,
+            lat: data.latitude,
+            lon: data.longitude
+          });
+
+          // NEVER blindly trust ISP/GeoIP postal codes (e.g. ipwho.is returning 497586 for Panvel, Maharashtra)
+          let safePin = '';
+          if (knownOverride && knownOverride.pincode) {
+            safePin = knownOverride.pincode;
+          } else if (rawPin.length === 6 && isValidIndianPincodeForState(rawPin, state)) {
+            const confirmed = await verifyCandidatePinWithIndiaPost(rawPin, state, city);
+            if (confirmed) safePin = rawPin;
           }
-          if (city && !document.getElementById('custCity').value.trim()) {
-            document.getElementById('custCity').value = city;
+
+          const finalCity = (knownOverride && knownOverride.city) || city;
+          const finalState = (knownOverride && knownOverride.state) || state;
+
+          const currPin = (document.getElementById('custPincode').value || '').trim();
+          if (currPin && !isValidIndianPincodeForState(currPin, finalState || document.getElementById('custState').value)) {
+            document.getElementById('custPincode').value = '';
           }
-          if (state && !document.getElementById('custState').value.trim()) {
-            document.getElementById('custState').value = state;
+          if (safePin && !document.getElementById('custPincode').value.trim()) {
+            document.getElementById('custPincode').value = safePin;
+          }
+          if (finalCity && !document.getElementById('custCity').value.trim()) {
+            document.getElementById('custCity').value = finalCity;
+          }
+          if (finalState && !document.getElementById('custState').value.trim()) {
+            document.getElementById('custState').value = finalState;
           }
           window.refreshLocationSummaryText();
           saveUserProfile();
-          return Boolean(pin || city || state);
+          return Boolean(safePin || finalCity || finalState);
         }
       } catch (_) {}
       return false;
@@ -1652,9 +1832,16 @@
 
     // Automatic PIN, City & State detection when Cart/Checkout opens
     window.autoDetectCheckoutLocation = function(force = false) {
-      const existingPin = (document.getElementById('custPincode')?.value || '').trim();
+      let existingPin = (document.getElementById('custPincode')?.value || '').trim();
       const existingCity = (document.getElementById('custCity')?.value || '').trim();
       const existingState = (document.getElementById('custState')?.value || '').trim();
+
+      // Auto-purge any previously cached bogus PIN (e.g. 497586 for Maharashtra)
+      if (existingPin && !isValidIndianPincodeForState(existingPin, existingState)) {
+        document.getElementById('custPincode').value = '';
+        existingPin = '';
+        saveUserProfile();
+      }
 
       if (!force && existingPin && existingCity && existingState) {
         window.refreshLocationSummaryText();
@@ -1663,7 +1850,7 @@
 
       const summaryEl = document.getElementById('locationAutoSummaryText');
       if (summaryEl && (!existingPin || !existingCity || force)) {
-        summaryEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-emerald-700 mr-1"></i>Detecting PIN, City &amp; State...';
+        summaryEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-emerald-700 mr-1"></i>Detecting exact GPS PIN, City &amp; State...';
       }
 
       if (window.AndroidNative && typeof window.AndroidNative.requestCurrentLocation === 'function') {
@@ -1691,7 +1878,7 @@
             await tryFreeIpLocationFallback();
             window.refreshLocationSummaryText();
           },
-          { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
         );
       } else {
         tryFreeIpLocationFallback().then(() => window.refreshLocationSummaryText());
@@ -1724,14 +1911,18 @@
             document.getElementById('custAddress1').value = profile.address1 || profile.defaultAddress || authUser.defaultAddress;
           }
         }
-        if ((profile.city || (authUser && authUser.city)) && !document.getElementById('custCity').value.trim()) {
-          document.getElementById('custCity').value = profile.city || authUser.city;
+        const savedCity = profile.city || (authUser && authUser.city) || '';
+        const savedState = profile.state || (authUser && authUser.state) || '';
+        const savedPin = String(profile.pincode || (authUser && authUser.pincode) || '').replace(/\D/g, '').slice(0, 6);
+        if (savedCity && !document.getElementById('custCity').value.trim()) {
+          document.getElementById('custCity').value = savedCity;
         }
-        if ((profile.state || (authUser && authUser.state)) && !document.getElementById('custState').value.trim()) {
-          document.getElementById('custState').value = profile.state || authUser.state;
+        if (savedState && !document.getElementById('custState').value.trim()) {
+          document.getElementById('custState').value = savedState;
         }
-        if ((profile.pincode || (authUser && authUser.pincode)) && !document.getElementById('custPincode').value.trim()) {
-          document.getElementById('custPincode').value = profile.pincode || authUser.pincode;
+        // Only hydrate cached PIN if it is valid for the saved State (rejects corrupted cached PINs like 497586 for Maharashtra)
+        if (savedPin && isValidIndianPincodeForState(savedPin, savedState) && !document.getElementById('custPincode').value.trim()) {
+          document.getElementById('custPincode').value = savedPin;
         }
       } catch (_) {}
       window.refreshLocationSummaryText();
@@ -2272,7 +2463,12 @@
       const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked') ? document.querySelector('input[name="paymentMethod"]:checked').value : 'Cash on Delivery';
       const settings = getStoreSettings();
       const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      let couponDiscount = appliedCoupon ? Math.round((subtotal * appliedCoupon.discountPercent) / 100) : 0;
+      let couponDiscount = 0;
+      if (appliedCoupon) {
+        couponDiscount = appliedCoupon.type === 'flat'
+          ? Math.min(subtotal, Math.round(appliedCoupon.value || 0))
+          : Math.round((subtotal * (appliedCoupon.discountPercent || appliedCoupon.value || 0)) / 100);
+      }
       const foodDiscount = window.activeFoodDiscount || 0;
       const shipping = subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee;
       const grandTotal = Math.max(0, subtotal - couponDiscount - foodDiscount + shipping);
