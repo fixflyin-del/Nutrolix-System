@@ -382,7 +382,7 @@
                   <button type="button" onclick="window.handleCartInlinePhoneOk(true)" class="text-emerald-700 font-bold hover:underline">Resend</button>
                 </div>
                 <div class="flex items-center gap-2">
-                  <input type="tel" id="cartInlineOtpCode" maxlength="6" inputmode="numeric" placeholder="6-digit OTP" class="flex-1 min-w-0 px-3 py-2 rounded-xl border border-emerald-300 bg-white text-center tracking-[0.35em] font-black text-sm text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500">
+                  <input type="tel" id="cartInlineOtpCode" maxlength="6" inputmode="numeric" autocomplete="one-time-code" oninput="window.handleCartInlineOtpInput(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();window.verifyCartInlineOtp();}" placeholder="6-digit OTP" class="flex-1 min-w-0 px-3 py-2 rounded-xl border border-emerald-300 bg-white text-center tracking-[0.35em] font-black text-sm text-slate-900 outline-none focus:ring-2 focus:ring-emerald-500">
                   <button type="button" id="cartInlineVerifyBtn" onclick="window.verifyCartInlineOtp()" class="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-black text-xs shadow-sm transition cursor-pointer shrink-0">
                     Verify OTP
                   </button>
@@ -1644,6 +1644,8 @@
 
     let locationConsentGranted = false;
     let pendingOrderConfirmAfterAuth = false;
+    let isVerifyingCartInlineOtp = false;
+    let isExecutingOrderPlacement = false;
 
     // Official India Post 2-digit PIN prefix table by State / UT
     // Rejects bogus ISP/GeoIP PINs (e.g. 497586 for Panvel, Maharashtra — valid Maharashtra PINs are strictly 40-44).
@@ -2124,7 +2126,10 @@
 
       // Always reveal the inline OTP controls before sending. Checkout must
       // never fall back to the legacy popup OTP flow.
-      if (otpBox) otpBox.classList.remove('hidden');
+      if (otpBox) {
+        otpBox.classList.remove('hidden');
+        try { otpBox.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+      }
       const otpInput = document.getElementById('cartInlineOtpCode');
       if (otpInput) otpInput.value = '';
       if (hintEl) hintEl.textContent = `Sending OTP to +91 ${digits}...`;
@@ -2132,13 +2137,12 @@
         okBtn.disabled = true;
         okBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-[10px]"></i>';
       }
-      pendingOrderConfirmAfterAuth = false;
       try {
         window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
         const res = await window.startNutrolixPhoneOtp(digits, { isResend });
         if (res.mode === 'instant' && res.profile) {
           if (otpBox) otpBox.classList.add('hidden');
-          window.NutrolixNotifications?.ensureWebPushSynced?.(2000).catch?.(() => {});
+          window.NutrolixNotifications?.ensureWebPushSynced?.(800).catch?.(() => {});
           window.onAuthSuccessCallback(res.profile);
           return;
         }
@@ -2157,26 +2161,53 @@
       }
     };
 
+    window.handleCartInlineOtpInput = function(inputEl) {
+      if (!inputEl) return;
+      const digits = String(inputEl.value || '').replace(/\D/g, '').slice(0, 6);
+      if (inputEl.value !== digits) inputEl.value = digits;
+      if (digits.length === 6 && !isVerifyingCartInlineOtp) {
+        window.verifyCartInlineOtp();
+      }
+    };
+
     window.verifyCartInlineOtp = async function() {
+      if (isVerifyingCartInlineOtp) return;
       const codeEl = document.getElementById('cartInlineOtpCode');
       const errEl = document.getElementById('cartInlineOtpError');
       const btn = document.getElementById('cartInlineVerifyBtn');
+      const codeVal = String(codeEl?.value || '').replace(/\D/g, '').slice(0, 6);
+      if (codeEl && codeEl.value !== codeVal) codeEl.value = codeVal;
       if (errEl) errEl.classList.add('hidden');
+
+      if (codeVal.length !== 6) {
+        if (errEl) {
+          errEl.textContent = 'Please enter the 6-digit OTP sent to your WhatsApp.';
+          errEl.classList.remove('hidden');
+        }
+        codeEl?.focus();
+        return;
+      }
+
+      isVerifyingCartInlineOtp = true;
+      // Verifying OTP during checkout should immediately proceed with placing the order
+      // so the customer never has to tap "Confirm & Place Order" a second time.
+      pendingOrderConfirmAfterAuth = true;
+
       if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-1"></i><span>Verifying...</span>';
       }
-      pendingOrderConfirmAfterAuth = false;
       try {
-        const permPromise = window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
-        const profile = await window.verifyNutrolixPhoneOtp(codeEl?.value || '');
+        window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
+        const profile = await window.verifyNutrolixPhoneOtp(codeVal);
         document.getElementById('cartInlineOtpBox')?.classList.add('hidden');
-        if (permPromise) await Promise.race([permPromise, new Promise((r) => setTimeout(r, 1500))]);
-        await window.NutrolixNotifications?.ensureWebPushSynced?.(2500).catch?.(() => {});
+        // Sync Web Push in background without blocking order progression
+        window.NutrolixNotifications?.ensureWebPushSynced?.(800).catch?.(() => {});
         window.onAuthSuccessCallback(profile);
       } catch (e) {
-        // Keep the inline OTP field visible after a failed verification so the
-        // customer can correct the code or request a resend on the same screen.
+        // Keep the inline OTP field visible and preserve pendingOrderConfirmAfterAuth
+        // so retrying the code still proceeds directly to order placement.
+        pendingOrderConfirmAfterAuth = true;
         document.getElementById('cartInlineOtpBox')?.classList.remove('hidden');
         if (codeEl) { codeEl.value = ''; codeEl.focus(); }
         if (errEl) {
@@ -2184,6 +2215,7 @@
           errEl.classList.remove('hidden');
         }
       } finally {
+        isVerifyingCartInlineOtp = false;
         if (btn) {
           btn.disabled = false;
           btn.textContent = 'Verify OTP';
@@ -2299,6 +2331,7 @@
       verifyBtn.disabled = true;
       verifyBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Verifying...</span>';
       try {
+        pendingOrderConfirmAfterAuth = true;
         const profile = await window.verifyNutrolixPhoneOtp(codeEl.value);
         window.onAuthSuccessCallback(profile);
       } catch (e) {
@@ -2320,7 +2353,8 @@
       window.checkCartAuthStatus();
 
       if (userProfile && userProfile.name && userProfile.name !== 'Nutrolix Customer' && userProfile.name !== 'Nutrolix Member') {
-        document.getElementById('custName').value = userProfile.name;
+        const nameEl = document.getElementById('custName');
+        if (nameEl && !nameEl.value.trim()) nameEl.value = userProfile.name;
       }
       if (userProfile && (userProfile.verifiedPhone || userProfile.whatsappNumber)) {
         const ph = String(userProfile.whatsappNumber || userProfile.verifiedPhone).replace(/\D/g, '').slice(-10);
@@ -2329,11 +2363,24 @@
           phoneEl.value = ph;
         }
       }
+      if (userProfile) {
+        const addrEl = document.getElementById('custAddress1');
+        const pinEl = document.getElementById('custPincode');
+        const cityEl = document.getElementById('custCity');
+        const stateEl = document.getElementById('custState');
+        if (addrEl && !addrEl.value.trim() && (userProfile.defaultAddress || userProfile.address1)) {
+          addrEl.value = userProfile.defaultAddress || userProfile.address1;
+        }
+        if (pinEl && !pinEl.value.trim() && userProfile.pincode) pinEl.value = String(userProfile.pincode).replace(/\D/g, '').slice(0, 6);
+        if (cityEl && !cityEl.value.trim() && userProfile.city) cityEl.value = userProfile.city;
+        if (stateEl && !stateEl.value.trim() && userProfile.state) stateEl.value = userProfile.state;
+        if (typeof window.refreshLocationSummaryText === 'function') window.refreshLocationSummaryText();
+      }
       window.updateCartPhoneOkButtonState();
       saveUserProfile();
 
       const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-      const address = (document.getElementById('custAddress1')?.value || profile.address1 || (selectedSavedAddress ? selectedSavedAddress.address1 : '') || '').trim();
+      const address = (document.getElementById('custAddress1')?.value || profile.address1 || (selectedSavedAddress ? (selectedSavedAddress.address1 || selectedSavedAddress.street) : '') || '').trim();
       const pincode = (document.getElementById('custPincode')?.value || profile.pincode || (selectedSavedAddress ? selectedSavedAddress.pincode : '') || '').replace(/\D/g, '').slice(0, 6);
 
       if (!shouldConfirmOrderNow) {
@@ -2411,14 +2458,8 @@
 
       saveUserProfile();
       window.closeDeliveryDetailsModal();
-      const permPromise = window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => false);
-      if (permPromise) {
-        Promise.race([permPromise, new Promise((r) => setTimeout(r, 6000))])
-          .then(() => window.executeOrderPlacement())
-          .catch(() => window.executeOrderPlacement());
-      } else {
-        window.executeOrderPlacement();
-      }
+      window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => false);
+      window.executeOrderPlacement();
     };
 
     // Primary checkout button trigger (already-logged-in users NEVER get asked for OTP again)
@@ -2457,6 +2498,7 @@
           phoneInput?.focus();
           return;
         }
+        pendingOrderConfirmAfterAuth = true;
         window.handleCartInlinePhoneOk(false);
         return;
       }
@@ -2481,18 +2523,13 @@
         return;
       }
 
-      const permPromise = window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => false);
-      if (permPromise) {
-        Promise.race([permPromise, new Promise((r) => setTimeout(r, 6000))])
-          .then(() => window.executeOrderPlacement())
-          .catch(() => window.executeOrderPlacement());
-      } else {
-        window.executeOrderPlacement();
-      }
+      window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => false);
+      window.executeOrderPlacement();
     };
 
     // Final Order Placement Execution (Cash on Delivery or PayU Online)
     window.executeOrderPlacement = async function() {
+      if (isExecutingOrderPlacement) return;
       if (cart.length === 0) return alert('Your cart is empty');
 
       const user = (window.getNutrolixUser ? window.getNutrolixUser() : null) || {};
@@ -2534,12 +2571,20 @@
       recipientPhone = /^[6-9]\d{9}$/.test(rawRecipientDigits) ? rawRecipientDigits : (rawRecipientDigits.length === 10 ? rawRecipientDigits : verifiedPhone);
       const phone = recipientPhone;
       if (!user.uid || verifiedPhone.length !== 10) {
+        pendingOrderConfirmAfterAuth = true;
         window.handleCartInlinePhoneOk(false);
         return;
       }
       if (!address1 || address1.trim().length < 4 || String(pincode || '').replace(/\D/g, '').length !== 6 || !city) {
         window.openDeliveryDetailsModal();
         return;
+      }
+
+      isExecutingOrderPlacement = true;
+      const btn = document.getElementById('placeOrderBtn');
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-base mr-2"></i><span>Placing Order...</span>';
       }
 
       googleMapsLink = (gpsLat && gpsLon) ? `https://maps.google.com/?q=${gpsLat},${gpsLon}` : '';
@@ -2669,6 +2714,7 @@
         }));
       } catch (_) {}
 
+      let persistPromise = null;
       if (user.uid && window.NutrolixFirebase) {
         const persistOps = [
           window.NutrolixFirebase.saveUserAddress(user.uid, addrToSave).catch(() => {}),
@@ -2687,13 +2733,8 @@
             } : {})
           }).catch(() => {})
         ];
-        await Promise.race([Promise.allSettled(persistOps), new Promise((r) => setTimeout(r, 1500))]);
-      }
-
-      const btn = document.getElementById('placeOrderBtn');
-      if (btn) {
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-base mr-2"></i><span>Securing Order...</span>';
+        // Run address/profile persistence concurrently with order placement for fast checkout
+        persistPromise = Promise.allSettled(persistOps);
       }
 
       // 2. If PayU Online Payment is selected, launch official PayU Gateway (server-persisted pending order)
@@ -2744,13 +2785,20 @@
               form.appendChild(input);
             }
             document.body.appendChild(form);
-            await window.NutrolixNotifications?.ensureWebPushSynced?.(2500).catch?.(() => {});
+            await Promise.race([
+              Promise.allSettled([
+                persistPromise || Promise.resolve(),
+                window.NutrolixNotifications?.ensureWebPushSynced?.(600).catch?.(() => {})
+              ]),
+              new Promise((r) => setTimeout(r, 600))
+            ]);
             form.submit();
             return;
           } else {
             throw new Error((payuData && payuData.error) || 'Failed to initiate PayU payment');
           }
         } catch (payuErr) {
+          isExecutingOrderPlacement = false;
           alert('PayU Gateway error: ' + payuErr.message + '. Your cart is saved — please retry or choose Cash on Delivery.');
           if (btn) {
             btn.disabled = false;
@@ -2788,8 +2836,8 @@
         confirmedOrder.id = finalOrdId;
         confirmedOrder.orderId = finalOrdId;
 
-        // Guarantee Chrome Web Push subscription is persisted before dispatching order-placed
-        await window.NutrolixNotifications?.ensureWebPushSynced?.(2500).catch?.(() => {});
+        // Guarantee Chrome Web Push subscription is persisted before dispatching order-placed (bounded for fast checkout)
+        await window.NutrolixNotifications?.ensureWebPushSynced?.(600).catch?.(() => {});
 
         // Dispatch status alerts separately so push-provider latency cannot block
         // the success screen or keep the Place Order button spinning.
@@ -2835,6 +2883,7 @@
         console.error('[Cart] Order confirmation failed:', err);
         alert('Unable to confirm your order right now: ' + (err.message || 'Server unreachable') + '\n\nYour cart items are preserved. Please check your connection and try again.');
       } finally {
+        isExecutingOrderPlacement = false;
         if (btn) {
           btn.disabled = false;
           btn.innerHTML = '<i class="fa-solid fa-lock text-sm mr-2"></i><span>Confirm &amp; Place Order</span>';

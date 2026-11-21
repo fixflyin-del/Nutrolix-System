@@ -2388,6 +2388,50 @@ test('Play Store Download App links everywhere & App-only extra 10% OFF via APP1
   assert.ok(serverSrc.includes("code: 'APP10'") && serverSrc.includes('appOnly: true'), 'server.js default coupons fallback must include app-only APP10 10% OFF coupon');
 });
 
+test('Checkout WhatsApp OTP verification immediately proceeds with order placement (no second Confirm click) and removes blocking delays', () => {
+  const rootDir = path.join(__dirname, '..');
+  for (const base of ['public', 'app/src/main/assets/web']) {
+    const cartHtml = fs.readFileSync(path.join(rootDir, base, 'cart.html'), 'utf8');
+
+    // 1. Auto-verify on 6-digit OTP entry + OS OTP autofill + Enter key support
+    assert.ok(cartHtml.includes('autocomplete="one-time-code"'), `${base}/cart.html OTP input must support one-time-code autofill`);
+    assert.ok(cartHtml.includes('oninput="window.handleCartInlineOtpInput(this)"'), `${base}/cart.html OTP input must auto-submit on 6 digits`);
+    assert.ok(cartHtml.includes('window.handleCartInlineOtpInput = function(inputEl)'), `${base}/cart.html must define handleCartInlineOtpInput`);
+
+    // 2. handleOrderCheckoutClick sets pendingOrderConfirmAfterAuth = true before opening OTP
+    const checkoutClickIdx = cartHtml.indexOf('window.handleOrderCheckoutClick = function()');
+    assert.ok(checkoutClickIdx > -1);
+    const checkoutClickBody = cartHtml.slice(checkoutClickIdx, checkoutClickIdx + 2400);
+    assert.ok(
+      checkoutClickBody.includes('pendingOrderConfirmAfterAuth = true;\n        window.handleCartInlinePhoneOk(false);'),
+      `${base}/cart.html handleOrderCheckoutClick must set pendingOrderConfirmAfterAuth = true before handleCartInlinePhoneOk`
+    );
+    assert.equal(
+      checkoutClickBody.includes('setTimeout(r, 6000)'),
+      false,
+      `${base}/cart.html handleOrderCheckoutClick must not block checkout for 6000ms on notification permission`
+    );
+
+    // 3. handleCartInlinePhoneOk and verifyCartInlineOtp must NOT wipe pendingOrderConfirmAfterAuth to false
+    const inlineOkIdx = cartHtml.indexOf('window.handleCartInlinePhoneOk = async function');
+    const verifyIdx = cartHtml.indexOf('window.verifyCartInlineOtp = async function()');
+    const authStatusIdx = cartHtml.indexOf('window.checkCartAuthStatus = function()');
+    assert.ok(inlineOkIdx > -1 && verifyIdx > inlineOkIdx && authStatusIdx > verifyIdx);
+
+    const inlineOkBody = cartHtml.slice(inlineOkIdx, verifyIdx);
+    const verifyBody = cartHtml.slice(verifyIdx, authStatusIdx);
+    assert.equal(inlineOkBody.includes('pendingOrderConfirmAfterAuth = false'), false, `${base}/cart.html handleCartInlinePhoneOk must preserve pendingOrderConfirmAfterAuth`);
+    assert.equal(verifyBody.includes('pendingOrderConfirmAfterAuth = false'), false, `${base}/cart.html verifyCartInlineOtp must never reset pendingOrderConfirmAfterAuth to false`);
+    assert.ok(verifyBody.includes('pendingOrderConfirmAfterAuth = true;'), `${base}/cart.html verifyCartInlineOtp must ensure pendingOrderConfirmAfterAuth = true so order proceeds immediately`);
+    assert.equal(verifyBody.includes('await Promise.race([permPromise'), false, `${base}/cart.html verifyCartInlineOtp must not block on notification permission before proceeding to order`);
+    assert.equal(verifyBody.includes('await window.NutrolixNotifications?.ensureWebPushSynced'), false, `${base}/cart.html verifyCartInlineOtp must not block on web push sync before calling onAuthSuccessCallback`);
+
+    // 4. executeOrderPlacement guards against double submit & runs address persistence concurrently
+    assert.ok(cartHtml.includes('if (isExecutingOrderPlacement) return;'), `${base}/cart.html executeOrderPlacement must guard against duplicate submissions`);
+    assert.ok(cartHtml.includes('persistPromise = Promise.allSettled(persistOps);'), `${base}/cart.html executeOrderPlacement must run address persistence concurrently for fast checkout`);
+  }
+});
+
 
 
 
