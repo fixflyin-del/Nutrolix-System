@@ -50,7 +50,7 @@ class AdminActivity : ComponentActivity() {
 
   companion object {
     const val PRIMARY_ADMIN_URL = "file:///android_asset/web/admin.html"
-    const val LIVE_SERVER_ADMIN_URL = "https://nutrolix.in/admin.html"
+    const val LIVE_SERVER_ADMIN_URL = "https://nutrolix.in/admin"
   }
 
   // File upload callback for WebChromeClient (Product Image uploads)
