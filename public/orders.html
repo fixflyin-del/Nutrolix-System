@@ -270,15 +270,15 @@
     <div id="authenticatedOrdersContent" class="space-y-6">
       
       <!-- User Profile Header Bar -->
-      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
-        <div class="flex items-center space-x-3">
-          <img id="userAvatarImg" src="assets/nutrolix-logo.png" class="w-10 h-10 rounded-full object-cover border border-slate-200 bg-emerald-50">
-          <div>
-            <div class="text-xs font-black text-slate-900" id="userDisplayName">Customer</div>
-            <div class="text-[11px] text-slate-500 font-bold" id="userDisplayEmail">Account Verified</div>
+      <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3 overflow-hidden">
+        <div class="flex items-center space-x-3 min-w-0 flex-1">
+          <img id="userAvatarImg" src="assets/nutrolix-logo.png" class="w-10 h-10 rounded-full object-cover border border-slate-200 bg-emerald-50 shrink-0">
+          <div class="min-w-0 flex-1">
+            <div class="text-xs font-black text-slate-900 truncate" id="userDisplayName">Customer</div>
+            <div class="text-[11px] text-slate-500 font-bold truncate" id="userDisplayEmail">Account Verified</div>
           </div>
         </div>
-        <div class="flex items-center space-x-3">
+        <div class="flex items-center space-x-3 shrink-0">
           <button onclick="window.handleNutrolixSignOut()" class="text-xs text-rose-600 font-bold hover:underline px-3 py-1.5 rounded-lg hover:bg-rose-50 transition flex items-center space-x-1">
             <i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i>
             <span>Sign Out</span>
@@ -288,12 +288,12 @@
 
       <!-- VIEW A: ORDER HISTORY LIST ONLY (Default View Requested by User) -->
       <div id="ordersListView" class="space-y-4">
-        <div class="flex items-center justify-between">
-          <div>
+        <div class="flex items-center justify-between gap-3">
+          <div class="min-w-0 flex-1">
             <h2 class="text-xl font-black text-slate-900">Your Order History</h2>
             <p class="text-xs text-slate-500">Tap on any order below to view live tracking, items & invoice</p>
           </div>
-          <button onclick="loadUserOrders()" class="text-xs font-bold text-nutro-emerald hover:underline flex items-center space-x-1">
+          <button onclick="loadUserOrders()" class="text-xs font-bold text-nutro-emerald hover:underline flex items-center space-x-1 shrink-0">
             <i class="fa-solid fa-rotate-right text-[11px]"></i>
             <span>Refresh</span>
           </button>
@@ -417,7 +417,7 @@
         </div>
 
         <!-- Ordered Items Card -->
-        <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-4">
+        <div class="bg-white rounded-3xl p-4 sm:p-6 shadow-sm border border-slate-200 space-y-4 overflow-hidden">
           <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider">Ordered Items</h4>
           <div id="detailItemsContainer" class="divide-y divide-slate-100">
             <!-- Dynamic Items -->
@@ -427,12 +427,12 @@
         <!-- Delivery Address & Payment Summary -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <!-- Delivery Address -->
-          <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 space-y-2">
+          <div class="bg-white rounded-3xl p-4 sm:p-6 shadow-sm border border-slate-200 space-y-2 overflow-hidden">
             <h4 class="text-xs font-black text-slate-400 uppercase tracking-wider">Delivery Address</h4>
-            <div class="text-xs font-bold text-slate-800 space-y-1">
-              <div id="detailRecipientName" class="font-black text-slate-900 text-sm">--</div>
-              <div id="detailAddressText" class="text-slate-600">--</div>
-              <div id="detailPhoneText" class="text-emerald-700">Phone: --</div>
+            <div class="text-xs font-bold text-slate-800 space-y-1 break-words">
+              <div id="detailRecipientName" class="font-black text-slate-900 text-sm break-words">--</div>
+              <div id="detailAddressText" class="text-slate-600 break-words">--</div>
+              <div id="detailPhoneText" class="text-emerald-700 break-words">Phone: --</div>
               <div id="detailMapsLinkRow" class="hidden pt-1">
                 <a id="detailMapsLink" href="#" target="_blank" class="text-emerald-700 hover:underline font-bold text-[11px] flex items-center space-x-1">
                   <i class="fa-solid fa-map-pin text-rose-500"></i>
@@ -789,48 +789,50 @@
 
         const isFood = (ord.orderType === 'healthy_food' || (ord.items && ord.items.some(i => (i.category || '').toLowerCase().includes('food') || (i.category || '').toLowerCase().includes('meal'))));
         const typeBadge = isFood
-          ? `<span class="text-[9px] px-2 py-0.5 rounded-full font-black bg-emerald-100 text-emerald-800 border border-emerald-200">🥗 Fresh Kitchen Meal</span>`
-          : `<span class="text-[9px] px-2 py-0.5 rounded-full font-black bg-amber-100 text-amber-900 border border-amber-200">📦 Packaged Store Order</span>`;
+          ? `<span class="text-[9px] px-2 py-0.5 rounded-full font-black bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">🥗 Fresh Kitchen Meal</span>`
+          : `<span class="text-[9px] px-2 py-0.5 rounded-full font-black bg-amber-100 text-amber-900 border border-amber-200 whitespace-nowrap">📦 Packaged Store Order</span>`;
 
         const sLower = status.toLowerCase();
         const isDelivered = !sLower.includes('out for delivery') && !sLower.includes('out_for_delivery') && !sLower.includes('cancel') && (sLower.includes('deliver') || sLower.includes('complet'));
         const isReviewed = isDelivered && Boolean(window.NutrolixReviews && typeof window.NutrolixReviews.hasReviewForOrder === 'function' && window.NutrolixReviews.hasReviewForOrder(orderId));
 
         return `
-          <div class="bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 hover:border-emerald-500 hover:shadow-md transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group">
-            <div onclick="window.showOrderDetail('${orderId}')" class="flex items-center space-x-3.5 min-w-0 cursor-pointer flex-1">
+          <div class="w-full max-w-full overflow-hidden bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 hover:border-emerald-500 hover:shadow-md transition flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3.5 sm:gap-4 group">
+            <div onclick="window.showOrderDetail('${orderId}')" class="flex items-start sm:items-center gap-3 min-w-0 w-full sm:flex-1 cursor-pointer">
               <img src="${itemImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${firstItemTitle}" class="w-14 h-14 rounded-2xl object-contain bg-slate-50 border border-slate-200 p-1 shrink-0">
-              <div class="min-w-0">
-                <div class="flex flex-wrap items-center gap-1.5">
-                  <span class="font-black text-sm text-slate-900 group-hover:text-emerald-700 transition">#${orderId}</span>
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-1.5 min-w-0">
+                  <span class="font-black text-sm text-slate-900 group-hover:text-emerald-700 transition whitespace-nowrap">#${orderId}</span>
                   ${typeBadge}
-                  <span class="text-[10px] px-2 py-0.5 rounded-full font-black ${badgeClass}">${status}</span>
+                  <span class="text-[10px] px-2 py-0.5 rounded-full font-black whitespace-nowrap ${badgeClass}">${status}</span>
                 </div>
-                <p class="text-xs text-slate-700 mt-1 truncate font-extrabold">${firstItemTitle} ${itemCount > 1 ? `+ ${itemCount - 1} more items` : ''}</p>
-                <p class="text-[11px] text-slate-400 mt-0.5">Placed on ${dateStr} • ${ord.paymentMethod || 'PayU Online'}</p>
+                <p class="text-xs text-slate-700 mt-1.5 font-extrabold leading-snug line-clamp-2 break-words">${firstItemTitle}${itemCount > 1 ? ` + ${itemCount - 1} more items` : ''}</p>
+                <p class="text-[11px] text-slate-400 mt-1 break-words">Placed on ${dateStr} • ${ord.paymentMethod || 'PayU Online'}</p>
               </div>
             </div>
 
-            <div class="flex items-center justify-between sm:justify-end w-full sm:w-auto space-x-3 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100">
-              <div class="text-left sm:text-right pr-2">
+            <div class="flex flex-wrap items-center justify-between sm:justify-end w-full sm:w-auto gap-2 border-t sm:border-t-0 pt-3 sm:pt-0 border-slate-100 shrink-0">
+              <div class="text-left sm:text-right pr-1">
                 <span class="block text-[10px] uppercase font-bold text-slate-400">Total Paid</span>
                 <span class="text-base font-black text-slate-900">₹${ord.grandTotal || ord.total || 0}</span>
               </div>
-              <button onclick="window.showOrderDetail('${orderId}')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center space-x-1">
-                <i class="fa-solid fa-satellite-dish text-emerald-600"></i>
-                <span>Track</span>
-              </button>
-              ${isDelivered ? (isReviewed ? `
-                <button onclick="window.NutrolixReviews.openReviewModalForOrder(userOrders.find(o => o.id === '${orderId}' || o.orderId === '${orderId}'), false)" class="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-extrabold transition shadow-sm flex items-center space-x-1">
-                  <i class="fa-solid fa-pen-to-square text-[10px]"></i>
-                  <span>Edit Review</span>
+              <div class="flex items-center gap-2 shrink-0">
+                <button onclick="window.showOrderDetail('${orderId}')" class="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition flex items-center space-x-1 whitespace-nowrap">
+                  <i class="fa-solid fa-satellite-dish text-emerald-600"></i>
+                  <span>Track</span>
                 </button>
-              ` : `
-                <button onclick="window.NutrolixReviews.openReviewModalForOrder(userOrders.find(o => o.id === '${orderId}' || o.orderId === '${orderId}'), false)" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold transition shadow-sm flex items-center space-x-1">
-                  <i class="fa-solid fa-star text-[10px]"></i>
-                  <span>Review</span>
-                </button>
-              `) : ''}
+                ${isDelivered ? (isReviewed ? `
+                  <button onclick="window.NutrolixReviews.openReviewModalForOrder(userOrders.find(o => o.id === '${orderId}' || o.orderId === '${orderId}'), false)" class="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-extrabold transition shadow-sm flex items-center space-x-1 whitespace-nowrap">
+                    <i class="fa-solid fa-pen-to-square text-[10px]"></i>
+                    <span>Edit Review</span>
+                  </button>
+                ` : `
+                  <button onclick="window.NutrolixReviews.openReviewModalForOrder(userOrders.find(o => o.id === '${orderId}' || o.orderId === '${orderId}'), false)" class="px-3 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-extrabold transition shadow-sm flex items-center space-x-1 whitespace-nowrap">
+                    <i class="fa-solid fa-star text-[10px]"></i>
+                    <span>Review</span>
+                  </button>
+                `) : ''}
+              </div>
             </div>
           </div>
         `;
@@ -897,12 +899,12 @@
           ? `<div class="text-[11px] text-amber-700 font-semibold mt-0.5">+ ${addonsList.map(a => `${a.name} (₹${a.price})`).join(', ')}</div>`
           : '';
         return `
-        <div class="flex items-center justify-between py-3 text-xs gap-3">
-          <div class="flex items-center space-x-3 min-w-0">
+        <div class="flex items-start justify-between py-3 text-xs gap-3">
+          <div class="flex items-start space-x-3 min-w-0 flex-1">
             <img src="${itImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" class="w-12 h-12 rounded-xl object-cover border border-slate-100 bg-slate-50 shrink-0">
-            <div class="min-w-0">
-              <h5 class="font-extrabold text-slate-900 truncate">${it.title || it.name}</h5>
-              <span class="text-slate-500 text-[11px]">${cleanVar ? `${cleanVar} • ` : ''}Qty: ${it.quantity || 1} • ₹${it.price} each</span>
+            <div class="min-w-0 flex-1">
+              <h5 class="font-extrabold text-slate-900 leading-snug line-clamp-2 break-words">${it.title || it.name}</h5>
+              <span class="text-slate-500 text-[11px] block mt-0.5 break-words">${cleanVar ? `${cleanVar} • ` : ''}Qty: ${it.quantity || 1} • ₹${it.price} each</span>
               ${addonsHtml}
             </div>
           </div>

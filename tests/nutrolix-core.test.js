@@ -2449,6 +2449,29 @@ test('Checkout WhatsApp OTP verification immediately proceeds with order placeme
   assert.ok(coreSrc.includes('BOTH_DB_IDS.map((dbId) => firestoreGetDocument(docPath, dbId)'), 'lib/nutrolix-core.js firestoreGetFirstAvailable must query both DBs in parallel');
 });
 
+test('My Orders cards prevent horizontal overflow on mobile (w-full, items-stretch, min-w-0 flex-1, line-clamp-2 break-words)', () => {
+  const rootDir = path.join(__dirname, '..');
+  for (const base of ['public', 'app/src/main/assets/web']) {
+    const ordersHtml = fs.readFileSync(path.join(rootDir, base, 'orders.html'), 'utf8');
+    assert.ok(
+      ordersHtml.includes('w-full max-w-full overflow-hidden bg-white rounded-3xl p-4 sm:p-5 border border-slate-200 hover:border-emerald-500 hover:shadow-md transition flex flex-col sm:flex-row items-stretch sm:items-center'),
+      `${base}/orders.html order cards must use w-full max-w-full overflow-hidden and items-stretch on mobile`
+    );
+    assert.ok(
+      ordersHtml.includes('class="flex items-start sm:items-center gap-3 min-w-0 w-full sm:flex-1 cursor-pointer"'),
+      `${base}/orders.html order card top row must constrain width with w-full min-w-0`
+    );
+    assert.ok(
+      ordersHtml.includes('<div class="min-w-0 flex-1">'),
+      `${base}/orders.html order card text container must use min-w-0 flex-1`
+    );
+    assert.ok(
+      ordersHtml.includes('line-clamp-2 break-words'),
+      `${base}/orders.html order item titles must wrap cleanly with line-clamp-2 break-words instead of overflowing`
+    );
+  }
+});
+
 
 
 
