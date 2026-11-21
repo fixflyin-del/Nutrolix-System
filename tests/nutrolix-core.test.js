@@ -1797,7 +1797,7 @@ test('Sticky header overflow-x clip fix, compact slow auto-scroll reviews, and c
     const appSectionEnd = idxHtml.indexOf('</section>', appSectionStart);
     const appSectionHtml = idxHtml.slice(appSectionStart, appSectionEnd);
     assert.ok(appSectionHtml.includes('from-emerald-600 via-teal-600 to-amber-500'), `${base}/index.html downloadAppSection must use vibrant colorful gradient`);
-    assert.ok(appSectionHtml.includes('/api/download/customer-apk'), `${base}/index.html downloadAppSection must preserve real APK download link`);
+    assert.ok(appSectionHtml.includes('https://play.google.com/store/apps/details?id=com.aistudio.nutrolix.fooddelivery'), `${base}/index.html downloadAppSection must link directly to Google Play Store`);
     assert.ok(appSectionHtml.includes('APP10'), `${base}/index.html downloadAppSection must preserve APP10 coupon highlight`);
     assert.equal(appSectionHtml.includes('Experience ultra-fast reordering, live GPS dispatch tracking'), false, `${base}/index.html downloadAppSection must remove verbose paragraph text`);
   }
@@ -2336,6 +2336,56 @@ test('46) Checkout WhatsApp form removes inline OK button while keeping Confirm 
     if (origFood !== null) fs.writeFileSync(foodFile, origFood, 'utf8');
     await new Promise((resolve) => server.close(resolve));
   }
+});
+
+test('Play Store Download App links everywhere & App-only extra 10% OFF via APP10 coupon', () => {
+  const rootDir = path.join(__dirname, '..');
+  const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.aistudio.nutrolix.fooddelivery';
+  const pagesWithAppLinks = [
+    'index.html',
+    'shop.html',
+    'food.html',
+    'cart.html',
+    'orders.html',
+    'account.html',
+    'faqs.html',
+    'privacy.html',
+    'refund.html',
+    'shipping.html',
+    'terms.html',
+    'cancellation.html',
+    'download.html',
+    'admin.html'
+  ];
+
+  for (const base of ['public', 'app/src/main/assets/web']) {
+    for (const page of pagesWithAppLinks) {
+      const html = fs.readFileSync(path.join(rootDir, base, page), 'utf8');
+      assert.ok(
+        html.includes(PLAY_STORE_URL),
+        `${base}/${page} must point Customer Download App buttons to live Google Play Store URL`
+      );
+      assert.equal(
+        html.includes('href="Nutrolix-Customer.apk"') ||
+        html.includes('href="/Nutrolix-Customer.apk"') ||
+        html.includes('href="/api/download/customer-apk"'),
+        false,
+        `${base}/${page} must not retain obsolete direct Customer APK links`
+      );
+    }
+
+    const cartHtml = fs.readFileSync(path.join(rootDir, base, 'cart.html'), 'utf8');
+    assert.ok(cartHtml.includes('window.isNutrolixAndroidApp = function()'), `${base}/cart.html must define isNutrolixAndroidApp()`);
+    assert.ok(cartHtml.includes('window.AndroidNative'), `${base}/cart.html must detect AndroidNative bridge from live Play Store app`);
+    assert.ok(cartHtml.includes('/NutrolixApp\\//i.test(ua)'), `${base}/cart.html must detect NutrolixApp user-agent from live Play Store app`);
+    assert.ok(cartHtml.includes('match.appOnly && !window.isNutrolixAndroidApp()'), `${base}/cart.html must block APP10 coupon on regular web browsers`);
+    assert.ok(cartHtml.includes('!appliedCoupon && !app10UserDismissed && isAppUser'), `${base}/cart.html must auto-apply APP10 for Android App users unless dismissed`);
+    assert.ok(cartHtml.includes('Get App</a>'), `${base}/cart.html must show Play Store Get App CTA for APP10 on web checkout`);
+    assert.ok(cartHtml.includes('App Exclusive • Extra'), `${base}/cart.html must show App Exclusive label for APP10 inside Android App`);
+  }
+
+  const serverSrc = fs.readFileSync(path.join(rootDir, 'server.js'), 'utf8');
+  assert.ok(serverSrc.includes("code: 'APP10'") && serverSrc.includes('appOnly: true'), 'server.js default coupons fallback must include app-only APP10 10% OFF coupon');
 });
 
 

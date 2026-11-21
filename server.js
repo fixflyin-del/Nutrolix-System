@@ -5223,7 +5223,8 @@ const server = http.createServer(async (req, res) => {
       const data = await readCatalogDocOrFallback('store_coupons', couponsFile, [
         { code: 'NUTRO10', title: '10% OFF on All Products', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true },
         { code: 'NUTRO15', title: '15% OFF on Orders > ₹499', type: 'percentage', value: 15, discountPercent: 15, minOrder: 499, active: true },
-        { code: 'NUTRO20', title: '20% OFF on Orders > ₹1499', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true }
+        { code: 'NUTRO20', title: '20% OFF on Orders > ₹1499', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true },
+        { code: 'APP10', title: 'Extra 10% OFF on Nutrolix App', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true, appOnly: true }
       ]);
       res.writeHead(200, NO_STORE_JSON_HEADERS);
       res.end(JSON.stringify(Array.isArray(data) ? data : []));

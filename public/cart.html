@@ -184,12 +184,12 @@
         <i class="fa-solid fa-arrow-up-right-from-square text-[10px] text-amber-600"></i>
       </a>
 
-      <a href="Nutrolix-Customer.apk" download class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-900 text-white font-extrabold hover:bg-slate-800 transition">
+      <a href="https://play.google.com/store/apps/details?id=com.aistudio.nutrolix.fooddelivery" target="_blank" rel="noopener noreferrer" class="flex items-center justify-between px-3 py-2.5 rounded-xl bg-slate-900 text-white font-extrabold hover:bg-slate-800 transition">
         <div class="flex items-center space-x-3">
-          <i class="fa-brands fa-android text-emerald-400 text-base w-5"></i>
+          <i class="fa-brands fa-google-play text-emerald-400 text-base w-5"></i>
           <span>Download Our Android App</span>
         </div>
-        <i class="fa-solid fa-download text-xs text-emerald-400"></i>
+        <i class="fa-solid fa-arrow-up-right-from-square text-[11px] text-emerald-400"></i>
       </a>
 
       <a href="contact.html" class="flex items-center space-x-3 px-3 py-2.5 rounded-xl hover:bg-slate-100 text-slate-800 font-bold transition">
@@ -743,8 +743,23 @@
   </div>
 
   <script>
+    const PLAY_STORE_APP_URL = 'https://play.google.com/store/apps/details?id=com.aistudio.nutrolix.fooddelivery';
+
+    window.isNutrolixAndroidApp = function() {
+      try {
+        const ua = String(navigator.userAgent || '');
+        return Boolean(
+          (window.AndroidNative && typeof window.AndroidNative === 'object') ||
+          /NutrolixApp\//i.test(ua)
+        );
+      } catch (_) {
+        return false;
+      }
+    };
+
     let cart = [];
     let appliedCoupon = null;
+    let app10UserDismissed = false;
     let selectedSavedAddress = null;
 
     function getCartSignature() {
@@ -834,23 +849,41 @@
         const defaultCoupons = [
           { code: 'NUTRO10', title: '10% OFF on All Products', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true },
           { code: 'NUTRO20', title: '20% OFF on Orders > ₹1499', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true },
-          { code: 'APP10', title: 'Extra 10% OFF via App', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true }
+          { code: 'APP10', title: 'Extra 10% OFF on Nutrolix App', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true, appOnly: true }
         ];
         const saved = JSON.parse(localStorage.getItem('nutrolix_coupons') || 'null');
         const list = (saved && Array.isArray(saved) && saved.length > 0) ? saved : defaultCoupons;
-        return list.map(c => ({
-          code: String(c.code || '').toUpperCase().trim(),
-          title: c.title || (c.type === 'flat' ? `Flat ₹${c.value} OFF` : `${c.value || c.discountPercent || 10}% OFF`),
-          type: (c.type === 'flat' || c.type === 'FIXED_AMOUNT') ? 'flat' : 'percentage',
-          value: Number(c.value !== undefined ? c.value : (c.discountPercent || 10)),
-          discountPercent: Number(c.discountPercent !== undefined ? c.discountPercent : (c.value || 10)),
-          minOrder: Number(c.minOrder || 0),
-          active: c.active !== false && c.status !== 'Inactive'
-        }));
+        const normalized = list.map(c => {
+          const code = String(c.code || '').toUpperCase().trim();
+          return {
+            code,
+            title: c.title || (c.type === 'flat' ? `Flat ₹${c.value} OFF` : `${c.value || c.discountPercent || 10}% OFF`),
+            type: (c.type === 'flat' || c.type === 'FIXED_AMOUNT') ? 'flat' : 'percentage',
+            value: Number(c.value !== undefined ? c.value : (c.discountPercent || 10)),
+            discountPercent: Number(c.discountPercent !== undefined ? c.discountPercent : (c.value || 10)),
+            minOrder: Number(c.minOrder || 0),
+            active: c.active !== false && c.status !== 'Inactive',
+            appOnly: Boolean(c.appOnly || code === 'APP10')
+          };
+        });
+        if (!normalized.some(c => c.code === 'APP10')) {
+          normalized.push({
+            code: 'APP10',
+            title: 'Extra 10% OFF on Nutrolix App',
+            type: 'percentage',
+            value: 10,
+            discountPercent: 10,
+            minOrder: 0,
+            active: true,
+            appOnly: true
+          });
+        }
+        return normalized;
       } catch (_) {
         return [
-          { code: 'NUTRO10', title: '10% OFF', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true },
-          { code: 'NUTRO20', title: '20% OFF', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true }
+          { code: 'NUTRO10', title: '10% OFF', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true, appOnly: false },
+          { code: 'NUTRO20', title: '20% OFF', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true, appOnly: false },
+          { code: 'APP10', title: 'Extra 10% OFF on Nutrolix App', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true, appOnly: true }
         ];
       }
     }
@@ -947,19 +980,29 @@
 
       if (match) {
         const minOrder = Number(match.minOrder || 0);
-        if (subtotal < minOrder) {
+        if (match.appOnly && !window.isNutrolixAndroidApp()) {
+          appliedCoupon = null;
+          setOfferProgressFeedback(`📱 ${match.code} is exclusive to the Nutrolix Android App! <a href="${PLAY_STORE_APP_URL}" target="_blank" rel="noopener noreferrer" class="underline text-emerald-700 ml-1">Download on Google Play →</a>`, true);
+        } else if (subtotal < minOrder) {
           setOfferProgressFeedback(`⚠️ ${match.code} requires minimum order value of ₹${minOrder}.`, true);
           appliedCoupon = null;
         } else {
+          if (match.code === 'APP10') app10UserDismissed = false;
           appliedCoupon = {
             code: match.code,
             type: match.type,
             value: match.value,
             minOrder: minOrder,
-            discountPercent: match.type === 'percentage' ? match.value : 0
+            discountPercent: match.type === 'percentage' ? match.value : 0,
+            appOnly: Boolean(match.appOnly)
           };
           const savedText = match.type === 'flat' ? `₹${match.value} OFF` : `${match.value}% OFF`;
-          setOfferProgressFeedback(`🎉 Coupon ${match.code} applied! ${savedText} saved.`, false);
+          setOfferProgressFeedback(
+            match.appOnly
+              ? `🎉 App Exclusive ${match.code} applied! Extra ${savedText} saved.`
+              : `🎉 Coupon ${match.code} applied! ${savedText} saved.`,
+            false
+          );
         }
       } else {
         appliedCoupon = null;
@@ -973,11 +1016,33 @@
       const mrpTotal = cart.reduce((sum, item) => sum + ((item.mrp || item.price) * item.quantity), 0);
       const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       const productDiscount = Math.max(0, mrpTotal - subtotal);
+      const isAppUser = typeof window.isNutrolixAndroidApp === 'function' && window.isNutrolixAndroidApp();
+
+      // Revoke app-only coupon if not in the Nutrolix Android App
+      if (appliedCoupon && appliedCoupon.appOnly && !isAppUser) {
+        appliedCoupon = null;
+        setOfferProgressFeedback('');
+      }
 
       // Automatically revoke applied coupon if cart subtotal drops below its minimum threshold
       if (appliedCoupon && Number(appliedCoupon.minOrder || 0) > 0 && subtotal < Number(appliedCoupon.minOrder || 0)) {
         appliedCoupon = null;
         setOfferProgressFeedback('');
+      }
+
+      // Auto-apply extra 10% OFF APP10 coupon for Nutrolix Android App users
+      if (subtotal > 0 && !appliedCoupon && !app10UserDismissed && isAppUser) {
+        const appCoupon = getStoreCoupons().find(c => c.code === 'APP10' && c.active !== false);
+        if (appCoupon && subtotal >= Number(appCoupon.minOrder || 0)) {
+          appliedCoupon = {
+            code: appCoupon.code,
+            type: appCoupon.type,
+            value: appCoupon.value,
+            minOrder: Number(appCoupon.minOrder || 0),
+            discountPercent: appCoupon.type === 'percentage' ? appCoupon.value : 0,
+            appOnly: true
+          };
+        }
       }
 
       let couponDiscount = 0;
@@ -1089,6 +1154,9 @@
     };
 
     window.removeOfferProgressCoupon = function() {
+      if (appliedCoupon && appliedCoupon.code === 'APP10') {
+        app10UserDismissed = true;
+      }
       appliedCoupon = null;
       setOfferProgressFeedback('');
       renderSummary();
@@ -1103,6 +1171,7 @@
       const healthyFoodSubtotal = Number(ctx && ctx.healthyFoodSubtotal) || 0;
       const settings = (ctx && ctx.settings) || getStoreSettings();
       const freeThreshold = Math.max(1, Number(settings.freeDeliveryThreshold || 499));
+      const isAppUser = typeof window.isNutrolixAndroidApp === 'function' && window.isNutrolixAndroidApp();
 
       if (subtotal <= 0) {
         banner.classList.add('hidden');
@@ -1157,6 +1226,19 @@
         const pct = minOrder > 0 ? Math.min(100, Math.max(0, Math.round((subtotal / minOrder) * 100))) : 100;
         const safeCode = String(c.code).replace(/'/g, "\\'");
 
+        // App-Exclusive coupon (e.g., APP10): show Google Play CTA on Web Browser, Apply / Applied in Nutrolix Android App
+        if (c.appOnly && !isAppUser) {
+          rows.push({
+            iconHtml: `<i class="fa-brands fa-google-play text-emerald-600 text-base sm:text-lg shrink-0"></i>`,
+            labelHtml: `Get <span class="text-emerald-800 font-black">Extra ${offerTitle}</span> on Nutrolix App <span class="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded-md ml-1">${c.code}</span>`,
+            pct: 100,
+            barGradient: 'from-[#059669] via-[#14b8a6] to-[#84cc16]',
+            actionHtml: `<a href="${PLAY_STORE_APP_URL}" target="_blank" rel="noopener noreferrer" class="px-3 py-1 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-black tracking-wide shadow-sm transition active:scale-95 whitespace-nowrap inline-flex items-center gap-1"><i class="fa-brands fa-google-play text-[10px] text-lime-300"></i> Get App</a>`,
+            hidePctWhenAction: true
+          });
+          return;
+        }
+
         let actionHtml = '';
         if (remaining === 0) {
           actionHtml = isApplied
@@ -1164,11 +1246,17 @@
             : `<button type="button" onclick="window.applyOfferProgressCoupon('${safeCode}')" class="px-3 py-1 rounded-full bg-[#05442e] hover:bg-emerald-800 text-lime-300 text-[11px] font-black tracking-wide shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap">Apply</button>`;
         }
 
+        const iconHtml = c.appOnly
+          ? `<i class="fa-solid fa-mobile-screen-button text-emerald-600 text-base sm:text-lg shrink-0"></i>`
+          : `<i class="fa-solid fa-gift text-orange-500 text-base sm:text-lg shrink-0"></i>`;
+
+        const unlockedPrefix = c.appOnly ? `App Exclusive • Extra ${offerTitle}!` : `${offerTitle} Unlocked!`;
+
         rows.push({
-          iconHtml: `<i class="fa-solid fa-gift text-orange-500 text-base sm:text-lg shrink-0"></i>`,
+          iconHtml,
           labelHtml: remaining > 0
             ? `Add <span class="font-black text-slate-950">₹${remaining}</span> for <span class="text-slate-900 font-black">${offerTitle}</span> <span class="text-[10px] font-black text-amber-800 bg-amber-200/70 px-1.5 py-0.5 rounded-md ml-1">${c.code}</span>`
-            : `<span class="text-emerald-800 font-black">${offerTitle} Unlocked!</span> <span class="text-[10px] font-black text-emerald-800 bg-emerald-200/70 px-1.5 py-0.5 rounded-md ml-1">${c.code}</span>`,
+            : `<span class="text-emerald-800 font-black">${unlockedPrefix}</span> <span class="text-[10px] font-black text-emerald-800 bg-emerald-200/70 px-1.5 py-0.5 rounded-md ml-1">${c.code}</span>`,
           pct,
           barGradient: remaining > 0 ? 'from-[#fbbf24] via-[#f97316] to-[#ea580c]' : 'from-[#059669] via-[#22c55e] to-[#84cc16]',
           actionHtml,
