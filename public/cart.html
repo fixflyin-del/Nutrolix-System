@@ -2199,7 +2199,7 @@
       }
       try {
         window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
-        const profile = await window.verifyNutrolixPhoneOtp(codeVal);
+        const profile = await window.verifyNutrolixPhoneOtp(codeVal, { skipCallback: true });
         document.getElementById('cartInlineOtpBox')?.classList.add('hidden');
         // Sync Web Push in background without blocking order progression
         window.NutrolixNotifications?.ensureWebPushSynced?.(800).catch?.(() => {});
@@ -2836,22 +2836,6 @@
         confirmedOrder.id = finalOrdId;
         confirmedOrder.orderId = finalOrdId;
 
-        // Guarantee Chrome Web Push subscription is persisted before dispatching order-placed (bounded for fast checkout)
-        await window.NutrolixNotifications?.ensureWebPushSynced?.(600).catch?.(() => {});
-
-        // Dispatch status alerts separately so push-provider latency cannot block
-        // the success screen or keep the Place Order button spinning.
-        try {
-          const notifyHost = window.NUTROLIX_API_HOST || '';
-          fetch(notifyHost + '/api/notifications/order-placed', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId: finalOrdId })
-          }).catch((notifyError) => console.warn('[Cart] Order notification dispatch queued:', notifyError));
-        } catch (notifyError) {
-          console.warn('[Cart] Order notification dispatch could not start:', notifyError);
-        }
-
         let existingLocal = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
         const prevCustomerOrders = existingLocal.filter(o => o.customer && (o.customer.phone === phone || (email && o.customer.email === email))).length;
         const orderSequenceNumber = confirmedOrder.orderSequence || (prevCustomerOrders + 1);
@@ -2878,7 +2862,23 @@
           trackBtn.href = `orders.html?orderId=${encodeURIComponent(finalOrdId)}`;
         }
 
+        // Show Order Confirmed modal IMMEDIATELY without waiting for push provider latency
         document.getElementById('orderSuccessModal').classList.remove('hidden');
+
+        // Persist Chrome Web Push subscription and dispatch status alerts asynchronously in background
+        (async () => {
+          try {
+            await window.NutrolixNotifications?.ensureWebPushSynced?.(600).catch?.(() => {});
+            const notifyHost = window.NUTROLIX_API_HOST || '';
+            fetch(notifyHost + '/api/notifications/order-placed', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ orderId: finalOrdId })
+            }).catch((notifyError) => console.warn('[Cart] Order notification dispatch queued:', notifyError));
+          } catch (notifyError) {
+            console.warn('[Cart] Order notification dispatch could not start:', notifyError);
+          }
+        })();
       } catch (err) {
         console.error('[Cart] Order confirmation failed:', err);
         alert('Unable to confirm your order right now: ' + (err.message || 'Server unreachable') + '\n\nYour cart items are preserved. Please check your connection and try again.');

@@ -2429,7 +2429,24 @@ test('Checkout WhatsApp OTP verification immediately proceeds with order placeme
     // 4. executeOrderPlacement guards against double submit & runs address persistence concurrently
     assert.ok(cartHtml.includes('if (isExecutingOrderPlacement) return;'), `${base}/cart.html executeOrderPlacement must guard against duplicate submissions`);
     assert.ok(cartHtml.includes('persistPromise = Promise.allSettled(persistOps);'), `${base}/cart.html executeOrderPlacement must run address persistence concurrently for fast checkout`);
+    assert.ok(cartHtml.includes('window.verifyNutrolixPhoneOtp(codeVal, { skipCallback: true })'), `${base}/cart.html verifyCartInlineOtp must pass skipCallback to avoid duplicate callback invocations`);
+
+    // 5. verifyNutrolixPhoneOtp must not block checkout on slow signInWithCustomToken or duplicate hydrateFromFirestore
+    const authJs = fs.readFileSync(path.join(rootDir, base, 'assets/nutrolix-auth.js'), 'utf8');
+    const verifyFnIdx = authJs.indexOf('window.verifyNutrolixPhoneOtp = async function');
+    const nativeFnIdx = authJs.indexOf('async function handleNativePhoneSuccess');
+    assert.ok(verifyFnIdx > -1 && nativeFnIdx > verifyFnIdx);
+    const verifyFnBody = authJs.slice(verifyFnIdx, nativeFnIdx);
+    assert.equal(verifyFnBody.includes('await hydrateFromFirestore('), false, `${base}/assets/nutrolix-auth.js verifyNutrolixPhoneOtp must run hydrateFromFirestore in background, not await it`);
+    assert.equal(verifyFnBody.includes('await firebase.auth().signInWithCustomToken('), false, `${base}/assets/nutrolix-auth.js verifyNutrolixPhoneOtp must run signInWithCustomToken in background so order places immediately`);
   }
+
+  // 6. Server OTP verify & order creation must be parallelized and bounded (no redundant IdentityToolkit roundtrip)
+  const serverSrc = fs.readFileSync(path.join(rootDir, 'server.js'), 'utf8');
+  const coreSrc = fs.readFileSync(path.join(rootDir, 'lib/nutrolix-core.js'), 'utf8');
+  assert.ok(serverSrc.includes('new Promise((resolve) => setTimeout(() => resolve(null), 650))'), 'server.js verify-otp must bound legacy merge latency so OTP verification responds fast');
+  assert.ok(serverSrc.includes('Promise.all([\n            recordHealthyFoodRedemption(order)'), 'server.js POST /api/nutrition-orders must write order and redemption in parallel');
+  assert.ok(coreSrc.includes('BOTH_DB_IDS.map((dbId) => firestoreGetDocument(docPath, dbId)'), 'lib/nutrolix-core.js firestoreGetFirstAvailable must query both DBs in parallel');
 });
 
 

@@ -2930,38 +2930,52 @@ const server = http.createServer(async (req, res) => {
             return;
           }
 
-          const existingFs = await nutrolixCore.firestoreGetFirstAvailable(`orders/${order.orderId}`);
+          // Parallel idempotency & duplicate order guard across both Firestore DBs (1 fast roundtrip)
+          const idempotencyQuery = order.idempotencyKey ? {
+            from: [{ collectionId: 'orders' }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: 'idempotencyKey' },
+                op: 'EQUAL',
+                value: { stringValue: String(order.idempotencyKey) }
+              }
+            },
+            limit: 1
+          } : null;
+          const dupCheckResult = await Promise.race([
+            Promise.all([
+              nutrolixCore.firestoreGetFirstAvailable(`orders/${order.orderId}`).catch(() => null),
+              ...(idempotencyQuery
+                ? nutrolixCore.BOTH_DB_IDS.map((dbId) =>
+                    nutrolixCore.firestoreRunQuery(idempotencyQuery, '', dbId).catch(() => [])
+                  )
+                : [])
+            ]),
+            new Promise((resolve) => setTimeout(() => resolve([null]), 800))
+          ]);
+          const [existingFs, ...dupQueryResults] = dupCheckResult;
           if (existingFs && existingFs.orderId) {
             res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
             res.end(JSON.stringify({ success: true, order: existingFs, deduplicated: true }));
             return;
           }
-
-          if (order.idempotencyKey) {
-            for (const dbId of nutrolixCore.BOTH_DB_IDS) {
-              const dupMatches = await nutrolixCore.firestoreRunQuery(
-                'orders',
-                [{ field: 'idempotencyKey', op: 'EQUAL', value: order.idempotencyKey }],
-                dbId,
-                1
-              );
-              if (dupMatches && dupMatches.length > 0) {
-                const dupOrder = dupMatches[0];
-                res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-                res.end(JSON.stringify({ success: true, order: dupOrder, deduplicated: true }));
-                return;
-              }
+          for (const dupMatches of dupQueryResults) {
+            if (Array.isArray(dupMatches) && dupMatches.length > 0) {
+              const dupOrder = dupMatches[0];
+              res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+              res.end(JSON.stringify({ success: true, order: dupOrder, deduplicated: true }));
+              return;
             }
           }
-
-          // Persist Healthy Food Discount redemption durably
-          await recordHealthyFoodRedemption(order);
 
           orders.unshift(order);
           safeWriteJson(ordersFile, orders);
 
-          // Persist authoritative order & non-clobbering customer summary to both Firestore DBs
-          const fsWrite = await nutrolixCore.firestorePatchBothDbs(`orders/${order.orderId}`, order);
+          // Persist authoritative order + Healthy Food Discount redemption in parallel across both Firestore DBs
+          const [, fsWrite] = await Promise.all([
+            recordHealthyFoodRedemption(order).catch(() => {}),
+            nutrolixCore.firestorePatchBothDbs(`orders/${order.orderId}`, order)
+          ]);
 
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({
@@ -4410,30 +4424,20 @@ const server = http.createServer(async (req, res) => {
         const signer = crypto.createSign('RSA-SHA256');
         signer.update(unsigned);
         const customToken = unsigned + '.' + signer.sign(sa.private_key.replace(/\\n/g, '\n'), 'base64url');
-        await new Promise((resolve, reject) => {
-          const data = JSON.stringify({ token: customToken, returnSecureToken: true });
-          const request = https.request('https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + encodeURIComponent(firebaseApiKey), {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) }, timeout: 15000
-          }, response => {
-            let raw = '';
-            response.on('data', chunk => raw += chunk);
-            response.on('end', () => {
-              let parsed = {};
-              try { parsed = JSON.parse(raw || '{}'); } catch (_) {}
-              if (response.statusCode >= 200 && response.statusCode < 300 && parsed.idToken) resolve(parsed);
-              else reject(new Error(parsed.error && parsed.error.message ? parsed.error.message : 'Firebase custom sign-in failed.'));
-            });
-          });
-          request.on('timeout', () => request.destroy(new Error('Firebase sign-in timed out.')));
-          request.on('error', reject);
-          request.write(data); request.end();
-        });
 
-        // Merge & fetch existing canonical profile + addresses so returning users immediately get their real profile on every device
-        const merged = await customerSync.mergeLegacyCustomerAccount({
+        // Merge & fetch existing canonical profile + addresses with a tight 650ms cap so OTP verification responds instantaneously
+        const fallbackProfile = {
+          uid, id: uid, name: 'Nutrolix Customer', phone: mobile, verifiedPhone: mobile, whatsappNumber: mobile,
+          phoneVerified: true, verified: true, authProvider: 'phone', providers: ['phone'], googleLinked: false
+        };
+        const mergePromise = customerSync.mergeLegacyCustomerAccount({
           canonicalUid: uid,
           phone: mobile
-        });
+        }).catch(() => null);
+        const merged = await Promise.race([
+          mergePromise,
+          new Promise((resolve) => setTimeout(() => resolve(null), 650))
+        ]);
 
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({
@@ -4441,11 +4445,8 @@ const server = http.createServer(async (req, res) => {
           verified: true,
           customToken,
           uid,
-          profile: merged.profile || {
-            uid, id: uid, name: 'Nutrolix Customer', phone: mobile, verifiedPhone: mobile, whatsappNumber: mobile,
-            phoneVerified: true, verified: true, authProvider: 'phone', providers: ['phone'], googleLinked: false
-          },
-          addresses: merged.addresses || []
+          profile: (merged && merged.profile) || fallbackProfile,
+          addresses: (merged && merged.addresses) || []
         }));
       } catch (error) {
         console.error('Fast2SMS WhatsApp OTP error:', error.message);

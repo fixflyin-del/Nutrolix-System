@@ -359,7 +359,7 @@
     return { mode: 'fast2sms', phoneE164: '+91' + digits, requestId: result.requestId || '' };
   };
 
-  window.verifyNutrolixPhoneOtp = async function(otpCode) {
+  window.verifyNutrolixPhoneOtp = async function(otpCode, opts = {}) {
     const cleanOtp = String(otpCode || '').replace(/\D/g, '');
     if (cleanOtp.length !== 6) throw new Error('Please enter the 6-digit OTP code.');
     const saved = JSON.parse(localStorage.getItem('nutrolix_pending_otp_phone') || 'null');
@@ -374,36 +374,56 @@
     if (!response.ok || result.success !== true || !result.customToken) {
       throw new Error(result.error || 'Incorrect or expired OTP. Please try again.');
     }
-    if (typeof firebase === 'undefined' || !firebase.auth) {
-      throw new Error('Firebase Auth SDK is not loaded. Please refresh and try again.');
-    }
 
-    const authResult = await firebase.auth().signInWithCustomToken(result.customToken);
     localStorage.removeItem('nutrolix_pending_otp_phone');
-
+    const canonicalUid = toCanonicalUid(result.uid || ('phone_' + phone), phone);
     const serverProfile = result.profile && typeof result.profile === 'object' ? result.profile : {};
-    const profile = firebaseUserToProfile(authResult.user, {
+
+    // Persist verified session & addresses IMMEDIATELY so checkout can proceed with zero latency
+    const profile = window.saveNutrolixUser({
       ...serverProfile,
+      uid: canonicalUid,
+      id: canonicalUid,
+      name: pickBestName(serverProfile.name),
+      email: serverProfile.email || '',
       phone,
       verifiedPhone: phone,
-      whatsappNumber: serverProfile.whatsappNumber || phone
+      whatsappNumber: serverProfile.whatsappNumber || phone,
+      photo: serverProfile.photo || '',
+      city: serverProfile.city || '',
+      state: serverProfile.state || '',
+      pincode: serverProfile.pincode || '',
+      defaultAddress: serverProfile.defaultAddress || '',
+      providers: ['phone'],
+      phoneVerified: true
     }, { skipRemoteSync: true });
 
-    if (Array.isArray(result.addresses)) {
+    if (Array.isArray(result.addresses) && result.addresses.length > 0) {
       localStorage.setItem('nutrolix_saved_addresses', JSON.stringify(result.addresses));
     }
 
-    // Sync session into Android Native bridge so FCM registration attaches canonical UID immediately
+    // Sync session into Android Native bridge immediately
     try {
       if (window.AndroidNative && typeof window.AndroidNative.syncAuthSession === 'function') {
-        window.AndroidNative.syncAuthSession(authResult.user.uid, phone, result.customToken);
+        window.AndroidNative.syncAuthSession(canonicalUid, phone, result.customToken);
       }
     } catch (_) {}
 
-    const hydrated = await hydrateFromFirestore(authResult.user.uid, authResult.user);
-    const finalProfile = hydrated || profile;
-    if (typeof window.onAuthSuccessCallback === 'function') window.onAuthSuccessCallback(finalProfile);
-    return finalProfile;
+    // Complete Firebase SDK custom-token sign-in & background canonical hydration without blocking checkout
+    if (typeof firebase !== 'undefined' && firebase.auth) {
+      firebase.auth().signInWithCustomToken(result.customToken)
+        .then((authResult) => {
+          if (authResult && authResult.user) {
+            hydrateFromFirestore(authResult.user.uid, authResult.user).catch(() => {});
+          }
+        })
+        .catch((err) => console.warn('[Auth] Background Firebase sign-in notice:', err && err.message));
+    }
+
+    if (!opts.skipCallback && typeof window.onAuthSuccessCallback === 'function') {
+      window.onAuthSuccessCallback(profile);
+    }
+    return profile;
   };
 
   async function handleNativePhoneSuccess(u) {
