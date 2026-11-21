@@ -1593,11 +1593,11 @@
     <!-- Free Delivery Progress Bar -->
     <div class="bg-amber-50 p-3 border-b border-amber-200">
       <div class="flex items-center justify-between text-xs font-bold text-slate-800 mb-1.5">
-        <span id="freeShippingText">Add ₹150 more for FREE Delivery!</span>
-        <span id="freeShippingPercent" class="text-emerald-700">70%</span>
+        <span id="freeShippingText">Add items for FREE Delivery!</span>
+        <span id="freeShippingPercent" class="text-emerald-700">0%</span>
       </div>
       <div class="w-full h-2 bg-amber-200 rounded-full overflow-hidden">
-        <div id="freeShippingBar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 70%"></div>
+        <div id="freeShippingBar" class="h-full bg-emerald-500 rounded-full transition-all duration-300" style="width: 0%"></div>
       </div>
     </div>
 
@@ -2757,10 +2757,28 @@
       }
     };
 
+    function getLiveDeliverySettings() {
+      let s = window.nutroStoreSettings || null;
+      if (!s) {
+        try {
+          s = JSON.parse(localStorage.getItem('nutrolix_store_settings') || 'null');
+        } catch (_) {}
+      }
+      const rawThreshold = s && s.freeDeliveryThreshold !== undefined
+        ? Number(s.freeDeliveryThreshold)
+        : (s && s.freeDeliveryAbove !== undefined ? Number(s.freeDeliveryAbove) : 499);
+      const rawFee = s && s.deliveryFee !== undefined ? Number(s.deliveryFee) : 49;
+      return {
+        freeDeliveryThreshold: Number.isFinite(rawThreshold) && rawThreshold >= 0 ? rawThreshold : 499,
+        deliveryFee: Number.isFinite(rawFee) && rawFee >= 0 ? rawFee : 49
+      };
+    }
+
     window.openCartDrawer = function() {
       document.getElementById('cartDrawer').classList.remove('translate-x-full');
       document.getElementById('cartDrawerBackdrop').classList.remove('hidden');
       renderCartDrawer();
+      if (typeof syncLiveStoreSettings === 'function') syncLiveStoreSettings();
     };
 
     window.closeCartDrawer = function() {
@@ -2770,6 +2788,9 @@
 
     function renderCartDrawer() {
       const container = document.getElementById('cartDrawerItems');
+      const { freeDeliveryThreshold, deliveryFee } = getLiveDeliverySettings();
+      const shippingEl = document.getElementById('cartDrawerShipping');
+
       if (!window.nutroCart.length) {
         container.innerHTML = `
           <div class="text-center py-12 text-slate-400 text-sm">
@@ -2779,6 +2800,15 @@
           </div>
         `;
         document.getElementById('cartDrawerSubtotal').textContent = '₹0';
+        document.getElementById('freeShippingBar').style.width = '0%';
+        document.getElementById('freeShippingPercent').textContent = '0%';
+        document.getElementById('freeShippingText').textContent = freeDeliveryThreshold > 0
+          ? `Add ₹${freeDeliveryThreshold} more for FREE Delivery!`
+          : '🎉 You unlocked 100% FREE Delivery!';
+        if (shippingEl) {
+          shippingEl.textContent = 'FREE';
+          shippingEl.className = 'font-bold text-emerald-600';
+        }
         return;
       }
 
@@ -2807,13 +2837,22 @@
       }).join('');
 
       document.getElementById('cartDrawerSubtotal').textContent = '₹' + subtotal;
-      const progressPercent = Math.min(100, Math.round((subtotal / 499) * 100));
+      const isFreeDelivery = freeDeliveryThreshold <= 0 || subtotal >= freeDeliveryThreshold;
+      const progressPercent = isFreeDelivery
+        ? 100
+        : Math.min(100, Math.max(0, Math.round((subtotal / freeDeliveryThreshold) * 100)));
+      const remaining = Math.max(0, Math.ceil(freeDeliveryThreshold - subtotal));
+
       document.getElementById('freeShippingBar').style.width = progressPercent + '%';
       document.getElementById('freeShippingPercent').textContent = progressPercent + '%';
-      if (subtotal >= 499) {
+      if (isFreeDelivery) {
         document.getElementById('freeShippingText').textContent = '🎉 You unlocked 100% FREE Delivery!';
       } else {
-        document.getElementById('freeShippingText').textContent = `Add ₹${499 - subtotal} more for FREE Delivery!`;
+        document.getElementById('freeShippingText').textContent = `Add ₹${remaining} more for FREE Delivery!`;
+      }
+      if (shippingEl) {
+        shippingEl.textContent = isFreeDelivery ? 'FREE' : `₹${deliveryFee}`;
+        shippingEl.className = isFreeDelivery ? 'font-bold text-emerald-600' : 'font-bold text-slate-700';
       }
     }
 
@@ -3007,40 +3046,43 @@
       document.getElementById('newsletterEmail').value = '';
     };
 
-    // Live Store Settings & Announcement Ticker Sync (User Issue 3)
+    // Live Store Settings & Announcement Ticker Sync (User Issue 3 + Live Free Delivery Threshold)
     function syncLiveStoreSettings() {
       try {
         const bar = document.getElementById('topBlinkingOfferBar');
         const textEl = document.getElementById('topAnnouncementText');
-        if (!bar || !textEl) return;
-        
+
         let settings = null;
         try {
           settings = JSON.parse(localStorage.getItem('nutrolix_store_settings') || 'null');
         } catch (_) {}
 
         function applySettings(s) {
-          if (!s) return;
-          if (s.announcement) textEl.innerText = s.announcement;
-          if (s.announcementActive === false) {
-            bar.classList.add('hidden');
-          } else {
-            bar.classList.remove('hidden');
+          if (!s || typeof s !== 'object') return;
+          window.nutroStoreSettings = s;
+          if (bar && textEl) {
+            if (s.announcement) textEl.innerText = s.announcement;
+            if (s.announcementActive === false) {
+              bar.classList.add('hidden');
+            } else {
+              bar.classList.remove('hidden');
+            }
           }
+          if (typeof renderCartDrawer === 'function') renderCartDrawer();
         }
 
         if (settings) applySettings(settings);
 
         const host = window.NUTROLIX_API_HOST || '';
-        const setAc = new AbortController();
-        const setTid = setTimeout(() => setAc.abort(), 5000);
-        fetch(host + '/api/settings', { cache: 'no-store', signal: setAc.signal })
-          .finally(() => clearTimeout(setTid))
-          .then(res => res && res.ok ? res.json() : null)
+        const fetcher = typeof fetchJsonWithRetry === 'function'
+          ? fetchJsonWithRetry(host + '/api/settings', { timeoutMs: 12000, retries: 2 })
+          : fetch(host + '/api/settings', { cache: 'no-store' }).then(res => res && res.ok ? res.json() : null);
+
+        fetcher
           .then(data => {
-            if (data && data.announcement) {
-              applySettings(data);
+            if (data && typeof data === 'object') {
               try { localStorage.setItem('nutrolix_store_settings', JSON.stringify(data)); } catch (_) {}
+              applySettings(data);
             }
           })
           .catch(() => {});

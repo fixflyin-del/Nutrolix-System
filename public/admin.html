@@ -1389,7 +1389,7 @@
           <label class="block text-xs font-bold text-slate-700 mb-1">Meal Title *</label>
           <input type="text" id="singleMealTitle" required placeholder="e.g. High Protein Paneer Power Bowl" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-semibold">
         </div>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <div>
             <label class="block text-xs font-bold text-slate-700 mb-1">Category *</label>
             <select id="singleMealCategory" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300">
@@ -1402,8 +1402,12 @@
             </select>
           </div>
           <div>
-            <label class="block text-xs font-bold text-slate-700 mb-1">Price (₹) *</label>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Selling Price (₹) *</label>
             <input type="number" id="singleMealPrice" required placeholder="249" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-bold">
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">MRP (₹) <span class="text-slate-400 font-normal">(Opt.)</span></label>
+            <input type="number" id="singleMealMrp" placeholder="299" class="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 font-bold">
           </div>
         </div>
         <div class="grid grid-cols-3 gap-2 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
@@ -4546,7 +4550,7 @@
             </div>
           </td>
           <td class="p-3.5 text-xs text-slate-600 font-medium">${m.category}</td>
-          <td class="p-3.5 font-black text-slate-900 text-xs">₹${m.price}</td>
+          <td class="p-3.5 font-black text-slate-900 text-xs">₹${m.price}${Number(m.mrp) > Number(m.price) ? ` <span class="text-[10px] text-slate-400 line-through font-semibold">₹${m.mrp}</span>` : ''}</td>
           <td class="p-3.5 text-xs">
             ${(() => {
               const calStr = (m.calories !== undefined && m.calories !== null && String(m.calories).trim() !== '')
@@ -4843,6 +4847,7 @@
       document.getElementById('singleMealId').value = '';
       document.getElementById('singleMealTitle').value = '';
       document.getElementById('singleMealPrice').value = '';
+      if (document.getElementById('singleMealMrp')) document.getElementById('singleMealMrp').value = '';
       document.getElementById('singleMealCalories').value = '';
       document.getElementById('singleMealProtein').value = '';
       document.getElementById('singleMealPrep').value = '20';
@@ -4945,12 +4950,18 @@
       const fatVal = (fatRaw !== '' && Number.isFinite(Number(fatRaw))) ? Number(fatRaw) : '';
       const sodVal = (sodRaw !== '' && Number.isFinite(Number(sodRaw))) ? Number(sodRaw) : '';
 
+      const priceVal = parseFloat(document.getElementById('singleMealPrice').value) || 199;
+      const mrpRaw = (document.getElementById('singleMealMrp')?.value || '').trim();
+      const mrpNum = mrpRaw !== '' ? parseFloat(mrpRaw) : NaN;
+      const mrpVal = (Number.isFinite(mrpNum) && mrpNum > 0) ? mrpNum : null;
+
       const payload = {
         id: id,
         name: mealTitle,
         title: mealTitle,
         category: document.getElementById('singleMealCategory').value,
-        price: parseFloat(document.getElementById('singleMealPrice').value) || 199,
+        price: priceVal,
+        mrp: mrpVal,
         calories: calVal,
         protein: protVal,
         fiber: fibVal,
@@ -5044,6 +5055,9 @@
       }
 
       document.getElementById('singleMealPrice').value = meal.price !== undefined ? meal.price : 199;
+      if (document.getElementById('singleMealMrp')) {
+        document.getElementById('singleMealMrp').value = (meal.mrp !== undefined && meal.mrp !== null && Number(meal.mrp) > 0) ? meal.mrp : '';
+      }
 
       // Parse Nutrition Facts array into optional inputs + custom rows (never fabricate defaults when blank)
       const factsArr = Array.isArray(meal.nutritionFacts) ? meal.nutritionFacts : [];

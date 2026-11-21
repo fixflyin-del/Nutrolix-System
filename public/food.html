@@ -379,7 +379,10 @@
             </div>
           </div>
           <div class="text-right shrink-0">
-            <div id="modalDishPrice" class="text-2xl font-black text-slate-900">₹249</div>
+            <div class="flex items-baseline justify-end space-x-1.5">
+              <div id="modalDishPrice" class="text-2xl font-black text-slate-900">₹249</div>
+              <span id="modalDishMrp" class="hidden text-xs font-bold text-slate-400 line-through"></span>
+            </div>
             <span class="text-[10px] text-emerald-700 font-bold block">Taxes Included</span>
           </div>
         </div>
@@ -1188,6 +1191,9 @@
       const addons = sanitizeMealAddons(m.addons);
       const highlights = sanitizeMealHighlights(m.highlights);
       const nutritionFacts = sanitizeMealNutritionFacts(m.nutritionFacts, m);
+      const mealPrice = Number(m.price || 199);
+      const rawMrp = (m.mrp !== undefined && m.mrp !== null && String(m.mrp).trim() !== '') ? Number(m.mrp) : NaN;
+      const mealMrp = (Number.isFinite(rawMrp) && rawMrp > mealPrice) ? rawMrp : mealPrice;
       return {
         ...m,
         id: m.id || ('meal_' + Math.random().toString(36).substring(2, 8)),
@@ -1195,7 +1201,8 @@
         title: name,
         image: img,
         category: m.category || 'High Protein Meals',
-        price: Number(m.price || 199),
+        price: mealPrice,
+        mrp: mealMrp,
         variants,
         addons,
         highlights,
@@ -1257,6 +1264,9 @@
         const qty = cart.filter(i => i.id === item.id).reduce((s, i) => s + (i.quantity || 1), 0);
         const hasCustom = (item.variants && item.variants.length > 0) || (item.addons && item.addons.length > 0);
         const displayPrice = (item.variants && item.variants.length > 0) ? item.variants[0].price : item.price;
+        const displayMrp = (item.variants && item.variants.length > 0)
+          ? (Number(item.variants[0].mrp) > Number(displayPrice) ? Number(item.variants[0].mrp) : Number(displayPrice))
+          : (Number(item.mrp) > Number(displayPrice) ? Number(item.mrp) : Number(displayPrice));
 
         return `
           <div onclick="window.openFoodDetailModal('${item.id}')" class="cursor-pointer bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition flex flex-col justify-between group active:scale-[0.99]">
@@ -1299,7 +1309,10 @@
               <!-- Price & Plus/Add Stepper -->
               <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between" onclick="event.stopPropagation()">
                 <div>
-                  <span class="text-sm sm:text-base font-black text-slate-900">₹${displayPrice}</span>
+                  <div class="flex items-baseline space-x-1.5">
+                    <span class="text-sm sm:text-base font-black text-slate-900">₹${displayPrice}</span>
+                    ${displayMrp > displayPrice ? `<span class="text-[11px] font-bold text-slate-400 line-through">₹${displayMrp}</span>` : ''}
+                  </div>
                   <span class="text-[9px] text-slate-400 block -mt-0.5">Kitchen Fresh</span>
                 </div>
 
@@ -1681,10 +1694,12 @@
     };
 
     function getModalUnitPricing() {
-      if (!currentSelectedModalDish) return { basePrice: 0, addonsTotal: 0, unitTotal: 0, variantLabel: '', selectedAddons: [] };
+      if (!currentSelectedModalDish) return { basePrice: 0, baseMrp: 0, addonsTotal: 0, unitTotal: 0, unitMrp: 0, variantLabel: '', selectedAddons: [] };
       const variants = Array.isArray(currentSelectedModalDish.variants) ? currentSelectedModalDish.variants : [];
       const activeVar = variants.length > 0 ? (variants[modalSelectedVariantIndex] || variants[0]) : null;
       const basePrice = Number((activeVar && activeVar.price) || currentSelectedModalDish.price || 0);
+      const rawBaseMrp = Number((activeVar && activeVar.mrp) || currentSelectedModalDish.mrp || basePrice);
+      const baseMrp = (Number.isFinite(rawBaseMrp) && rawBaseMrp > basePrice) ? rawBaseMrp : basePrice;
       const variantLabel = activeVar ? String(activeVar.size || activeVar.label || '').trim() : '';
 
       const addons = Array.isArray(currentSelectedModalDish.addons) ? currentSelectedModalDish.addons : [];
@@ -1692,14 +1707,24 @@
         .filter(idx => addons[idx])
         .map(idx => ({ id: addons[idx].id, name: addons[idx].name, price: Number(addons[idx].price || 0), isVeg: addons[idx].isVeg !== false }));
       const addonsTotal = selectedAddons.reduce((sum, a) => sum + Number(a.price || 0), 0);
-      return { basePrice, addonsTotal, unitTotal: basePrice + addonsTotal, variantLabel, selectedAddons };
+      return { basePrice, baseMrp, addonsTotal, unitTotal: basePrice + addonsTotal, unitMrp: baseMrp + addonsTotal, variantLabel, selectedAddons };
     }
 
     function updateModalPriceAndQty() {
       if (!currentSelectedModalDish) return;
-      const { unitTotal } = getModalUnitPricing();
+      const { unitTotal, unitMrp } = getModalUnitPricing();
       document.getElementById('modalQuantityText').textContent = modalSelectedQuantity;
       document.getElementById('modalDishPrice').textContent = `₹${unitTotal}`;
+      const mrpEl = document.getElementById('modalDishMrp');
+      if (mrpEl) {
+        if (unitMrp > unitTotal) {
+          mrpEl.textContent = `₹${unitMrp}`;
+          mrpEl.classList.remove('hidden');
+        } else {
+          mrpEl.textContent = '';
+          mrpEl.classList.add('hidden');
+        }
+      }
       const total = unitTotal * modalSelectedQuantity;
       document.getElementById('modalDishTotalPrice').textContent = `₹${total}`;
     }
@@ -1707,7 +1732,7 @@
     window.submitModalAddToCart = function() {
       if (!currentSelectedModalDish) return;
 
-      const { basePrice, addonsTotal, unitTotal, variantLabel, selectedAddons } = getModalUnitPricing();
+      const { basePrice, addonsTotal, unitTotal, unitMrp, variantLabel, selectedAddons } = getModalUnitPricing();
       const addonKey = selectedAddons.map(a => a.name).sort().join('|');
       const itemKey = `${currentSelectedModalDish.id}::${variantLabel}::${addonKey}`;
 
@@ -1716,6 +1741,7 @@
 
       if (existing) {
         existing.quantity += modalSelectedQuantity;
+        existing.mrp = unitMrp;
       } else {
         cart.push({
           id: currentSelectedModalDish.id,
@@ -1726,6 +1752,7 @@
           addons: selectedAddons,
           addonsTotal,
           price: unitTotal,
+          mrp: unitMrp,
           quantity: modalSelectedQuantity,
           variant: variantLabel,
           isFood: true,
@@ -1767,6 +1794,7 @@
 
       if (idx >= 0) {
         cart[idx].quantity += delta;
+        cart[idx].mrp = (Number(foodItem.mrp) > Number(foodItem.price)) ? Number(foodItem.mrp) : Number(foodItem.price);
         if (cart[idx].quantity <= 0) {
           cart.splice(idx, 1);
         }
@@ -1780,6 +1808,7 @@
           addons: [],
           addonsTotal: 0,
           price: foodItem.price,
+          mrp: (Number(foodItem.mrp) > Number(foodItem.price)) ? Number(foodItem.mrp) : Number(foodItem.price),
           quantity: 1,
           variant: '',
           isFood: true,

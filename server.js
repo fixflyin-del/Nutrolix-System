@@ -420,8 +420,13 @@ function normalizeFoodMenuRecord(item, liveReviews = []) {
   const reviewSummary = nutrolixCore.computeProductReviewSummary(item, liveReviews);
   const highlights = normalizeFoodHighlights(item.highlights);
   const nutritionFacts = normalizeFoodNutritionFacts(item.nutritionFacts, item);
+  const priceNum = Number(item.price);
+  const mrpNum = (item.mrp !== undefined && item.mrp !== null && String(item.mrp).trim() !== '') ? Number(item.mrp) : NaN;
+  const normalizedMrp = (Number.isFinite(mrpNum) && mrpNum > 0) ? mrpNum : null;
   return {
     ...base,
+    price: Number.isFinite(priceNum) && priceNum > 0 ? priceNum : (base.price || 199),
+    mrp: normalizedMrp,
     highlights,
     nutritionFacts,
     variants: nutrolixCore.normalizeProductVariants(item.variants, { id: item.id, variantsConfigured: true }),

@@ -367,13 +367,9 @@
                 </span>
                 <span id="cartPhoneVerifiedTag" class="hidden text-[10px] font-black text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">OTP Verified ✓</span>
               </label>
-              <div class="flex items-center rounded-xl border border-slate-300 bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500 overflow-hidden pr-1.5">
+              <div class="flex items-center rounded-xl border border-slate-300 bg-slate-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-emerald-500 overflow-hidden">
                 <span class="px-3 py-2.5 text-xs font-black text-slate-600 bg-slate-100 border-r border-slate-200 shrink-0">+91</span>
                 <input type="tel" id="custPhone" required maxlength="10" inputmode="numeric" oninput="window.handleCartPhoneTyping(this.value)" placeholder="10-digit WhatsApp number" class="w-full min-w-0 text-sm bg-transparent px-3 py-2.5 font-bold focus:outline-none">
-                <button type="button" id="cartPhoneOkBtn" onclick="window.handleCartInlinePhoneOk()" aria-label="Send OTP to WhatsApp number" class="shrink-0 h-8 px-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] shadow-sm flex items-center justify-center space-x-1 transition active:scale-95 cursor-pointer">
-                  <span>OK</span>
-                  <i class="fa-solid fa-arrow-right text-[10px]"></i>
-                </button>
               </div>
               <p id="custPhoneRecipientHint" class="hidden text-[10px] text-slate-500 mt-1 font-medium">
                 Ordering for someone else? Edit this recipient number for this delivery address — order updates still go to your verified login number.

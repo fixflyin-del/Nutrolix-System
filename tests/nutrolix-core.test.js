@@ -2264,5 +2264,81 @@ test('44) Checkout PIN detection rejects bogus state-mismatched PINs (497586 in 
   }
 });
 
+test('45) Your Nutrition Bag cart drawer uses live Admin freeDeliveryAbove/freeDeliveryThreshold instead of hardcoded 499', () => {
+  const rootDir = path.resolve(__dirname, '..');
+  for (const rel of ['public/index.html', 'app/src/main/assets/web/index.html']) {
+    const html = fs.readFileSync(path.join(rootDir, rel), 'utf8');
+    assert.equal(html.includes('subtotal / 499'), false, `${rel} must not hardcode subtotal / 499 in cart drawer`);
+    assert.equal(html.includes('subtotal >= 499'), false, `${rel} must not hardcode subtotal >= 499 in cart drawer`);
+    assert.equal(html.includes('499 - subtotal'), false, `${rel} must not hardcode 499 - subtotal in cart drawer`);
+    assert.ok(html.includes('function getLiveDeliverySettings()'), `${rel} must read live delivery settings dynamically`);
+    assert.ok(html.includes('s.freeDeliveryThreshold') && html.includes('s.freeDeliveryAbove'), `${rel} must support both freeDeliveryThreshold and freeDeliveryAbove`);
+    assert.ok(html.includes("document.getElementById('cartDrawerShipping')"), `${rel} must update cart drawer shipping fee dynamically`);
+  }
+});
+
+test('46) Checkout WhatsApp form removes inline OK button while keeping Confirm & Place Order OTP flow intact, and Healthy Food Catalog supports MRP end-to-end', async () => {
+  const rootDir = path.resolve(__dirname, '..');
+  const roots = [
+    path.join(rootDir, 'public'),
+    path.join(rootDir, 'app/src/main/assets/web')
+  ];
+
+  for (const base of roots) {
+    const cartHtml = fs.readFileSync(path.join(base, 'cart.html'), 'utf8');
+    assert.equal(cartHtml.includes('id="cartPhoneOkBtn"'), false, `${base}/cart.html must remove inline OK button from WhatsApp number form`);
+    assert.ok(cartHtml.includes('<span>Confirm & Place Order</span>'), `${base}/cart.html must keep Confirm & Place Order button text untouched`);
+    assert.ok(cartHtml.includes('window.handleCartInlinePhoneOk(false);'), `${base}/cart.html must still trigger OTP verification on Confirm & Place Order`);
+
+    const adminHtml = fs.readFileSync(path.join(base, 'admin.html'), 'utf8');
+    assert.ok(adminHtml.includes('id="singleMealMrp"'), `${base}/admin.html Healthy Meal modal must include MRP input`);
+    assert.ok(adminHtml.includes('mrp: mrpVal'), `${base}/admin.html saveHealthyMeal must persist mrp`);
+
+    const foodHtml = fs.readFileSync(path.join(base, 'food.html'), 'utf8');
+    assert.ok(foodHtml.includes('id="modalDishMrp"'), `${base}/food.html detail modal must show MRP when higher than price`);
+    assert.ok(foodHtml.includes('mrp: unitMrp'), `${base}/food.html submitModalAddToCart must pass mrp into cart item`);
+    assert.ok(foodHtml.includes('mrp: (Number(foodItem.mrp) > Number(foodItem.price))'), `${base}/food.html changeFoodQuantity must pass mrp into cart item`);
+  }
+
+  const foodFile = path.join(rootDir, 'public/data/healthy_food_menu.json');
+  const origFood = fs.existsSync(foodFile) ? fs.readFileSync(foodFile, 'utf8') : null;
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+  const baseUrl = `http://127.0.0.1:${port}`;
+
+  try {
+    const testId = 'meal_mrp_test_46';
+    const postRes = await fetch(`${baseUrl}/api/food-menu`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        id: testId,
+        name: 'MRP Test Protein Bowl',
+        category: 'High-Protein Bowls',
+        price: 249,
+        mrp: 349,
+        image: '/assets/aistudio/image_6061bdc8.png'
+      })
+    });
+    assert.equal(postRes.status, 200, 'POST /api/food-menu with mrp must return 200');
+    const postJson = await postRes.json();
+    assert.equal(postJson.success, true);
+
+    const getRes = await fetch(`${baseUrl}/api/food-menu`);
+    assert.equal(getRes.status, 200);
+    const list = await getRes.json();
+    const saved = list.find(m => m.id === testId);
+    assert.ok(saved, 'Saved healthy meal must be returned by GET /api/food-menu');
+    assert.equal(saved.price, 249);
+    assert.equal(saved.mrp, 349, 'Saved healthy meal must preserve MRP 349');
+  } finally {
+    if (origFood !== null) fs.writeFileSync(foodFile, origFood, 'utf8');
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+
+
 
 
