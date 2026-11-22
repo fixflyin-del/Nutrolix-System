@@ -3093,7 +3093,162 @@
     window.addEventListener('storage', (e) => {
       if (e.key === 'nutrolix_store_settings') syncLiveStoreSettings();
     });
+
+    // =========================================================================
+    // ONE-TIME WEBSITE-ONLY APP DOWNLOAD POPUP (Browser Only • Never in App)
+    // =========================================================================
+    (function initWebOnlyAppPromoPopup() {
+      const STORAGE_KEY = 'nutrolix_web_app_promo_seen_v1';
+
+      function isRunningInsideMobileApp() {
+        try {
+          const ua = String(navigator.userAgent || '');
+          const isAndroidWebView =
+            Boolean(window.AndroidNative && typeof window.AndroidNative === 'object') ||
+            /NutrolixApp\//i.test(ua) ||
+            /;\s*wv\)/i.test(ua) ||
+            window.location.protocol === 'file:';
+          const isStandalonePwa =
+            (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+            window.navigator.standalone === true;
+          return isAndroidWebView || isStandalonePwa;
+        } catch (_) {
+          return false;
+        }
+      }
+
+      function hasAlreadySeenPopup() {
+        try {
+          if (localStorage.getItem(STORAGE_KEY) === '1') return true;
+        } catch (_) {}
+        try {
+          if (sessionStorage.getItem(STORAGE_KEY) === '1') return true;
+        } catch (_) {}
+        return false;
+      }
+
+      function markPopupSeen() {
+        try { localStorage.setItem(STORAGE_KEY, '1'); } catch (_) {}
+        try { sessionStorage.setItem(STORAGE_KEY, '1'); } catch (_) {}
+      }
+
+      window.closeWebAppPromoPopup = function() {
+        markPopupSeen();
+        const modal = document.getElementById('webAppPromoPopup');
+        const card = document.getElementById('webAppPromoCard');
+        if (!modal) return;
+        if (card) {
+          card.classList.remove('scale-100', 'opacity-100');
+          card.classList.add('scale-95', 'opacity-0');
+        }
+        setTimeout(() => {
+          modal.classList.add('hidden');
+          document.body.style.overflow = '';
+        }, 160);
+      };
+
+      function showWebAppPromoPopupOnce() {
+        if (isRunningInsideMobileApp()) return;
+        if (hasAlreadySeenPopup()) return;
+
+        const modal = document.getElementById('webAppPromoPopup');
+        const card = document.getElementById('webAppPromoCard');
+        if (!modal) return;
+
+        // Mark seen immediately when shown so refreshing never triggers it a second time
+        markPopupSeen();
+        modal.classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+
+        requestAnimationFrame(() => {
+          if (card) {
+            card.classList.remove('scale-95', 'opacity-0');
+            card.classList.add('scale-100', 'opacity-100');
+          }
+        });
+      }
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          const modal = document.getElementById('webAppPromoPopup');
+          if (modal && !modal.classList.contains('hidden')) {
+            window.closeWebAppPromoPopup();
+          }
+        }
+      });
+
+      document.addEventListener('DOMContentLoaded', () => {
+        if (isRunningInsideMobileApp() || hasAlreadySeenPopup()) return;
+        setTimeout(showWebAppPromoPopupOnce, 900);
+      });
+    })();
   </script>
+
+  <!-- One-Time Website-Only App Promo Popup (Bilingual Hindi + English • Extra 10% OFF) -->
+  <div id="webAppPromoPopup" onclick="if (event.target === this) window.closeWebAppPromoPopup()" role="dialog" aria-modal="true" aria-labelledby="webAppPromoHeading" class="fixed inset-0 z-[120] hidden flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm transition-opacity">
+    <div id="webAppPromoCard" class="relative w-full max-w-[400px] bg-white rounded-[28px] overflow-hidden shadow-2xl border border-emerald-200/80 transform transition-all duration-200 scale-95 opacity-0">
+      <!-- Top Studio Promo Banner Image -->
+      <div class="relative w-full h-44 sm:h-48 bg-gradient-to-br from-emerald-900 via-emerald-800 to-amber-600 overflow-hidden">
+        <img src="assets/graphics/app_promo_popup_banner.jpg" alt="Nutrolix App Extra 10% OFF Banner" class="w-full h-full object-cover">
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/75 via-slate-950/15 to-transparent pointer-events-none"></div>
+
+        <!-- Floating Offer Pill -->
+        <div class="absolute top-3 left-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black tracking-wide shadow-md">
+          <i class="fa-solid fa-sparkles text-[10px]"></i>
+          <span>APP EXCLUSIVE • EXTRA 10% OFF</span>
+        </div>
+
+        <!-- Close (X) Icon Button -->
+        <button type="button" id="btnCloseWebAppPromoPopup" onclick="window.closeWebAppPromoPopup()" aria-label="Close popup" class="absolute top-3 right-3 w-9 h-9 rounded-full bg-slate-950/75 hover:bg-slate-950 text-white border border-white/30 backdrop-blur-md flex items-center justify-center shadow-lg transition active:scale-90 cursor-pointer">
+          <i class="fa-solid fa-xmark text-base"></i>
+        </button>
+
+        <!-- Bottom Brand Badge on Image -->
+        <div class="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+          <div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-white/95 text-emerald-900 text-[11px] font-black shadow">
+            <i class="fa-brands fa-google-play text-emerald-600"></i>
+            <span>Nutrolix Official App</span>
+          </div>
+          <span class="px-2.5 py-1 rounded-xl bg-emerald-500 text-white text-[11px] font-black shadow tracking-wider">CODE: APP10</span>
+        </div>
+      </div>
+
+      <!-- Bilingual Content (English + Hindi) -->
+      <div class="p-5 sm:p-6 text-center space-y-3.5 bg-gradient-to-b from-white to-emerald-50/40">
+        <h3 id="webAppPromoHeading" class="text-lg sm:text-xl font-black text-slate-900 leading-snug">
+          Order on Our App &amp; Get <span class="text-emerald-700">10% Extra OFF</span> on Every Order!
+        </h3>
+
+        <div class="px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-50 via-lime-50/80 to-amber-50 border border-emerald-200/80">
+          <p class="text-[13px] sm:text-sm font-extrabold text-emerald-950 leading-relaxed">
+            अभी हमारे <span class="text-emerald-700">Nutrolix App</span> से ऑर्डर कीजिए और हर ऑर्डर पर पाइए <span class="text-amber-700 font-black">10% Extra OFF!</span>
+          </p>
+        </div>
+
+        <div class="flex items-center justify-center flex-wrap gap-2 text-[11px] font-bold text-slate-600">
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 shadow-2xs">
+            <i class="fa-solid fa-bolt text-amber-500"></i>
+            <span>Auto-Applied in App</span>
+          </span>
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white border border-slate-200 shadow-2xs">
+            <i class="fa-solid fa-tag text-emerald-600"></i>
+            <span>Code: <strong class="text-emerald-800">APP10</strong></span>
+          </span>
+        </div>
+
+        <!-- Primary Play Store CTA -->
+        <a href="https://play.google.com/store/apps/details?id=com.aistudio.nutrolix.fooddelivery" target="_blank" rel="noopener noreferrer" onclick="window.closeWebAppPromoPopup()" class="w-full py-3.5 px-5 rounded-2xl bg-gradient-to-r from-[#05442e] via-emerald-700 to-teal-600 hover:from-emerald-900 hover:to-teal-700 text-white font-black text-sm shadow-lg shadow-emerald-700/25 flex items-center justify-center gap-2.5 transition active:scale-[0.98]">
+          <i class="fa-brands fa-google-play text-lg text-lime-300"></i>
+          <span>Download App &amp; Get 10% OFF</span>
+          <i class="fa-solid fa-arrow-right text-xs text-lime-200"></i>
+        </a>
+
+        <button type="button" onclick="window.closeWebAppPromoPopup()" class="text-[11px] font-bold text-slate-400 hover:text-slate-600 transition cursor-pointer">
+          Continue on Website • वेबसाइट पर जारी रखें
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Universal Pull to Refresh with Circular Progress Indicator -->
   <script src="assets/pull-to-refresh.js"></script>

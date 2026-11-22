@@ -2472,6 +2472,35 @@ test('My Orders cards prevent horizontal overflow on mobile (w-full, items-stret
   }
 });
 
+test('Home page shows one-time browser-only bilingual (Hindi + English) App 10% OFF promo popup with banner image, outside-click & X close, never in mobile app or on refresh', () => {
+  const rootDir = path.join(__dirname, '..');
+  const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.aistudio.nutrolix.fooddelivery';
+
+  for (const base of ['public', 'app/src/main/assets/web']) {
+    // 1. Generated promo banner image must exist in both web and Android mirrored assets
+    assert.ok(
+      fs.existsSync(path.join(rootDir, base, 'assets/graphics/app_promo_popup_banner.jpg')),
+      `${base}/assets/graphics/app_promo_popup_banner.jpg must exist`
+    );
+
+    const idxHtml = fs.readFileSync(path.join(rootDir, base, 'index.html'), 'utf8');
+    // 2. Modal container, outside click dismiss, X icon button, banner image, Play Store CTA
+    assert.ok(idxHtml.includes('id="webAppPromoPopup"'), `${base}/index.html must contain webAppPromoPopup modal`);
+    assert.ok(idxHtml.includes('onclick="if (event.target === this) window.closeWebAppPromoPopup()"'), `${base}/index.html popup backdrop must close on outside click`);
+    assert.ok(idxHtml.includes('id="btnCloseWebAppPromoPopup"'), `${base}/index.html popup must include X close icon button`);
+    assert.ok(idxHtml.includes('assets/graphics/app_promo_popup_banner.jpg'), `${base}/index.html popup must embed the generated promo banner image`);
+    assert.ok(idxHtml.includes(PLAY_STORE_URL), `${base}/index.html popup CTA must point to Google Play Store`);
+
+    // 3. Bilingual Hindi + English copy for 10% Extra OFF on every order
+    assert.ok(idxHtml.includes('10% Extra OFF'), `${base}/index.html popup must include English Extra 10% OFF copy`);
+    assert.ok(idxHtml.includes('अभी हमारे') && idxHtml.includes('हर ऑर्डर पर पाइए'), `${base}/index.html popup must include Hindi bilingual copy`);
+
+    // 4. Browser-only guard (excludes Android WebView / NutrolixApp / standalone PWA) + persistent one-time flag
+    assert.ok(idxHtml.includes("const STORAGE_KEY = 'nutrolix_web_app_promo_seen_v1';"), `${base}/index.html popup must persist one-time seen flag so refresh never re-opens it`);
+    assert.ok(idxHtml.includes('window.AndroidNative') && idxHtml.includes('/NutrolixApp\\//i.test(ua)') && idxHtml.includes('/;\\s*wv\\)/i.test(ua)'), `${base}/index.html popup must never show inside mobile app / WebView`);
+  }
+});
+
 
 
 
