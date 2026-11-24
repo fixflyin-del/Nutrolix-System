@@ -2192,9 +2192,8 @@
       }
 
       isVerifyingCartInlineOtp = true;
-      // Verifying OTP during checkout should immediately proceed with placing the order
-      // so the customer never has to tap "Confirm & Place Order" a second time.
-      pendingOrderConfirmAfterAuth = true;
+      // Only verify OTP here; the user must explicitly tap "Confirm & Place Order" below to place the order.
+      pendingOrderConfirmAfterAuth = false;
 
       if (btn) {
         btn.disabled = true;
@@ -2204,13 +2203,11 @@
         window.NutrolixNotifications?.ensurePermissionOnGesture?.().catch?.(() => {});
         const profile = await window.verifyNutrolixPhoneOtp(codeVal, { skipCallback: true });
         document.getElementById('cartInlineOtpBox')?.classList.add('hidden');
-        // Sync Web Push in background without blocking order progression
+        // Sync Web Push in background
         window.NutrolixNotifications?.ensureWebPushSynced?.(800).catch?.(() => {});
         window.onAuthSuccessCallback(profile);
       } catch (e) {
-        // Keep the inline OTP field visible and preserve pendingOrderConfirmAfterAuth
-        // so retrying the code still proceeds directly to order placement.
-        pendingOrderConfirmAfterAuth = true;
+        pendingOrderConfirmAfterAuth = false;
         document.getElementById('cartInlineOtpBox')?.classList.remove('hidden');
         if (codeEl) { codeEl.value = ''; codeEl.focus(); }
         if (errEl) {
@@ -2334,7 +2331,7 @@
       verifyBtn.disabled = true;
       verifyBtn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i><span>Verifying...</span>';
       try {
-        pendingOrderConfirmAfterAuth = true;
+        pendingOrderConfirmAfterAuth = false;
         const profile = await window.verifyNutrolixPhoneOtp(codeEl.value);
         window.onAuthSuccessCallback(profile);
       } catch (e) {
@@ -2342,13 +2339,13 @@
         errEl.classList.remove('hidden');
       } finally {
         verifyBtn.disabled = false;
-        verifyBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Verify OTP &amp; Confirm Order</span>';
+        verifyBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i><span>Verify OTP</span>';
       }
     };
 
     // Unified Auth Success Callback (from WhatsApp OTP)
+    // Only verifies OTP & updates checkout state; user must click Confirm & Place Order below to place the order.
     window.onAuthSuccessCallback = function(userProfile) {
-      const shouldConfirmOrderNow = pendingOrderConfirmAfterAuth;
       pendingOrderConfirmAfterAuth = false;
 
       document.getElementById('whatsappAuthModal')?.classList.add('hidden');
@@ -2381,22 +2378,18 @@
       }
       window.updateCartPhoneOkButtonState();
       saveUserProfile();
+      if (typeof renderSummary === 'function') renderSummary();
 
       const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
       const address = (document.getElementById('custAddress1')?.value || profile.address1 || (selectedSavedAddress ? (selectedSavedAddress.address1 || selectedSavedAddress.street) : '') || '').trim();
-      const pincode = (document.getElementById('custPincode')?.value || profile.pincode || (selectedSavedAddress ? selectedSavedAddress.pincode : '') || '').replace(/\D/g, '').slice(0, 6);
 
-      if (!shouldConfirmOrderNow) {
-        if (!address || address.length < 4) {
-          document.getElementById('custAddress1')?.focus();
-        }
-        return;
-      }
-
-      if (!address || address.length < 4 || pincode.length !== 6) {
-        window.openDeliveryDetailsModal();
+      if (!address || address.length < 4) {
+        document.getElementById('custAddress1')?.focus();
       } else {
-        window.executeOrderPlacement();
+        const placeBtn = document.getElementById('placeOrderBtn');
+        if (placeBtn) {
+          try { placeBtn.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+        }
       }
     };
 
@@ -2501,7 +2494,7 @@
           phoneInput?.focus();
           return;
         }
-        pendingOrderConfirmAfterAuth = true;
+        pendingOrderConfirmAfterAuth = false;
         window.handleCartInlinePhoneOk(false);
         return;
       }
@@ -2574,7 +2567,7 @@
       recipientPhone = /^[6-9]\d{9}$/.test(rawRecipientDigits) ? rawRecipientDigits : (rawRecipientDigits.length === 10 ? rawRecipientDigits : verifiedPhone);
       const phone = recipientPhone;
       if (!user.uid || verifiedPhone.length !== 10) {
-        pendingOrderConfirmAfterAuth = true;
+        pendingOrderConfirmAfterAuth = false;
         window.handleCartInlinePhoneOk(false);
         return;
       }

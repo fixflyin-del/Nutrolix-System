@@ -4,6 +4,10 @@
  */
 (function () {
   try {
+    if (window.AndroidNative || /NutrolixApp\//i.test(navigator.userAgent || '')) {
+      sessionStorage.setItem('nutrolix_splash_shown', 'true');
+      return;
+    }
     if (sessionStorage.getItem('nutrolix_splash_shown') === 'true') return;
     sessionStorage.setItem('nutrolix_splash_shown', 'true');
 

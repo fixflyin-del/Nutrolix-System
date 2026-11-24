@@ -24,6 +24,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -39,6 +43,10 @@ import com.example.auth.PhoneOtpStartResult
 import com.example.auth.PhoneOtpVerifyResult
 import com.example.data.FirestoreService
 import com.example.service.NutrolixFirebaseMessagingService
+import com.example.ui.onboarding.NutrolixLaunchStage
+import com.example.ui.onboarding.NutrolixNativeSplashScreen
+import com.example.ui.onboarding.NutrolixOnboardingFlow
+import com.example.ui.onboarding.NutrolixOnboardingPrefs
 import com.example.ui.theme.MyApplicationTheme
 import com.example.util.OrderNotificationHelper
 import com.example.util.PullToRefreshWebViewWrapper
@@ -314,18 +322,38 @@ fun NutrolixSupplementBrandApp(
     }
   }
 
+  var launchStage by remember {
+    mutableStateOf(
+      if (!deepLinkUrl.isNullOrBlank() && NutrolixOnboardingPrefs.isCompleted(context)) {
+        NutrolixLaunchStage.MAIN
+      } else {
+        NutrolixLaunchStage.SPLASH
+      }
+    )
+  }
+  var hasRequestedNotifPermission by remember { mutableStateOf(false) }
+
   LaunchedEffect(Unit) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-      notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-    }
     try {
       fetchAndSyncFcmToken(FirebaseAuth.getInstance().currentUser)
     } catch (_: Throwable) {}
   }
 
+  LaunchedEffect(launchStage) {
+    if (launchStage == NutrolixLaunchStage.MAIN && !hasRequestedNotifPermission) {
+      hasRequestedNotifPermission = true
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+      }
+    }
+  }
+
   // Deep-link handling when Customer taps an FCM notification
   LaunchedEffect(deepLinkUrl, webViewInstance) {
     if (!deepLinkUrl.isNullOrBlank() && webViewInstance != null) {
+      if (NutrolixOnboardingPrefs.isCompleted(context)) {
+        launchStage = NutrolixLaunchStage.MAIN
+      }
       webViewInstance?.loadUrl(deepLinkUrl)
       onDeepLinkConsumed()
     }
@@ -364,7 +392,7 @@ fun NutrolixSupplementBrandApp(
     }
   }
 
-  BackHandler(enabled = true) {
+  BackHandler(enabled = launchStage == NutrolixLaunchStage.MAIN) {
     if (webViewInstance?.canGoBack() == true) {
       webViewInstance?.goBack()
     } else {
@@ -378,16 +406,17 @@ fun NutrolixSupplementBrandApp(
     }
   }
 
-  Scaffold(
-    contentWindowInsets = WindowInsets.statusBars
-  ) { innerPadding ->
-    Box(
-      modifier = Modifier
-        .fillMaxSize()
-        .padding(innerPadding)
-        .background(Color.White)
-    ) {
-      AndroidView(
+  Box(modifier = Modifier.fillMaxSize()) {
+    Scaffold(
+      contentWindowInsets = WindowInsets.statusBars
+    ) { innerPadding ->
+      Box(
+        modifier = Modifier
+          .fillMaxSize()
+          .padding(innerPadding)
+          .background(Color.White)
+      ) {
+        AndroidView(
         modifier = Modifier.fillMaxSize(),
         factory = { ctx ->
           var ptrWrapper: PullToRefreshWebViewWrapper? = null
@@ -875,8 +904,38 @@ fun NutrolixSupplementBrandApp(
             webViewInstance = webView
           }
         },
-        update = { wrapper ->
-          webViewInstance = wrapper.webView
+          update = { wrapper ->
+            webViewInstance = wrapper.webView
+          }
+        )
+      }
+    }
+
+    AnimatedVisibility(
+      visible = launchStage == NutrolixLaunchStage.ONBOARDING,
+      enter = fadeIn(animationSpec = tween(320)),
+      exit = fadeOut(animationSpec = tween(360))
+    ) {
+      NutrolixOnboardingFlow(
+        onComplete = {
+          NutrolixOnboardingPrefs.markCompleted(context)
+          launchStage = NutrolixLaunchStage.MAIN
+        }
+      )
+    }
+
+    AnimatedVisibility(
+      visible = launchStage == NutrolixLaunchStage.SPLASH,
+      enter = fadeIn(animationSpec = tween(180)),
+      exit = fadeOut(animationSpec = tween(360))
+    ) {
+      NutrolixNativeSplashScreen(
+        onSplashFinished = {
+          launchStage = if (NutrolixOnboardingPrefs.isCompleted(context)) {
+            NutrolixLaunchStage.MAIN
+          } else {
+            NutrolixLaunchStage.ONBOARDING
+          }
         }
       )
     }
