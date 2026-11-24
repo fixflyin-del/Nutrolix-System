@@ -1043,7 +1043,18 @@ async function dispatchPushToCustomer(arg1, customerEmailArg, orderIdArg, titleA
   return logEntry;
 }
 
-async function dispatchPushToAdmins({ orderId = '', title = '', message = '', total = 0, customerName = '', customerPhone = '', paymentMethod = '' } = {}) {
+const adminNotifiedOrderIds = new Set();
+function markAdminOrderNotified(orderId) {
+  const id = String(orderId || '').trim();
+  if (!id) return;
+  adminNotifiedOrderIds.add(id);
+  if (adminNotifiedOrderIds.size > 500) {
+    const firstKey = adminNotifiedOrderIds.values().next().value;
+    if (firstKey) adminNotifiedOrderIds.delete(firstKey);
+  }
+}
+
+async function dispatchPushToAdmins({ orderId = '', title = '', message = '', total = 0, customerName = '', customerPhone = '', paymentMethod = '', orderSource = '' } = {}) {
   const tokensFile = path.join(PUBLIC_DIR, 'data', 'notification_tokens.json');
   const localTokens = safeReadJson(tokensFile, []);
   const candidates = [];
@@ -1078,12 +1089,14 @@ async function dispatchPushToAdmins({ orderId = '', title = '', message = '', to
   const attempts = [];
   const deadFcm = [];
   const deadEndpoints = [];
-  const finalTitle = title || `New Order #${orderId}!`;
-  const finalBody = message || `${customerName || 'Customer'} placed an order of ₹${Number(total || 0).toFixed(0)}.`;
+  const sourceTag = orderSource ? ` via ${orderSource}` : '';
+  const finalTitle = title || `New Order #${orderId}${sourceTag}!`;
+  const finalBody = message || `${customerName || 'Customer'} placed an order of ₹${Number(total || 0).toFixed(0)}${sourceTag}.`;
   const webPushPayloadStr = JSON.stringify({
     title: finalTitle,
     body: finalBody,
     orderId: String(orderId || ''),
+    orderSource: String(orderSource || ''),
     type: 'ADMIN_NEW_ORDER',
     role: 'admin',
     url: '/admin.html'
@@ -3177,17 +3190,36 @@ const server = http.createServer(async (req, res) => {
           orders.unshift(order);
           safeWriteJson(ordersFile, orders);
 
-          // Persist authoritative order + Healthy Food Discount redemption in parallel across both Firestore DBs
-          const [, fsWrite] = await Promise.all([
+          // Persist authoritative order + Healthy Food Discount redemption + Admin Ring Push in parallel
+          // Running Admin Push inside POST /api/orders guarantees Admin rings even if customer closes browser immediately.
+          const [, fsWrite, adminPushOutcome] = await Promise.all([
             recordHealthyFoodRedemption(order).catch(() => {}),
-            nutrolixCore.firestorePatchBothDbs(`orders/${order.orderId}`, order)
+            nutrolixCore.firestorePatchBothDbs(`orders/${order.orderId}`, order),
+            Promise.race([
+              dispatchPushToAdmins({
+                orderId: order.orderId,
+                total: order.grandTotal,
+                customerName: order.customerName,
+                customerPhone: order.customerPhone,
+                paymentMethod: order.paymentMethod,
+                orderSource: order.orderSource || 'Website'
+              }).then((r) => ({ done: true, result: r })).catch((err) => ({ done: false, error: err.message })),
+              new Promise((resolve) => setTimeout(() => resolve({ done: false, timedOut: true }), 1800))
+            ])
           ]);
+
+          const adminNotified = Boolean(adminPushOutcome && adminPushOutcome.done);
+          if (adminNotified) {
+            markAdminOrderNotified(order.orderId);
+            order.adminNotified = true;
+          }
 
           res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({
             success: true,
             order,
-            firestorePersisted: fsWrite.anySuccess
+            firestorePersisted: fsWrite.anySuccess,
+            adminNotified
           }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
@@ -3303,6 +3335,7 @@ const server = http.createServer(async (req, res) => {
                     } catch (_) {}
                   }
         const copy = nutrolixCore.buildOrderStatusNotificationCopy(order.orderId || order.id, order.status || 'Order Placed');
+        const alreadyAdminNotified = Boolean(payload.skipAdminPush || order.adminNotified || adminNotifiedOrderIds.has(orderId));
         const [customerPush, adminPush] = await Promise.all([
           dispatchPushToCustomer({
             uid: order.uid,
@@ -3314,13 +3347,19 @@ const server = http.createServer(async (req, res) => {
             message: copy.message,
             dedupKey: copy.dedupKey
           }).catch(error => ({ error: error.message, deliveryStatus: [] })),
-          dispatchPushToAdmins({
-            orderId: order.orderId || order.id,
-            total: order.grandTotal,
-            customerName: order.customerName,
-            customerPhone: order.customerPhone,
-            paymentMethod: order.paymentMethod
-          }).catch(error => ({ error: error.message }))
+          alreadyAdminNotified
+            ? Promise.resolve({ skippedDuplicate: true })
+            : dispatchPushToAdmins({
+                orderId: order.orderId || order.id,
+                total: order.grandTotal,
+                customerName: order.customerName,
+                customerPhone: order.customerPhone,
+                paymentMethod: order.paymentMethod,
+                orderSource: order.orderSource || 'Website'
+              }).then((r) => {
+                markAdminOrderNotified(order.orderId || order.id);
+                return r;
+              }).catch(error => ({ error: error.message }))
         ]);
         res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({ success: true, customerPush, adminPush }));
@@ -3574,11 +3613,21 @@ const server = http.createServer(async (req, res) => {
         const surl = `${baseUrl}/api/payu/response`;
         const furl = `${baseUrl}/api/payu/response`;
 
+        const rawPayuSource = String(orderData.orderSource || orderData.source || orderData.platform || '').trim().toLowerCase();
+        const payuOrderSource = (rawPayuSource === 'app' || rawPayuSource.includes('android') || rawPayuSource.includes('apk')) ? 'App' : 'Website';
         const pendingOrder = {
           ...orderData,
           id: orderId,
           orderId,
           uid: canonicalUid,
+          orderSource: payuOrderSource,
+          platform: orderData.platform || (payuOrderSource === 'App' ? 'android_app' : 'web'),
+          subtotal: Number.isFinite(Number(orderData.subtotal)) ? Number(orderData.subtotal) : numericAmount,
+          discount: Number.isFinite(Number(orderData.discount)) ? Number(orderData.discount) : 0,
+          foodDiscount: Number.isFinite(Number(orderData.foodDiscount)) ? Number(orderData.foodDiscount) : 0,
+          couponCode: orderData.couponCode ? String(orderData.couponCode).trim() : null,
+          foodOfferType: orderData.foodOfferType ? String(orderData.foodOfferType).trim() : null,
+          shipping: Number.isFinite(Number(orderData.shipping)) ? Number(orderData.shipping) : 0,
           customerPhone: phone,
           verifiedPhone: phone,
           customerEmail: normalizeEmail(email),
@@ -3732,7 +3781,10 @@ const server = http.createServer(async (req, res) => {
               await dispatchPushToAdmins({
                 orderId: confirmedOrder.orderId,
                 total: confirmedOrder.grandTotal || Number(amount) || 0,
-                customerName: confirmedOrder.customerName || firstname
+                customerName: confirmedOrder.customerName || firstname,
+                customerPhone: customerSync.extractOrderPhone(confirmedOrder),
+                paymentMethod: confirmedOrder.paymentMethod || 'PayU Online',
+                orderSource: confirmedOrder.orderSource || 'Website'
               });
             } catch (_) {}
           }

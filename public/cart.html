@@ -2610,12 +2610,16 @@
       const idempotencyKey = idemInfo.key;
       const nowIso = new Date().toISOString();
       const nowMs = Date.now();
+      const isFromApp = typeof window.isNutrolixAndroidApp === 'function' && window.isNutrolixAndroidApp();
+      const orderSource = isFromApp ? 'App' : 'Website';
       const accountCustomerName = (user.name && user.name !== 'Nutrolix Customer' && user.name !== 'Nutrolix Member') ? user.name : name;
       const orderPayload = {
         id: generatedOrderId,
         orderId: generatedOrderId,
         orderNumber: generatedOrderId,
         idempotencyKey,
+        orderSource,
+        platform: isFromApp ? 'android_app' : 'web',
         uid: user.uid || '',
         customer: {
           name: accountCustomerName,
@@ -2759,6 +2763,13 @@
               customerPhone: phone,
               items: cart,
               deliveryAddress: orderPayload.deliveryAddress,
+              orderSource,
+              platform: isFromApp ? 'android_app' : 'web',
+              subtotal,
+              discount: couponDiscount,
+              foodDiscount: foodDiscount,
+              foodOfferType: window.activeFoodOfferType || null,
+              shipping,
               couponCode: orderPayload.couponCode || null
             })
           });
@@ -2814,12 +2825,14 @@
       // 3. Cash on Delivery (COD) / Direct Authoritative Order
       try {
         let confirmedOrder = null;
+        let serverAdminNotified = false;
         if (window.NutrolixFirebase && typeof window.NutrolixFirebase.saveOrder === 'function') {
           const data = await window.NutrolixFirebase.saveOrder(orderPayload);
           const resolvedOrder = (data && data.order) ? data.order : data;
           if (!resolvedOrder || (!resolvedOrder.orderId && !resolvedOrder.id)) {
             throw new Error((data && data.error) || 'Order could not be confirmed on the server.');
           }
+          serverAdminNotified = Boolean((data && data.adminNotified) || resolvedOrder.adminNotified);
           confirmedOrder = { ...orderPayload, ...resolvedOrder };
         } else {
           const host = window.NUTROLIX_API_HOST || '';
@@ -2832,6 +2845,7 @@
           if (!res.ok || !data || !data.success || !data.order) {
             throw new Error((data && data.error) || `Order server error (${res.status})`);
           }
+          serverAdminNotified = Boolean(data.adminNotified || data.order.adminNotified);
           confirmedOrder = { ...orderPayload, ...data.order };
         }
 
@@ -2875,20 +2889,19 @@
           }
         } catch (_) {}
 
-        // Persist Chrome Web Push subscription and dispatch status alerts asynchronously in background
-        (async () => {
-          try {
-            await window.NutrolixNotifications?.ensureWebPushSynced?.(600).catch?.(() => {});
-            const notifyHost = window.NUTROLIX_API_HOST || '';
-            fetch(notifyHost + '/api/notifications/order-placed', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ orderId: finalOrdId })
-            }).catch((notifyError) => console.warn('[Cart] Order notification dispatch queued:', notifyError));
-          } catch (notifyError) {
-            console.warn('[Cart] Order notification dispatch could not start:', notifyError);
-          }
-        })();
+        // Fire post-order notification IMMEDIATELY with keepalive so tapping Track Order or closing the tab cannot abort it
+        try {
+          const notifyHost = window.NUTROLIX_API_HOST || '';
+          fetch(notifyHost + '/api/notifications/order-placed', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            keepalive: true,
+            body: JSON.stringify({ orderId: finalOrdId, skipAdminPush: serverAdminNotified })
+          }).catch((notifyError) => console.warn('[Cart] Order notification dispatch queued:', notifyError));
+          window.NutrolixNotifications?.ensureWebPushSynced?.(600).catch?.(() => {});
+        } catch (notifyError) {
+          console.warn('[Cart] Order notification dispatch could not start:', notifyError);
+        }
       } catch (err) {
         console.error('[Cart] Order confirmation failed:', err);
         alert('Unable to confirm your order right now: ' + (err.message || 'Server unreachable') + '\n\nYour cart items are preserved. Please check your connection and try again.');
