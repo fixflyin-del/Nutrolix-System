@@ -40,6 +40,10 @@
         if (clean.indexOf('/assets/') === 0) {
           return clean.slice(1);
         }
+      } else {
+        if (clean.indexOf('assets/') === 0 || clean.indexOf('uploads/') === 0) {
+          return '/' + clean;
+        }
       }
     } catch (_) {}
     return clean;

@@ -2,36 +2,89 @@
   "version": 2,
   "cleanUrls": true,
   "trailingSlash": false,
+  "functions": {
+    "api/index.js": {
+      "includeFiles": "public/**"
+    }
+  },
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.nutrolix.in" }],
+      "destination": "https://nutrolix.in/:path*",
+      "permanent": true
+    },
+    { "source": "/app", "destination": "/", "permanent": true },
+    { "source": "/app.html", "destination": "/", "permanent": true },
+    { "source": "/customer", "destination": "/", "permanent": true },
+    { "source": "/customer.html", "destination": "/", "permanent": true },
+    { "source": "/home", "destination": "/", "permanent": true },
+    { "source": "/store", "destination": "/shop", "permanent": true },
+    { "source": "/nutrition", "destination": "/shop", "permanent": true },
+    { "source": "/products", "destination": "/shop", "permanent": true },
+    { "source": "/healthy-food", "destination": "/food", "permanent": true },
+    { "source": "/menu", "destination": "/food", "permanent": true },
+    { "source": "/cloud-kitchen", "destination": "/smart-food-kitchen", "permanent": true },
+    { "source": "/kitchen", "destination": "/smart-food-kitchen", "permanent": true },
+    { "source": "/blog", "destination": "/blogs", "permanent": true },
+    { "source": "/articles", "destination": "/blogs", "permanent": true },
+    { "source": "/science-high-protein-atta", "destination": "/blog/science-high-protein-atta", "permanent": true },
+    { "source": "/superfood-synergy-complete-nutrition", "destination": "/blog/superfood-synergy-complete-nutrition", "permanent": true },
+    { "source": "/talbeenah-traditional-barley-healing", "destination": "/blog/talbeenah-traditional-barley-healing", "permanent": true },
+    { "source": "/best-nutrition-meal", "destination": "/blog/best-nutrition-meal", "permanent": true },
+    { "source": "/about-us", "destination": "/about", "permanent": true },
+    { "source": "/our-story", "destination": "/about", "permanent": true },
+    { "source": "/our-story.html", "destination": "/about", "permanent": true },
+    { "source": "/story", "destination": "/about", "permanent": true },
+    { "source": "/vision", "destination": "/about", "permanent": true },
+    { "source": "/contact-us", "destination": "/contact", "permanent": true },
+    { "source": "/faq", "destination": "/faqs", "permanent": true },
+    { "source": "/faq.html", "destination": "/faqs", "permanent": true },
+    { "source": "/privacy-policy", "destination": "/privacy", "permanent": true },
+    { "source": "/privacy-policy.html", "destination": "/privacy", "permanent": true },
+    { "source": "/terms-and-conditions", "destination": "/terms", "permanent": true },
+    { "source": "/terms-of-service", "destination": "/terms", "permanent": true },
+    { "source": "/refund-policy", "destination": "/refund", "permanent": true },
+    { "source": "/refund-policy.html", "destination": "/refund", "permanent": true },
+    { "source": "/return-policy", "destination": "/refund", "permanent": true },
+    { "source": "/shipping-policy", "destination": "/shipping", "permanent": true },
+    { "source": "/shipping-policy.html", "destination": "/shipping", "permanent": true },
+    { "source": "/cancellation-policy", "destination": "/cancellation", "permanent": true },
+    { "source": "/cancellation-policy.html", "destination": "/cancellation", "permanent": true }
+  ],
   "rewrites": [
+    { "source": "/robots.txt", "destination": "/api/index.js?__page=/robots.txt" },
+    { "source": "/sitemap.xml", "destination": "/api/index.js?__page=/sitemap.xml" },
+    { "source": "/feeds/google-merchant.xml", "destination": "/api/index.js?__page=/feeds/google-merchant.xml" },
+    { "source": "/merchant-feed.xml", "destination": "/api/index.js?__page=/merchant-feed.xml" },
     { "source": "/api/(.*)", "destination": "/api/index.js?__route=$1" },
     { "source": "/api", "destination": "/api/index.js" },
+    { "source": "/", "destination": "/api/index.js?__page=/" },
+    { "source": "/shop", "destination": "/api/index.js?__page=/shop" },
+    { "source": "/food", "destination": "/api/index.js?__page=/food" },
+    { "source": "/smart-food-kitchen", "destination": "/api/index.js?__page=/smart-food-kitchen" },
+    { "source": "/products/(.*)", "destination": "/api/index.js?__page=/products/$1" },
+    { "source": "/product", "destination": "/api/index.js?__page=/product" },
+    { "source": "/blogs", "destination": "/api/index.js?__page=/blogs" },
+    { "source": "/blog/(.*)", "destination": "/api/index.js?__page=/blog/$1" },
+    { "source": "/blogs/(.*)", "destination": "/api/index.js?__page=/blog/$1" },
+    { "source": "/article", "destination": "/api/index.js?__page=/article" },
+    { "source": "/article/(.*)", "destination": "/api/index.js?__page=/blog/$1" },
+    { "source": "/about", "destination": "/api/index.js?__page=/about" },
+    { "source": "/contact", "destination": "/api/index.js?__page=/contact" },
+    { "source": "/faqs", "destination": "/api/index.js?__page=/faqs" },
+    { "source": "/privacy", "destination": "/api/index.js?__page=/privacy" },
+    { "source": "/terms", "destination": "/api/index.js?__page=/terms" },
+    { "source": "/refund", "destination": "/api/index.js?__page=/refund" },
+    { "source": "/shipping", "destination": "/api/index.js?__page=/shipping" },
+    { "source": "/cancellation", "destination": "/api/index.js?__page=/cancellation" },
     { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/shop", "destination": "/shop.html" },
-    { "source": "/food", "destination": "/food.html" },
     { "source": "/cart", "destination": "/cart.html" },
+    { "source": "/checkout", "destination": "/cart.html" },
     { "source": "/orders", "destination": "/orders.html" },
     { "source": "/account", "destination": "/account.html" },
     { "source": "/download", "destination": "/download.html" },
-    { "source": "/blogs", "destination": "/blogs.html" },
-    { "source": "/article", "destination": "/article.html" },
-    { "source": "/article/(.*)", "destination": "/article.html" },
-    { "source": "/blog/(.*)", "destination": "/article.html" },
-    { "source": "/blogs/(.*)", "destination": "/article.html" },
-    { "source": "/science-high-protein-atta", "destination": "/article.html" },
-    { "source": "/superfood-synergy-complete-nutrition", "destination": "/article.html" },
-    { "source": "/talbeenah-traditional-barley-healing", "destination": "/article.html" },
-    { "source": "/best-nutrition-meal", "destination": "/article.html" },
-    { "source": "/contact", "destination": "/contact.html" },
-    { "source": "/about", "destination": "/about.html" },
-    { "source": "/product", "destination": "/product.html" },
-    { "source": "/privacy", "destination": "/privacy.html" },
-    { "source": "/terms", "destination": "/terms.html" },
-    { "source": "/refund", "destination": "/refund.html" },
-    { "source": "/shipping", "destination": "/shipping.html" },
-    { "source": "/cancellation", "destination": "/cancellation.html" },
-    { "source": "/faqs", "destination": "/faqs.html" },
-    { "source": "/app", "destination": "/index.html" },
-    { "source": "/customer", "destination": "/index.html" },
+    { "source": "/delete-account", "destination": "/delete-account.html" },
     { "source": "/firebase-messaging-sw.js", "destination": "/sw.js" }
   ],
   "headers": [
@@ -40,6 +93,13 @@
       "headers": [
         { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" },
         { "key": "Service-Worker-Allowed", "value": "/" }
+      ]
+    },
+    {
+      "source": "/(admin|admin\\.html|cart|cart\\.html|checkout|orders|orders\\.html|account|account\\.html|download|download\\.html|delete-account|delete-account\\.html|app\\.html|customer\\.html)",
+      "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
       ]
     },
     {
@@ -52,9 +112,22 @@
     {
       "source": "/api/(.*)",
       "headers": [
+        { "key": "X-Robots-Tag", "value": "noindex, nofollow" },
         { "key": "Cache-Control", "value": "no-store, no-cache, must-revalidate, proxy-revalidate" },
         { "key": "Pragma", "value": "no-cache" },
         { "key": "Expires", "value": "0" }
+      ]
+    },
+    {
+      "source": "/assets/(.*)\\.(png|jpg|jpeg|webp|svg|ico|gif|woff2|woff)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/assets/(.*)\\.(js|css)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
       ]
     },
     {

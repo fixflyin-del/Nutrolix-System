@@ -4,6 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nutrition Science & Wellness Blog – Nutrolix</title>
+  <meta name="description" content="Read evidence-based articles on functional nutrition, high-protein Indian staples, glycemic health, gut wellness, and whole-food ingredients from the Nutrolix team.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://nutrolix.in/blogs">
+  <link rel="icon" href="assets/nutrolix-logo.png">
+  <meta property="og:site_name" content="Nutrolix">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Nutrition Science & Wellness Blog – Nutrolix">
+  <meta property="og:description" content="Evidence-based functional nutrition science, healthy recipes, and wellness articles by Nutrolix.">
+  <meta property="og:url" content="https://nutrolix.in/blogs">
+  <meta property="og:image" content="https://nutrolix.in/assets/aistudio/image_6061bdc8.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <script defer src="assets/nutrolix-analytics.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -147,25 +159,31 @@
       const grid = document.getElementById('blogsGrid');
       grid.innerHTML = allBlogs.map((b, index) => {
         const blogImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(b.image) : (b.image || 'assets/aistudio/image_6061bdc8.png');
+        const slugVal = encodeURIComponent(b.slug || b.id || '');
+        const articleHref = window.location.protocol === 'file:'
+          ? ('article.html?slug=' + slugVal)
+          : ('/blog/' + slugVal);
         return `
-        <article class="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col group cursor-pointer" onclick="openArticle(${index})">
-          <div class="h-48 overflow-hidden relative">
-            <img src="${blogImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${b.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
+        <article class="bg-white rounded-3xl overflow-hidden border border-slate-200 shadow-sm hover:shadow-md transition flex flex-col group">
+          <a href="${articleHref}" class="block h-48 overflow-hidden relative">
+            <img src="${blogImg}" loading="lazy" decoding="async" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${b.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-500">
             <span class="absolute top-3 left-3 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[11px] font-extrabold text-emerald-800">
               ${b.category}
             </span>
-          </div>
+          </a>
           <div class="p-6 flex-1 flex flex-col justify-between">
             <div class="space-y-2">
               <div class="text-[11px] text-slate-400 font-bold">${b.date} • ${b.readTime}</div>
-              <h3 class="font-black text-base text-slate-900 group-hover:text-emerald-700 transition leading-snug">${b.title}</h3>
+              <h2 class="font-black text-base text-slate-900 group-hover:text-emerald-700 transition leading-snug">
+                <a href="${articleHref}" class="hover:underline">${b.title}</a>
+              </h2>
               <p class="text-xs text-slate-600 line-clamp-3 leading-relaxed">${b.excerpt}</p>
             </div>
             <div class="pt-4 border-t border-slate-100 flex items-center justify-between mt-4">
-              <span class="text-xs font-bold text-emerald-700 flex items-center space-x-1 group-hover:translate-x-1 transition">
+              <a href="${articleHref}" class="text-xs font-bold text-emerald-700 flex items-center space-x-1 group-hover:translate-x-1 transition">
                 <span>Read Article</span>
                 <i class="fa-solid fa-arrow-right text-[10px]"></i>
-              </span>
+              </a>
               <span class="text-[11px] text-slate-400">${b.author}</span>
             </div>
           </div>

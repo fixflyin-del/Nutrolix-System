@@ -7,9 +7,12 @@
   <!-- Dynamic Primary SEO Tags -->
   <title id="metaTitle">Nutrolix Clinical Nutrition & Functional Food Insights</title>
   <meta id="metaDesc" name="description" content="Read clinical nutrition science and metabolic wellness articles by Nutrolix research biochemists.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
   <meta id="metaKeywords" name="keywords" content="nutrolix, clinical nutrition, high protein atta, glycemic health, metabolic nutrition">
   <meta name="author" content="Nutrolix Wellness Research Team">
-  <link id="metaCanonical" rel="canonical" href="https://nutrolix.in/">
+  <link id="metaCanonical" rel="canonical" href="https://nutrolix.in/blogs">
+  <link rel="icon" href="/assets/nutrolix-logo.png">
+  <script defer src="/assets/nutrolix-analytics.js"></script>
 
   <!-- Open Graph / Facebook / WhatsApp -->
   <meta property="og:type" content="article">
@@ -400,15 +403,16 @@
           return;
         }
 
-        // Set Dynamic SEO Metadata
-        const seoTitle = (article.seoTitle || article.title) + " – Nutrolix Clinical Nutrition";
+        // Set Dynamic SEO Metadata (Canonical always https://nutrolix.in/blog/<slug>)
+        const seoTitle = (article.seoTitle || article.title) + " | Nutrolix Nutrition Blog";
         const seoDesc = article.seoDescription || article.excerpt || "Evidence-based clinical nutrition insights by Nutrolix.";
         const seoKeywords = article.seoKeywords || (article.category + ", nutrolix nutrition, healthy food, clinical diet");
-        const pageUrl = window.location.origin + '/' + (article.slug || article.id);
+        const cleanSlug = (article.slug || article.id || '').replace(/^\/+/, '');
+        const pageUrl = 'https://nutrolix.in/blog/' + cleanSlug;
         const resolvedArticleImg = (typeof window.nutrolixResolveCatalogImage === 'function')
           ? window.nutrolixResolveCatalogImage(article.image)
           : (article.image || 'assets/aistudio/image_6061bdc8.png');
-        const imgUrl = resolvedArticleImg.startsWith('http') ? resolvedArticleImg : (window.location.origin + '/' + resolvedArticleImg.replace(/^\/+/, ''));
+        const imgUrl = resolvedArticleImg.startsWith('http') ? resolvedArticleImg : ('https://nutrolix.in/' + resolvedArticleImg.replace(/^\/+/, ''));
 
         document.title = seoTitle;
         const setMeta = (id, attr, val) => { const el = document.getElementById(id); if (el) el.setAttribute(attr, val); };
@@ -424,18 +428,18 @@
         setMeta('twDesc', 'content', seoDesc);
         setMeta('twImage', 'content', imgUrl);
 
-        // Inject Schema.org JSON-LD
+        // Inject Schema.org BlogPosting JSON-LD
         try {
           const schemaEl = document.getElementById('schemaArticle');
           if (schemaEl) {
             schemaEl.textContent = JSON.stringify({
               "@context": "https://schema.org",
-              "@type": "NewsArticle",
+              "@type": "BlogPosting",
               "headline": article.title,
               "description": seoDesc,
               "image": [imgUrl],
               "datePublished": article.date || "2026-10-24",
-              "dateModified": article.date || "2026-10-24",
+              "dateModified": article.updatedAt || article.date || "2026-10-24",
               "author": {
                 "@type": "Person",
                 "name": article.author || "Nutrolix Research Team"
@@ -445,7 +449,7 @@
                 "name": "Nutrolix Wellness Pvt. Ltd.",
                 "logo": {
                   "@type": "ImageObject",
-                  "url": window.location.origin + "/assets/nutrolix-logo.png"
+                  "url": "https://nutrolix.in/assets/nutrolix-logo.png"
                 }
               },
               "mainEntityOfPage": {
@@ -493,10 +497,13 @@
         if (relGrid) {
           relGrid.innerHTML = related.map(rel => {
             const relImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(rel.image) : (rel.image || 'assets/aistudio/image_6061bdc8.png');
+            const relHref = window.location.protocol === 'file:'
+              ? ('article.html?slug=' + encodeURIComponent(rel.slug || rel.id))
+              : ('/blog/' + encodeURIComponent(rel.slug || rel.id));
             return `
-            <a href="${rel.slug ? rel.slug : 'article.html?slug=' + rel.id}" class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500 hover:shadow-lg transition flex flex-col group">
+            <a href="${relHref}" class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500 hover:shadow-lg transition flex flex-col group">
               <div class="aspect-video bg-slate-100 overflow-hidden relative">
-                <img src="${relImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${rel.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                <img src="${relImg}" loading="lazy" decoding="async" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${rel.title}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
                 <span class="absolute top-2 left-2 bg-emerald-800 text-white text-[9px] font-black px-2 py-0.5 rounded-md">
                   ${rel.category || 'Science'}
                 </span>

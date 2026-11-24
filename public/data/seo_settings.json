@@ -1,0 +1,51 @@
+{
+  "siteName": "Nutrolix",
+  "siteTagline": "Nutrition That Works",
+  "canonicalOrigin": "https://nutrolix.in",
+  "defaultOgImage": "https://nutrolix.in/assets/aistudio/image_6061bdc8.png",
+  "googleSiteVerification": "",
+  "ga4MeasurementId": "",
+  "gtmContainerId": "",
+  "businessPhone": "+91 90762 54354",
+  "businessEmail": "support@nutrolix.com",
+  "businessAddress": "Smart Food & Wellness Hub, Sector 14, Dwarka, New Delhi – 110078, India",
+  "businessLocality": "New Delhi",
+  "businessRegion": "Delhi",
+  "businessPostalCode": "110078",
+  "businessCountry": "IN",
+  "googleBusinessProfileUrl": "https://share.google/VKolmxSnf5D05l7pu",
+  "pages": {
+    "/": {
+      "title": "Nutrolix – Nutrition That Works | Functional Foods, High Protein Atta & Healthy Kitchen",
+      "description": "Shop Nutrolix functional nutrition staples including High Protein Atta, Complete Nutri Meal, Talbeenah, and order fresh high-protein meals from Nutrolix Healthy Food Kitchen."
+    },
+    "/shop": {
+      "title": "Shop Functional Nutrition & High Protein Products | Nutrolix",
+      "description": "Browse Nutrolix packaged functional nutrition: High Protein Atta, Superfood Blends, Talbeenah, Millet Flakes, and daily clean-label protein staples delivered across India."
+    },
+    "/food": {
+      "title": "Healthy Food Delivery & Fresh Protein Kitchen Menu | Nutrolix",
+      "description": "Order fresh, macro-balanced healthy meals, protein bowls, wraps, salads, and nutritious shakes prepared daily by the Nutrolix Smart Food Kitchen."
+    },
+    "/smart-food-kitchen": {
+      "title": "Nutrolix Smart Food Kitchen – Fresh High-Protein Meals & Healthy Delivery",
+      "description": "Discover the Nutrolix Smart Food Kitchen: freshly cooked high-protein meals, millet bowls, balanced wraps, and wholesome shakes crafted with clean ingredients."
+    },
+    "/blogs": {
+      "title": "Nutrition Science, Healthy Recipes & Wellness Blog | Nutrolix",
+      "description": "Read evidence-based articles on functional nutrition, high-protein Indian staples, glycemic health, gut wellness, and whole-food ingredients from the Nutrolix team."
+    },
+    "/about": {
+      "title": "About Nutrolix Wellness – Clean Functional Nutrition & Food Science",
+      "description": "Learn about Nutrolix Wellness Pvt. Ltd., our FSSAI-certified functional nutrition standards, clean ingredients, and mission to make high-protein everyday food accessible."
+    },
+    "/contact": {
+      "title": "Contact Nutrolix – Customer Support, WhatsApp & Wholesale Inquiries",
+      "description": "Reach Nutrolix Wellness support via WhatsApp (+91 90762 54354), email, or our inquiry form for product guidance, order assistance, and distributor partnerships."
+    },
+    "/faqs": {
+      "title": "Frequently Asked Questions (FAQs) – Products, Delivery & Quality | Nutrolix",
+      "description": "Find answers about Nutrolix High Protein Atta, Talbeenah, Complete Nutri Meal, FSSAI certifications, shipping timelines, and healthy food kitchen delivery."
+    }
+  }
+}

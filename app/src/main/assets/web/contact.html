@@ -3,7 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Contact Us & Support – Nutrolix | Nutrition That Works</title>
+  <title>Contact Nutrolix – Customer Support, WhatsApp & Wholesale Inquiries</title>
+  <meta name="description" content="Reach Nutrolix Wellness support via WhatsApp (+91 90762 54354), email, or our inquiry form for product guidance, order assistance, and distributor partnerships.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link rel="canonical" href="https://nutrolix.in/contact">
+  <link rel="icon" href="assets/nutrolix-logo.png">
+  <meta property="og:site_name" content="Nutrolix">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Contact Nutrolix – Customer Support & Nutrition Team">
+  <meta property="og:description" content="Questions about Nutrolix High Protein Atta, Complete Nutri Meal, delivery, or B2B wholesale? Contact our team directly.">
+  <meta property="og:url" content="https://nutrolix.in/contact">
+  <meta property="og:image" content="https://nutrolix.in/assets/aistudio/image_6061bdc8.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <script defer src="assets/nutrolix-analytics.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
@@ -303,7 +315,9 @@
       const alertBox = document.getElementById('formAlert');
       alertBox.className = 'text-xs font-bold p-3 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 block';
       alertBox.innerHTML = `✓ Thank you, ${name}! Your inquiry regarding "${topic}" has been logged. Our nutrition team will WhatsApp/call you at ${phone} shortly.`;
-      
+      if (window.NutrolixAnalytics) {
+        window.NutrolixAnalytics.trackContactClick('contact_form', topic);
+      }
       document.getElementById('contactForm').reset();
     }
   </script>

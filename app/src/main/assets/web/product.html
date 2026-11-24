@@ -3,7 +3,19 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Nutrolix – Product Details | Nutrition That Works</title>
+  <title>Nutrolix – Functional Nutrition Product Details | Nutrition That Works</title>
+  <meta name="description" content="Explore Nutrolix functional nutrition products with verified protein macros, clean whole-food ingredients, lab-tested standards, and pan-India delivery.">
+  <meta name="robots" content="index, follow, max-image-preview:large">
+  <link id="productCanonical" rel="canonical" href="https://nutrolix.in/shop">
+  <link rel="icon" href="/assets/nutrolix-logo.png">
+  <meta property="og:site_name" content="Nutrolix">
+  <meta property="og:type" content="product">
+  <meta id="ogProductTitle" property="og:title" content="Nutrolix Functional Nutrition Product">
+  <meta id="ogProductDesc" property="og:description" content="Clean functional nutrition crafted by Nutrolix Wellness.">
+  <meta id="ogProductUrl" property="og:url" content="https://nutrolix.in/shop">
+  <meta id="ogProductImage" property="og:image" content="https://nutrolix.in/assets/aistudio/image_6061bdc8.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <script defer src="assets/nutrolix-analytics.js"></script>
   
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -79,15 +91,15 @@
             <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 text-xs font-bold text-slate-700 divide-y divide-slate-100">
               <div class="py-1">
                 <a href="about.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">About Us</a>
-                <a href="our-story.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Our Story</a>
+                <a href="about.html#story" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Our Story</a>
                 <a href="blogs.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Blogs & Articles</a>
                 <a href="contact.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Contact Us</a>
               </div>
               <div class="py-1">
                 <a href="terms.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Terms & Conditions</a>
                 <a href="privacy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Privacy Policy</a>
-                <a href="refund-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Refund & Return Policy</a>
-                <a href="shipping-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Shipping Policy</a>
+                <a href="refund.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Refund & Return Policy</a>
+                <a href="shipping.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Shipping Policy</a>
               </div>
             </div>
           </div>
@@ -598,9 +610,37 @@
       return fallback.map(normalizeNutroProduct).filter(Boolean);
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    function slugifyProductName(val) {
+      return String(val || '').toLowerCase().replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    }
+
+    function resolveRequestedProductKey() {
       const urlParams = new URLSearchParams(window.location.search);
-      const prodId = urlParams.get('id') || 'prod_high_protein_atta';
+      const qKey = urlParams.get('id') || urlParams.get('slug');
+      if (qKey) return qKey.trim();
+      const pathClean = window.location.pathname.replace(/^\/+|\/+$/g, '');
+      const parts = pathClean.split('/');
+      if (parts.length >= 2 && (parts[0] === 'products' || parts[0] === 'product') && parts[1]) {
+        return decodeURIComponent(parts[1]).trim();
+      }
+      return 'prod_high_protein_atta';
+    }
+
+    function matchProductByKey(list, key) {
+      if (!Array.isArray(list) || !list.length) return null;
+      const lower = String(key || '').toLowerCase();
+      const slugKey = slugifyProductName(lower);
+      return list.find(item => {
+        if (!item) return false;
+        const itemId = String(item.id || '').toLowerCase();
+        const itemName = String(item.name || item.title || '').toLowerCase();
+        const itemSlug = slugifyProductName(item.slug || item.name || item.title || item.id);
+        return itemId === lower || itemName === lower || itemSlug === lower || itemSlug === slugKey;
+      }) || list[0];
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const prodId = resolveRequestedProductKey();
       loadProductDetails(prodId);
       updateHeaderBadge();
 
@@ -617,7 +657,7 @@
 
     function loadProductDetails(id) {
       const list = getLiveProductList();
-      const p = list.find(item => item.id === id || item.name === id || item.title === id) || list[0];
+      const p = matchProductByKey(list, id);
       if (p) {
         window.currentProduct = p;
         renderProduct(p, list);
@@ -633,7 +673,7 @@
               const normalized = remoteList.map(normalizeNutroProduct).filter(Boolean);
               window.nutroProducts = normalized;
               try { localStorage.setItem('nutrolix_products', JSON.stringify(normalized)); } catch (_) {}
-              const rp = normalized.find(item => item.id === id || item.name === id || item.title === id);
+              const rp = matchProductByKey(normalized, id);
               if (rp) {
                 window.currentProduct = rp;
                 renderProduct(rp, normalized);
@@ -644,12 +684,36 @@
       }
     }
 
+    function updateDynamicProductSeo(p) {
+      if (!p) return;
+      const slug = slugifyProductName(p.slug || p.name || p.title || p.id);
+      const canonical = `https://nutrolix.in/products/${slug}`;
+      const title = `${p.name} | Buy Online – Nutrolix`;
+      const desc = String(p.description || p.tagline || `${p.name} by Nutrolix`).slice(0, 160);
+      const primaryImg = (p.images && p.images[0]) ? p.images[0] : 'https://nutrolix.in/assets/aistudio/image_6061bdc8.png';
+      const absImg = /^https?:\/\//i.test(primaryImg) ? primaryImg : (`https://nutrolix.in/${primaryImg.replace(/^\/+/, '')}`);
+
+      document.title = title;
+      const setAttr = (sel, attr, val) => { const el = document.querySelector(sel); if (el) el.setAttribute(attr, val); };
+      setAttr('meta[name="description"]', 'content', desc);
+      setAttr('link[rel="canonical"]', 'href', canonical);
+      setAttr('meta[property="og:title"]', 'content', title);
+      setAttr('meta[property="og:description"]', 'content', desc);
+      setAttr('meta[property="og:url"]', 'content', canonical);
+      setAttr('meta[property="og:image"]', 'content', absImg);
+
+      if (window.NutrolixAnalytics && !window.__nutrolixTrackedProductViewId) {
+        window.__nutrolixTrackedProductViewId = p.id || slug;
+        window.NutrolixAnalytics.trackProductView(p);
+      }
+    }
+
     function renderProduct(p, all) {
       document.getElementById('productLoading').classList.add('hidden');
       document.getElementById('productContent').classList.remove('hidden');
 
-      // Breadcrumbs & Titles
-      document.title = `${p.name} | Nutrolix Nutrition That Works`;
+      // Breadcrumbs & Titles + Dynamic SEO
+      updateDynamicProductSeo(p);
       document.getElementById('breadcrumbCategory').textContent = p.category;
       document.getElementById('breadcrumbTitle').textContent = p.name;
       document.getElementById('productCategoryBadge').textContent = p.category;
@@ -1156,6 +1220,16 @@
       localStorage.setItem('nutrolix_store_cart', JSON.stringify(cart));
       localStorage.setItem('nutrolix_packaged_cart', JSON.stringify(cart));
       updateHeaderBadge();
+      if (window.NutrolixAnalytics) {
+        window.NutrolixAnalytics.trackAddToCart({
+          id: p.id,
+          name: p.name,
+          category: p.category,
+          variant: variantLabel,
+          price: unitPrice,
+          quantity: window.selectedQty
+        });
+      }
       const suffix = variantLabel ? ` (${variantLabel})` : '';
       alert(`🎉 Added ${window.selectedQty}x ${p.name}${suffix} to your bag!`);
     };

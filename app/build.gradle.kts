@@ -114,7 +114,10 @@ secrets {
   ignoreList.addAll(
     listOf(
       "FIREBASE_APPCHECK_DEBUG_TOKEN",
-      "FIREBASE_SERVICE_ACCOUNT_JSON"
+      "FIREBASE_SERVICE_ACCOUNT_JSON",
+      "GOOGLE_SITE_VERIFICATION",
+      "GA4_MEASUREMENT_ID",
+      "GTM_CONTAINER_ID"
     )
   )
 }

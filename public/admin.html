@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Nutrolix Store Admin Console – Nutrition That Works</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="assets/nutrolix-logo.png">
   
   <!-- Tailwind CSS & Icons -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -280,6 +282,15 @@
               <i class="fa-solid fa-sliders text-slate-500 text-sm"></i>
               <span class="truncate">Store Settings</span>
             </div>
+          </button>
+
+          <!-- 12. SEO & Google Tools -->
+          <button onclick="window.switchTab('seo')" id="tabBtn-seo" class="tab-btn w-full px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-100 flex items-center justify-between transition">
+            <div class="flex items-center space-x-2.5 truncate">
+              <i class="fa-solid fa-magnifying-glass-chart text-emerald-600 text-sm"></i>
+              <span class="truncate">SEO & Google Tools</span>
+            </div>
+            <span class="bg-emerald-100 text-emerald-800 text-[10px] px-1.5 py-0.5 rounded-full font-black">SEO</span>
           </button>
         </nav>
       </div>
@@ -874,6 +885,128 @@
             </button>
           </div>
 
+        </div>
+      </div>
+
+      <!-- TAB 12: SEO & GOOGLE TOOLS (GSC, GA4, GTM, SITEMAP, MERCHANT FEED & PAGE META) -->
+      <div id="tabContent-seo" class="p-3 sm:p-6 hidden space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base sm:text-lg font-extrabold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-magnifying-glass-chart text-emerald-600"></i>
+              <span>SEO, Google Search Console & Analytics</span>
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Manage nutrolix.in Search Console verification, GA4/GTM IDs, sitemap/merchant feed health, and per-page SEO metadata.</p>
+          </div>
+          <button onclick="window.saveSeoSettingsAdmin()" id="btnSaveSeoSettings" class="bg-emerald-700 hover:bg-emerald-800 text-white font-black px-5 py-2.5 rounded-xl text-xs shadow-md transition flex items-center justify-center space-x-2 shrink-0">
+            <i class="fa-solid fa-floppy-disk"></i>
+            <span>Save & Publish SEO Settings</span>
+          </button>
+        </div>
+
+        <div id="seoSaveStatusBanner" class="hidden text-xs font-bold p-3 rounded-xl border"></div>
+
+        <!-- Live Crawl & Feed Status Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-black uppercase text-slate-400">XML Sitemap</span>
+              <span id="seoAuditTotalUrls" class="text-[11px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">Live</span>
+            </div>
+            <p class="text-xs text-slate-600">Auto-updates with every new public product & blog article.</p>
+            <a href="https://nutrolix.in/sitemap.xml" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 hover:underline">
+              <span>/sitemap.xml</span>
+              <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+            </a>
+          </div>
+
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-black uppercase text-slate-400">Google Merchant Feed</span>
+              <span id="seoAuditProductsCount" class="text-[11px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">XML</span>
+            </div>
+            <p class="text-xs text-slate-600">Submit this feed URL in Google Merchant Center (INR catalog).</p>
+            <a href="https://nutrolix.in/feeds/google-merchant.xml" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 hover:underline">
+              <span>/feeds/google-merchant.xml</span>
+              <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+            </a>
+          </div>
+
+          <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-black uppercase text-slate-400">Robots & Private Guard</span>
+              <span class="text-[11px] font-black px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">Active</span>
+            </div>
+            <p class="text-xs text-slate-600">Blocks /admin, /api, /cart, /orders & /account from indexing.</p>
+            <a href="https://nutrolix.in/robots.txt" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-xs font-extrabold text-emerald-700 hover:underline">
+              <span>/robots.txt</span>
+              <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Google Tools Configuration (No Secrets Exposed) -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+          <h3 class="text-sm font-black text-slate-900">Google Verification & Analytics IDs</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label for="seoInputGsc" class="block text-xs font-bold text-slate-700 mb-1">Google Search Console Verification Code</label>
+              <input type="text" id="seoInputGsc" placeholder="Paste content token from HTML tag" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <p class="text-[10px] text-slate-400 mt-1">Injected as &lt;meta name="google-site-verification"&gt; when set.</p>
+            </div>
+            <div>
+              <label for="seoInputGa4" class="block text-xs font-bold text-slate-700 mb-1">GA4 Measurement ID</label>
+              <input type="text" id="seoInputGa4" placeholder="G-XXXXXXXXXX" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <p class="text-[10px] text-slate-400 mt-1">Tracks page views, view_item, add_to_cart & completed purchases.</p>
+            </div>
+            <div>
+              <label for="seoInputGtm" class="block text-xs font-bold text-slate-700 mb-1">Google Tag Manager Container ID</label>
+              <input type="text" id="seoInputGtm" placeholder="GTM-XXXXXXX" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+              <p class="text-[10px] text-slate-400 mt-1">Optional GTM container loaded cleanly without duplicate tags.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Local Business / Google Business Profile NAP Consistency -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+          <h3 class="text-sm font-black text-slate-900">Google Business Profile & Structured Data (NAP Consistency)</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label for="seoInputPhone" class="block text-xs font-bold text-slate-700 mb-1">Business Phone / WhatsApp</label>
+              <input type="text" id="seoInputPhone" placeholder="+91 90762 54354" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+            </div>
+            <div>
+              <label for="seoInputEmail" class="block text-xs font-bold text-slate-700 mb-1">Support Email</label>
+              <input type="email" id="seoInputEmail" placeholder="support@nutrolix.com" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+            </div>
+            <div>
+              <label for="seoInputGbpUrl" class="block text-xs font-bold text-slate-700 mb-1">Google Business Profile Link</label>
+              <input type="url" id="seoInputGbpUrl" placeholder="https://share.google/..." class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="md:col-span-2">
+              <label for="seoInputAddress" class="block text-xs font-bold text-slate-700 mb-1">Verified Street Address</label>
+              <input type="text" id="seoInputAddress" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+            </div>
+            <div>
+              <label for="seoInputLocality" class="block text-xs font-bold text-slate-700 mb-1">City</label>
+              <input type="text" id="seoInputLocality" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+            </div>
+            <div>
+              <label for="seoInputPostalCode" class="block text-xs font-bold text-slate-700 mb-1">PIN Code</label>
+              <input type="text" id="seoInputPostalCode" class="w-full text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+            </div>
+          </div>
+        </div>
+
+        <!-- Per-Page SEO Metadata Overrides -->
+        <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs space-y-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-black text-slate-900">Per-Page SEO Titles & Meta Descriptions</h3>
+            <span class="text-[11px] font-bold text-slate-400">Served dynamically on https://nutrolix.in</span>
+          </div>
+          <div id="seoPagesEditorList" class="space-y-3"></div>
         </div>
       </div>
 
@@ -2414,7 +2547,7 @@
       });
       const activeBtn = document.getElementById('tabBtn-' + tabId);
       if (activeBtn) activeBtn.className = 'tab-btn w-full px-3.5 py-2.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/60 shadow-xs flex items-center justify-between transition';
-      ['orders', 'menu', 'banners', 'coupons', 'reviews', 'settings', 'users', 'packaged-products', 'packaged-orders', 'food-menu', 'notifications', 'google-profile', 'video-reviews', 'blogs'].forEach(id => {
+      ['orders', 'menu', 'banners', 'coupons', 'reviews', 'settings', 'seo', 'users', 'packaged-products', 'packaged-orders', 'food-menu', 'notifications', 'google-profile', 'video-reviews', 'blogs'].forEach(id => {
         const el = document.getElementById('tabContent-' + id);
         if (el) el.classList.add('hidden');
       });
@@ -2435,12 +2568,125 @@
         window.loadBannersAdmin();
       }
       if (tabId === 'coupons' || tabId === 'settings') window.loadStoreSettings();
+      if (tabId === 'seo') window.loadSeoSettingsAdmin();
       if (tabId === 'notifications') window.loadNotificationHistory();
       if (tabId === 'reviews') window.loadProductReviewsAdmin();
       if (tabId === 'google-profile') window.loadGoogleProfile();
       if (tabId === 'video-reviews') window.loadVideoReviewsAdmin();
       if (tabId === 'blogs') window.loadBlogsAdmin();
       if (tabId === 'users') window.loadUsers();
+    };
+
+    const SEO_EDITABLE_ROUTES = [
+      { route: '/', label: 'Home Page (/)' },
+      { route: '/shop', label: 'Packaged Nutrition Store (/shop)' },
+      { route: '/food', label: 'Healthy Food Menu (/food)' },
+      { route: '/smart-food-kitchen', label: 'Smart Food Kitchen (/smart-food-kitchen)' },
+      { route: '/blogs', label: 'Nutrition Blogs (/blogs)' },
+      { route: '/about', label: 'About Us (/about)' },
+      { route: '/contact', label: 'Contact Us (/contact)' },
+      { route: '/faqs', label: 'FAQs (/faqs)' }
+    ];
+
+    window.loadSeoSettingsAdmin = async function() {
+      try {
+        const [setRes, auditRes] = await Promise.all([
+          fetch('/api/seo-settings?t=' + Date.now(), { cache: 'no-store' }),
+          fetch('/api/seo-audit?t=' + Date.now(), { cache: 'no-store' })
+        ]);
+        const setData = setRes.ok ? await setRes.json() : {};
+        const auditData = auditRes.ok ? await auditRes.json() : {};
+        const s = setData.seoSettings || {};
+
+        const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v || ''; };
+        setVal('seoInputGsc', s.googleSiteVerification);
+        setVal('seoInputGa4', s.ga4MeasurementId);
+        setVal('seoInputGtm', s.gtmContainerId);
+        setVal('seoInputPhone', s.businessPhone);
+        setVal('seoInputEmail', s.businessEmail);
+        setVal('seoInputGbpUrl', s.googleBusinessProfileUrl);
+        setVal('seoInputAddress', s.businessAddress);
+        setVal('seoInputLocality', s.businessLocality);
+        setVal('seoInputPostalCode', s.businessPostalCode);
+
+        const totalBadge = document.getElementById('seoAuditTotalUrls');
+        if (totalBadge && auditData.totalSitemapUrls !== undefined) {
+          totalBadge.textContent = `${auditData.totalSitemapUrls} URLs Indexed`;
+        }
+        const prodBadge = document.getElementById('seoAuditProductsCount');
+        if (prodBadge && auditData.indexableProductCount !== undefined) {
+          prodBadge.textContent = `${auditData.indexableProductCount} Products`;
+        }
+
+        const listEl = document.getElementById('seoPagesEditorList');
+        if (listEl) {
+          const pages = s.pages || {};
+          listEl.innerHTML = SEO_EDITABLE_ROUTES.map((item, idx) => {
+            const p = pages[item.route] || {};
+            const safeTitle = String(p.title || '').replace(/"/g, '&quot;');
+            const safeDesc = String(p.description || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            return `
+              <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2" data-seo-route="${item.route}">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-extrabold text-slate-800">${item.label}</span>
+                  <span class="text-[10px] font-mono text-emerald-700">https://nutrolix.in${item.route === '/' ? '/' : item.route}</span>
+                </div>
+                <input type="text" id="seoPageTitle_${idx}" data-route="${item.route}" value="${safeTitle}" placeholder="SEO Title (50-60 chars)" class="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2">
+                <textarea id="seoPageDesc_${idx}" data-route="${item.route}" rows="2" placeholder="Meta Description (120-160 chars)" class="w-full text-xs bg-white border border-slate-200 rounded-lg px-3 py-2">${safeDesc}</textarea>
+              </div>
+            `;
+          }).join('');
+        }
+      } catch (err) {
+        console.error('Failed to load SEO settings:', err);
+      }
+    };
+
+    window.saveSeoSettingsAdmin = async function() {
+      const btn = document.getElementById('btnSaveSeoSettings');
+      const banner = document.getElementById('seoSaveStatusBanner');
+      if (btn) btn.disabled = true;
+      try {
+        const getVal = (id) => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+        const pages = {};
+        SEO_EDITABLE_ROUTES.forEach((item, idx) => {
+          pages[item.route] = {
+            title: getVal(`seoPageTitle_${idx}`),
+            description: getVal(`seoPageDesc_${idx}`)
+          };
+        });
+        const payload = {
+          googleSiteVerification: getVal('seoInputGsc'),
+          ga4MeasurementId: getVal('seoInputGa4'),
+          gtmContainerId: getVal('seoInputGtm'),
+          businessPhone: getVal('seoInputPhone'),
+          businessEmail: getVal('seoInputEmail'),
+          googleBusinessProfileUrl: getVal('seoInputGbpUrl'),
+          businessAddress: getVal('seoInputAddress'),
+          businessLocality: getVal('seoInputLocality'),
+          businessPostalCode: getVal('seoInputPostalCode'),
+          pages
+        };
+        const res = await fetch('/api/seo-settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.error || 'Failed to save SEO settings');
+        if (banner) {
+          banner.className = 'text-xs font-bold p-3 rounded-xl border bg-emerald-50 text-emerald-800 border-emerald-200 block';
+          banner.textContent = '✓ SEO & Google Tools settings saved and published to nutrolix.in!';
+        }
+        window.loadSeoSettingsAdmin();
+      } catch (err) {
+        if (banner) {
+          banner.className = 'text-xs font-bold p-3 rounded-xl border bg-rose-50 text-rose-800 border-rose-200 block';
+          banner.textContent = 'Error saving SEO settings: ' + err.message;
+        }
+      } finally {
+        if (btn) btn.disabled = false;
+      }
     };
 
     window.closeModal = function(id) {

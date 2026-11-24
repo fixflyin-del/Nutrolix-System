@@ -4,9 +4,11 @@ const fs = require('fs');
 const path = require('path');
 const url = require('url');
 const crypto = require('crypto');
+const zlib = require('zlib');
 const nutrolixCore = require('./lib/nutrolix-core');
 const customerSync = require('./lib/nutrolix-customer-sync');
 const nutrolixPurge = require('./lib/nutrolix-purge');
+const nutrolixSeo = require('./lib/nutrolix-seo');
 
 const PORT = 3000;
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -26,10 +28,73 @@ const MIME_TYPES = {
   '.svg': 'image/svg+xml',
   '.ico': 'image/x-icon',
   '.webp': 'image/webp',
+  '.xml': 'application/xml; charset=utf-8',
+  '.txt': 'text/plain; charset=utf-8',
+  '.woff2': 'font/woff2',
+  '.woff': 'font/woff',
   '.apk': 'application/vnd.android.package-archive',
   '.aab': 'application/octet-stream',
   '.zip': 'application/zip',
 };
+
+function isCompressibleContentType(contentType = '') {
+  return /^(text\/|application\/(javascript|json|xml|rss\+xml)|image\/svg\+xml)/i.test(String(contentType));
+}
+
+function sendCompressedResponse(req, res, statusCode, headers, body) {
+  const buf = Buffer.isBuffer(body) ? body : Buffer.from(String(body || ''), 'utf8');
+  const outHeaders = { ...headers };
+  if (req && req.method === 'HEAD') {
+    outHeaders['Content-Length'] = String(buf.length);
+    res.writeHead(statusCode, outHeaders);
+    res.end();
+    return;
+  }
+  const acceptEncoding = String((req.headers && req.headers['accept-encoding']) || '');
+  const ct = outHeaders['Content-Type'] || outHeaders['content-type'] || '';
+
+  if (buf.length >= 512 && /\bgzip\b/i.test(acceptEncoding) && isCompressibleContentType(ct)) {
+    zlib.gzip(buf, (err, zipped) => {
+      if (err) {
+        res.writeHead(statusCode, outHeaders);
+        res.end(buf);
+        return;
+      }
+      outHeaders['Content-Encoding'] = 'gzip';
+      outHeaders['Vary'] = outHeaders['Vary'] ? `${outHeaders['Vary']}, Accept-Encoding` : 'Accept-Encoding';
+      res.writeHead(statusCode, outHeaders);
+      res.end(zipped);
+    });
+    return;
+  }
+
+  res.writeHead(statusCode, outHeaders);
+  res.end(buf);
+}
+
+async function getLiveSeoSettings() {
+  const seoFile = path.join(PUBLIC_DIR, 'data', 'seo_settings.json');
+  const raw = await readCatalogDocOrFallback('seo_settings', seoFile, nutrolixSeo.DEFAULT_SEO_SETTINGS);
+  return nutrolixSeo.normalizeSeoSettings(raw || {}, nutrolixSeo.DEFAULT_SEO_SETTINGS);
+}
+
+async function getLiveProductsForSeo() {
+  const prodFile = path.join(PUBLIC_DIR, 'data', 'nutrition_products.json');
+  const list = await readCatalogDocOrFallback('nutrition_products', prodFile, []);
+  return Array.isArray(list) ? list : [];
+}
+
+async function getLiveBlogsForSeo() {
+  const blogsFile = path.join(PUBLIC_DIR, 'data', 'blogs.json');
+  const list = await readCatalogDocOrFallback('blogs', blogsFile, []);
+  return Array.isArray(list) ? list : [];
+}
+
+async function getLiveStoreSettingsForSeo() {
+  const settingsFile = path.join(PUBLIC_DIR, 'data', 'store_settings.json');
+  const raw = await readCatalogDocOrFallback('store_settings', settingsFile, {});
+  return normalizeStoreSettingsPayload(raw || {});
+}
 
 // Web Push Configuration (RFC 8291 / RFC 8030 with VAPID Authentication)
 let webpush = null;
@@ -2067,13 +2132,154 @@ const server = http.createServer(async (req, res) => {
   const parsedUrl = url.parse(effectiveUrl, true);
   let reqPath = parsedUrl.pathname;
   if (reqPath === '/api/index.js' || reqPath === '/api' || reqPath === '/api/') {
+    const pageSub = parsedUrl.query.__page;
     const sub = parsedUrl.query.__route || parsedUrl.query.__path || parsedUrl.query['0'];
-    if (sub) {
+    if (pageSub) {
+      const cleanPage = Array.isArray(pageSub) ? pageSub[pageSub.length - 1] : String(pageSub);
+      reqPath = cleanPage.startsWith('/') ? cleanPage : ('/' + cleanPage);
+    } else if (sub) {
       reqPath = sub.startsWith('/api') ? sub : ('/api/' + String(sub).replace(/^\/+/, ''));
     }
   }
   if (reqPath && reqPath.startsWith('/api/') && reqPath.length > 5 && reqPath.endsWith('/')) {
     reqPath = reqPath.replace(/\/+$/, '');
+  }
+
+  // Canonical Domain & HTTPS Enforcement (www.nutrolix.in -> https://nutrolix.in, HTTP -> HTTPS; loop-safe for localhost)
+  const rawHost = String((req.headers && (req.headers['x-forwarded-host'] || req.headers.host)) || '').toLowerCase().split(',')[0].trim();
+  const hostNoPort = rawHost.split(':')[0];
+  const forwardedProto = String((req.headers && req.headers['x-forwarded-proto']) || '').toLowerCase().split(',')[0].trim();
+  if (hostNoPort === 'www.nutrolix.in' || (hostNoPort === 'nutrolix.in' && forwardedProto === 'http')) {
+    const targetUrl = `${nutrolixSeo.SITE_ORIGIN}${effectiveUrl.startsWith('/') ? effectiveUrl : '/' + effectiveUrl}`;
+    res.writeHead(301, {
+      'Location': targetUrl,
+      'Cache-Control': 'public, max-age=3600'
+    });
+    res.end();
+    return;
+  }
+
+  // Protect API and private routes from search engine indexing via HTTP header
+  if (nutrolixSeo.isPrivateNoindexPath(reqPath)) {
+    res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  }
+
+  // -------------------------------------------------------------
+  // SEO CORE ENDPOINTS: /robots.txt, /sitemap.xml, Google Merchant Feed & /api/seo-settings
+  // -------------------------------------------------------------
+  if (reqPath === '/robots.txt' && (req.method === 'GET' || req.method === 'HEAD')) {
+    const robotsBody = nutrolixSeo.buildRobotsTxt();
+    sendCompressedResponse(req, res, 200, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Cache-Control': 'public, max-age=3600'
+    }, robotsBody);
+    return;
+  }
+
+  if (reqPath === '/sitemap.xml' && (req.method === 'GET' || req.method === 'HEAD')) {
+    try {
+      const [products, blogs] = await Promise.all([
+        getLiveProductsForSeo(),
+        getLiveBlogsForSeo()
+      ]);
+      const xml = nutrolixSeo.buildSitemapXml({ products, blogs });
+      sendCompressedResponse(req, res, 200, {
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=1800, stale-while-revalidate=3600'
+      }, xml);
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Sitemap generation error');
+    }
+    return;
+  }
+
+  if ((reqPath === '/feeds/google-merchant.xml' || reqPath === '/merchant-feed.xml') && (req.method === 'GET' || req.method === 'HEAD')) {
+    try {
+      const [products, storeSettings] = await Promise.all([
+        getLiveProductsForSeo(),
+        getLiveStoreSettingsForSeo()
+      ]);
+      const xml = nutrolixSeo.buildGoogleMerchantFeedXml({ products, storeSettings });
+      sendCompressedResponse(req, res, 200, {
+        'Content-Type': 'application/xml; charset=utf-8',
+        'Cache-Control': 'public, max-age=1800, stale-while-revalidate=3600'
+      }, xml);
+    } catch (err) {
+      res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end('Merchant feed generation error');
+    }
+    return;
+  }
+
+  if (reqPath === '/api/seo-settings') {
+    const seoFile = path.join(PUBLIC_DIR, 'data', 'seo_settings.json');
+    if (req.method === 'GET') {
+      const seoSettings = await getLiveSeoSettings();
+      res.writeHead(200, NO_STORE_JSON_HEADERS);
+      res.end(JSON.stringify({ success: true, seoSettings }));
+      return;
+    } else if (req.method === 'POST') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', async () => {
+        try {
+          const incoming = JSON.parse(body || '{}');
+          const prev = await getLiveSeoSettings();
+          const normalized = nutrolixSeo.normalizeSeoSettings(incoming, prev);
+          await writeCatalogDocAndLocal('seo_settings', seoFile, normalized);
+          res.writeHead(200, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({ success: true, seoSettings: normalized }));
+        } catch (err) {
+          res.writeHead(400, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+      });
+      return;
+    }
+  }
+
+  if (reqPath === '/api/seo-audit' && req.method === 'GET') {
+    try {
+      const [products, blogs, seoSettings] = await Promise.all([
+        getLiveProductsForSeo(),
+        getLiveBlogsForSeo(),
+        getLiveSeoSettings()
+      ]);
+      const indexableProducts = products.filter((p) => !nutrolixSeo.isTestOrPlaceholderProduct(p) && p.isHidden !== true);
+      const indexableBlogs = blogs.filter((b) => b && b.title && b.status !== 'draft' && b.isPublished !== false);
+      res.writeHead(200, NO_STORE_JSON_HEADERS);
+      res.end(JSON.stringify({
+        success: true,
+        canonicalOrigin: nutrolixSeo.SITE_ORIGIN,
+        sitemapUrl: `${nutrolixSeo.SITE_ORIGIN}/sitemap.xml`,
+        robotsUrl: `${nutrolixSeo.SITE_ORIGIN}/robots.txt`,
+        merchantFeedUrl: `${nutrolixSeo.SITE_ORIGIN}/feeds/google-merchant.xml`,
+        staticPublicPageCount: Object.keys(nutrolixSeo.DEFAULT_PAGE_SEO).length,
+        indexableProductCount: indexableProducts.length,
+        indexableBlogCount: indexableBlogs.length,
+        totalSitemapUrls: Object.keys(nutrolixSeo.DEFAULT_PAGE_SEO).length + indexableProducts.length + indexableBlogs.length,
+        gscConfigured: Boolean(seoSettings.googleSiteVerification),
+        ga4Configured: Boolean(seoSettings.ga4MeasurementId),
+        gtmConfigured: Boolean(seoSettings.gtmContainerId),
+        sampleProductUrls: indexableProducts.slice(0, 8).map((p) => ({
+          id: p.id,
+          name: p.name || p.title,
+          slug: nutrolixSeo.getProductSlug(p),
+          url: `${nutrolixSeo.SITE_ORIGIN}/products/${nutrolixSeo.getProductSlug(p)}`
+        })),
+        sampleBlogUrls: indexableBlogs.slice(0, 8).map((b) => ({
+          id: b.id,
+          title: b.title,
+          slug: nutrolixSeo.getBlogSlug(b),
+          url: `${nutrolixSeo.SITE_ORIGIN}/blog/${nutrolixSeo.getBlogSlug(b)}`
+        }))
+      }));
+    } catch (err) {
+      res.writeHead(500, NO_STORE_JSON_HEADERS);
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
+    return;
   }
 
   // -------------------------------------------------------------
@@ -5489,55 +5695,300 @@ const server = http.createServer(async (req, res) => {
   }
 
   // -------------------------------------------------------------
-  // STATIC FILE SERVING & CLEAN ROUTING
+  // STATIC FILE SERVING, CLEAN SEO ROUTING & SSR METADATA INJECTION
   // -------------------------------------------------------------
   // Safety guard: Any unhandled API route must NEVER return HTML fallback
   if (reqPath.startsWith('/api/')) {
-    res.writeHead(404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+    res.writeHead(404, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'X-Robots-Tag': 'noindex, nofollow'
+    });
     res.end(JSON.stringify({ error: `API route not found: ${reqPath}`, success: false }));
     return;
   }
 
-  if (reqPath === '/' || reqPath === '') {
-    reqPath = '/index.html';
-  } else if (reqPath === '/food' || reqPath === '/food/') {
-    reqPath = '/food.html';
-  } else if (reqPath === '/shop' || reqPath === '/shop/') {
-    reqPath = '/shop.html';
-  } else if (reqPath === '/orders' || reqPath === '/orders/' || reqPath === '/track' || reqPath === '/tracking') {
-    reqPath = '/orders.html';
-  } else if (reqPath === '/product' || reqPath.startsWith('/product/') || reqPath.startsWith('/product.html')) {
-    reqPath = '/product.html';
-  } else if (reqPath === '/about' || reqPath === '/about/' || reqPath === '/story' || reqPath === '/vision') {
-    reqPath = '/about.html';
-  } else if (reqPath === '/contact' || reqPath === '/contact/') {
-    reqPath = '/contact.html';
-  } else if (reqPath === '/blogs' || reqPath === '/blogs/' || reqPath === '/blog' || reqPath.startsWith('/blog/')) {
-    reqPath = '/blogs.html';
-  } else if (reqPath === '/cart' || reqPath === '/cart/' || reqPath === '/checkout' || reqPath === '/checkout/') {
-    reqPath = '/cart.html';
-  } else if (reqPath === '/account' || reqPath === '/account/' || reqPath === '/wishlist') {
-    reqPath = '/account.html';
-  } else if (reqPath === '/faqs' || reqPath === '/faqs/') {
-    reqPath = '/faqs.html';
-  } else if (reqPath === '/shipping' || reqPath === '/shipping/') {
-    reqPath = '/shipping.html';
-  } else if (reqPath === '/refund' || reqPath === '/refund/') {
-    reqPath = '/refund.html';
-  } else if (reqPath === '/cancellation' || reqPath === '/cancellation/') {
-    reqPath = '/cancellation.html';
-  } else if (reqPath === '/terms' || reqPath === '/terms/') {
-    reqPath = '/terms.html';
-  } else if (reqPath === '/privacy' || reqPath === '/privacy/') {
-    reqPath = '/privacy.html';
-  } else if (reqPath === '/admin' || reqPath === '/admin/') {
-    reqPath = '/admin.html';
-  } else if (reqPath === '/firebase-messaging-sw.js') {
-    reqPath = '/sw.js';
-  } else if (reqPath === '/app' || reqPath === '/app/' || reqPath === '/app.html' || reqPath === '/customer' || reqPath === '/customer/' || reqPath === '/customer.html') {
-    res.writeHead(302, { 'Location': '/', 'Cache-Control': 'no-cache, no-store, must-revalidate' });
+  // Return 410 Gone for obsolete legacy WordPress / old-CMS endpoints
+  if (nutrolixSeo.isGone410Path(reqPath)) {
+    const goneHtml = nutrolixSeo.build404Html(reqPath).replace('404 • Page Not Found', '410 • Permanently Removed');
+    sendCompressedResponse(req, res, 410, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'X-Robots-Tag': 'noindex, nofollow',
+      'Cache-Control': 'public, max-age=3600'
+    }, goneHtml);
+    return;
+  }
+
+  // Permanent 301 redirects for legacy URLs, .html duplicates, and trailing slashes
+  const redirectTarget = nutrolixSeo.getPermanentRedirectTarget(reqPath, parsedUrl.search || '');
+  if (redirectTarget) {
+    res.writeHead(301, {
+      'Location': redirectTarget,
+      'Cache-Control': 'public, max-age=3600'
+    });
     res.end();
     return;
+  }
+
+  // Helper to serve SSR SEO-enhanced HTML
+  const serveEnhancedHtml = (htmlFilePath, seoOptions, extraHeaders = {}, statusCode = 200) => {
+    fs.readFile(htmlFilePath, 'utf8', (readErr, rawHtml) => {
+      if (readErr) {
+        res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end('Internal Server Error');
+        return;
+      }
+      const finalHtml = seoOptions ? nutrolixSeo.injectSeoIntoHtml(rawHtml, seoOptions) : rawHtml;
+      const headers = {
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Access-Control-Allow-Origin': '*',
+        ...extraHeaders
+      };
+      sendCompressedResponse(req, res, statusCode, headers, finalHtml);
+    });
+  };
+
+  // Dynamic Product Detail Routes: /products/<slug>, /product?id=<id>, /product.html?id=<id>
+  if (reqPath.startsWith('/products/') || reqPath === '/product' || reqPath === '/product.html' || reqPath.startsWith('/product/')) {
+    const rawSlug = reqPath.startsWith('/products/')
+      ? reqPath.slice('/products/'.length).replace(/\/+$/, '')
+      : (reqPath.startsWith('/product/')
+        ? reqPath.slice('/product/'.length).replace(/\/+$/, '')
+        : String(parsedUrl.query.slug || parsedUrl.query.id || '').trim());
+
+    const [products, seoSettings] = await Promise.all([
+      getLiveProductsForSeo(),
+      getLiveSeoSettings()
+    ]);
+
+    const matchedProduct = rawSlug ? nutrolixSeo.findProductBySlugOrId(products, rawSlug) : null;
+    if (reqPath.startsWith('/products/') && !matchedProduct) {
+      sendCompressedResponse(req, res, 404, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'X-Robots-Tag': 'noindex, nofollow',
+        'Cache-Control': 'no-cache'
+      }, nutrolixSeo.build404Html(reqPath));
+      return;
+    }
+
+    const activeProd = matchedProduct || products.find((p) => !nutrolixSeo.isTestOrPlaceholderProduct(p)) || products[0] || null;
+    const prodSlug = activeProd ? nutrolixSeo.getProductSlug(activeProd) : '';
+    const canonicalUrl = prodSlug ? `${nutrolixSeo.SITE_ORIGIN}/products/${prodSlug}` : `${nutrolixSeo.SITE_ORIGIN}/shop`;
+    const prodTitle = activeProd
+      ? `${activeProd.name || activeProd.title} | Buy Online – Nutrolix`
+      : 'Functional Nutrition Products – Nutrolix';
+    const prodDesc = activeProd
+      ? nutrolixSeo.truncateText(activeProd.description || activeProd.tagline || `${activeProd.name} by Nutrolix`, 160)
+      : nutrolixSeo.DEFAULT_PAGE_SEO['/shop'].description;
+    const prodImg = activeProd && Array.isArray(activeProd.images) && activeProd.images[0]
+      ? nutrolixSeo.toAbsoluteUrl(activeProd.images[0])
+      : nutrolixSeo.DEFAULT_OG_IMAGE;
+
+    const relatedProds = products
+      .filter((p) => p && activeProd && p.id !== activeProd.id && !nutrolixSeo.isTestOrPlaceholderProduct(p))
+      .slice(0, 4);
+
+    const schemas = [
+      nutrolixSeo.buildBreadcrumbSchema([
+        { name: 'Home', url: `${nutrolixSeo.SITE_ORIGIN}/` },
+        { name: 'Shop', url: `${nutrolixSeo.SITE_ORIGIN}/shop` },
+        ...(activeProd ? [{ name: activeProd.name || activeProd.title, url: canonicalUrl }] : [])
+      ])
+    ];
+    if (activeProd) {
+      schemas.push(nutrolixSeo.buildProductSchema(activeProd, canonicalUrl));
+    }
+
+    serveEnhancedHtml(path.join(PUBLIC_DIR, 'product.html'), {
+      title: prodTitle,
+      description: prodDesc,
+      canonicalUrl,
+      ogType: 'product',
+      ogImage: prodImg,
+      seoSettings,
+      schemas,
+      ssrNoscriptHtml: activeProd ? nutrolixSeo.buildProductSsrNoscript(activeProd, relatedProds) : '',
+      rewriteNestedPaths: reqPath.startsWith('/products/') || reqPath.startsWith('/product/')
+    });
+    return;
+  }
+
+  // Dynamic Blog Article Routes: /blog/<slug>, /blogs/<slug>, /article/<slug>, /article?slug=..., /article.html?slug=...
+  if (
+    reqPath.startsWith('/blog/') ||
+    reqPath.startsWith('/blogs/') ||
+    reqPath.startsWith('/article/') ||
+    reqPath === '/article' ||
+    reqPath === '/article.html'
+  ) {
+    let rawSlug = '';
+    if (reqPath.startsWith('/blog/')) rawSlug = reqPath.slice('/blog/'.length);
+    else if (reqPath.startsWith('/blogs/')) rawSlug = reqPath.slice('/blogs/'.length);
+    else if (reqPath.startsWith('/article/')) rawSlug = reqPath.slice('/article/'.length);
+    else rawSlug = String(parsedUrl.query.slug || parsedUrl.query.id || '');
+    rawSlug = rawSlug.replace(/\/+$/, '').trim();
+
+    const [blogs, seoSettings] = await Promise.all([
+      getLiveBlogsForSeo(),
+      getLiveSeoSettings()
+    ]);
+
+    const matchedBlog = rawSlug ? nutrolixSeo.findBlogBySlugOrId(blogs, rawSlug) : null;
+    if (rawSlug && !matchedBlog) {
+      sendCompressedResponse(req, res, 404, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'X-Robots-Tag': 'noindex, nofollow',
+        'Cache-Control': 'no-cache'
+      }, nutrolixSeo.build404Html(reqPath));
+      return;
+    }
+
+    const activeBlog = matchedBlog || blogs[0] || null;
+    const blogSlug = activeBlog ? nutrolixSeo.getBlogSlug(activeBlog) : '';
+    const canonicalUrl = blogSlug ? `${nutrolixSeo.SITE_ORIGIN}/blog/${blogSlug}` : `${nutrolixSeo.SITE_ORIGIN}/blogs`;
+    const blogTitle = activeBlog
+      ? `${activeBlog.seoTitle || activeBlog.title} | Nutrolix Nutrition Blog`
+      : nutrolixSeo.DEFAULT_PAGE_SEO['/blogs'].title;
+    const blogDesc = activeBlog
+      ? nutrolixSeo.truncateText(activeBlog.seoDescription || activeBlog.excerpt || activeBlog.title, 160)
+      : nutrolixSeo.DEFAULT_PAGE_SEO['/blogs'].description;
+    const blogImg = activeBlog && activeBlog.image
+      ? nutrolixSeo.toAbsoluteUrl(activeBlog.image)
+      : nutrolixSeo.DEFAULT_OG_IMAGE;
+
+    const relatedBlogs = blogs.filter((b) => b && activeBlog && b.id !== activeBlog.id).slice(0, 3);
+    const schemas = [
+      nutrolixSeo.buildBreadcrumbSchema([
+        { name: 'Home', url: `${nutrolixSeo.SITE_ORIGIN}/` },
+        { name: 'Blogs', url: `${nutrolixSeo.SITE_ORIGIN}/blogs` },
+        ...(activeBlog ? [{ name: activeBlog.title, url: canonicalUrl }] : [])
+      ])
+    ];
+    if (activeBlog) {
+      schemas.push(nutrolixSeo.buildArticleSchema(activeBlog, canonicalUrl));
+    }
+
+    serveEnhancedHtml(path.join(PUBLIC_DIR, 'article.html'), {
+      title: blogTitle,
+      description: blogDesc,
+      canonicalUrl,
+      ogType: 'article',
+      ogImage: blogImg,
+      seoSettings,
+      schemas,
+      ssrNoscriptHtml: activeBlog ? nutrolixSeo.buildBlogSsrNoscript(activeBlog, relatedBlogs) : '',
+      rewriteNestedPaths: reqPath.startsWith('/blog/') || reqPath.startsWith('/blogs/') || reqPath.startsWith('/article/')
+    });
+    return;
+  }
+
+  // Known Public Indexable Pages (SSR SEO metadata + Schema + Admin overrides)
+  const PUBLIC_HTML_ROUTE_MAP = {
+    '/': 'index.html',
+    '/shop': 'shop.html',
+    '/food': 'food.html',
+    '/smart-food-kitchen': 'smart-food-kitchen.html',
+    '/blogs': 'blogs.html',
+    '/about': 'about.html',
+    '/contact': 'contact.html',
+    '/faqs': 'faqs.html',
+    '/privacy': 'privacy.html',
+    '/terms': 'terms.html',
+    '/refund': 'refund.html',
+    '/shipping': 'shipping.html',
+    '/cancellation': 'cancellation.html'
+  };
+
+  if (PUBLIC_HTML_ROUTE_MAP[reqPath]) {
+    const htmlFile = path.join(PUBLIC_DIR, PUBLIC_HTML_ROUTE_MAP[reqPath]);
+    const seoSettings = await getLiveSeoSettings();
+    const pageMeta = (seoSettings.pages && seoSettings.pages[reqPath]) || nutrolixSeo.DEFAULT_PAGE_SEO[reqPath] || {};
+    const canonicalUrl = reqPath === '/' ? `${nutrolixSeo.SITE_ORIGIN}/` : `${nutrolixSeo.SITE_ORIGIN}${reqPath}`;
+    const schemas = [];
+
+    if (reqPath === '/') {
+      schemas.push(nutrolixSeo.buildOrganizationSchema(seoSettings));
+      schemas.push(nutrolixSeo.buildWebSiteSchema());
+    } else {
+      schemas.push(nutrolixSeo.buildBreadcrumbSchema([
+        { name: 'Home', url: `${nutrolixSeo.SITE_ORIGIN}/` },
+        { name: pageMeta.breadcrumb || nutrolixSeo.DEFAULT_PAGE_SEO[reqPath]?.breadcrumb || 'Nutrolix', url: canonicalUrl }
+      ]));
+      if (reqPath === '/smart-food-kitchen' || reqPath === '/contact' || reqPath === '/food') {
+        schemas.push(nutrolixSeo.buildLocalBusinessSchema(seoSettings));
+      }
+      if (reqPath === '/faqs') {
+        schemas.push(nutrolixSeo.buildFaqSchema());
+      }
+      if (reqPath === '/about') {
+        schemas.push(nutrolixSeo.buildOrganizationSchema(seoSettings));
+      }
+    }
+
+    serveEnhancedHtml(htmlFile, {
+      title: pageMeta.title || nutrolixSeo.DEFAULT_PAGE_SEO[reqPath]?.title,
+      description: pageMeta.description || nutrolixSeo.DEFAULT_PAGE_SEO[reqPath]?.description,
+      canonicalUrl,
+      ogType: 'website',
+      ogImage: seoSettings.defaultOgImage || nutrolixSeo.DEFAULT_OG_IMAGE,
+      seoSettings,
+      schemas
+    });
+    return;
+  }
+
+  // Known Private / Transactional Routes (strictly noindex, nofollow)
+  const PRIVATE_HTML_ROUTE_MAP = {
+    '/admin': 'admin.html',
+    '/admin.html': 'admin.html',
+    '/cart': 'cart.html',
+    '/cart.html': 'cart.html',
+    '/checkout': 'cart.html',
+    '/orders': 'orders.html',
+    '/orders.html': 'orders.html',
+    '/track': 'orders.html',
+    '/tracking': 'orders.html',
+    '/account': 'account.html',
+    '/account.html': 'account.html',
+    '/wishlist': 'account.html',
+    '/download': 'download.html',
+    '/download.html': 'download.html',
+    '/delete-account': 'delete-account.html',
+    '/delete-account.html': 'delete-account.html'
+  };
+
+  if (PRIVATE_HTML_ROUTE_MAP[reqPath]) {
+    const htmlFile = path.join(PUBLIC_DIR, PRIVATE_HTML_ROUTE_MAP[reqPath]);
+    const seoSettings = await getLiveSeoSettings();
+    const canonicalClean = reqPath.replace(/\.html$/i, '');
+    serveEnhancedHtml(htmlFile, {
+      robots: 'noindex, nofollow',
+      canonicalUrl: `${nutrolixSeo.SITE_ORIGIN}${canonicalClean}`,
+      seoSettings
+    }, { 'X-Robots-Tag': 'noindex, nofollow' });
+    return;
+  }
+
+  if (reqPath === '/firebase-messaging-sw.js') {
+    reqPath = '/sw.js';
+  }
+
+  // Check if root-level legacy blog slug (e.g. /science-high-protein-atta) -> 301 to /blog/<slug>
+  if (!path.extname(reqPath) && reqPath.length > 1) {
+    const cleanRootSlug = reqPath.replace(/^\/+/, '');
+    if (!cleanRootSlug.includes('/')) {
+      const blogs = await getLiveBlogsForSeo();
+      const matchedLegacyBlog = nutrolixSeo.findBlogBySlugOrId(blogs, cleanRootSlug);
+      if (matchedLegacyBlog) {
+        res.writeHead(301, {
+          'Location': `/blog/${nutrolixSeo.getBlogSlug(matchedLegacyBlog)}`,
+          'Cache-Control': 'public, max-age=3600'
+        });
+        res.end();
+        return;
+      }
+    }
   }
 
   let filePath = path.join(PUBLIC_DIR, reqPath);
@@ -5550,31 +6001,13 @@ const server = http.createServer(async (req, res) => {
 
   fs.stat(filePath, (err, stats) => {
     if (err || !stats.isFile()) {
-      if (!path.extname(filePath)) {
-        const htmlPath = filePath + '.html';
-        if (fs.existsSync(htmlPath)) {
-          filePath = htmlPath;
-        } else {
-          // Check if requested path is a blog article slug or blog path
-          const cleanSlug = reqPath.replace(/^\/+/, '').split('?')[0];
-          let isBlogMatch = false;
-          try {
-            const blogsFile = path.join(PUBLIC_DIR, 'data', 'blogs.json');
-            if (fs.existsSync(blogsFile)) {
-              const bl = JSON.parse(fs.readFileSync(blogsFile, 'utf8') || '[]');
-              isBlogMatch = bl.some(b => (b.slug && b.slug === cleanSlug) || (b.id && b.id === cleanSlug));
-            }
-          } catch (_) {}
-
-          if (isBlogMatch || cleanSlug.startsWith('blog/') || cleanSlug.startsWith('article/') || cleanSlug === 'article') {
-            filePath = path.join(PUBLIC_DIR, 'article.html');
-          } else {
-            filePath = path.join(PUBLIC_DIR, 'index.html');
-          }
-        }
-      } else {
-        filePath = path.join(PUBLIC_DIR, 'index.html');
-      }
+      // Proper HTTP 404 (eliminates Google soft-404 issues!)
+      sendCompressedResponse(req, res, 404, {
+        'Content-Type': 'text/html; charset=utf-8',
+        'X-Robots-Tag': 'noindex, nofollow',
+        'Cache-Control': 'no-cache'
+      }, nutrolixSeo.build404Html(reqPath));
+      return;
     }
 
     const ext = path.extname(filePath).toLowerCase();
@@ -5587,9 +6020,15 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      const isImmutableAsset = /\.(png|jpg|jpeg|webp|svg|ico|gif|woff2|woff)$/i.test(ext);
+      const isStaticCode = /\.(js|css)$/i.test(ext) && path.basename(filePath) !== 'sw.js';
+      const cacheControl = isImmutableAsset
+        ? 'public, max-age=31536000, immutable'
+        : (isStaticCode ? 'public, max-age=86400, stale-while-revalidate=604800' : 'no-cache, no-store, must-revalidate');
+
       const headers = {
         'Content-Type': contentType,
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': cacheControl,
         'Access-Control-Allow-Origin': '*'
       };
       if (path.basename(filePath) === 'sw.js') {
@@ -5599,8 +6038,7 @@ const server = http.createServer(async (req, res) => {
         const downloadName = ext === '.dat' ? path.basename(filePath).replace(/\.dat$/, '') : path.basename(filePath);
         headers['Content-Disposition'] = `attachment; filename="${downloadName}"`;
       }
-      res.writeHead(200, headers);
-      res.end(content);
+      sendCompressedResponse(req, res, 200, headers, content);
     });
   });
 });

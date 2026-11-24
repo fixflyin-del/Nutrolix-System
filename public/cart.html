@@ -4,6 +4,9 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Shopping Cart & Checkout – Nutrolix | Nutrition That Works</title>
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="assets/nutrolix-logo.png">
+  <script defer src="assets/nutrolix-analytics.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script>
@@ -95,15 +98,15 @@
             <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 py-2 text-xs font-bold text-slate-700 divide-y divide-slate-100">
               <div class="py-1">
                 <a href="about.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">About Us</a>
-                <a href="our-story.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Our Story</a>
+                <a href="about.html#story" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Our Story</a>
                 <a href="blogs.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Blogs & Articles</a>
                 <a href="contact.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Contact Us</a>
               </div>
               <div class="py-1">
                 <a href="terms.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Terms & Conditions</a>
                 <a href="privacy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Privacy Policy</a>
-                <a href="refund-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Refund & Return Policy</a>
-                <a href="shipping-policy.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Shipping Policy</a>
+                <a href="refund.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Refund & Return Policy</a>
+                <a href="shipping.html" class="flex items-center px-4 py-2 hover:bg-emerald-50 hover:text-nutro-emerald transition">Shipping Policy</a>
               </div>
             </div>
           </div>
@@ -2864,6 +2867,13 @@
 
         // Show Order Confirmed modal IMMEDIATELY without waiting for push provider latency
         document.getElementById('orderSuccessModal').classList.remove('hidden');
+
+        // Fire deduplicated GA4/GTM purchase conversion event on real completed order
+        try {
+          if (window.NutrolixAnalytics) {
+            window.NutrolixAnalytics.trackPurchase(confirmedOrder);
+          }
+        } catch (_) {}
 
         // Persist Chrome Web Push subscription and dispatch status alerts asynchronously in background
         (async () => {

@@ -2501,6 +2501,217 @@ test('Home page shows one-time browser-only bilingual (Hindi + English) App 10% 
   }
 });
 
+test('SEO core endpoints: /robots.txt, dynamic /sitemap.xml, Google Merchant XML feed, www->apex 301, legacy 301s, 410 Gone, proper 404, and X-Robots-Tag noindex on private routes', async () => {
+  const server = require('../server');
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+
+  const rawRequest = (reqPath, { method = 'GET', headers = {} } = {}) => new Promise((resolve, reject) => {
+    const req = http.request({ hostname: '127.0.0.1', port, path: reqPath, method, headers }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks).toString('utf8') }));
+    });
+    req.on('error', reject);
+    req.end();
+  });
+
+  try {
+    // 1. /robots.txt
+    const robots = await rawRequest('/robots.txt');
+    assert.equal(robots.status, 200);
+    assert.ok(robots.body.includes('Allow: /'), 'robots.txt must allow public crawling');
+    assert.ok(robots.body.includes('Allow: /assets/'), 'robots.txt must allow CSS/JS/assets');
+    assert.ok(robots.body.includes('Disallow: /admin') && robots.body.includes('Disallow: /api/') && robots.body.includes('Disallow: /cart'), 'robots.txt must disallow private routes');
+    assert.ok(robots.body.includes('Sitemap: https://nutrolix.in/sitemap.xml'), 'robots.txt must declare canonical sitemap URL');
+
+    // 2. /sitemap.xml
+    const sitemap = await rawRequest('/sitemap.xml');
+    assert.equal(sitemap.status, 200);
+    assert.ok(sitemap.headers['content-type'].includes('xml'));
+    assert.ok(sitemap.body.includes('<loc>https://nutrolix.in/</loc>'));
+    assert.ok(sitemap.body.includes('<loc>https://nutrolix.in/shop</loc>'));
+    assert.ok(sitemap.body.includes('<loc>https://nutrolix.in/smart-food-kitchen</loc>'));
+    assert.ok(sitemap.body.includes('<loc>https://nutrolix.in/products/nutrolix-high-protein-atta</loc>'), 'sitemap must include dynamic canonical product URLs');
+    assert.ok(sitemap.body.includes('<loc>https://nutrolix.in/blog/science-high-protein-atta</loc>'), 'sitemap must include dynamic canonical blog URLs');
+    for (const forbidden of ['/admin', '/cart', '/orders', '/account', '/checkout', '/api/', 'prod_mwbytsx8']) {
+      assert.equal(sitemap.body.includes(forbidden), false, `sitemap.xml must exclude ${forbidden}`);
+    }
+
+    // 3. /feeds/google-merchant.xml
+    const feed = await rawRequest('/feeds/google-merchant.xml');
+    assert.equal(feed.status, 200);
+    assert.ok(feed.body.includes('xmlns:g="http://base.google.com/ns/1.0"'), 'merchant feed must declare Google Shopping namespace');
+    assert.ok(feed.body.includes('<g:link>https://nutrolix.in/products/nutrolix-high-protein-atta</g:link>'));
+    assert.ok(feed.body.includes('<g:brand>Nutrolix</g:brand>'));
+    assert.ok(feed.body.includes('INR</g:price>'));
+    assert.ok(feed.body.includes('<g:condition>new</g:condition>'));
+    assert.equal(feed.body.includes('Test Resilience Product'), false, 'merchant feed must exclude test placeholder products');
+
+    // 4. www.nutrolix.in -> 301 https://nutrolix.in
+    const wwwRedir = await rawRequest('/shop?cat=Atta', { headers: { host: 'www.nutrolix.in' } });
+    assert.equal(wwwRedir.status, 301);
+    assert.equal(wwwRedir.headers.location, 'https://nutrolix.in/shop?cat=Atta');
+
+    // 5. Legacy / broken / .html duplicate permanent 301 redirects
+    for (const [fromPath, expectedLoc] of [
+      ['/app', '/'],
+      ['/customer', '/'],
+      ['/our-story.html', '/about'],
+      ['/refund-policy.html', '/refund'],
+      ['/shipping-policy.html', '/shipping'],
+      ['/shop.html', '/shop'],
+      ['/healthy-food', '/food']
+    ]) {
+      const r = await rawRequest(fromPath);
+      assert.equal(r.status, 301, `${fromPath} must return 301 permanent redirect`);
+      assert.equal(r.headers.location, expectedLoc, `${fromPath} must redirect to ${expectedLoc}`);
+    }
+
+    // 6. Obsolete CMS routes -> 410 Gone, unknown URLs -> proper 404 Not Found (no soft 404)
+    const gone = await rawRequest('/wp-admin');
+    assert.equal(gone.status, 410);
+    assert.equal(gone.headers['x-robots-tag'], 'noindex, nofollow');
+
+    const notFound = await rawRequest('/definitely-nonexistent-nutrolix-page-xyz');
+    assert.equal(notFound.status, 404);
+    assert.equal(notFound.headers['x-robots-tag'], 'noindex, nofollow');
+
+    // 7. Private routes emit X-Robots-Tag: noindex, nofollow
+    for (const priv of ['/admin', '/cart', '/orders', '/account', '/api/seo-settings']) {
+      const r = await rawRequest(priv);
+      assert.equal(r.headers['x-robots-tag'], 'noindex, nofollow', `${priv} must send X-Robots-Tag: noindex, nofollow`);
+    }
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('SSR SEO injection, valid JSON-LD schemas on Home/Product/Blog/FAQs/Kitchen, Gzip compression, and /api/seo-settings roundtrip', async () => {
+  const server = require('../server');
+  const zlib = require('zlib');
+  const seoFile = path.join(__dirname, '..', 'public', 'data', 'seo_settings.json');
+  const origSeo = fs.existsSync(seoFile) ? fs.readFileSync(seoFile, 'utf8') : null;
+
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const { port } = server.address();
+
+  const fetchRaw = (reqPath, { method = 'GET', headers = {}, body = null } = {}) => new Promise((resolve, reject) => {
+    const reqHeaders = { ...headers };
+    if (body) {
+      reqHeaders['Content-Type'] = 'application/json';
+      reqHeaders['Content-Length'] = Buffer.byteLength(body);
+    }
+    const req = http.request({ hostname: '127.0.0.1', port, path: reqPath, method, headers: reqHeaders }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => {
+        const buf = Buffer.concat(chunks);
+        const text = res.headers['content-encoding'] === 'gzip' ? zlib.gunzipSync(buf).toString('utf8') : buf.toString('utf8');
+        resolve({ status: res.statusCode, headers: res.headers, body: text });
+      });
+    });
+    req.on('error', reject);
+    if (body) req.write(body);
+    req.end();
+  });
+
+  const extractJsonLd = (html) => {
+    const m = html.match(/<script type="application\/ld\+json" id="nutrolix-ssr-schema">([\s\S]*?)<\/script>/);
+    assert.ok(m && m[1], 'Expected SSR JSON-LD script block');
+    return JSON.parse(m[1]);
+  };
+
+  try {
+    // 1. Home page with Gzip compression + Organization & WebSite JSON-LD
+    const home = await fetchRaw('/', { headers: { 'Accept-Encoding': 'gzip' } });
+    assert.equal(home.status, 200);
+    assert.equal(home.headers['content-encoding'], 'gzip', 'HTML responses must support Gzip compression');
+    assert.ok(home.body.includes('<link rel="canonical" href="https://nutrolix.in/">'));
+    const homeLd = extractJsonLd(home.body);
+    const homeTypes = (homeLd['@graph'] || [homeLd]).map((n) => n['@type']);
+    assert.ok(homeTypes.includes('Organization') && homeTypes.includes('WebSite'), 'Home JSON-LD must include Organization and WebSite');
+
+    // 2. Dynamic product SSR page: /products/nutrolix-high-protein-atta
+    const prod = await fetchRaw('/products/nutrolix-high-protein-atta');
+    assert.equal(prod.status, 200);
+    assert.ok(prod.body.includes('<link rel="canonical" href="https://nutrolix.in/products/nutrolix-high-protein-atta">'));
+    assert.ok(prod.body.includes('Nutrolix High Protein Atta'), 'Product SSR HTML must include product title');
+    assert.ok(prod.body.includes('id="nutrolix-seo-noscript"'), 'Product SSR HTML must include crawlable noscript summary');
+    const prodLd = extractJsonLd(prod.body);
+    const prodNode = (prodLd['@graph'] || [prodLd]).find((n) => n['@type'] === 'Product');
+    assert.ok(prodNode && prodNode.offers && prodNode.offers.priceCurrency === 'INR', 'Product JSON-LD must include INR Offer');
+
+    // 3. Dynamic blog SSR page: /blog/science-high-protein-atta
+    const blog = await fetchRaw('/blog/science-high-protein-atta');
+    assert.equal(blog.status, 200);
+    assert.ok(blog.body.includes('<link rel="canonical" href="https://nutrolix.in/blog/science-high-protein-atta">'));
+    const blogLd = extractJsonLd(blog.body);
+    const blogNode = (blogLd['@graph'] || [blogLd]).find((n) => n['@type'] === 'BlogPosting');
+    assert.ok(blogNode && blogNode.headline.includes('High-Protein Atta'), 'Blog JSON-LD must include BlogPosting headline');
+
+    // 4. FAQs page includes FAQPage schema & Smart Food Kitchen includes FoodEstablishment schema
+    const faqs = await fetchRaw('/faqs');
+    assert.equal(faqs.status, 200);
+    const faqLd = extractJsonLd(faqs.body);
+    assert.ok((faqLd['@graph'] || [faqLd]).some((n) => n['@type'] === 'FAQPage'), '/faqs must emit FAQPage schema');
+
+    const kitchen = await fetchRaw('/smart-food-kitchen');
+    assert.equal(kitchen.status, 200);
+    const kitchenLd = extractJsonLd(kitchen.body);
+    assert.ok((kitchenLd['@graph'] || [kitchenLd]).some((n) => Array.isArray(n['@type']) && n['@type'].includes('FoodEstablishment')), '/smart-food-kitchen must emit FoodEstablishment schema');
+
+    // 5. /api/seo-audit returns valid counts
+    const audit = await fetchRaw('/api/seo-audit');
+    assert.equal(audit.status, 200);
+    const auditJson = JSON.parse(audit.body);
+    assert.equal(auditJson.success, true);
+    assert.ok(auditJson.indexableProductCount >= 1 && auditJson.indexableBlogCount >= 1);
+  } finally {
+    if (origSeo !== null) fs.writeFileSync(seoFile, origSeo, 'utf8');
+    await new Promise((resolve) => server.close(resolve));
+  }
+});
+
+test('Static HTML SEO audit, broken link elimination, GA4/GTM analytics module, Admin SEO dashboard tab, and vercel.json config', () => {
+  const rootDir = path.join(__dirname, '..');
+
+  // 1. vercel.json canonical www redirect, includeFiles, sitemap/robots/feed rewrites, X-Robots-Tag headers
+  const vercelCfg = JSON.parse(fs.readFileSync(path.join(rootDir, 'vercel.json'), 'utf8'));
+  assert.ok(vercelCfg.functions && vercelCfg.functions['api/index.js'] && vercelCfg.functions['api/index.js'].includeFiles === 'public/**', 'vercel.json must bundle public/** for api/index.js SSR SEO');
+  assert.ok(vercelCfg.redirects.some((r) => r.has && r.has.some((h) => h.value === 'www.nutrolix.in') && r.permanent === true), 'vercel.json must permanently redirect www.nutrolix.in -> nutrolix.in');
+  assert.ok(vercelCfg.rewrites.some((r) => r.source === '/sitemap.xml'), 'vercel.json must rewrite /sitemap.xml');
+  assert.ok(vercelCfg.rewrites.some((r) => r.source === '/robots.txt'), 'vercel.json must rewrite /robots.txt');
+  assert.ok(vercelCfg.rewrites.some((r) => r.source === '/feeds/google-merchant.xml'), 'vercel.json must rewrite /feeds/google-merchant.xml');
+  assert.ok(vercelCfg.headers.some((h) => h.headers.some((kv) => kv.key === 'X-Robots-Tag' && kv.value === 'noindex, nofollow')), 'vercel.json must send X-Robots-Tag noindex on private routes');
+
+  // 2. Public HTML pages have canonical, meta description, Open Graph, analytics loader & zero broken policy links
+  const publicPages = ['index.html', 'shop.html', 'food.html', 'smart-food-kitchen.html', 'product.html', 'blogs.html', 'article.html', 'about.html', 'contact.html', 'faqs.html', 'privacy.html', 'terms.html', 'refund.html', 'shipping.html', 'cancellation.html'];
+  const privatePages = ['admin.html', 'cart.html', 'orders.html', 'account.html', 'download.html', 'delete-account.html', 'app.html', 'customer.html'];
+
+  for (const base of ['public', 'app/src/main/assets/web']) {
+    for (const file of publicPages) {
+      const html = fs.readFileSync(path.join(rootDir, base, file), 'utf8');
+      assert.ok(/<meta[^>]*name="description"/i.test(html), `${base}/${file} missing meta description`);
+      assert.ok(/<link[^>]*rel="canonical"[^>]*https:\/\/nutrolix\.in/i.test(html), `${base}/${file} missing canonical link`);
+      assert.ok(/nutrolix-analytics\.js/i.test(html), `${base}/${file} missing nutrolix-analytics.js`);
+      assert.equal(/our-story\.html|refund-policy\.html|shipping-policy\.html/i.test(html), false, `${base}/${file} must not contain broken legacy policy links`);
+    }
+    for (const file of privatePages) {
+      const html = fs.readFileSync(path.join(rootDir, base, file), 'utf8');
+      assert.ok(/<meta[^>]*name="robots"[^>]*noindex,\s*nofollow/i.test(html), `${base}/${file} must declare robots noindex, nofollow`);
+    }
+
+    // 3. Analytics module & Admin SEO tab exist in both web and mirrored Android assets
+    const analyticsJs = fs.readFileSync(path.join(rootDir, base, 'assets/nutrolix-analytics.js'), 'utf8');
+    assert.ok(analyticsJs.includes('trackProductView') && analyticsJs.includes('trackAddToCart') && analyticsJs.includes('trackPurchase'), `${base}/assets/nutrolix-analytics.js must implement GA4/GTM commerce events`);
+
+    const adminHtml = fs.readFileSync(path.join(rootDir, base, 'admin.html'), 'utf8');
+    assert.ok(adminHtml.includes('id="tabBtn-seo"') && adminHtml.includes('id="tabContent-seo"') && adminHtml.includes('saveSeoSettingsAdmin'), `${base}/admin.html must include SEO & Google Tools tab`);
+  }
+});
+
+
 
 
 

@@ -1,17 +1,30 @@
 const server = require('../server.js');
 const { Readable } = require('stream');
-const url = require('url');
 
 module.exports = (req, res) => {
-  // Determine real API path on Vercel
+  // Determine real route path on Vercel (supports both API __route and SSR/SEO __page)
   let effectiveUrl = req.url || '/api';
   let targetPath = '';
 
-  // 1. From __route or __path query parameter
-  if (req.query && (req.query.__route || req.query.__path || req.query['0'])) {
-    const sub = req.query.__route || req.query.__path || req.query['0'];
-    targetPath = '/api/' + String(sub).replace(/^\/+/, '');
-  } else if (req.headers && req.headers['x-matched-path']) {
+  const getSingleParam = (val) => (Array.isArray(val) ? val[val.length - 1] : val);
+
+  // 1. Explicit SSR/SEO page rewrite (?__page=/products/slug, /sitemap.xml, /robots.txt, /)
+  if (req.query && req.query.__page !== undefined) {
+    const rawPage = String(getSingleParam(req.query.__page) || '/');
+    targetPath = rawPage.startsWith('/') ? rawPage : '/' + rawPage;
+  } else if (effectiveUrl.includes('__page=')) {
+    const match = effectiveUrl.match(/__page=([^&]+)/);
+    if (match && match[1]) {
+      const decoded = decodeURIComponent(match[1]);
+      targetPath = decoded.startsWith('/') ? decoded : '/' + decoded;
+    }
+  }
+  // 2. Standard API rewrite (?__route=...)
+  else if (req.query && (req.query.__route || req.query.__path || req.query['0'])) {
+    const sub = getSingleParam(req.query.__route || req.query.__path || req.query['0']);
+    const cleanSub = String(sub || '').replace(/^\/+/, '');
+    targetPath = cleanSub.startsWith('api/') ? '/' + cleanSub : '/api/' + cleanSub;
+  } else if (req.headers && req.headers['x-matched-path'] && req.headers['x-matched-path'] !== '/api/index.js') {
     targetPath = req.headers['x-matched-path'];
   } else if (req.headers && req.headers['x-forwarded-uri']) {
     targetPath = req.headers['x-forwarded-uri'];
@@ -28,8 +41,9 @@ module.exports = (req, res) => {
   }
 
   if (targetPath) {
-    const cleanTargetPath = targetPath.split('?')[0];
+    const cleanTargetPath = targetPath.split('?')[0] || '/';
     const searchParams = new URLSearchParams();
+    const internalKeys = new Set(['__route', '__path', '__page', '0']);
 
     // Preserve any query parameters present on original req.url or targetPath
     for (const rawUrl of [req.url, targetPath]) {
@@ -37,7 +51,7 @@ module.exports = (req, res) => {
       if (qIdx >= 0) {
         const sp = new URLSearchParams(String(rawUrl).slice(qIdx + 1));
         for (const [k, v] of sp.entries()) {
-          if (k !== '__route' && k !== '__path' && k !== '0') {
+          if (!internalKeys.has(k)) {
             searchParams.set(k, v);
           }
         }
@@ -47,7 +61,7 @@ module.exports = (req, res) => {
     // Merge Vercel-parsed req.query parameters (excluding internal rewrite params)
     if (req.query && typeof req.query === 'object') {
       for (const [k, v] of Object.entries(req.query)) {
-        if (k === '__route' || k === '__path' || k === '0' || v === undefined) continue;
+        if (internalKeys.has(k) || v === undefined) continue;
         if (Array.isArray(v)) {
           if (v.length > 0) searchParams.set(k, String(v[v.length - 1]));
         } else {
@@ -68,7 +82,6 @@ module.exports = (req, res) => {
     stream.push(rawBody);
     stream.push(null);
 
-    // Forward properties
     stream.headers = req.headers || {};
     stream.method = req.method;
     stream.url = effectiveUrl;
