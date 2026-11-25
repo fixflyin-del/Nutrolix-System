@@ -816,7 +816,24 @@ fun NutrolixSupplementBrandApp(
               ): Boolean {
                 val url = request?.url?.toString() ?: return false
 
+                if (url.startsWith("intent://", ignoreCase = true)) {
+                  try {
+                    val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME).apply {
+                      addCategory(Intent.CATEGORY_BROWSABLE)
+                      component = null
+                      selector = null
+                      flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    ctx.startActivity(intent)
+                    return true
+                  } catch (_: Exception) {
+                    return true
+                  }
+                }
+
                 if (url.startsWith("tel:") || url.startsWith("mailto:") ||
+                  url.startsWith("geo:") || url.contains("google.com/maps") ||
+                  url.contains("maps.google.com") || url.contains("maps.app.goo.gl") ||
                   url.startsWith("whatsapp:") || url.contains("wa.me") ||
                   url.contains("share.google") || url.contains("instagram.com") ||
                   url.contains("facebook.com") || url.contains("youtube.com")
@@ -828,7 +845,7 @@ fun NutrolixSupplementBrandApp(
                     ctx.startActivity(intent)
                     return true
                   } catch (_: Exception) {
-                    return false
+                    return true
                   }
                 }
 

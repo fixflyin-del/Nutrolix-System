@@ -348,6 +348,23 @@ fun NutrolixAdminWebViewApp(
                     clean.startsWith("mailto:", ignoreCase = true)
                   if (!isAllowed) return
                   (ctx as? Activity)?.runOnUiThread {
+                    val isMapsUrl = clean.startsWith("geo:", ignoreCase = true) ||
+                      clean.contains("google.com/maps", ignoreCase = true) ||
+                      clean.contains("maps.google.com", ignoreCase = true) ||
+                      clean.contains("maps.app.goo.gl", ignoreCase = true) ||
+                      clean.contains("goo.gl/maps", ignoreCase = true)
+                    if (isMapsUrl) {
+                      try {
+                        val mapsIntent = Intent(Intent.ACTION_VIEW, Uri.parse(clean)).apply {
+                          setPackage("com.google.android.apps.maps")
+                          flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        ctx.startActivity(mapsIntent)
+                        return@runOnUiThread
+                      } catch (_: Exception) {
+                        // Fall through to generic ACTION_VIEW if Google Maps app is unavailable
+                      }
+                    }
                     try {
                       val intent = Intent(Intent.ACTION_VIEW, Uri.parse(clean)).apply {
                         flags = Intent.FLAG_ACTIVITY_NEW_TASK
@@ -386,15 +403,60 @@ fun NutrolixAdminWebViewApp(
               ): Boolean {
                 val url = request?.url?.toString() ?: return false
 
-                // Handle WhatsApp, Google Maps, Call & External links
-                val isExternalIntent = url.startsWith("https://wa.me/") ||
-                  url.startsWith("whatsapp://") ||
-                  url.startsWith("tel:") ||
-                  url.startsWith("mailto:") ||
-                  url.startsWith("geo:") ||
-                  url.startsWith("https://www.google.com/maps") ||
-                  url.startsWith("https://maps.google.com") ||
-                  url.startsWith("https://maps.app.goo.gl")
+                // Handle Android intent:// redirects (e.g., Google Maps web redirecting to Google Maps app)
+                if (url.startsWith("intent://", ignoreCase = true)) {
+                  try {
+                    val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME).apply {
+                      addCategory(Intent.CATEGORY_BROWSABLE)
+                      component = null
+                      selector = null
+                      flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    try {
+                      ctx.startActivity(intent)
+                      return true
+                    } catch (_: Exception) {
+                      val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+                      if (!fallbackUrl.isNullOrBlank() && (fallbackUrl.startsWith("https://") || fallbackUrl.startsWith("http://"))) {
+                        ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(fallbackUrl)).apply {
+                          flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        })
+                        return true
+                      }
+                    }
+                  } catch (_: Exception) {}
+                  return true
+                }
+
+                // Handle Google Maps links natively in Google Maps app first
+                val isMapsLink = url.startsWith("geo:", ignoreCase = true) ||
+                  url.startsWith("https://www.google.com/maps", ignoreCase = true) ||
+                  url.startsWith("https://maps.google.com", ignoreCase = true) ||
+                  url.startsWith("https://maps.app.goo.gl", ignoreCase = true) ||
+                  url.startsWith("https://goo.gl/maps", ignoreCase = true)
+                if (isMapsLink) {
+                  try {
+                    val mapsIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                      setPackage("com.google.android.apps.maps")
+                      flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    ctx.startActivity(mapsIntent)
+                    return true
+                  } catch (_: Exception) {
+                    try {
+                      ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                      })
+                    } catch (_: Exception) {}
+                    return true
+                  }
+                }
+
+                // Handle WhatsApp, Call & Mail links
+                val isExternalIntent = url.startsWith("https://wa.me/", ignoreCase = true) ||
+                  url.startsWith("whatsapp://", ignoreCase = true) ||
+                  url.startsWith("tel:", ignoreCase = true) ||
+                  url.startsWith("mailto:", ignoreCase = true)
                 if (isExternalIntent) {
                   try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {

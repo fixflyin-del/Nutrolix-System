@@ -1715,6 +1715,37 @@
     </div>
   </div>
 
+  <!-- MODAL: Customer Map Location Preview (Fallback for older Android WebView APKs) -->
+  <div id="customerMapModal" class="fixed inset-0 bg-black/60 z-[70] hidden flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full overflow-hidden shadow-2xl border border-slate-200">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100 bg-slate-50">
+        <div class="min-w-0 pr-2">
+          <h3 id="customerMapModalTitle" class="text-sm font-black text-slate-900 truncate flex items-center gap-1.5">
+            <i class="fa-solid fa-location-dot text-rose-600"></i>
+            <span>Customer Location</span>
+          </h3>
+          <p id="customerMapModalAddress" class="text-[11px] text-slate-500 truncate mt-0.5"></p>
+        </div>
+        <button onclick="window.closeCustomerMapModal()" aria-label="Close Map" class="w-8 h-8 rounded-full bg-slate-200/80 hover:bg-slate-300 text-slate-700 flex items-center justify-center shrink-0">
+          <i class="fa-solid fa-xmark text-sm"></i>
+        </button>
+      </div>
+      <div class="w-full h-72 sm:h-80 bg-slate-100 relative">
+        <iframe id="customerMapEmbedFrame" src="about:blank" class="w-full h-full border-0" loading="lazy" referrerpolicy="no-referrer-when-downgrade"></iframe>
+      </div>
+      <div class="p-3.5 bg-white border-t border-slate-100 flex flex-wrap items-center gap-2">
+        <button onclick="window.copyCustomerMapLink()" class="flex-1 min-h-[42px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition">
+          <i class="fa-solid fa-copy"></i>
+          <span>Copy Location Link</span>
+        </button>
+        <button onclick="window.shareCustomerMapOnWhatsApp()" class="flex-1 min-h-[42px] px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 active:scale-95 transition shadow-sm">
+          <i class="fa-brands fa-whatsapp text-sm"></i>
+          <span>Share to Rider</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: Cancel Order & Refund -->
   <div id="cancelOrderModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl">
@@ -3785,6 +3816,20 @@
       }
     };
 
+    window.buildCustomerMapQuery = function(order) {
+      if (!order) return '';
+      const addrObj = (order.deliveryAddress && typeof order.deliveryAddress === 'object') ? order.deliveryAddress : {};
+      const lat = addrObj.gpsLat ?? addrObj.lat ?? addrObj.latitude ?? (order.deliveryCoordinates && (order.deliveryCoordinates.lat ?? order.deliveryCoordinates.latitude));
+      const lon = addrObj.gpsLon ?? addrObj.lng ?? addrObj.lon ?? addrObj.longitude ?? (order.deliveryCoordinates && (order.deliveryCoordinates.lon ?? order.deliveryCoordinates.lng ?? order.deliveryCoordinates.longitude));
+      if (lat !== null && lat !== undefined && lon !== null && lon !== undefined && lat !== '' && lon !== '' && Number.isFinite(Number(lat)) && Number.isFinite(Number(lon))) {
+        return `${Number(lat)},${Number(lon)}`;
+      }
+      const addrText = typeof order.deliveryAddress === 'string'
+        ? order.deliveryAddress
+        : [addrObj.address1 || addrObj.street, addrObj.city, addrObj.state, addrObj.pincode].filter(Boolean).join(', ');
+      return (addrText || '').trim();
+    };
+
     window.buildCustomerMapUrl = function(order) {
       if (!order) return '';
       const addrObj = (order.deliveryAddress && typeof order.deliveryAddress === 'object') ? order.deliveryAddress : {};
@@ -3792,31 +3837,102 @@
       if (/^https?:\/\/(www\.)?(google\.com\/maps|maps\.google\.com|maps\.app\.goo\.gl)/i.test(directUrl)) {
         return directUrl;
       }
-      const lat = addrObj.gpsLat ?? addrObj.lat ?? addrObj.latitude ?? (order.deliveryCoordinates && (order.deliveryCoordinates.lat ?? order.deliveryCoordinates.latitude));
-      const lon = addrObj.gpsLon ?? addrObj.lng ?? addrObj.lon ?? addrObj.longitude ?? (order.deliveryCoordinates && (order.deliveryCoordinates.lon ?? order.deliveryCoordinates.lng ?? order.deliveryCoordinates.longitude));
-      if (lat !== null && lat !== undefined && lon !== null && lon !== undefined && lat !== '' && lon !== '' && Number.isFinite(Number(lat)) && Number.isFinite(Number(lon))) {
-        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(Number(lat) + ',' + Number(lon))}`;
-      }
-      const addrText = typeof order.deliveryAddress === 'string'
-        ? order.deliveryAddress
-        : [addrObj.address1 || addrObj.street, addrObj.city, addrObj.state, addrObj.pincode].filter(Boolean).join(', ');
-      if (addrText && addrText.trim()) {
-        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addrText.trim())}`;
+      const q = window.buildCustomerMapQuery(order);
+      if (q) {
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
       }
       return '';
+    };
+
+    window.activeCustomerMapData = null;
+
+    window.closeCustomerMapModal = function() {
+      const modal = document.getElementById('customerMapModal');
+      if (modal) modal.classList.add('hidden');
+      const frame = document.getElementById('customerMapEmbedFrame');
+      if (frame) frame.src = 'about:blank';
+    };
+
+    window.copyCustomerMapLink = async function() {
+      const info = window.activeCustomerMapData;
+      if (!info || !info.mapUrl) return;
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(info.mapUrl);
+        } else {
+          const ta = document.createElement('textarea');
+          ta.value = info.mapUrl;
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          document.body.removeChild(ta);
+        }
+        if (typeof window.showAdminNotification === 'function') {
+          window.showAdminNotification('✓ Customer Google Maps link copied!');
+        }
+      } catch (_) {}
+    };
+
+    window.shareCustomerMapOnWhatsApp = function() {
+      const info = window.activeCustomerMapData;
+      if (!info || !info.mapUrl) return;
+      const msg = `📍 *Delivery Location — Order #${info.orderId}*\n👤 ${info.customerName}${info.phone ? ' (' + info.phone + ')' : ''}\n🏠 ${info.addressText || 'Customer Pin'}\n🗺️ Open in Google Maps:\n${info.mapUrl}`;
+      const waUrl = `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      window.openExternalAdminUrl(waUrl);
     };
 
     window.openCustomerMapLocation = function(orderId) {
       const order = (window.packagedOrders || []).find(o => o.id === orderId || o.orderId === orderId);
       if (!order) return;
       const mapUrl = window.buildCustomerMapUrl(order);
+      const mapQuery = window.buildCustomerMapQuery(order);
       if (!mapUrl) {
         if (typeof window.showAdminNotification === 'function') {
           window.showAdminNotification('Customer location address not available for this order.', 'error');
         }
         return;
       }
-      window.openExternalAdminUrl(mapUrl);
+
+      // 1. Updated Android Admin APK: launch Google Maps app natively via bridge
+      const hasNativeOpen = Boolean(window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.openExternalUrl === 'function');
+      if (hasNativeOpen) {
+        window.NutrolixAdminNativeBridge.openExternalUrl(mapUrl);
+        return;
+      }
+
+      // 2. Older installed Android WebView APK (bridge exists without openExternalUrl, or Android ; wv):
+      // Avoid Google Maps web redirecting WebView to intent:// (ERR_UNKNOWN_URL_SCHEME) by showing live embedded map + Share/Copy!
+      const isLegacyAndroidWebView = Boolean(window.NutrolixAdminNativeBridge) || /;\s*wv\)/i.test(navigator.userAgent || '');
+      if (isLegacyAndroidWebView) {
+        const addrObj = (order.deliveryAddress && typeof order.deliveryAddress === 'object') ? order.deliveryAddress : {};
+        const addressText = typeof order.deliveryAddress === 'string'
+          ? order.deliveryAddress
+          : [addrObj.address1 || addrObj.street, addrObj.city, addrObj.state, addrObj.pincode].filter(Boolean).join(', ');
+        const custName = order.customer?.name || 'Customer';
+        window.activeCustomerMapData = {
+          orderId: order.id,
+          customerName: custName,
+          phone: order.customer?.phone || '',
+          addressText,
+          mapUrl
+        };
+        const titleEl = document.getElementById('customerMapModalTitle');
+        if (titleEl) {
+          titleEl.innerHTML = `<i class="fa-solid fa-location-dot text-rose-600"></i><span>${window.escapeAdminHtml(custName)} • #${window.escapeAdminHtml(order.id)}</span>`;
+        }
+        const addrEl = document.getElementById('customerMapModalAddress');
+        if (addrEl) addrEl.textContent = addressText || mapQuery;
+        const frame = document.getElementById('customerMapEmbedFrame');
+        if (frame) {
+          frame.src = `https://maps.google.com/maps?q=${encodeURIComponent(mapQuery || addressText)}&z=16&output=embed`;
+        }
+        const modal = document.getElementById('customerMapModal');
+        if (modal) modal.classList.remove('hidden');
+        return;
+      }
+
+      // 3. Regular Mobile / Desktop Browser: open Google Maps in new tab
+      window.open(mapUrl, '_blank', 'noopener,noreferrer');
     };
 
     window.openCancelOrderModal = function(orderId) {
