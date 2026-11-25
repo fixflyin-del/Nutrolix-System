@@ -3685,6 +3685,230 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Permanently delete an order and all its related data (Admin Authenticated)
+  if ((req.method === 'POST' || req.method === 'DELETE') && (reqPath === '/api/nutrition-orders/delete' || reqPath === '/api/orders/delete')) {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      const reqOrigin = String(req.headers.origin || '').trim();
+      const allowedDeleteOrigin = (
+        reqOrigin === 'https://nutrolix.in' ||
+        reqOrigin === 'https://www.nutrolix.in' ||
+        reqOrigin === 'https://nutrolixweb.vercel.app' ||
+        reqOrigin === 'null' ||
+        /^https:\/\/[a-z0-9-]+\.run\.app$/i.test(reqOrigin) ||
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(reqOrigin)
+      ) ? reqOrigin : 'https://nutrolix.in';
+
+      try { res.removeHeader('Access-Control-Allow-Origin'); } catch (_) {}
+      const deleteHeaders = {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': allowedDeleteOrigin,
+        'Vary': 'Origin',
+        'Cache-Control': 'no-store'
+      };
+
+      try {
+        const headerAdminToken = req.headers['x-nutrolix-admin-token'] || '';
+        const authHeader = req.headers['authorization'] || '';
+        let authorizedAdmin = nutrolixCore.verifyAdminSessionToken(headerAdminToken || authHeader);
+
+        if (!authorizedAdmin && authHeader) {
+          const decodedUser = await nutrolixCore.verifyFirebaseIdToken(authHeader, __dirname);
+          if (decodedUser && decodedUser.uid) {
+            if (decodedUser.email === 'nutrolix.in@gmail.com') {
+              authorizedAdmin = { email: decodedUser.email, role: 'ADMIN' };
+            } else {
+              const adminDoc = await nutrolixCore.firestoreGetFirstAvailable(`admins/${decodedUser.uid}`);
+              if (adminDoc && (adminDoc.role === 'admin' || adminDoc.isAdmin === true)) {
+                authorizedAdmin = { email: decodedUser.email || decodedUser.uid, role: 'ADMIN' };
+              }
+            }
+          }
+        }
+
+        if (!authorizedAdmin) {
+          res.writeHead(401, deleteHeaders);
+          res.end(JSON.stringify({
+            success: false,
+            error: 'Admin authorization required to permanently delete an order.'
+          }));
+          return;
+        }
+
+        let payload = {};
+        if (body && body.trim()) {
+          try {
+            payload = JSON.parse(body);
+          } catch (_) {
+            res.writeHead(400, deleteHeaders);
+            res.end(JSON.stringify({ success: false, error: 'Invalid JSON request body.' }));
+            return;
+          }
+        }
+
+        const rawOrderId = String(payload.orderId || payload.id || (parsedUrl.query && (parsedUrl.query.orderId || parsedUrl.query.id)) || '').trim();
+        if (!/^[A-Za-z0-9_-]{3,80}$/.test(rawOrderId)) {
+          res.writeHead(400, deleteHeaders);
+          res.end(JSON.stringify({ success: false, error: 'Valid orderId is required.' }));
+          return;
+        }
+        const orderId = rawOrderId;
+
+        // 1. Gather existing order metadata before deletion (for linked PayU & user notification cleanup)
+        const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
+        let localOrders = safeReadJson(ordersFile, []);
+        if (!Array.isArray(localOrders)) localOrders = [];
+        const localMatch = localOrders.find(o => o && (String(o.id || '') === orderId || String(o.orderId || '') === orderId)) || null;
+        const firestoreMatch = await nutrolixCore.firestoreGetFirstAvailable(`orders/${orderId}`).catch(() => null);
+        const existingOrder = firestoreMatch || localMatch || {};
+
+        const rawTxnid = String(existingOrder.txnid || '').trim();
+        const safeTxnid = /^[A-Za-z0-9_-]{3,100}$/.test(rawTxnid) ? rawTxnid : '';
+        const targetPhone = customerSync.extractOrderPhone(existingOrder);
+        const uidSet = new Set();
+        const rawUid = String(existingOrder.uid || '').trim();
+        if (/^[A-Za-z0-9_.-]{2,128}$/.test(rawUid)) uidSet.add(rawUid);
+        const canonicalUid = nutrolixCore.canonicalCustomerUid(targetPhone);
+        if (canonicalUid && /^[A-Za-z0-9_.-]{2,128}$/.test(canonicalUid)) uidSet.add(canonicalUid);
+
+        const deletedCounts = {
+          orders: 0,
+          orderSubdocs: 0,
+          payuTransactions: 0,
+          payuPendingOrders: 0,
+          notificationDedups: 0,
+          notificationDeliveries: 0,
+          userNotifications: 0,
+          localOrdersRemoved: 0,
+          localNotificationsRemoved: 0
+        };
+
+        // 2. Delete local JSON records for this order
+        const remainingOrders = localOrders.filter(o => !(o && (String(o.id || '') === orderId || String(o.orderId || '') === orderId)));
+        deletedCounts.localOrdersRemoved = localOrders.length - remainingOrders.length;
+        if (deletedCounts.localOrdersRemoved > 0) {
+          safeWriteJson(ordersFile, remainingOrders);
+        }
+
+        const notifLogFile = path.join(PUBLIC_DIR, 'data', 'notifications_log.json');
+        const localNotifs = safeReadJson(notifLogFile, []);
+        if (Array.isArray(localNotifs)) {
+          const remainingNotifs = localNotifs.filter(n => !(n && String(n.orderId || '') === orderId));
+          deletedCounts.localNotificationsRemoved = localNotifs.length - remainingNotifs.length;
+          if (deletedCounts.localNotificationsRemoved > 0) {
+            safeWriteJson(notifLogFile, remainingNotifs);
+          }
+        }
+
+        try {
+          const foodRedeemFile = path.join(PUBLIC_DIR, 'data', 'food_discount_redemptions.json');
+          const redemptions = safeReadJson(foodRedeemFile, null);
+          if (redemptions && typeof redemptions === 'object' && !Array.isArray(redemptions)) {
+            let changed = false;
+            Object.keys(redemptions).forEach(k => {
+              const entry = redemptions[k];
+              if (entry && (String(entry.orderId || '') === orderId || String(entry.lastOrderId || '') === orderId)) {
+                delete redemptions[k];
+                changed = true;
+              }
+            });
+            if (changed) safeWriteJson(foodRedeemFile, redemptions);
+          }
+        } catch (_) {}
+
+        // Helper for targeted Firestore query-and-delete on a single DB
+        const queryAndDeleteByOrderId = async (collectionId, parentPath, dbId) => {
+          const matches = await nutrolixCore.firestoreRunQuery(
+            {
+              from: [{ collectionId }],
+              where: {
+                fieldFilter: {
+                  field: { fieldPath: 'orderId' },
+                  op: 'EQUAL',
+                  value: { stringValue: orderId }
+                }
+              },
+              limit: 200
+            },
+            parentPath,
+            dbId
+          );
+          let count = 0;
+          const prefix = parentPath ? `${parentPath}/${collectionId}` : collectionId;
+          await Promise.all(
+            matches
+              .filter(d => d && d._docId)
+              .map(async d => {
+                const ok = await nutrolixCore.firestoreDeleteDocument(`${prefix}/${d._docId}`, dbId);
+                if (ok) count++;
+              })
+          );
+          return count;
+        };
+
+        // 3. Permanently delete order document + subcollections + all linked collections across BOTH Firestore databases
+        await Promise.all(
+          nutrolixCore.BOTH_DB_IDS.map(async (dbId) => {
+            // Delete any subcollections attached to orders/{orderId}
+            try {
+              const subCols = await nutrolixCore.firestoreListCollectionIds(`orders/${orderId}`, dbId);
+              for (const sub of subCols) {
+                const { docs: subDocs } = await nutrolixCore.firestoreListAllDocuments(`orders/${orderId}/${sub}`, dbId, 200);
+                await Promise.all(
+                  subDocs.filter(sd => sd && sd._docId).map(async sd => {
+                    const ok = await nutrolixCore.firestoreDeleteDocument(`orders/${orderId}/${sub}/${sd._docId}`, dbId);
+                    if (ok) deletedCounts.orderSubdocs++;
+                  })
+                );
+              }
+            } catch (_) {}
+
+            // Direct document deletes
+            const directDeletes = [
+              nutrolixCore.firestoreDeleteDocument(`orders/${orderId}`, dbId).then(ok => { if (ok) deletedCounts.orders++; }),
+              nutrolixCore.firestoreDeleteDocument(`payuPendingOrders/${orderId}`, dbId).then(ok => { if (ok) deletedCounts.payuPendingOrders++; })
+            ];
+            if (safeTxnid) {
+              directDeletes.push(
+                nutrolixCore.firestoreDeleteDocument(`payuTransactions/${safeTxnid}`, dbId).then(ok => { if (ok) deletedCounts.payuTransactions++; }),
+                nutrolixCore.firestoreDeleteDocument(`payuPendingOrders/${safeTxnid}`, dbId).then(ok => { if (ok) deletedCounts.payuPendingOrders++; })
+              );
+            }
+
+            // Targeted query deletes for any docs referencing this orderId
+            const queryDeletes = [
+              queryAndDeleteByOrderId('orders', '', dbId).then(c => { deletedCounts.orders += c; }),
+              queryAndDeleteByOrderId('payuTransactions', '', dbId).then(c => { deletedCounts.payuTransactions += c; }),
+              queryAndDeleteByOrderId('payuPendingOrders', '', dbId).then(c => { deletedCounts.payuPendingOrders += c; }),
+              queryAndDeleteByOrderId('notificationDedups', '', dbId).then(c => { deletedCounts.notificationDedups += c; }),
+              queryAndDeleteByOrderId('notificationDeliveries', '', dbId).then(c => { deletedCounts.notificationDeliveries += c; })
+            ];
+
+            for (const uid of uidSet) {
+              queryDeletes.push(
+                queryAndDeleteByOrderId('notifications', `users/${uid}`, dbId).then(c => { deletedCounts.userNotifications += c; })
+              );
+            }
+
+            await Promise.all([...directDeletes, ...queryDeletes]);
+          })
+        );
+
+        res.writeHead(200, deleteHeaders);
+        res.end(JSON.stringify({
+          success: true,
+          orderId,
+          deleted: deletedCounts
+        }));
+      } catch (err) {
+        res.writeHead(500, deleteHeaders);
+        res.end(JSON.stringify({ success: false, error: err.message || 'Failed to delete order permanently.' }));
+      }
+    });
+    return;
+  }
+
   // -------------------------------------------------------------
   // PAYU LIVE PAYMENT GATEWAY INTEGRATION
   // -------------------------------------------------------------

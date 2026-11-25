@@ -38,6 +38,10 @@
         }
         return reqPromise;
       };
+      try {
+        const isNativeApp = Boolean(window.NutrolixAdminNativeBridge) || /;\s*wv\)/i.test(navigator.userAgent || '') || window.location.protocol === 'file:';
+        if (isNativeApp) document.documentElement.classList.add('is-native-admin-app');
+      } catch (_) {}
     })();
   </script>
 
@@ -53,6 +57,12 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
     .admin-bottom-nav {
       padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    }
+    .is-native-admin-app #adminBottomNav {
+      display: block !important;
+    }
+    .is-native-admin-app main.admin-main-workspace {
+      padding-bottom: 6rem !important;
     }
     .zomato-order-card {
       transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
@@ -332,7 +342,7 @@
     </aside>
 
     <!-- Main Workspace (Right Side) -->
-    <main class="flex-1 px-2.5 pt-2.5 pb-24 sm:px-6 sm:pt-5 sm:pb-24 lg:px-8 min-w-0 w-full">
+    <main class="admin-main-workspace flex-1 px-2.5 pt-2.5 pb-24 sm:px-6 sm:pt-5 md:pb-8 lg:px-8 min-w-0 w-full">
 
       <!-- Compact Single-Row KPI Strip (Slim on Mobile, Full Grid on Desktop) -->
       <div class="grid grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3.5 mb-3 sm:mb-5">
@@ -1095,13 +1105,13 @@
         </div>
       </div>
 
-      <!-- TAB: LIVE ORDERS (Single-Page Zomato Partner Style Vertical Cards) -->
+      <!-- TAB: LIVE ORDERS (Single-Page Zomato Partner Style Vertical Cards + Ongoing / Completed Tabs) -->
       <div id="tabContent-packaged-orders" class="px-0.5 py-1 sm:p-2 max-w-3xl mx-auto">
         <div class="flex items-center justify-between gap-2 mb-3">
           <div class="flex items-center space-x-2 min-w-0">
             <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-            <h3 class="text-base sm:text-lg font-black text-slate-900 truncate">Live Orders</h3>
-            <span id="liveOrdersHeaderPill" class="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">0 Active</span>
+            <h3 class="text-base sm:text-lg font-black text-slate-900 truncate">Orders</h3>
+            <span id="liveOrdersHeaderPill" class="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">0 Live</span>
           </div>
           <button onclick="window.loadPackagedOrders()" class="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs shadow-xs transition flex items-center space-x-1.5 active:scale-95 shrink-0">
             <i class="fa-solid fa-arrows-rotate text-emerald-700"></i>
@@ -1109,7 +1119,36 @@
           </button>
         </div>
 
-        <!-- Single Continuous Vertical Order Cards Feed (No Horizontal Scroll, No Separate Sections) -->
+        <!-- Modern Segmented Pill Tabs: Ongoing (Live) vs Completed (Delivered / Cancelled) -->
+        <div role="tablist" aria-label="Order Status Tabs" class="bg-slate-200/75 p-1 rounded-2xl grid grid-cols-2 gap-1.5 mb-3.5 shadow-inner border border-slate-200/80">
+          <button
+            type="button"
+            role="tab"
+            id="orderSubTab-ongoing"
+            aria-selected="true"
+            onclick="window.setOrderSubTab('ongoing')"
+            class="min-h-[44px] px-3 py-2 rounded-xl bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200/80 font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+          >
+            <span id="ongoingTabLiveDot" class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+            <span>Ongoing</span>
+            <span id="ongoingOrderCountBadge" class="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-600 text-white leading-none">0</span>
+          </button>
+
+          <button
+            type="button"
+            role="tab"
+            id="orderSubTab-completed"
+            aria-selected="false"
+            onclick="window.setOrderSubTab('completed')"
+            class="min-h-[44px] px-3 py-2 rounded-xl bg-transparent text-slate-600 hover:text-slate-900 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
+          >
+            <i class="fa-solid fa-check-double text-[11px] opacity-80"></i>
+            <span>Completed</span>
+            <span id="completedOrderCountBadge" class="px-2 py-0.5 rounded-full text-[11px] font-black bg-slate-300/80 text-slate-700 leading-none">0</span>
+          </button>
+        </div>
+
+        <!-- Vertical Order Cards Feed (No Horizontal Scroll) -->
         <div id="packagedOrdersCardsList" class="space-y-3.5">
           <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400 text-xs font-semibold shadow-xs">
             <i class="fa-solid fa-spinner fa-spin text-emerald-600 text-lg mb-2 block"></i>
@@ -1765,6 +1804,43 @@
       <div class="flex items-center justify-end space-x-2">
         <button onclick="window.closeModal('cancelOrderModal')" class="px-4 py-2 text-xs font-bold text-slate-500 hover:bg-slate-100 rounded-xl">Back</button>
         <button onclick="window.confirmCancelOrder()" class="px-4 py-2 text-xs font-bold bg-rose-600 hover:bg-rose-700 text-white rounded-xl shadow">Confirm Cancellation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Permanently Delete Order -->
+  <div id="deleteOrderModal" class="fixed inset-0 bg-black/60 backdrop-blur-[1px] z-[80] hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-rose-100">
+      <div class="flex items-start gap-3.5 mb-4">
+        <div class="w-11 h-11 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-lg shrink-0">
+          <i class="fa-solid fa-trash-can"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+          <h3 class="text-base font-black text-slate-900">Delete Order Permanently?</h3>
+          <p class="text-xs text-slate-500 mt-0.5 leading-relaxed">
+            This will permanently erase this order and all its related data (payment logs, notifications, tracking &amp; revenue stats) from the database. This cannot be undone.
+          </p>
+        </div>
+      </div>
+
+      <input type="hidden" id="deleteOrderIdInput">
+      <div class="bg-rose-50/70 border border-rose-200/80 rounded-2xl p-3.5 mb-5 space-y-1">
+        <div class="flex items-center justify-between gap-2">
+          <span id="deleteOrderSummaryId" class="text-xs font-black text-slate-900">#ORD-000000</span>
+          <span id="deleteOrderSummaryStatus" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-white text-slate-700 border border-slate-200">Status</span>
+        </div>
+        <p id="deleteOrderSummaryCustomer" class="text-xs font-bold text-slate-700 truncate">Customer</p>
+        <p id="deleteOrderSummaryAmount" class="text-xs font-black text-rose-700">₹0</p>
+      </div>
+
+      <div class="flex items-center justify-end gap-2">
+        <button type="button" onclick="window.closeModal('deleteOrderModal')" class="min-h-[42px] px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+          Cancel
+        </button>
+        <button type="button" id="confirmDeleteOrderBtn" onclick="window.confirmPermanentDeleteOrder()" class="min-h-[42px] px-4 py-2 text-xs font-black bg-rose-600 hover:bg-rose-700 active:scale-[0.98] text-white rounded-xl shadow-md shadow-rose-600/20 transition flex items-center gap-1.5">
+          <i class="fa-solid fa-trash-can text-[11px]"></i>
+          <span>Delete Permanently</span>
+        </button>
       </div>
     </div>
   </div>
@@ -3632,9 +3708,16 @@
         ...(window.liveOrderBuckets.firestore || [])
       ];
 
+      window.permanentlyDeletedOrderIds = window.permanentlyDeletedOrderIds || (() => {
+        try {
+          const saved = JSON.parse(sessionStorage.getItem('nutrolix_deleted_order_ids') || '[]');
+          return new Set(Array.isArray(saved) ? saved : []);
+        } catch (_) { return new Set(); }
+      })();
+
       feedOrder.forEach(raw => {
         const norm = window.normalizeNutrolixOrder(raw);
-        if (!norm) return;
+        if (!norm || window.permanentlyDeletedOrderIds.has(norm.id)) return;
         const prev = mergedMap.get(norm.id);
         if (!prev) {
           mergedMap.set(norm.id, norm);
@@ -3761,19 +3844,71 @@
       }
     };
 
+    window.activeOrderSubTab = window.activeOrderSubTab || 'ongoing';
+
+    window.isOrderCompletedOrCancelled = function(statusRaw) {
+      const st = window.normalizeOrderStatus(statusRaw);
+      return st === 'Delivered' || st === 'Cancelled';
+    };
+
+    window.setOrderSubTab = function(tab) {
+      window.activeOrderSubTab = (tab === 'completed') ? 'completed' : 'ongoing';
+      window.updateOrderFilterCounts();
+      window.renderPackagedOrdersTable();
+    };
+
     window.updateOrderFilterCounts = function() {
       const orders = window.packagedOrders || [];
-      const activeCount = orders.filter(o => {
-        const st = window.normalizeOrderStatus(o.status);
-        return st === 'New' || st === 'Preparing' || st === 'Ready' || st === 'Out for Delivery';
-      }).length;
+      const activeCount = orders.filter(o => !window.isOrderCompletedOrCancelled(o.status)).length;
+      const completedCount = orders.length - activeCount;
 
       const headerPill = document.getElementById('liveOrdersHeaderPill');
       if (headerPill) {
-        headerPill.innerText = activeCount === 1 ? '1 Active' : `${activeCount} Active`;
+        headerPill.innerText = activeCount === 1 ? '1 Live' : `${activeCount} Live`;
         headerPill.className = activeCount > 0
           ? 'px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap'
           : 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap';
+      }
+
+      const ongoingBadge = document.getElementById('ongoingOrderCountBadge');
+      const completedBadge = document.getElementById('completedOrderCountBadge');
+      const ongoingTabBtn = document.getElementById('orderSubTab-ongoing');
+      const completedTabBtn = document.getElementById('orderSubTab-completed');
+      const ongoingDot = document.getElementById('ongoingTabLiveDot');
+
+      const isOngoingTab = window.activeOrderSubTab !== 'completed';
+      if (ongoingBadge) {
+        ongoingBadge.innerText = String(activeCount);
+        ongoingBadge.className = isOngoingTab
+          ? (activeCount > 0
+            ? 'px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-600 text-white leading-none'
+            : 'px-2 py-0.5 rounded-full text-[11px] font-black bg-slate-200 text-slate-600 leading-none')
+          : (activeCount > 0
+            ? 'px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 leading-none'
+            : 'px-2 py-0.5 rounded-full text-[11px] font-black bg-slate-300/80 text-slate-600 leading-none');
+      }
+      if (completedBadge) {
+        completedBadge.innerText = String(completedCount);
+        completedBadge.className = !isOngoingTab
+          ? 'px-2 py-0.5 rounded-full text-[11px] font-black bg-slate-900 text-white leading-none'
+          : 'px-2 py-0.5 rounded-full text-[11px] font-black bg-slate-300/80 text-slate-700 leading-none';
+      }
+      if (ongoingDot) {
+        ongoingDot.className = activeCount > 0
+          ? 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0'
+          : 'w-2 h-2 rounded-full bg-slate-300 shrink-0';
+      }
+      if (ongoingTabBtn) {
+        ongoingTabBtn.setAttribute('aria-selected', isOngoingTab ? 'true' : 'false');
+        ongoingTabBtn.className = isOngoingTab
+          ? 'min-h-[44px] px-3 py-2 rounded-xl bg-white text-emerald-800 shadow-sm ring-1 ring-slate-200/80 font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]'
+          : 'min-h-[44px] px-3 py-2 rounded-xl bg-transparent text-slate-600 hover:text-slate-900 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]';
+      }
+      if (completedTabBtn) {
+        completedTabBtn.setAttribute('aria-selected', !isOngoingTab ? 'true' : 'false');
+        completedTabBtn.className = !isOngoingTab
+          ? 'min-h-[44px] px-3 py-2 rounded-xl bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80 font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]'
+          : 'min-h-[44px] px-3 py-2 rounded-xl bg-transparent text-slate-600 hover:text-slate-900 font-bold text-xs sm:text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.98]';
       }
 
       const bottomBadge = document.getElementById('bottomNavOrderBadge');
@@ -3944,23 +4079,135 @@
       if (modal) modal.classList.remove('hidden');
     };
 
+    window.openDeleteOrderModal = function(orderId) {
+      const order = (window.packagedOrders || []).find(o => o.id === orderId || o.orderId === orderId);
+      const inputEl = document.getElementById('deleteOrderIdInput');
+      if (inputEl) inputEl.value = orderId;
+
+      const idEl = document.getElementById('deleteOrderSummaryId');
+      if (idEl) idEl.textContent = '#' + orderId;
+
+      const statusEl = document.getElementById('deleteOrderSummaryStatus');
+      if (statusEl) statusEl.textContent = window.normalizeOrderStatus(order && order.status ? order.status : 'Order');
+
+      const custEl = document.getElementById('deleteOrderSummaryCustomer');
+      if (custEl) {
+        const cName = (order && order.customer && order.customer.name) ? order.customer.name : 'Customer';
+        const cPhone = (order && order.customer && order.customer.phone) ? ` • ${order.customer.phone}` : '';
+        custEl.textContent = cName + cPhone;
+      }
+
+      const amtEl = document.getElementById('deleteOrderSummaryAmount');
+      if (amtEl) {
+        const amt = Number((order && (order.grandTotal || order.total)) || 0);
+        amtEl.textContent = `₹${amt.toLocaleString('en-IN')}`;
+      }
+
+      const modal = document.getElementById('deleteOrderModal');
+      if (modal) modal.classList.remove('hidden');
+    };
+
+    window.confirmPermanentDeleteOrder = async function() {
+      const inputEl = document.getElementById('deleteOrderIdInput');
+      const orderId = String(inputEl && inputEl.value || '').trim();
+      if (!orderId) return;
+
+      const btn = document.getElementById('confirmDeleteOrderBtn');
+      const origHtml = btn ? btn.innerHTML : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i><span>Deleting...</span>';
+      }
+
+      const performDeleteRequest = async (adminToken) => {
+        const headers = { 'Content-Type': 'application/json' };
+        if (adminToken) headers['X-Nutrolix-Admin-Token'] = adminToken;
+        try {
+          if (typeof firebase !== 'undefined' && firebase.auth && firebase.auth().currentUser) {
+            const idToken = await firebase.auth().currentUser.getIdToken();
+            if (idToken) headers['Authorization'] = 'Bearer ' + idToken;
+          }
+        } catch (_) {}
+
+        const host = window.NUTROLIX_API_HOST || '';
+        return fetch(host + '/api/nutrition-orders/delete', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ orderId })
+        });
+      };
+
+      try {
+        let token = await window.ensureAdminSessionToken();
+        let res = await performDeleteRequest(token);
+
+        if (res && res.status === 401) {
+          try { sessionStorage.removeItem('nutrolix_admin_token'); } catch (_) {}
+          token = await window.ensureAdminSessionToken();
+          res = await performDeleteRequest(token);
+        }
+
+        const data = res ? await res.json().catch(() => ({})) : {};
+        if (!res || !res.ok || data.success !== true) {
+          throw new Error(data.error || `Server returned ${res ? res.status : 'network error'}`);
+        }
+
+        // Remember deleted order ID in session so concurrent in-flight polls cannot resurrect it
+        window.permanentlyDeletedOrderIds = window.permanentlyDeletedOrderIds || new Set();
+        window.permanentlyDeletedOrderIds.add(orderId);
+        try {
+          sessionStorage.setItem('nutrolix_deleted_order_ids', JSON.stringify(Array.from(window.permanentlyDeletedOrderIds).slice(-200)));
+        } catch (_) {}
+
+        // Clean from all live in-memory buckets & sets
+        const notDeleted = (o) => !(o && (String(o.id || '') === orderId || String(o.orderId || '') === orderId));
+        if (window.liveOrderBuckets) {
+          window.liveOrderBuckets.cloudRun = (window.liveOrderBuckets.cloudRun || []).filter(notDeleted);
+          window.liveOrderBuckets.vercel = (window.liveOrderBuckets.vercel || []).filter(notDeleted);
+          window.liveOrderBuckets.firestore = (window.liveOrderBuckets.firestore || []).filter(notDeleted);
+        }
+        window.packagedOrders = (window.packagedOrders || []).filter(notDeleted);
+        if (window.knownAdminOrderIds) window.knownAdminOrderIds.delete(orderId);
+        if (typeof acknowledgedOrderIds !== 'undefined') acknowledgedOrderIds.add(orderId);
+        if (typeof window.acknowledgeActiveAlarm === 'function') {
+          try { window.acknowledgeActiveAlarm(); } catch (_) {}
+        }
+
+        // Clean local browser caches
+        ['nutrolix_orders', 'nutrolix_customer_orders', 'nutrolix_store_orders'].forEach(storageKey => {
+          try {
+            const arr = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            if (Array.isArray(arr)) {
+              localStorage.setItem(storageKey, JSON.stringify(arr.filter(notDeleted)));
+            }
+          } catch (_) {}
+        });
+
+        window.closeModal('deleteOrderModal');
+        window.mergeAndRenderAllOrders(false);
+        if (typeof window.showAdminNotification === 'function') {
+          window.showAdminNotification(`✓ Order #${orderId} & all related data permanently deleted.`);
+        }
+        window.loadPackagedOrders();
+      } catch (err) {
+        if (typeof window.showAdminNotification === 'function') {
+          window.showAdminNotification('Delete failed: ' + (err.message || 'Please try again'), 'error');
+        }
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = origHtml;
+        }
+      }
+    };
+
     window.renderPackagedOrdersTable = function() {
       const container = document.getElementById('packagedOrdersCardsList');
       if (!container) return;
-      if (!window.packagedOrders || window.packagedOrders.length === 0) {
-        container.innerHTML = `
-          <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-2 shadow-xs">
-            <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-xl">
-              <i class="fa-solid fa-bell-concierge"></i>
-            </div>
-            <p class="text-sm font-black text-slate-800">Waiting for Live Orders</p>
-            <p class="text-xs text-slate-500">New customer orders from App &amp; Website will appear here instantly.</p>
-          </div>
-        `;
-        return;
-      }
+      const allOrders = window.packagedOrders || [];
+      const activeSubTab = window.activeOrderSubTab === 'completed' ? 'completed' : 'ongoing';
 
-      const sortedAll = [...window.packagedOrders].sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
+      const sortedAll = [...allOrders].sort((a, b) => (a.timestampMs || 0) - (b.timestampMs || 0));
       const customerOrderCounts = {};
       const orderCustomerSequence = {};
       sortedAll.forEach(o => {
@@ -3969,14 +4216,48 @@
         orderCustomerSequence[o.id] = customerOrderCounts[key];
       });
 
-      // Single continuous vertical feed: Active orders first (newest on top), Completed/Cancelled seamlessly below
-      const isActiveStatus = (st) => st === 'New' || st === 'Preparing' || st === 'Ready' || st === 'Out for Delivery';
-      const list = [...window.packagedOrders].sort((a, b) => {
-        const aActive = isActiveStatus(window.normalizeOrderStatus(a.status));
-        const bActive = isActiveStatus(window.normalizeOrderStatus(b.status));
-        if (aActive !== bActive) return aActive ? -1 : 1;
-        return (b.timestampMs || 0) - (a.timestampMs || 0);
-      });
+      const isActiveStatus = (st) => !window.isOrderCompletedOrCancelled(st);
+      const ongoingOrders = allOrders
+        .filter(o => isActiveStatus(o.status))
+        .sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0));
+      const completedOrders = allOrders
+        .filter(o => !isActiveStatus(o.status))
+        .sort((a, b) => (b.timestampMs || 0) - (a.timestampMs || 0));
+
+      const list = activeSubTab === 'completed' ? completedOrders : ongoingOrders;
+
+      if (list.length === 0) {
+        if (activeSubTab === 'ongoing') {
+          container.innerHTML = `
+            <div class="bg-white rounded-2xl border border-slate-200 p-9 text-center space-y-2.5 shadow-xs">
+              <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-bell-concierge"></i>
+              </div>
+              <p class="text-sm font-black text-slate-800">No Live Ongoing Orders</p>
+              <p class="text-xs text-slate-500 max-w-xs mx-auto">New orders from App &amp; Website will appear here instantly in real time.</p>
+              ${completedOrders.length > 0 ? `
+                <div class="pt-1">
+                  <button type="button" onclick="window.setOrderSubTab('completed')" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs transition active:scale-95">
+                    <i class="fa-solid fa-check-double text-emerald-600"></i>
+                    <span>View ${completedOrders.length} Completed Order${completedOrders.length === 1 ? '' : 's'}</span>
+                  </button>
+                </div>
+              ` : ''}
+            </div>
+          `;
+        } else {
+          container.innerHTML = `
+            <div class="bg-white rounded-2xl border border-slate-200 p-9 text-center space-y-2.5 shadow-xs">
+              <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-box-archive"></i>
+              </div>
+              <p class="text-sm font-black text-slate-800">No Completed Orders Yet</p>
+              <p class="text-xs text-slate-500 max-w-xs mx-auto">Delivered and cancelled orders will appear here automatically.</p>
+            </div>
+          `;
+        }
+        return;
+      }
 
       container.innerHTML = list.map(order => {
         const safeId = window.escapeAdminHtml(order.id);
@@ -4146,6 +4427,9 @@
                   ` : ''}
                   <button onclick="window.openOrderInvoice('${safeId}')" title="View Invoice" aria-label="Order Invoice" class="w-9 h-9 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center active:scale-95 transition">
                     <i class="fa-solid fa-receipt text-xs"></i>
+                  </button>
+                  <button onclick="window.openDeleteOrderModal('${safeId}')" title="Delete Order Permanently" aria-label="Delete Order Permanently" class="w-9 h-9 rounded-xl bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white border border-rose-200/90 flex items-center justify-center active:scale-95 transition shadow-2xs">
+                    <i class="fa-solid fa-trash-can text-xs"></i>
                   </button>
                 </div>
               </div>
@@ -7775,8 +8059,8 @@
       }, 20);
     }
   </script>
-  <!-- Zomato-Style Fixed Bottom Navigation Bar -->
-  <nav id="adminBottomNav" aria-label="Admin Bottom Navigation" class="admin-bottom-nav fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_20px_rgba(15,23,42,0.06)]">
+  <!-- Zomato-Style Fixed Bottom Navigation Bar (Mobile & Android Admin App Only — Hidden on Desktop) -->
+  <nav id="adminBottomNav" aria-label="Admin Bottom Navigation" class="admin-bottom-nav md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_20px_rgba(15,23,42,0.06)]">
     <div class="max-w-3xl mx-auto grid grid-cols-5 px-1 pt-1.5">
       <button onclick="window.switchTab('packaged-orders')" data-bottom-tab="packaged-orders" class="relative flex flex-col items-center justify-center py-1 text-emerald-700 transition active:scale-95">
         <span data-bottom-pill class="relative w-12 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center transition">
