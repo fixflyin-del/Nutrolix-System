@@ -860,7 +860,7 @@
     function getStatusBadgeClass(status) {
       const s = String(status || '').toLowerCase();
       if (s.includes('cancel') || s.includes('reject')) return 'bg-rose-50 text-rose-800 border border-rose-200';
-      if (s.includes('out for delivery') || s.includes('out_for_delivery') || s.includes('dispatch') || s.includes('ship') || s.includes('packed')) return 'bg-amber-50 text-amber-800 border border-amber-200';
+      if (s.includes('out for delivery') || s.includes('out_for_delivery') || s.includes('dispatch') || s.includes('ship') || s.includes('packed') || s.includes('ready')) return 'bg-amber-50 text-amber-800 border border-amber-200';
       if (s.includes('deliver') || s.includes('complete')) return 'bg-emerald-50 text-emerald-800 border border-emerald-200';
       if (s.includes('process') || s.includes('prepar')) return 'bg-purple-50 text-purple-800 border border-purple-200';
       return 'bg-blue-50 text-blue-800 border border-blue-200';
@@ -979,7 +979,7 @@
 
       let stepLevel = 1;
       if (sLower.includes('process') || sLower.includes('prepar')) stepLevel = 2;
-      else if (sLower.includes('pack')) stepLevel = 3;
+      else if (sLower.includes('pack') || sLower.includes('ready')) stepLevel = 3;
       else if (sLower.includes('out') || sLower.includes('dispatch') || sLower.includes('ship') || sLower.includes('transit')) stepLevel = 4;
       else if (sLower.includes('deliver') || sLower.includes('complete')) stepLevel = 5;
 

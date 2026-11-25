@@ -51,6 +51,15 @@
     .nutrolix-primary { background-color: #10B981; }
     .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 9999px; }
+    .admin-bottom-nav {
+      padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+    }
+    .zomato-order-card {
+      transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+    }
+    .zomato-order-card:active {
+      transform: scale(0.995);
+    }
   </style>
   <script src="assets/nutrolix-data.js"></script>
   <script src="assets/nutrolix-drawer.js"></script>
@@ -155,14 +164,14 @@
     </div>
   </header>
 
-  <!-- Live Customer Ticker Display (Synced with Customer App Top Banner) -->
-  <div class="bg-amber-100 border-b border-amber-200 px-3 sm:px-4 py-1.5 sm:py-2 text-[11px] sm:text-xs text-amber-900 flex items-center justify-between">
-    <div class="flex items-center space-x-1.5 sm:space-x-2 max-w-4xl truncate">
+  <!-- Live Customer Ticker Display (Desktop only so mobile opens straight onto Live Orders) -->
+  <div class="hidden md:flex bg-amber-100 border-b border-amber-200 px-4 py-1.5 text-xs text-amber-900 items-center justify-between">
+    <div class="flex items-center space-x-2 max-w-4xl truncate">
       <i class="fa-solid fa-bullhorn text-amber-600 shrink-0"></i>
-      <span class="font-bold hidden sm:inline">Live Customer App Ticker:</span>
+      <span class="font-bold">Live Customer App Ticker:</span>
       <span id="announcementDisplay" class="truncate font-semibold">⚡ 100% Fresh Healthy Meals • Delivered in 25 mins</span>
     </div>
-    <button onclick="window.switchTab('settings')" class="text-amber-800 hover:text-amber-950 font-bold underline text-[11px] sm:text-xs ml-2 sm:ml-4 whitespace-nowrap shrink-0">Edit Ticker</button>
+    <button onclick="window.switchTab('settings')" class="text-amber-800 hover:text-amber-950 font-bold underline text-xs ml-4 whitespace-nowrap shrink-0">Edit Ticker</button>
   </div>
 
   <!-- Mobile Sidebar Backdrop -->
@@ -323,64 +332,60 @@
     </aside>
 
     <!-- Main Workspace (Right Side) -->
-    <main class="flex-1 p-3 sm:p-6 lg:p-8 min-w-0 w-full">
+    <main class="flex-1 px-2.5 pt-2.5 pb-24 sm:px-6 sm:pt-5 sm:pb-24 lg:px-8 min-w-0 w-full">
 
-      <!-- KPI Metric Summary -->
-      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 sm:gap-4 mb-4 sm:mb-6">
-        <div class="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80 flex items-center justify-between gap-2">
+      <!-- Compact Single-Row KPI Strip (Slim on Mobile, Full Grid on Desktop) -->
+      <div class="grid grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3.5 mb-3 sm:mb-5">
+        <div class="bg-white rounded-2xl px-2.5 py-2 sm:p-3.5 shadow-xs border border-slate-200/80 flex items-center justify-between gap-1.5">
           <div class="min-w-0">
-            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">Total Sales</p>
-            <p id="kpiRevenue" class="text-lg sm:text-2xl font-black text-slate-800 mt-0.5 sm:mt-1 truncate">₹0</p>
-            <span class="text-[10px] sm:text-[11px] text-emerald-600 font-medium block truncate">All Time Verified</span>
+            <p class="text-[9px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">Sales</p>
+            <p id="kpiRevenue" class="text-sm sm:text-xl font-black text-slate-900 leading-tight truncate">₹0</p>
           </div>
-          <div class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm sm:text-xl shrink-0">
+          <div class="hidden sm:flex w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 items-center justify-center text-base shrink-0">
             <i class="fa-solid fa-indian-rupee-sign"></i>
           </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80 flex items-center justify-between gap-2">
+        <div class="bg-white rounded-2xl px-2.5 py-2 sm:p-3.5 shadow-xs border border-amber-200/80 flex items-center justify-between gap-1.5">
           <div class="min-w-0">
-            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">Live Orders</p>
-            <p id="kpiLiveOrders" class="text-lg sm:text-2xl font-black text-amber-600 mt-0.5 sm:mt-1">0</p>
-            <span class="text-[10px] sm:text-[11px] text-slate-500 font-medium block truncate">Pending Action</span>
+            <p class="text-[9px] sm:text-[11px] font-bold text-amber-600 uppercase tracking-wider truncate">Active</p>
+            <p id="kpiLiveOrders" class="text-sm sm:text-xl font-black text-amber-600 leading-tight">0</p>
           </div>
-          <div class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-sm sm:text-xl shrink-0">
-            <i class="fa-solid fa-clock"></i>
+          <div class="hidden sm:flex w-10 h-10 rounded-xl bg-amber-50 text-amber-600 items-center justify-center text-base shrink-0">
+            <i class="fa-solid fa-fire-flame-curved"></i>
           </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80 flex items-center justify-between gap-2">
+        <div class="bg-white rounded-2xl px-2.5 py-2 sm:p-3.5 shadow-xs border border-slate-200/80 flex items-center justify-between gap-1.5">
           <div class="min-w-0">
-            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">Delivered</p>
-            <p id="kpiDelivered" class="text-lg sm:text-2xl font-black text-blue-600 mt-0.5 sm:mt-1">0</p>
-            <span class="text-[10px] sm:text-[11px] text-blue-600 font-medium block truncate">Verified Done</span>
+            <p class="text-[9px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">Delivered</p>
+            <p id="kpiDelivered" class="text-sm sm:text-xl font-black text-emerald-700 leading-tight">0</p>
           </div>
-          <div class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm sm:text-xl shrink-0">
+          <div class="hidden sm:flex w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 items-center justify-center text-base shrink-0">
             <i class="fa-solid fa-circle-check"></i>
           </div>
         </div>
 
-        <div class="bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80 flex items-center justify-between gap-2">
+        <div class="hidden md:flex bg-white rounded-2xl p-3.5 shadow-xs border border-slate-200/80 items-center justify-between gap-2">
           <div class="min-w-0">
-            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">Users</p>
-            <p id="kpiTotalUsers" class="text-lg sm:text-2xl font-black text-indigo-600 mt-0.5 sm:mt-1">0</p>
-            <span class="text-[10px] sm:text-[11px] text-indigo-600 font-medium block truncate">Live Firestore</span>
+            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">Users</p>
+            <p id="kpiTotalUsers" class="text-xl font-black text-indigo-600 leading-tight">0</p>
           </div>
-          <div class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm sm:text-xl shrink-0">
+          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-base shrink-0">
             <i class="fa-solid fa-users"></i>
           </div>
         </div>
 
-        <div class="col-span-2 sm:col-span-1 bg-white rounded-2xl p-3 sm:p-4 shadow-sm border border-slate-200/80 flex items-center justify-between gap-2">
+        <div class="hidden md:flex bg-white rounded-2xl p-3.5 shadow-xs border border-slate-200/80 items-center justify-between gap-2">
           <div class="min-w-0">
-            <p class="text-[10px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider truncate">Customer Rating</p>
-            <div class="flex items-center space-x-1 mt-0.5 sm:mt-1">
-              <p id="kpiAvgRating" class="text-lg sm:text-2xl font-black text-slate-800">4.9</p>
-              <i class="fa-solid fa-star text-amber-400 text-xs sm:text-sm"></i>
+            <p class="text-[11px] font-bold text-slate-400 uppercase tracking-wider truncate">Rating</p>
+            <div class="flex items-center space-x-1">
+              <p id="kpiAvgRating" class="text-xl font-black text-slate-800 leading-tight">4.9</p>
+              <i class="fa-solid fa-star text-amber-400 text-xs"></i>
             </div>
-            <span id="kpiReviewCount" class="text-[10px] sm:text-[11px] text-slate-500 font-medium block truncate">Verified Google Reviews</span>
+            <span id="kpiReviewCount" class="hidden">Verified Google Reviews</span>
           </div>
-          <div class="w-9 h-9 sm:w-12 sm:h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-sm sm:text-xl shrink-0">
+          <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-base shrink-0">
             <i class="fa-solid fa-comments"></i>
           </div>
         </div>
@@ -1090,66 +1095,26 @@
         </div>
       </div>
 
-      <!-- TAB: PACKAGED STORE ORDERS -->
-      <div id="tabContent-packaged-orders" class="p-3 sm:p-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4 sm:mb-6">
-          <div>
-            <h3 class="text-base sm:text-lg font-black text-slate-900 flex items-center space-x-2">
-              <i class="fa-solid fa-truck-ramp-box text-blue-600"></i>
-              <span>All Orders &amp; Shipping</span>
-            </h3>
-            <p class="text-xs text-slate-500">Live customer orders placed across Nutrolix WebApp &amp; Android App</p>
+      <!-- TAB: LIVE ORDERS (Single-Page Zomato Partner Style Vertical Cards) -->
+      <div id="tabContent-packaged-orders" class="px-0.5 py-1 sm:p-2 max-w-3xl mx-auto">
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <div class="flex items-center space-x-2 min-w-0">
+            <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+            <h3 class="text-base sm:text-lg font-black text-slate-900 truncate">Live Orders</h3>
+            <span id="liveOrdersHeaderPill" class="px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap">0 Active</span>
           </div>
-          <button onclick="window.loadPackagedOrders()" class="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition flex items-center space-x-1.5 self-start sm:self-auto">
-            <i class="fa-solid fa-arrows-rotate"></i>
-            <span>Refresh Live Orders</span>
-          </button>
-        </div>
-        <!-- Status Filter Tabs (6 Standard Statuses) -->
-        <div class="flex items-center space-x-2 overflow-x-auto pb-2 border-b border-slate-200 mb-4 custom-scrollbar">
-          <button onclick="window.filterPackagedOrders('ALL')" id="orderFilterBtn-ALL" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-black bg-slate-900 text-white shadow-sm whitespace-nowrap">
-            All Orders (<span id="cntAll">0</span>)
-          </button>
-          <button onclick="window.filterPackagedOrders('Order Confirmed')" id="orderFilterBtn-OrderConfirmed" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
-            Confirmed (<span id="cntAccepted">0</span>)
-          </button>
-          <button onclick="window.filterPackagedOrders('Processing')" id="orderFilterBtn-Processing" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
-            Processing (<span id="cntPreparing">0</span>)
-          </button>
-          <button onclick="window.filterPackagedOrders('Packed')" id="orderFilterBtn-Packed" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
-            Packed (<span id="cntPacked">0</span>)
-          </button>
-          <button onclick="window.filterPackagedOrders('Out for Delivery')" id="orderFilterBtn-OutForDelivery" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
-            Out for Delivery (<span id="cntDispatched">0</span>)
-          </button>
-          <button onclick="window.filterPackagedOrders('Delivered')" id="orderFilterBtn-Delivered" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
-            Delivered (<span id="cntDelivered">0</span>)
-          </button>
-          <button onclick="window.filterPackagedOrders('Cancelled')" id="orderFilterBtn-Cancelled" class="px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap">
-            Cancelled (<span id="cntCancelled">0</span>)
+          <button onclick="window.loadPackagedOrders()" class="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold text-xs shadow-xs transition flex items-center space-x-1.5 active:scale-95 shrink-0">
+            <i class="fa-solid fa-arrows-rotate text-emerald-700"></i>
+            <span>Refresh</span>
           </button>
         </div>
 
-
-        <div class="overflow-x-auto rounded-2xl border border-slate-200 shadow-sm bg-white">
-          <table class="w-full min-w-[820px] text-left text-xs text-slate-700">
-            <thead class="bg-slate-50 text-[11px] uppercase tracking-wider text-slate-500 font-extrabold border-b border-slate-200">
-              <tr>
-                <th class="p-3 sm:p-3.5">Order ID & Date</th>
-                <th class="p-3 sm:p-3.5">Customer & Contact</th>
-                <th class="p-3 sm:p-3.5">Shipping Destination</th>
-                <th class="p-3 sm:p-3.5">Items Ordered</th>
-                <th class="p-3 sm:p-3.5">Total & Payment</th>
-                <th class="p-3 sm:p-3.5">Fulfillment Status</th>
-                <th class="p-3 sm:p-3.5 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="packagedOrdersTableBody" class="divide-y divide-slate-100">
-              <tr>
-                <td colspan="7" class="p-8 text-center text-slate-400">Syncing live store orders...</td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Single Continuous Vertical Order Cards Feed (No Horizontal Scroll, No Separate Sections) -->
+        <div id="packagedOrdersCardsList" class="space-y-3.5">
+          <div class="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-400 text-xs font-semibold shadow-xs">
+            <i class="fa-solid fa-spinner fa-spin text-emerald-600 text-lg mb-2 block"></i>
+            Syncing live orders...
+          </div>
         </div>
       </div>
 
@@ -2554,6 +2519,21 @@
       const target = document.getElementById('tabContent-' + tabId);
       if (target) target.classList.remove('hidden');
 
+      // Sync Bottom Navigation Bar active state
+      const bottomPrimaryTabs = ['packaged-orders', 'food-menu', 'packaged-products', 'settings'];
+      document.querySelectorAll('[data-bottom-tab]').forEach(btn => {
+        const key = btn.getAttribute('data-bottom-tab');
+        const isActive = (key === tabId) || (key === 'more' && !bottomPrimaryTabs.includes(tabId));
+        btn.classList.toggle('text-emerald-700', isActive);
+        btn.classList.toggle('text-slate-500', !isActive);
+        const pill = btn.querySelector('[data-bottom-pill]');
+        if (pill) {
+          pill.classList.toggle('bg-emerald-100', isActive);
+          pill.classList.toggle('text-emerald-700', isActive);
+          pill.classList.toggle('bg-transparent', !isActive);
+        }
+      });
+
       // Close mobile drawer automatically after menu selection
       window.closeAdminSidebar();
 
@@ -3545,9 +3525,9 @@
     window.normalizeOrderStatus = function(statusRaw) {
       const s = String(statusRaw || '').trim();
       const lower = s.toLowerCase();
-      if (!lower || lower === 'placed' || lower === 'order placed' || lower === 'pending' || lower === 'new' || lower === 'order confirmed' || lower === 'confirmed' || lower === 'accepted') return 'Order Confirmed';
-      if (lower === 'processing' || lower === 'preparing' || lower === 'in preparation') return 'Processing';
-      if (lower === 'packed' || lower === 'packed & ready' || lower === 'packed_ready') return 'Packed';
+      if (!lower || lower === 'placed' || lower === 'order placed' || lower === 'pending' || lower === 'new' || lower === 'order confirmed' || lower === 'confirmed' || lower === 'accepted') return 'New';
+      if (lower === 'processing' || lower === 'preparing' || lower === 'in preparation' || lower === 'cooking') return 'Preparing';
+      if (lower === 'ready' || lower === 'packed' || lower === 'packed & ready' || lower === 'packed_ready') return 'Ready';
       if (lower === 'dispatched' || lower === 'shipped' || lower === 'in transit' || lower === 'in_transit' || lower === 'out_for_delivery' || lower === 'out for delivery') return 'Out for Delivery';
       if (lower === 'delivered' || lower === 'completed') return 'Delivered';
       if (lower === 'cancelled' || lower === 'canceled' || lower === 'rejected') return 'Cancelled';
@@ -3686,15 +3666,15 @@
       let deliveredOrders = 0;
 
       orders.forEach(o => {
-        const s = (o.status || '').toLowerCase();
+        const stNorm = window.normalizeOrderStatus(o.status);
         const amount = Number(o.grandTotal || o.total || 0);
-        if (!['cancelled', 'rejected'].includes(s)) {
+        if (stNorm !== 'Cancelled') {
           totalRevenue += amount;
         }
-        if (['order placed', 'placed', 'accepted', 'confirmed', 'preparing', 'packed & ready', 'dispatched', 'in transit', 'out_for_delivery'].includes(s)) {
+        if (['New', 'Preparing', 'Ready', 'Out for Delivery'].includes(stNorm)) {
           liveOrders++;
         }
-        if (['delivered'].includes(s)) {
+        if (stNorm === 'Delivered') {
           deliveredOrders++;
         }
       });
@@ -3752,63 +3732,115 @@
 
     window.updateOrderFilterCounts = function() {
       const orders = window.packagedOrders || [];
-      const norm = (s) => window.normalizeOrderStatus(s);
-      const cntAll = orders.length;
-      const cntAccepted = orders.filter(o => norm(o.status) === 'Order Confirmed').length;
-      const cntPreparing = orders.filter(o => norm(o.status) === 'Processing').length;
-      const cntPacked = orders.filter(o => norm(o.status) === 'Packed').length;
-      const cntDispatched = orders.filter(o => norm(o.status) === 'Out for Delivery').length;
-      const cntDelivered = orders.filter(o => norm(o.status) === 'Delivered').length;
-      const cntCancelled = orders.filter(o => norm(o.status) === 'Cancelled').length;
+      const activeCount = orders.filter(o => {
+        const st = window.normalizeOrderStatus(o.status);
+        return st === 'New' || st === 'Preparing' || st === 'Ready' || st === 'Out for Delivery';
+      }).length;
 
-      const setBadge = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
-      setBadge('cntAll', cntAll);
-      setBadge('cntAccepted', cntAccepted);
-      setBadge('cntPreparing', cntPreparing);
-      setBadge('cntPacked', cntPacked);
-      setBadge('cntDispatched', cntDispatched);
-      setBadge('cntDelivered', cntDelivered);
-      setBadge('cntCancelled', cntCancelled);
+      const headerPill = document.getElementById('liveOrdersHeaderPill');
+      if (headerPill) {
+        headerPill.innerText = activeCount === 1 ? '1 Active' : `${activeCount} Active`;
+        headerPill.className = activeCount > 0
+          ? 'px-2.5 py-0.5 rounded-full text-[11px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 whitespace-nowrap'
+          : 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-200 whitespace-nowrap';
+      }
+
+      const bottomBadge = document.getElementById('bottomNavOrderBadge');
+      if (bottomBadge) {
+        if (activeCount > 0) {
+          bottomBadge.innerText = activeCount > 99 ? '99+' : String(activeCount);
+          bottomBadge.classList.remove('hidden');
+        } else {
+          bottomBadge.classList.add('hidden');
+        }
+      }
     };
 
-    window.filterPackagedOrders = function(statusKey) {
-      window.currentOrderFilter = statusKey;
-      const idMap = {
-        'ALL': 'orderFilterBtn-ALL',
-        'Order Confirmed': 'orderFilterBtn-OrderConfirmed',
-        'Processing': 'orderFilterBtn-Processing',
-        'Packed': 'orderFilterBtn-Packed',
-        'Out for Delivery': 'orderFilterBtn-OutForDelivery',
-        'Delivered': 'orderFilterBtn-Delivered',
-        'Cancelled': 'orderFilterBtn-Cancelled'
-      };
-      Object.entries(idMap).forEach(([key, btnId]) => {
-        const btn = document.getElementById(btnId);
-        if (btn) {
-          btn.className = key === statusKey
-            ? 'px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-black bg-slate-900 text-white shadow-sm whitespace-nowrap'
-            : 'px-3.5 sm:px-4 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 whitespace-nowrap';
-        }
-      });
+    window.filterPackagedOrders = function() {
       window.renderPackagedOrdersTable();
     };
 
-    window.renderPackagedOrdersTable = function() {
-      const tbody = document.getElementById('packagedOrdersTableBody');
-      if (!tbody) return;
-      if (!window.packagedOrders || window.packagedOrders.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="7" class="p-8 text-center text-slate-400 font-semibold">No real customer orders yet. New live orders from Website &amp; App will appear here instantly!</td></tr>';
+    window.escapeAdminHtml = function(val) {
+      return String(val ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    };
+
+    window.openExternalAdminUrl = function(url) {
+      const safeUrl = String(url || '').trim();
+      if (!/^(https?:\/\/|geo:|tel:|whatsapp:\/\/|mailto:)/i.test(safeUrl)) return;
+      try {
+        if (window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.openExternalUrl === 'function') {
+          window.NutrolixAdminNativeBridge.openExternalUrl(safeUrl);
+          return;
+        }
+      } catch (_) {}
+      if (/^(tel:|mailto:|geo:|whatsapp:\/\/)/i.test(safeUrl)) {
+        window.location.href = safeUrl;
+      } else {
+        window.open(safeUrl, '_blank', 'noopener,noreferrer');
+      }
+    };
+
+    window.buildCustomerMapUrl = function(order) {
+      if (!order) return '';
+      const addrObj = (order.deliveryAddress && typeof order.deliveryAddress === 'object') ? order.deliveryAddress : {};
+      const directUrl = String(addrObj.googleMapsUrl || order.googleMapsUrl || '').trim();
+      if (/^https?:\/\/(www\.)?(google\.com\/maps|maps\.google\.com|maps\.app\.goo\.gl)/i.test(directUrl)) {
+        return directUrl;
+      }
+      const lat = addrObj.gpsLat ?? addrObj.lat ?? addrObj.latitude ?? (order.deliveryCoordinates && (order.deliveryCoordinates.lat ?? order.deliveryCoordinates.latitude));
+      const lon = addrObj.gpsLon ?? addrObj.lng ?? addrObj.lon ?? addrObj.longitude ?? (order.deliveryCoordinates && (order.deliveryCoordinates.lon ?? order.deliveryCoordinates.lng ?? order.deliveryCoordinates.longitude));
+      if (lat !== null && lat !== undefined && lon !== null && lon !== undefined && lat !== '' && lon !== '' && Number.isFinite(Number(lat)) && Number.isFinite(Number(lon))) {
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(Number(lat) + ',' + Number(lon))}`;
+      }
+      const addrText = typeof order.deliveryAddress === 'string'
+        ? order.deliveryAddress
+        : [addrObj.address1 || addrObj.street, addrObj.city, addrObj.state, addrObj.pincode].filter(Boolean).join(', ');
+      if (addrText && addrText.trim()) {
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addrText.trim())}`;
+      }
+      return '';
+    };
+
+    window.openCustomerMapLocation = function(orderId) {
+      const order = (window.packagedOrders || []).find(o => o.id === orderId || o.orderId === orderId);
+      if (!order) return;
+      const mapUrl = window.buildCustomerMapUrl(order);
+      if (!mapUrl) {
+        if (typeof window.showAdminNotification === 'function') {
+          window.showAdminNotification('Customer location address not available for this order.', 'error');
+        }
         return;
       }
+      window.openExternalAdminUrl(mapUrl);
+    };
 
-      let list = [...window.packagedOrders];
-      const filter = window.currentOrderFilter;
-      if (filter && filter !== 'ALL') {
-        list = list.filter(o => window.normalizeOrderStatus(o.status) === filter);
-      }
+    window.openCancelOrderModal = function(orderId) {
+      const inputEl = document.getElementById('cancelOrderId');
+      if (inputEl) inputEl.value = orderId;
+      const customEl = document.getElementById('cancelReasonCustom');
+      if (customEl) customEl.value = '';
+      const modal = document.getElementById('cancelOrderModal');
+      if (modal) modal.classList.remove('hidden');
+    };
 
-      if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" class="p-8 text-center text-slate-400 font-semibold">No orders found in status "${filter}".</td></tr>`;
+    window.renderPackagedOrdersTable = function() {
+      const container = document.getElementById('packagedOrdersCardsList');
+      if (!container) return;
+      if (!window.packagedOrders || window.packagedOrders.length === 0) {
+        container.innerHTML = `
+          <div class="bg-white rounded-2xl border border-slate-200 p-10 text-center space-y-2 shadow-xs">
+            <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-xl">
+              <i class="fa-solid fa-bell-concierge"></i>
+            </div>
+            <p class="text-sm font-black text-slate-800">Waiting for Live Orders</p>
+            <p class="text-xs text-slate-500">New customer orders from App &amp; Website will appear here instantly.</p>
+          </div>
+        `;
         return;
       }
 
@@ -3821,239 +3853,276 @@
         orderCustomerSequence[o.id] = customerOrderCounts[key];
       });
 
-      tbody.innerHTML = list.map(order => {
-        const d = new Date(order.createdAt || order.orderTime || Date.now()).toLocaleDateString('en-IN', {
+      // Single continuous vertical feed: Active orders first (newest on top), Completed/Cancelled seamlessly below
+      const isActiveStatus = (st) => st === 'New' || st === 'Preparing' || st === 'Ready' || st === 'Out for Delivery';
+      const list = [...window.packagedOrders].sort((a, b) => {
+        const aActive = isActiveStatus(window.normalizeOrderStatus(a.status));
+        const bActive = isActiveStatus(window.normalizeOrderStatus(b.status));
+        if (aActive !== bActive) return aActive ? -1 : 1;
+        return (b.timestampMs || 0) - (a.timestampMs || 0);
+      });
+
+      container.innerHTML = list.map(order => {
+        const safeId = window.escapeAdminHtml(order.id);
+        const rawTime = new Date(order.createdAt || order.orderTime || Date.now());
+        const d = rawTime.toLocaleString('en-IN', {
           day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit'
         });
-        const items = (order.items || []).map(i => {
-          const varTag = i.variant ? ` (${i.variant})` : '';
-          const addonsTag = (Array.isArray(i.addons) && i.addons.length)
-            ? `<div class="text-[10px] text-amber-700 font-bold pl-2">+ ${i.addons.map(a => `${a.name} (₹${a.price})`).join(', ')}</div>`
-            : '';
-          return `${i.title || i.name || 'Item'}${varTag} × ${i.quantity || 1}${addonsTag}`;
-        }).join('<br>') || 'Order Items';
-        const addrObj = order.deliveryAddress;
-        const addr = addrObj
-          ? (typeof addrObj === 'string' ? addrObj : [addrObj.address1 || addrObj.street, addrObj.city, addrObj.state, addrObj.pincode].filter(Boolean).join(', ')) || 'Direct'
-          : 'Direct';
-        
-        const seq = orderCustomerSequence[order.id] || 1;
-        let repeatBadge = '';
-        if (seq === 1) {
-          repeatBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">1st Order (New)</span>';
-        } else if (seq === 2) {
-          repeatBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-200">2nd Order ★</span>';
-        } else if (seq === 3) {
-          repeatBadge = '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-200">3rd Order 🔥 Repeat</span>';
-        } else {
-          repeatBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200">${seq}th Order 👑 VIP</span>`;
+
+        const st = window.normalizeOrderStatus(order.status || 'New');
+
+        let cardAccent = 'border-l-emerald-500 border-slate-200';
+        let statusPill = '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-100 text-rose-700 border border-rose-200"><span class="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping"></span>NEW ORDER</span>';
+        let primaryActionHtml = '';
+
+        if (st === 'New') {
+          cardAccent = 'border-l-rose-500 border-rose-200/90 ring-1 ring-rose-100';
+          statusPill = '<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-rose-100 text-rose-700 border border-rose-200"><span class="w-1.5 h-1.5 rounded-full bg-rose-600 animate-ping"></span>NEW ORDER</span>';
+          primaryActionHtml = `
+            <button onclick="window.advanceOrderStatus('${safeId}', 'Preparing', this)" class="flex-1 min-h-[46px] px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white font-black text-sm shadow-md shadow-emerald-600/20 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-check-circle text-base"></i>
+              <span>Accept Order</span>
+              <i class="fa-solid fa-arrow-right text-xs opacity-80"></i>
+            </button>
+          `;
+        } else if (st === 'Preparing') {
+          cardAccent = 'border-l-amber-500 border-amber-200/80';
+          statusPill = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-amber-100 text-amber-800 border border-amber-200"><i class="fa-solid fa-fire-burner text-[9px]"></i>PREPARING</span>';
+          primaryActionHtml = `
+            <button onclick="window.advanceOrderStatus('${safeId}', 'Ready', this)" class="flex-1 min-h-[46px] px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-white font-black text-sm shadow-md shadow-amber-500/20 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-box-open text-base"></i>
+              <span>Mark Ready</span>
+              <i class="fa-solid fa-arrow-right text-xs opacity-80"></i>
+            </button>
+          `;
+        } else if (st === 'Ready') {
+          cardAccent = 'border-l-sky-500 border-sky-200/80';
+          statusPill = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-sky-100 text-sky-800 border border-sky-200"><i class="fa-solid fa-bag-shopping text-[9px]"></i>READY</span>';
+          primaryActionHtml = `
+            <button onclick="window.advanceOrderStatus('${safeId}', 'Out for Delivery', this)" class="flex-1 min-h-[46px] px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-black text-sm shadow-md shadow-indigo-600/20 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-motorcycle text-base"></i>
+              <span>Out for Delivery</span>
+              <i class="fa-solid fa-arrow-right text-xs opacity-80"></i>
+            </button>
+          `;
+        } else if (st === 'Out for Delivery') {
+          cardAccent = 'border-l-indigo-500 border-indigo-200/80';
+          statusPill = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-indigo-100 text-indigo-800 border border-indigo-200"><i class="fa-solid fa-motorcycle text-[9px]"></i>OUT FOR DELIVERY</span>';
+          primaryActionHtml = `
+            <button onclick="window.advanceOrderStatus('${safeId}', 'Delivered', this)" class="flex-1 min-h-[46px] px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 active:scale-[0.98] text-white font-black text-sm shadow-md shadow-emerald-700/20 transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-circle-check text-base"></i>
+              <span>Mark Delivered</span>
+            </button>
+          `;
+        } else if (st === 'Delivered') {
+          cardAccent = 'border-l-emerald-500/70 border-slate-200 opacity-90';
+          statusPill = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-check-double text-[9px]"></i>DELIVERED</span>';
+        } else if (st === 'Cancelled') {
+          cardAccent = 'border-l-slate-300 border-slate-200 opacity-75';
+          statusPill = '<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black bg-slate-100 text-slate-600 border border-slate-200"><i class="fa-solid fa-ban text-[9px]"></i>CANCELLED</span>';
         }
 
-        const st = window.normalizeOrderStatus(order.status || 'Order Confirmed');
-        let statusBadgeClass = 'bg-blue-100 text-blue-800 border border-blue-200';
-        if (st === 'Processing') statusBadgeClass = 'bg-purple-100 text-purple-800 border border-purple-200';
-        if (st === 'Packed') statusBadgeClass = 'bg-amber-100 text-amber-800 border border-amber-200';
-        if (st === 'Out for Delivery') statusBadgeClass = 'bg-indigo-100 text-indigo-800 border border-indigo-200';
-        if (st === 'Delivered') statusBadgeClass = 'bg-emerald-100 text-emerald-800 border border-emerald-200';
-        if (st === 'Cancelled') statusBadgeClass = 'bg-red-100 text-red-800 border border-red-200';
+        const seq = orderCustomerSequence[order.id] || 1;
+        let repeatBadge = '';
+        if (seq === 2) {
+          repeatBadge = '<span class="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-blue-50 text-blue-700 border border-blue-200">2nd ★</span>';
+        } else if (seq === 3) {
+          repeatBadge = '<span class="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-amber-50 text-amber-800 border border-amber-200">3rd 🔥</span>';
+        } else if (seq > 3) {
+          repeatBadge = `<span class="px-1.5 py-0.5 rounded-md text-[10px] font-black bg-purple-50 text-purple-800 border border-purple-200">${seq}th 👑</span>`;
+        }
 
         const rawSrc = String(order.orderSource || order.source || order.platform || '').trim().toLowerCase();
         const isAppOrder = rawSrc === 'app' || rawSrc.includes('android') || rawSrc.includes('apk') || rawSrc.includes('mobile_app') || order.isAppOrder === true || String(order.couponCode || '').toUpperCase() === 'APP10';
         const sourceBadge = isAppOrder
-          ? '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200"><i class="fa-solid fa-mobile-screen-button text-[9px]"></i><span>App</span></span>'
-          : '<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-black bg-sky-100 text-sky-800 border border-sky-200"><i class="fa-solid fa-globe text-[9px]"></i><span>Website</span></span>';
+          ? '<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-mobile-screen-button text-[9px]"></i>App</span>'
+          : '<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-sky-50 text-sky-700 border border-sky-200"><i class="fa-solid fa-globe text-[9px]"></i>Web</span>';
+
+        const custName = window.escapeAdminHtml(order.customer?.name || 'Customer');
+        const custPhoneRaw = String(order.customer?.phone || '').trim();
+        const custPhoneClean = custPhoneRaw.replace(/[^0-9+]/g, '');
+        const custPhoneSafe = window.escapeAdminHtml(custPhoneRaw);
+
+        const addrObj = order.deliveryAddress;
+        const addrRaw = addrObj
+          ? (typeof addrObj === 'string' ? addrObj : [addrObj.address1 || addrObj.street, addrObj.city, addrObj.pincode].filter(Boolean).join(', ')) || ''
+          : '';
+        const addrSafe = window.escapeAdminHtml(addrRaw);
+        const hasMapLocation = Boolean(window.buildCustomerMapUrl(order));
+
+        const itemsHtml = (order.items || []).map(i => {
+          const titleSafe = window.escapeAdminHtml(i.title || i.name || 'Item');
+          const varSafe = i.variant ? `<span class="text-slate-500 font-semibold"> (${window.escapeAdminHtml(i.variant)})</span>` : '';
+          const addonsTag = (Array.isArray(i.addons) && i.addons.length)
+            ? `<div class="text-[11px] text-amber-700 font-bold mt-0.5">+ ${i.addons.map(a => `${window.escapeAdminHtml(a.name)} (₹${Number(a.price || 0)})`).join(', ')}</div>`
+            : '';
+          const qty = Number(i.quantity || 1);
+          const lineTotal = Number(i.price || 0) * qty;
+          return `
+            <div class="flex items-start justify-between gap-2 py-1.5 border-b border-slate-200/60 last:border-b-0">
+              <div class="flex items-start gap-2 min-w-0 flex-1">
+                <span class="px-1.5 py-0.5 rounded-md bg-emerald-700 text-white text-[11px] font-black shrink-0 leading-tight">${qty}×</span>
+                <div class="min-w-0 flex-1">
+                  <p class="text-[13px] font-extrabold text-slate-900 leading-snug break-words">${titleSafe}${varSafe}</p>
+                  ${addonsTag}
+                </div>
+              </div>
+              <span class="text-xs font-extrabold text-slate-700 shrink-0">₹${lineTotal}</span>
+            </div>
+          `;
+        }).join('') || '<p class="text-xs text-slate-400">Order items</p>';
+
+        const payMethodRaw = String(order.paymentMethod || 'Online Payment');
+        const isCod = /cod|cash/i.test(payMethodRaw);
+        const totalAmt = Number(order.grandTotal || order.total || 0);
+        const payBadge = isCod
+          ? `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-black bg-amber-100 text-amber-900 border border-amber-200"><i class="fa-solid fa-money-bill-wave text-[10px]"></i>COD • Collect ₹${totalAmt}</span>`
+          : `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200"><i class="fa-solid fa-circle-check text-[10px]"></i>PAID • Online</span>`;
 
         const couponDisc = Number(order.discount || 0);
         const foodDisc = Number(order.foodDiscount || 0);
         const totalDisc = couponDisc + foodDisc;
-        const couponCodeStr = String(order.couponCode || '').trim();
-        const foodOfferStr = String(order.foodOfferType || '').trim();
-        let discountSummaryHtml = '';
-        if (couponDisc > 0 || foodDisc > 0 || couponCodeStr) {
-          const parts = [];
-          if (couponDisc > 0) {
-            const label = couponCodeStr ? `Coupon ${couponCodeStr}` : 'Coupon Discount';
-            parts.push(`<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200 text-[10px] font-bold"><i class="fa-solid fa-tag text-[9px]"></i>${label}: -₹${couponDisc}</span>`);
-          } else if (couponCodeStr && foodDisc === 0) {
-            parts.push(`<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200 text-[10px] font-bold"><i class="fa-solid fa-tag text-[9px]"></i>Coupon: ${couponCodeStr}</span>`);
-          }
-          if (foodDisc > 0) {
-            const foodLabel = foodOfferStr || (couponCodeStr && couponDisc === 0 ? couponCodeStr : 'Healthy Food Offer');
-            parts.push(`<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[10px] font-bold"><i class="fa-solid fa-utensils text-[9px]"></i>${foodLabel}: -₹${foodDisc}</span>`);
-          }
-          if (couponDisc > 0 && foodDisc > 0) {
-            parts.push(`<span class="block text-[10px] font-black text-emerald-700">Total Discount: -₹${totalDisc}</span>`);
-          }
-          discountSummaryHtml = `<div class="mt-1.5 flex flex-col items-start gap-1">${parts.join('')}</div>`;
-        }
+        const discChip = totalDisc > 0
+          ? `<span class="text-[10px] font-extrabold text-purple-700 bg-purple-50 border border-purple-200 px-1.5 py-0.5 rounded-md">Disc -₹${totalDisc}</span>`
+          : '';
+
+        const isActive = isActiveStatus(st);
 
         return `
-          <tr class="hover:bg-slate-50 transition border-b border-slate-100">
-            <td class="p-3.5 align-top">
-              <span class="font-extrabold text-blue-700 block text-xs">#${order.id}</span>
-              <span class="text-[11px] text-slate-400 block">${d}</span>
-              <div class="flex flex-wrap items-center gap-1 mt-1">
-                <span class="inline-block px-2 py-0.5 rounded-md text-[10px] font-black ${statusBadgeClass}">${st}</span>
-                ${sourceBadge}
+          <article class="zomato-order-card bg-white rounded-2xl border border-l-4 ${cardAccent} shadow-sm overflow-hidden">
+            <div class="p-3.5 sm:p-4 space-y-3">
+
+              <!-- Row 1: Order ID, Time & Live Status Pill -->
+              <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0">
+                  <div class="flex flex-wrap items-center gap-1.5">
+                    <span class="font-black text-slate-900 text-sm tracking-tight">#${safeId}</span>
+                    ${sourceBadge}
+                    ${repeatBadge}
+                  </div>
+                  <p class="text-[11px] font-semibold text-slate-400 mt-0.5">${d}</p>
+                </div>
+                <div class="shrink-0">${statusPill}</div>
               </div>
-              ${order.trackingNumber ? `<span class="block text-[10px] text-slate-500 font-mono mt-0.5">${order.courierName || order.courier || 'Courier'}: ${order.trackingNumber}</span>` : ''}
-            </td>
-            <td class="p-3.5 align-top">
-              <div class="flex items-center space-x-2 mb-1">
-                <span class="font-extrabold text-slate-900 block text-xs">${order.customer?.name || 'Customer'}</span>
-                ${repeatBadge}
+
+              <!-- Row 2: Customer Info + Compact Map / WhatsApp / Call / Invoice Icon Buttons -->
+              <div class="flex items-start justify-between gap-2.5 pt-2 border-t border-slate-100">
+                <div class="min-w-0 flex-1">
+                  <p class="text-xs sm:text-[13px] font-extrabold text-slate-900 truncate">${custName}</p>
+                  ${custPhoneSafe ? `<p class="text-[11px] font-mono font-semibold text-slate-500">${custPhoneSafe}</p>` : ''}
+                  ${addrSafe ? `<p class="text-[11px] text-slate-500 leading-snug mt-0.5 line-clamp-2 break-words">${addrSafe}</p>` : ''}
+                </div>
+
+                <!-- Small Quick Action Icon Buttons -->
+                <div class="flex items-center gap-1.5 shrink-0">
+                  ${hasMapLocation ? `
+                    <button onclick="window.openCustomerMapLocation('${safeId}')" title="Open Customer Location in Maps" aria-label="Customer Location" class="w-9 h-9 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 flex items-center justify-center active:scale-95 transition shadow-2xs">
+                      <i class="fa-solid fa-location-dot text-sm"></i>
+                    </button>
+                  ` : ''}
+                  <button onclick="window.sendWhatsAppUpdate('${safeId}')" title="Send WhatsApp Status Update" aria-label="WhatsApp Update" class="w-9 h-9 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-200 flex items-center justify-center active:scale-95 transition shadow-2xs">
+                    <i class="fa-brands fa-whatsapp text-base"></i>
+                  </button>
+                  ${custPhoneClean ? `
+                    <button onclick="window.openExternalAdminUrl('tel:${custPhoneClean}')" title="Call Customer" aria-label="Call Customer" class="w-9 h-9 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-600 border border-sky-200 flex items-center justify-center active:scale-95 transition shadow-2xs">
+                      <i class="fa-solid fa-phone text-xs"></i>
+                    </button>
+                  ` : ''}
+                  <button onclick="window.openOrderInvoice('${safeId}')" title="View Invoice" aria-label="Order Invoice" class="w-9 h-9 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 flex items-center justify-center active:scale-95 transition">
+                    <i class="fa-solid fa-receipt text-xs"></i>
+                  </button>
+                </div>
               </div>
-              <span class="text-[11px] text-slate-500 font-mono block">${order.customer?.phone || ''}</span>
-              ${order.customer?.email ? `<span class="text-[10px] text-slate-400 block">${order.customer.email}</span>` : ''}
-            </td>
-            <td class="p-3.5 align-top max-w-xs text-[11px] text-slate-600 leading-snug">
-              ${addr}
-              ${(order.deliveryAddress && (order.deliveryAddress.phone || order.deliveryPhone) && String(order.deliveryAddress.phone || order.deliveryPhone) !== String(order.customer?.phone || '')) ? `<span class="block mt-1 text-[10px] font-bold text-emerald-700">Delivery Contact: ${order.deliveryAddress.name ? order.deliveryAddress.name + ' • ' : ''}${order.deliveryAddress.phone || order.deliveryPhone}</span>` : ''}
-            </td>
-            <td class="p-3.5 align-top text-[11px] text-slate-800 font-semibold leading-relaxed">
-              ${items}
-            </td>
-            <td class="p-3.5 align-top">
-              <span class="font-black text-slate-900 text-sm">₹${order.grandTotal || order.total || 0}</span>
-              <span class="block text-[10px] text-emerald-700 font-bold">${order.paymentMethod || 'Online (PayU)'}</span>
-              ${discountSummaryHtml}
-            </td>
-            <td class="p-3.5 align-top space-y-1.5 min-w-[155px]">
-              <select onchange="window.updatePackagedOrderStatus('${order.id}', this.value)" class="w-full text-xs font-black rounded-xl border border-slate-300 px-2.5 py-1.5 bg-white text-slate-800 shadow-sm focus:ring-2 focus:ring-emerald-500">
-                <option value="Order Confirmed" ${st === 'Order Confirmed' ? 'selected' : ''}>1. Order Confirmed</option>
-                <option value="Processing" ${st === 'Processing' ? 'selected' : ''}>2. Processing</option>
-                <option value="Packed" ${st === 'Packed' ? 'selected' : ''}>3. Packed</option>
-                <option value="Out for Delivery" ${st === 'Out for Delivery' ? 'selected' : ''}>4. Out for Delivery</option>
-                <option value="Delivered" ${st === 'Delivered' ? 'selected' : ''}>5. Delivered</option>
-                <option value="Cancelled" ${st === 'Cancelled' ? 'selected' : ''}>6. Cancelled</option>
-              </select>
 
-              ${st === 'Order Confirmed' ? `
-                <button onclick="window.markOrderPreparing('${order.id}')" class="w-full py-1.5 px-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-black text-[10px] text-center shadow transition flex items-center justify-center space-x-1">
-                  <i class="fa-solid fa-utensils"></i>
-                  <span>Mark Processing</span>
-                </button>
-              ` : ''}
+              <!-- Row 3: Kitchen Items Ticket -->
+              <div class="bg-slate-50/90 rounded-xl px-3 py-1.5 border border-slate-100">
+                ${itemsHtml}
+              </div>
 
-              ${st === 'Processing' ? `
-                <button onclick="window.markOrderPacked('${order.id}')" class="w-full py-1.5 px-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-black text-[10px] text-center shadow transition flex items-center justify-center space-x-1">
-                  <i class="fa-solid fa-boxes-packing"></i>
-                  <span>Mark Packed</span>
-                </button>
-              ` : ''}
+              <!-- Row 4: Bill Total & Payment Status -->
+              <div class="flex items-center justify-between gap-2 flex-wrap">
+                <div class="flex items-center gap-2">
+                  <span class="text-base font-black text-slate-900">₹${totalAmt}</span>
+                  ${discChip}
+                </div>
+                ${payBadge}
+              </div>
 
-              ${st === 'Packed' ? `
-                <button onclick="window.markOrderDispatchedPrompt('${order.id}')" class="w-full py-1.5 px-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] text-center shadow transition flex items-center justify-center space-x-1">
-                  <i class="fa-solid fa-truck-fast"></i>
-                  <span>Out for Delivery</span>
-                </button>
-              ` : ''}
-
-              ${st === 'Out for Delivery' ? `
-                <button onclick="window.markOrderDelivered('${order.id}')" class="w-full py-1.5 px-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[10px] text-center shadow transition flex items-center justify-center space-x-1">
-                  <i class="fa-solid fa-circle-check"></i>
-                  <span>Mark Delivered</span>
-                </button>
-              ` : ''}
-
-              ${st === 'Delivered' ? `
-                <div class="text-[10px] font-black text-emerald-700 flex items-center justify-center space-x-1 py-1 bg-emerald-50 rounded-lg border border-emerald-200">
-                  <i class="fa-solid fa-check-double"></i>
-                  <span>Delivered &amp; Closed</span>
+              <!-- Row 5: Auto-Converting Primary Action Button (Zero Dropdown!) -->
+              ${isActive ? `
+                <div class="flex items-center gap-2 pt-1">
+                  ${primaryActionHtml}
+                  <button onclick="window.openCancelOrderModal('${safeId}')" title="Cancel Order" aria-label="Cancel Order" class="w-11 min-h-[46px] rounded-xl bg-slate-100 hover:bg-rose-50 text-slate-500 hover:text-rose-600 border border-slate-200 hover:border-rose-200 flex items-center justify-center active:scale-95 transition shrink-0">
+                    <i class="fa-solid fa-xmark text-base"></i>
+                  </button>
                 </div>
               ` : ''}
 
-              ${st === 'Cancelled' ? `
-                <div class="text-[10px] font-black text-rose-700 flex items-center justify-center space-x-1 py-1 bg-rose-50 rounded-lg border border-rose-200">
-                  <i class="fa-solid fa-ban"></i>
-                  <span>Cancelled</span>
-                </div>
-              ` : ''}
-            </td>
-            <td class="p-3.5 align-top text-right space-y-1">
-              <button onclick="window.sendWhatsAppUpdate('${order.id}')" class="w-full px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 font-bold text-[11px] flex items-center justify-center space-x-1 shadow-sm">
-                <i class="fa-brands fa-whatsapp text-emerald-600"></i>
-                <span>WhatsApp</span>
-              </button>
-              <button onclick="window.openOrderInvoice('${order.id}')" class="w-full px-2.5 py-1 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-[11px] flex items-center justify-center space-x-1">
-                <i class="fa-solid fa-file-invoice"></i>
-                <span>Invoice</span>
-              </button>
-            </td>
-          </tr>
+            </div>
+          </article>
         `;
       }).join('');
     };
 
-    window.acceptPackagedOrder = async function(orderId) {
+    // Single One-Tap Auto-Converting Status Transition (New -> Preparing -> Ready -> Out for Delivery -> Delivered)
+    window.advanceOrderStatus = async function(orderId, nextStatus, btnEl) {
       acknowledgedOrderIds.add(orderId);
+      if (btnEl) {
+        btnEl.disabled = true;
+        btnEl.classList.add('opacity-70');
+      }
       try {
-        const res = await window.callOrderStatusEndpoint(orderId, 'Order Confirmed');
-        const pushNote = window.formatPushSummary(res);
-        alert(`✓ Order #${orderId} marked as Order Confirmed!\n${pushNote}`);
+        if (window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.vibrateDevice === 'function') {
+          window.NutrolixAdminNativeBridge.vibrateDevice(35);
+        }
+      } catch (_) {}
+
+      const courier = nextStatus === 'Out for Delivery' ? 'Nutrolix Express' : '';
+      try {
+        // Optimistic immediate UI update for instant Zomato-like button conversion
+        if (Array.isArray(window.packagedOrders)) {
+          const found = window.packagedOrders.find(o => o.id === orderId || o.orderId === orderId);
+          if (found) found.status = nextStatus;
+        }
+        window.updateKPIs();
+        window.updateOrderFilterCounts();
+        window.renderPackagedOrdersTable();
+
+        await window.callOrderStatusEndpoint(orderId, nextStatus, courier, '');
+        if (typeof window.showAdminNotification === 'function') {
+          window.showAdminNotification(`✓ #${orderId} → ${nextStatus}`);
+        }
         window.loadPackagedOrders();
       } catch (err) {
-        alert('❌ Failed to update order status: ' + err.message);
+        if (typeof window.showAdminNotification === 'function') {
+          window.showAdminNotification('Status update failed: ' + err.message, 'error');
+        }
+        window.loadPackagedOrders();
       }
+    };
+
+    window.acceptPackagedOrder = async function(orderId) {
+      return window.advanceOrderStatus(orderId, 'Preparing');
     };
 
     window.markOrderPreparing = async function(orderId) {
-      acknowledgedOrderIds.add(orderId);
-      try {
-        const res = await window.callOrderStatusEndpoint(orderId, 'Processing');
-        const pushNote = window.formatPushSummary(res);
-        alert(`✓ Order #${orderId} marked as Processing!\n${pushNote}`);
-        window.loadPackagedOrders();
-      } catch (err) {
-        alert('❌ Failed to update order status: ' + err.message);
-      }
+      return window.advanceOrderStatus(orderId, 'Preparing');
     };
 
     window.markOrderPacked = async function(orderId) {
-      acknowledgedOrderIds.add(orderId);
-      try {
-        await window.callOrderStatusEndpoint(orderId, 'Packed');
-        window.showAdminNotification(`✓ Order #${orderId} marked as Packed`);
-        window.loadPackagedOrders();
-      } catch (err) {
-        window.showAdminNotification('Failed to update order status: ' + err.message, 'error');
-      }
+      return window.advanceOrderStatus(orderId, 'Ready');
     };
 
     window.markOrderDispatchedPrompt = async function(orderId) {
-      acknowledgedOrderIds.add(orderId);
-      const courierName = prompt('Enter Courier / Delivery Partner Name (e.g. Delhivery, Blue Dart, Porter):', 'Nutrolix Express') || 'Nutrolix Express';
-      const trackingNumber = prompt('Enter Tracking Number (optional):', '') || '';
-      try {
-        await window.callOrderStatusEndpoint(orderId, 'Out for Delivery', courierName, trackingNumber);
-        window.showAdminNotification(`✓ Order #${orderId} marked as Out for Delivery`);
-        window.loadPackagedOrders();
-      } catch (err) {
-        window.showAdminNotification('Failed to update order status: ' + err.message, 'error');
-      }
+      return window.advanceOrderStatus(orderId, 'Out for Delivery');
     };
 
     window.markOrderDelivered = async function(orderId) {
-      acknowledgedOrderIds.add(orderId);
-      try {
-        await window.callOrderStatusEndpoint(orderId, 'Delivered');
-        window.showAdminNotification(`✓ Order #${orderId} marked as Delivered`);
-        window.loadPackagedOrders();
-      } catch (err) {
-        window.showAdminNotification('Failed to update order status: ' + err.message, 'error');
-      }
+      return window.advanceOrderStatus(orderId, 'Delivered');
     };
 
     window.updatePackagedOrderStatus = async function(orderId, newStatus) {
-      acknowledgedOrderIds.add(orderId);
-      try {
-        await window.callOrderStatusEndpoint(orderId, newStatus);
-        window.showAdminNotification(`✓ Order #${orderId} updated to ${newStatus}`);
-        window.loadPackagedOrders();
-      } catch (err) {
-        window.showAdminNotification('Failed to update order status: ' + err.message, 'error');
-        window.loadPackagedOrders();
-      }
+      return window.advanceOrderStatus(orderId, newStatus);
     };
 
     window.formatPushSummary = function(apiRes) {
@@ -4125,29 +4194,30 @@
 
     // WhatsApp Order Update (Detailed ONLY for first confirmation; crisp & short for subsequent status updates)
     window.sendWhatsAppUpdate = function(orderId) {
-      const order = (window.packagedOrders || []).find(o => o.id === orderId);
-      if (!order) return alert('Order not found');
+      const order = (window.packagedOrders || []).find(o => o.id === orderId || o.orderId === orderId);
+      if (!order) return;
 
       const phoneRaw = order.customer?.phone || '';
       const cleanPhone = phoneRaw.replace(/[^0-9]/g, '');
       const targetPhone = cleanPhone.startsWith('91') && cleanPhone.length > 10 ? cleanPhone : ('91' + (cleanPhone.slice(-10) || '9076254354'));
 
       const customerName = order.customer?.name || 'Valued Customer';
-      const statusText = String(order.status || 'Confirmed').trim();
-      const sLower = statusText.toLowerCase();
+      const stNorm = window.normalizeOrderStatus(order.status || 'New');
+      const statusDisplay = stNorm === 'New' ? 'Confirmed' : stNorm;
       const trackingLink = `https://nutrolix.in/orders.html?orderId=${encodeURIComponent(order.id)}`;
       const trackingMsg = order.trackingNumber ? `\n🚚 *Courier:* ${order.courierName || 'Partner'} | *AWB:* ${order.trackingNumber}` : '';
 
-      const isConfirmationStatus = !sLower ||
-        sLower === 'confirmed' ||
-        sLower === 'order confirmed' ||
-        sLower === 'order placed' ||
-        sLower === 'placed' ||
-        sLower === 'pending' ||
-        sLower === 'new';
+      let sentConfirmedSet = {};
+      try {
+        sentConfirmedSet = JSON.parse(localStorage.getItem('nutrolix_wa_confirmed_orders') || '{}') || {};
+      } catch (_) {}
+      const alreadySentDetailed = Boolean(sentConfirmedSet[order.id]);
+
+      // Send detailed confirmation message ONLY on initial confirmation (New, or first time right after accepting into Preparing)
+      const sendDetailedConfirmation = stNorm === 'New' || (stNorm === 'Preparing' && !alreadySentDetailed);
 
       let text = '';
-      if (isConfirmationStatus) {
+      if (sendDetailedConfirmation) {
         const itemsList = (order.items || []).map(i => {
           const vStr = i.variant ? ` (${i.variant})` : '';
           const aStr = (Array.isArray(i.addons) && i.addons.length)
@@ -4156,25 +4226,29 @@
           return `• ${i.title}${vStr}${aStr} × ${i.quantity}`;
         }).join('\n');
 
-        text = `Hello *${customerName}*,\n\n✅ Your Nutrolix Order *#${order.id}* is *${statusText || 'Confirmed'}*!${trackingMsg}\n\n🛍️ *Ordered Items:*\n${itemsList}\n💰 *Total Amount:* ₹${order.grandTotal} (${order.paymentMethod || 'Online'})\n\n🔗 *Track Live Order:* ${trackingLink}\n\n🌿 *Nutrolix Functional Nutrition*\nNeed help? WhatsApp: +91 90762 54354`;
-      } else if (sLower.includes('cancel') || sLower.includes('reject')) {
-        text = `Hello *${customerName}*,\n❌ Your Nutrolix Order *#${order.id}* has been *${statusText}*.\nReply here if you need any assistance.`;
-      } else if (sLower.includes('out for delivery') || sLower.includes('out_for_delivery')) {
+        const confirmHeader = stNorm === 'Preparing' ? 'Confirmed & Preparing' : 'Confirmed';
+        text = `Hello *${customerName}*,\n\n✅ Your Nutrolix Order *#${order.id}* is *${confirmHeader}*!${trackingMsg}\n\n🛍️ *Ordered Items:*\n${itemsList}\n💰 *Total Amount:* ₹${order.grandTotal} (${order.paymentMethod || 'Online'})\n\n🔗 *Track Live Order:* ${trackingLink}\n\n🌿 *Nutrolix Functional Nutrition*\nNeed help? WhatsApp: +91 90762 54354`;
+
+        try {
+          sentConfirmedSet[order.id] = Date.now();
+          localStorage.setItem('nutrolix_wa_confirmed_orders', JSON.stringify(sentConfirmedSet));
+        } catch (_) {}
+      } else if (stNorm === 'Cancelled') {
+        text = `Hello *${customerName}*,\n❌ Your Nutrolix Order *#${order.id}* has been *Cancelled*.\nReply here if you need any assistance.`;
+      } else if (stNorm === 'Out for Delivery') {
         text = `Hello *${customerName}*,\n🛵 Your Nutrolix Order *#${order.id}* is *Out for Delivery*!${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
-      } else if (sLower.includes('deliver') || sLower.includes('complete')) {
+      } else if (stNorm === 'Delivered') {
         text = `Hello *${customerName}*,\n🎉 Your Nutrolix Order *#${order.id}* has been *Delivered*! Enjoy your healthy Nutrolix meal 💚\n🔗 View Order: ${trackingLink}`;
-      } else if (sLower.includes('pack')) {
-        text = `Hello *${customerName}*,\n📦 Your Nutrolix Order *#${order.id}* is *Packed* and ready for dispatch!${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
-      } else if (sLower.includes('prepar') || sLower.includes('process')) {
-        text = `Hello *${customerName}*,\n👨‍🍳 Your Nutrolix Order *#${order.id}* is now *${statusText}*!${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
-      } else if (sLower.includes('ship') || sLower.includes('dispatch') || sLower.includes('transit')) {
-        text = `Hello *${customerName}*,\n🚚 Your Nutrolix Order *#${order.id}* has been *${statusText}*!${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
+      } else if (stNorm === 'Ready') {
+        text = `Hello *${customerName}*,\n📦 Your Nutrolix Order *#${order.id}* is *Ready* for pickup/dispatch!${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
+      } else if (stNorm === 'Preparing') {
+        text = `Hello *${customerName}*,\n👨‍🍳 Your Nutrolix Order *#${order.id}* is now being *Prepared*!${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
       } else {
-        text = `Hello *${customerName}*,\n📊 Order *#${order.id}* Status: *${statusText}*${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
+        text = `Hello *${customerName}*,\n📊 Order *#${order.id}* Status: *${statusDisplay}*${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
       }
 
       const url = `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`;
-      window.open(url, '_blank');
+      window.openExternalAdminUrl(url);
     };
 
     // Invoice Generator Modal
@@ -6713,16 +6787,24 @@
       } catch(_) {}
 
       try {
-        await fetch("/api/nutrition-orders/status", {
+        const adminToken = sessionStorage.getItem('nutrolix_admin_token') || '';
+        const headers = { "Content-Type": "application/json" };
+        if (adminToken) headers['X-Nutrolix-Admin-Token'] = adminToken;
+        const host = window.NUTROLIX_API_HOST || '';
+        await fetch(host + "/api/nutrition-orders/status", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers,
           body: JSON.stringify({ orderId, status: "Cancelled", reason: fullReason })
         });
       } catch(_) {}
 
       window.closeModal("cancelOrderModal");
+      window.updateKPIs();
+      window.updateOrderFilterCounts();
       window.renderPackagedOrdersTable();
-      alert("✓ Order #" + orderId + " has been cancelled.");
+      if (typeof window.showAdminNotification === 'function') {
+        window.showAdminNotification("Order #" + orderId + " cancelled.", "error");
+      }
     };
 
     // Top Banners Modal Handlers
@@ -7577,6 +7659,47 @@
       }, 20);
     }
   </script>
+  <!-- Zomato-Style Fixed Bottom Navigation Bar -->
+  <nav id="adminBottomNav" aria-label="Admin Bottom Navigation" class="admin-bottom-nav fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_20px_rgba(15,23,42,0.06)]">
+    <div class="max-w-3xl mx-auto grid grid-cols-5 px-1 pt-1.5">
+      <button onclick="window.switchTab('packaged-orders')" data-bottom-tab="packaged-orders" class="relative flex flex-col items-center justify-center py-1 text-emerald-700 transition active:scale-95">
+        <span data-bottom-pill class="relative w-12 h-7 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center transition">
+          <i class="fa-solid fa-receipt text-sm"></i>
+          <span id="bottomNavOrderBadge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[9px] font-black flex items-center justify-center shadow">0</span>
+        </span>
+        <span class="text-[10px] font-extrabold mt-0.5">Orders</span>
+      </button>
+
+      <button onclick="window.switchTab('food-menu')" data-bottom-tab="food-menu" class="flex flex-col items-center justify-center py-1 text-slate-500 transition active:scale-95">
+        <span data-bottom-pill class="w-12 h-7 rounded-full bg-transparent flex items-center justify-center transition">
+          <i class="fa-solid fa-bowl-food text-sm"></i>
+        </span>
+        <span class="text-[10px] font-bold mt-0.5">Menu</span>
+      </button>
+
+      <button onclick="window.switchTab('packaged-products')" data-bottom-tab="packaged-products" class="flex flex-col items-center justify-center py-1 text-slate-500 transition active:scale-95">
+        <span data-bottom-pill class="w-12 h-7 rounded-full bg-transparent flex items-center justify-center transition">
+          <i class="fa-solid fa-wheat-awn text-sm"></i>
+        </span>
+        <span class="text-[10px] font-bold mt-0.5">Store</span>
+      </button>
+
+      <button onclick="window.switchTab('settings')" data-bottom-tab="settings" class="flex flex-col items-center justify-center py-1 text-slate-500 transition active:scale-95">
+        <span data-bottom-pill class="w-12 h-7 rounded-full bg-transparent flex items-center justify-center transition">
+          <i class="fa-solid fa-sliders text-sm"></i>
+        </span>
+        <span class="text-[10px] font-bold mt-0.5">Settings</span>
+      </button>
+
+      <button onclick="window.toggleAdminSidebar()" data-bottom-tab="more" class="flex flex-col items-center justify-center py-1 text-slate-500 transition active:scale-95">
+        <span data-bottom-pill class="w-12 h-7 rounded-full bg-transparent flex items-center justify-center transition">
+          <i class="fa-solid fa-bars text-sm"></i>
+        </span>
+        <span class="text-[10px] font-bold mt-0.5">More</span>
+      </button>
+    </div>
+  </nav>
+
   <script src="assets/pull-to-refresh.js"></script>
 </body>
 </html>

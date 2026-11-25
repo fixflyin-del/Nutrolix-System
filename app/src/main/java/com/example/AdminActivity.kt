@@ -263,7 +263,7 @@ fun NutrolixAdminWebViewApp(
   }
 
   Scaffold(
-    contentWindowInsets = WindowInsets.statusBars
+    contentWindowInsets = WindowInsets.safeDrawing
   ) { innerPadding ->
     Box(
       modifier = Modifier
@@ -336,6 +336,28 @@ fun NutrolixAdminWebViewApp(
                     Toast.makeText(ctx, message, Toast.LENGTH_SHORT).show()
                   }
                 }
+
+                @JavascriptInterface
+                fun openExternalUrl(url: String) {
+                  val clean = url.trim()
+                  val isAllowed = clean.startsWith("https://", ignoreCase = true) ||
+                    clean.startsWith("http://", ignoreCase = true) ||
+                    clean.startsWith("geo:", ignoreCase = true) ||
+                    clean.startsWith("tel:", ignoreCase = true) ||
+                    clean.startsWith("whatsapp://", ignoreCase = true) ||
+                    clean.startsWith("mailto:", ignoreCase = true)
+                  if (!isAllowed) return
+                  (ctx as? Activity)?.runOnUiThread {
+                    try {
+                      val intent = Intent(Intent.ACTION_VIEW, Uri.parse(clean)).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                      }
+                      ctx.startActivity(intent)
+                    } catch (_: Exception) {
+                      Toast.makeText(ctx, "Unable to open link on this device", Toast.LENGTH_SHORT).show()
+                    }
+                  }
+                }
               },
               "NutrolixAdminNativeBridge"
             )
@@ -364,8 +386,16 @@ fun NutrolixAdminWebViewApp(
               ): Boolean {
                 val url = request?.url?.toString() ?: return false
 
-                // Handle WhatsApp & External links
-                if (url.startsWith("https://wa.me/") || url.startsWith("whatsapp://") || url.startsWith("tel:") || url.startsWith("mailto:")) {
+                // Handle WhatsApp, Google Maps, Call & External links
+                val isExternalIntent = url.startsWith("https://wa.me/") ||
+                  url.startsWith("whatsapp://") ||
+                  url.startsWith("tel:") ||
+                  url.startsWith("mailto:") ||
+                  url.startsWith("geo:") ||
+                  url.startsWith("https://www.google.com/maps") ||
+                  url.startsWith("https://maps.google.com") ||
+                  url.startsWith("https://maps.app.goo.gl")
+                if (isExternalIntent) {
                   try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
                       flags = Intent.FLAG_ACTIVITY_NEW_TASK
