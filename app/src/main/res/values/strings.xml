@@ -4,49 +4,44 @@
     <string name="default_web_client_id" translatable="false">836516139018-ramalocm8jf1cvp1sqiuvhlj5itfv170.apps.googleusercontent.com</string>
 
     <!-- Native Splash Screen -->
-    <string name="splash_logo_cd">Nutrolix brand logo</string>
+    <string name="splash_logo_cd">Nutrolix logo</string>
     <string name="splash_brand_title">NUTROLIX</string>
-    <string name="splash_tagline_en">Nutrition That Works</string>
-    <string name="splash_tagline_hi">शुद्ध और सेहतमंद पोषण</string>
-    <string name="splash_footer_trust">Fresh Healthy Kitchen • FSSAI Certified</string>
+    <string name="splash_tagline">Nutrition That Works</string>
+    <string name="splash_footer_trust">Lab Tested  •  FSSAI  •  GMP  •  ISO</string>
 
-    <!-- First-Time Onboarding Common -->
-    <string name="onboarding_skip">Skip • स्किप</string>
-    <string name="onboarding_next">Next • आगे बढ़ें</string>
-    <string name="onboarding_get_started">Get Started • शुरू करें</string>
+    <!-- Onboarding Common -->
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_get_started">Get Started</string>
     <string name="onboarding_back_cd">Previous slide</string>
-    <string name="onboarding_step_format">%1$d / %2$d</string>
 
-    <!-- Slide 1: Fresh Healthy Food Kitchen -->
-    <string name="onboarding_s1_badge">Fresh Kitchen • ताज़ा किचन</string>
-    <string name="onboarding_s1_title_en">Fresh Healthy Meals, Cooked Daily</string>
-    <string name="onboarding_s1_title_hi">ताज़ा और हाई-प्रोटीन हेल्दी खाना, रोज़ाना</string>
-    <string name="onboarding_s1_desc_en">Multigrain rotis, paneer bowls, fresh salads &amp; nutritious shakes — zero maida, clean ingredients.</string>
-    <string name="onboarding_s1_desc_hi">मल्टीग्रेन रोटी, पनीर बाउल, फ्रेश सलाद और प्रोटीन शेक — बिना मैदा, शुद्ध स्वाद।</string>
-    <string name="onboarding_s1_chip_1">High Protein</string>
-    <string name="onboarding_s1_chip_2">Zero Maida</string>
-    <string name="onboarding_s1_chip_3">Fresh Daily</string>
-    <string name="onboarding_s1_image_cd">Cartoon illustration of fresh healthy Indian meals with paneer bowl, multigrain rotis, salad and protein shake</string>
+    <!-- Certifications -->
+    <string name="cert_lab_tested">Lab Tested</string>
+    <string name="cert_fssai">FSSAI Approved</string>
+    <string name="cert_gmp">GMP Certified</string>
+    <string name="cert_iso">ISO Certified</string>
 
-    <!-- Slide 2: Clean Functional Nutrition Store -->
-    <string name="onboarding_s2_badge">Lab Tested • FSSAI Certified</string>
-    <string name="onboarding_s2_title_en">Pure Functional Nutrition Store</string>
-    <string name="onboarding_s2_title_hi">शुद्ध हाई-प्रोटीन आटा और सुपरफूड्स</string>
-    <string name="onboarding_s2_desc_en">Shop 46g High Protein Atta, Complete Nutri Meal, Barley Talbeenah &amp; everyday family nutrition.</string>
-    <string name="onboarding_s2_desc_hi">46g हाई-प्रोटीन आटा, कम्प्लीट न्यूट्री मील और तलबीना — पूरे परिवार की सेहत के लिए।</string>
-    <string name="onboarding_s2_chip_1">46g Protein Atta</string>
-    <string name="onboarding_s2_chip_2">Talbeenah</string>
-    <string name="onboarding_s2_chip_3">100% Natural</string>
-    <string name="onboarding_s2_image_cd">Cartoon illustration of multigrain high protein atta pouch, nutrition jar and natural dry fruits bowl</string>
+    <!-- Slide 1: Certified Purity -->
+    <string name="onboarding_s1_eyebrow">CERTIFIED QUALITY</string>
+    <string name="onboarding_s1_title">100% Lab Tested Nutrition</string>
+    <string name="onboarding_s1_subtitle">Every product verified for purity, potency, and safety.</string>
+    <string name="onboarding_s1_image_cd">Nutrition scientist inspecting natural grains in a modern testing laboratory</string>
 
-    <!-- Slide 3: Fast Delivery & App-Only Offer -->
-    <string name="onboarding_s3_badge">App Offer • Code APP10</string>
-    <string name="onboarding_s3_title_en">Fast Delivery &amp; Extra 10% OFF</string>
-    <string name="onboarding_s3_title_hi">तेज़ डिलीवरी, लाइव ट्रैकिंग और 10% छूट</string>
-    <string name="onboarding_s3_desc_en">Quick WhatsApp OTP checkout, live order tracking &amp; instant 10% extra discount on the Nutrolix App.</string>
-    <string name="onboarding_s3_desc_hi">आसान व्हाट्सएप OTP ऑर्डर, लाइव ट्रैकिंग और ऐप पर APP10 से एक्स्ट्रा 10% छूट।</string>
-    <string name="onboarding_s3_chip_1">Live Tracking</string>
-    <string name="onboarding_s3_chip_2">WhatsApp OTP</string>
-    <string name="onboarding_s3_chip_3">Extra 10% OFF</string>
-    <string name="onboarding_s3_image_cd">Cartoon illustration of a friendly Nutrolix delivery rider on an electric scooter with healthy food parcel and gift badge</string>
+    <!-- Slide 2: Fresh Healthy Meals -->
+    <string name="onboarding_s2_eyebrow">FRESH DAILY KITCHEN</string>
+    <string name="onboarding_s2_title">Fresh High-Protein Meals</string>
+    <string name="onboarding_s2_subtitle">Cooked fresh every day with zero maida and clean ingredients.</string>
+    <string name="onboarding_s2_image_cd">Fit young man smiling with a freshly prepared healthy high-protein meal bowl</string>
+
+    <!-- Slide 3: App-Only Welcome Rewards -->
+    <string name="onboarding_s3_eyebrow">ONLY FOR APP ORDERS</string>
+    <string name="onboarding_s3_title">Unlock App-Only Rewards</string>
+    <string name="onboarding_s3_subtitle">Instant welcome perks applied right inside the Nutrolix App.</string>
+    <string name="onboarding_s3_offer_free_delivery_title">Free Delivery</string>
+    <string name="onboarding_s3_offer_free_delivery_sub">On orders over ₹199</string>
+    <string name="onboarding_s3_offer_100_title">₹100 OFF</string>
+    <string name="onboarding_s3_offer_100_sub">On your first order</string>
+    <string name="onboarding_s3_offer_extra_title">Get 10% Extra OFF</string>
+    <string name="onboarding_s3_offer_extra_badge">APP ONLY</string>
+    <string name="onboarding_s3_image_cd">Happy customer receiving a fresh Nutrolix healthy food delivery bag at her doorstep</string>
 </resources>

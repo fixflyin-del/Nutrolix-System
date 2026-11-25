@@ -454,40 +454,72 @@
           </form>
         </div>
 
-        <!-- Payment Method Selection (Compact Horizontal Stylish Button Pills) -->
+        <!-- Payment Method Selection (Online Payment First & Recommended, No COD Extra Fee) -->
         <div class="bg-white rounded-2xl p-3.5 sm:p-4 shadow-sm border border-slate-200 space-y-2.5">
-          <h3 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
-            <i class="fa-solid fa-credit-card text-emerald-600 text-xs"></i>
-            <span>Select Payment Method</span>
-          </h3>
+          <div class="flex items-center justify-between gap-2">
+            <h3 class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center space-x-1.5">
+              <i class="fa-solid fa-shield-halved text-emerald-600 text-xs"></i>
+              <span>Select Payment Method</span>
+            </h3>
+            <span class="inline-flex items-center space-x-1 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+              <i class="fa-solid fa-lock text-[9px]"></i>
+              <span>100% Secure</span>
+            </span>
+          </div>
 
-          <div class="grid grid-cols-2 gap-2 text-xs font-bold">
+          <div class="space-y-2 text-xs font-bold">
+            <!-- 1. Online Payment (Default Selected & Visually Preferred) -->
             <label class="relative cursor-pointer block">
-              <input type="radio" name="paymentMethod" value="Cash on Delivery" checked class="peer sr-only">
-              <div class="h-full px-3 py-2.5 rounded-xl border-2 border-slate-200 bg-slate-50/70 hover:border-emerald-300 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 peer-checked:shadow-sm transition flex items-center space-x-2">
-                <span class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 text-xs">
-                  <i class="fa-solid fa-money-bill-wave"></i>
-                </span>
-                <div class="min-w-0">
-                  <span class="block text-slate-900 font-black text-[11px] sm:text-xs leading-tight truncate">Cash on Delivery</span>
-                  <span class="block text-[9px] text-slate-500 truncate">Pay on arrival</span>
+              <input type="radio" name="paymentMethod" value="PayU Online Payment" checked onchange="window.updatePaymentMethodUi && window.updatePaymentMethodUi()" class="peer sr-only">
+              <div class="px-3.5 py-3 rounded-xl border-2 border-slate-200 bg-white hover:border-emerald-400 peer-checked:border-emerald-600 peer-checked:bg-gradient-to-r peer-checked:from-emerald-50 peer-checked:to-teal-50/70 peer-checked:shadow-md peer-checked:shadow-emerald-600/10 transition">
+                <div class="flex items-start justify-between gap-2">
+                  <div class="flex items-center space-x-2.5 min-w-0">
+                    <span class="w-9 h-9 rounded-xl bg-emerald-700 text-white flex items-center justify-center shrink-0 text-sm shadow-sm">
+                      <i class="fa-solid fa-bolt"></i>
+                    </span>
+                    <div class="min-w-0">
+                      <div class="flex flex-wrap items-center gap-1.5">
+                        <span class="text-slate-900 font-black text-xs sm:text-sm leading-tight">Online Payment</span>
+                        <span class="inline-flex items-center px-1.5 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-black uppercase tracking-wide">Recommended</span>
+                      </div>
+                      <span class="block text-[10px] sm:text-[11px] text-emerald-800 font-bold mt-0.5 truncate">UPI • GPay • PhonePe • Paytm • Cards</span>
+                    </div>
+                  </div>
+                  <span id="onlinePayRadioDot" class="w-5 h-5 rounded-full border-2 border-emerald-600 bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 text-[10px] transition">
+                    <i class="fa-solid fa-check"></i>
+                  </span>
+                </div>
+                <div class="mt-2 pt-2 border-t border-emerald-200/70 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-bold text-emerald-800">
+                  <span class="inline-flex items-center space-x-1"><i class="fa-solid fa-circle-check text-emerald-600"></i><span>Instant Order Confirmation</span></span>
+                  <span class="inline-flex items-center space-x-1"><i class="fa-solid fa-truck-fast text-emerald-600"></i><span>Priority Dispatch</span></span>
                 </div>
               </div>
             </label>
 
+            <!-- 2. Cash on Delivery (Secondary Option, Zero Extra Fee) -->
             <label class="relative cursor-pointer block">
-              <input type="radio" name="paymentMethod" value="PayU Online Payment" class="peer sr-only">
-              <div class="h-full px-3 py-2.5 rounded-xl border-2 border-slate-200 bg-slate-50/70 hover:border-emerald-300 peer-checked:border-emerald-600 peer-checked:bg-emerald-50 peer-checked:shadow-sm transition flex items-center space-x-2">
-                <span class="w-7 h-7 rounded-lg bg-slate-900 text-emerald-400 flex items-center justify-center shrink-0 text-xs">
-                  <i class="fa-solid fa-bolt"></i>
-                </span>
-                <div class="min-w-0">
-                  <span class="block text-slate-900 font-black text-[11px] sm:text-xs leading-tight truncate">Online Pay</span>
-                  <span class="block text-[9px] text-emerald-700 font-bold truncate">UPI • Cards • Net</span>
+              <input type="radio" name="paymentMethod" value="Cash on Delivery" onchange="window.updatePaymentMethodUi && window.updatePaymentMethodUi()" class="peer sr-only">
+              <div class="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:border-slate-300 peer-checked:border-2 peer-checked:border-slate-700 peer-checked:bg-slate-100/80 transition flex items-center justify-between gap-2">
+                <div class="flex items-center space-x-2.5 min-w-0">
+                  <span class="w-7 h-7 rounded-lg bg-slate-200/80 text-slate-600 flex items-center justify-center shrink-0 text-xs">
+                    <i class="fa-solid fa-money-bill-wave"></i>
+                  </span>
+                  <div class="min-w-0">
+                    <span class="block text-slate-700 font-bold text-xs leading-tight truncate">Cash on Delivery</span>
+                    <span class="block text-[10px] text-slate-500 font-medium truncate">Pay on delivery • No extra charges</span>
+                  </div>
                 </div>
+                <span id="codPayRadioDot" class="w-4 h-4 rounded-full border-2 border-slate-300 bg-white text-white flex items-center justify-center shrink-0 text-[9px] transition">
+                  <i class="fa-solid fa-check hidden"></i>
+                </span>
               </div>
             </label>
           </div>
+
+          <p id="paymentMethodHint" class="text-[10px] font-bold text-emerald-700 bg-emerald-50/80 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center space-x-1.5">
+            <i class="fa-solid fa-bolt text-emerald-600"></i>
+            <span>Fastest checkout — pay in seconds via UPI, GPay, PhonePe, or Card.</span>
+          </p>
         </div>
 
       </div>
@@ -547,8 +579,8 @@
 
           <!-- Checkout Button -->
           <button id="placeOrderBtn" onclick="handleOrderCheckoutClick()" class="w-full py-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-extrabold text-base shadow-lg shadow-emerald-700/20 transition flex items-center justify-center space-x-2 active:scale-98 cursor-pointer">
-            <i class="fa-solid fa-lock text-sm"></i>
-            <span>Confirm & Place Order</span>
+            <i class="fa-solid fa-bolt text-sm"></i>
+            <span>Pay Online &amp; Place Order</span>
           </button>
 
           <!-- Trust Badges -->
@@ -765,8 +797,50 @@
     let app10UserDismissed = false;
     let selectedSavedAddress = null;
 
+    window.updatePaymentMethodUi = function() {
+      const selected = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'PayU Online Payment';
+      const isOnline = selected.includes('PayU') || selected.includes('Online');
+
+      const onlineDot = document.getElementById('onlinePayRadioDot');
+      const codDot = document.getElementById('codPayRadioDot');
+      const hintEl = document.getElementById('paymentMethodHint');
+      const placeBtn = document.getElementById('placeOrderBtn');
+
+      if (onlineDot) {
+        onlineDot.className = isOnline
+          ? 'w-5 h-5 rounded-full border-2 border-emerald-600 bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5 text-[10px] transition'
+          : 'w-5 h-5 rounded-full border-2 border-slate-300 bg-white text-white flex items-center justify-center shrink-0 mt-0.5 text-[10px] transition';
+        const icon = onlineDot.querySelector('i');
+        if (icon) icon.classList.toggle('hidden', !isOnline);
+      }
+      if (codDot) {
+        codDot.className = !isOnline
+          ? 'w-4 h-4 rounded-full border-2 border-slate-700 bg-slate-700 text-white flex items-center justify-center shrink-0 text-[9px] transition'
+          : 'w-4 h-4 rounded-full border-2 border-slate-300 bg-white text-white flex items-center justify-center shrink-0 text-[9px] transition';
+        const icon = codDot.querySelector('i');
+        if (icon) icon.classList.toggle('hidden', isOnline);
+      }
+      if (hintEl) {
+        if (isOnline) {
+          hintEl.className = 'text-[10px] font-bold text-emerald-700 bg-emerald-50/80 border border-emerald-100 rounded-lg px-2.5 py-1.5 flex items-center space-x-1.5';
+          hintEl.innerHTML = '<i class="fa-solid fa-bolt text-emerald-600"></i><span>Fastest checkout — pay in seconds via UPI, GPay, PhonePe, or Card.</span>';
+        } else {
+          hintEl.className = 'text-[10px] font-semibold text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 flex items-center space-x-1.5';
+          hintEl.innerHTML = '<i class="fa-solid fa-circle-info text-emerald-600"></i><span>Tip: Pay online via UPI for instant confirmation &amp; priority dispatch.</span>';
+        }
+      }
+      if (placeBtn && !placeBtn.disabled) {
+        placeBtn.innerHTML = isOnline
+          ? '<i class="fa-solid fa-bolt text-sm"></i><span>Pay Online &amp; Place Order</span>'
+          : '<i class="fa-solid fa-lock text-sm"></i><span>Confirm &amp; Place COD Order</span>';
+      }
+    };
+    document.addEventListener('DOMContentLoaded', () => {
+      try { window.updatePaymentMethodUi(); } catch (_) {}
+    });
+
     function getCartSignature() {
-      const pm = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'COD';
+      const pm = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'PayU Online Payment';
       const coupon = appliedCoupon ? appliedCoupon.code : '';
       const addr = (document.getElementById('custAddress1')?.value || '').trim().slice(0, 40);
       const pin = (document.getElementById('custPincode')?.value || '').trim();
@@ -2585,7 +2659,7 @@
 
       googleMapsLink = (gpsLat && gpsLon) ? `https://maps.google.com/?q=${gpsLat},${gpsLon}` : '';
 
-      const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked') ? document.querySelector('input[name="paymentMethod"]:checked').value : 'Cash on Delivery';
+      const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked') ? document.querySelector('input[name="paymentMethod"]:checked').value : 'PayU Online Payment';
       const settings = getStoreSettings();
       const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       let couponDiscount = 0;
@@ -2809,7 +2883,11 @@
           alert('PayU Gateway error: ' + payuErr.message + '. Your cart is saved — please retry or choose Cash on Delivery.');
           if (btn) {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fa-solid fa-lock text-sm mr-2"></i><span>Confirm &amp; Place Order</span>';
+            if (typeof window.updatePaymentMethodUi === 'function') {
+              window.updatePaymentMethodUi();
+            } else {
+              btn.innerHTML = '<i class="fa-solid fa-bolt text-sm mr-2"></i><span>Pay Online &amp; Place Order</span>';
+            }
           }
           return;
         }

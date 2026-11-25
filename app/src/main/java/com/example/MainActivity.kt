@@ -36,8 +36,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
 import com.example.auth.PhoneAuthService
 import com.example.auth.PhoneOtpStartResult
 import com.example.auth.PhoneOtpVerifyResult
@@ -332,6 +334,17 @@ fun NutrolixSupplementBrandApp(
     )
   }
   var hasRequestedNotifPermission by remember { mutableStateOf(false) }
+  val hostView = LocalView.current
+
+  SideEffect {
+    val window = activity?.window
+    if (window != null) {
+      val controller = WindowCompat.getInsetsController(window, hostView)
+      val useLightBars = launchStage == NutrolixLaunchStage.MAIN
+      controller.isAppearanceLightStatusBars = useLightBars
+      controller.isAppearanceLightNavigationBars = useLightBars
+    }
+  }
 
   LaunchedEffect(Unit) {
     try {

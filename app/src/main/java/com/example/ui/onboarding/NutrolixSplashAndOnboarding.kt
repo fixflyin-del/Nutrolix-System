@@ -29,7 +29,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -43,26 +43,27 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.CardGiftcard
 import androidx.compose.material.icons.rounded.LocalOffer
+import androidx.compose.material.icons.rounded.LocalShipping
 import androidx.compose.material.icons.rounded.Restaurant
+import androidx.compose.material.icons.rounded.Science
+import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -73,7 +74,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -87,14 +87,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
-import com.example.ui.theme.AmberWarm
-import com.example.ui.theme.NutrolixDarkGreen
-import com.example.ui.theme.NutrolixGoldBg
-import com.example.ui.theme.NutrolixLightGreen
-import com.example.ui.theme.NutrolixOrange
-import com.example.ui.theme.NutrolixPrimaryGreen
-import com.example.ui.theme.NutrolixTextPrimary
-import com.example.ui.theme.NutrolixTextSecondary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -106,7 +98,7 @@ enum class NutrolixLaunchStage {
 
 object NutrolixOnboardingPrefs {
   private const val PREFS_NAME = "nutrolix_onboarding_prefs"
-  private const val KEY_COMPLETED = "onboarding_completed"
+  private const val KEY_COMPLETED = "onboarding_v5_completed"
 
   fun isCompleted(context: Context): Boolean {
     return context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -121,83 +113,73 @@ object NutrolixOnboardingPrefs {
   }
 }
 
-private data class OnboardingSlideData(
-  @DrawableRes val imageRes: Int,
-  @StringRes val imageCdRes: Int,
-  @StringRes val badgeRes: Int,
-  val badgeIcon: ImageVector,
-  val badgeBg: Color,
-  val badgeTint: Color,
-  val accentColor: Color,
-  val cardHaloStart: Color,
-  val cardHaloEnd: Color,
-  @StringRes val titleEnRes: Int,
-  @StringRes val titleHiRes: Int,
-  @StringRes val descEnRes: Int,
-  @StringRes val descHiRes: Int,
-  val chipResIds: List<Int>
+private val DeepForest = Color(0xFF041A10)
+private val RichEmerald = Color(0xFF0A3320)
+private val BrightMint = Color(0xFF34D399)
+private val VibrantEmerald = Color(0xFF10B981)
+private val WarmGold = Color(0xFFFBBF24)
+
+private data class CertBadge(
+  @StringRes val labelRes: Int,
+  val icon: ImageVector
 )
 
-private val NutrolixOnboardingSlides = listOf(
-  OnboardingSlideData(
-    imageRes = R.drawable.img_onboard_healthy_meals_1795550337332,
+private val QualityCertifications = listOf(
+  CertBadge(R.string.cert_lab_tested, Icons.Rounded.Science),
+  CertBadge(R.string.cert_fssai, Icons.Rounded.Verified),
+  CertBadge(R.string.cert_gmp, Icons.Rounded.WorkspacePremium),
+  CertBadge(R.string.cert_iso, Icons.Rounded.Shield)
+)
+
+private data class EditorialSlideData(
+  @DrawableRes val imageRes: Int,
+  @StringRes val imageCdRes: Int,
+  val photoAlignment: Alignment,
+  val photoHeightFraction: Float,
+  @StringRes val eyebrowRes: Int,
+  val eyebrowIcon: ImageVector,
+  val eyebrowAccent: Color,
+  @StringRes val titleRes: Int,
+  @StringRes val subtitleRes: Int,
+  val showCertificationsGrid: Boolean = false,
+  val showAppRewardsShowcase: Boolean = false
+)
+
+private val NutrolixEditorialSlides = listOf(
+  EditorialSlideData(
+    imageRes = R.drawable.img_onboard_lab_nutrolix_1795587108485,
     imageCdRes = R.string.onboarding_s1_image_cd,
-    badgeRes = R.string.onboarding_s1_badge,
-    badgeIcon = Icons.Rounded.Restaurant,
-    badgeBg = NutrolixLightGreen,
-    badgeTint = NutrolixPrimaryGreen,
-    accentColor = NutrolixPrimaryGreen,
-    cardHaloStart = Color(0xFFE7F7EE),
-    cardHaloEnd = Color(0xFFFFF8EB),
-    titleEnRes = R.string.onboarding_s1_title_en,
-    titleHiRes = R.string.onboarding_s1_title_hi,
-    descEnRes = R.string.onboarding_s1_desc_en,
-    descHiRes = R.string.onboarding_s1_desc_hi,
-    chipResIds = listOf(
-      R.string.onboarding_s1_chip_1,
-      R.string.onboarding_s1_chip_2,
-      R.string.onboarding_s1_chip_3
-    )
+    photoAlignment = Alignment.Center,
+    photoHeightFraction = 0.62f,
+    eyebrowRes = R.string.onboarding_s1_eyebrow,
+    eyebrowIcon = Icons.Rounded.Verified,
+    eyebrowAccent = BrightMint,
+    titleRes = R.string.onboarding_s1_title,
+    subtitleRes = R.string.onboarding_s1_subtitle,
+    showCertificationsGrid = true
   ),
-  OnboardingSlideData(
-    imageRes = R.drawable.img_onboard_protein_store_1795550336700,
+  EditorialSlideData(
+    imageRes = R.drawable.img_onboard_meals_nutrolix_1795587102500,
     imageCdRes = R.string.onboarding_s2_image_cd,
-    badgeRes = R.string.onboarding_s2_badge,
-    badgeIcon = Icons.Rounded.Verified,
-    badgeBg = Color(0xFFE4F6EE),
-    badgeTint = NutrolixDarkGreen,
-    accentColor = NutrolixPrimaryGreen,
-    cardHaloStart = Color(0xFFE6F6F0),
-    cardHaloEnd = Color(0xFFFEF7E5),
-    titleEnRes = R.string.onboarding_s2_title_en,
-    titleHiRes = R.string.onboarding_s2_title_hi,
-    descEnRes = R.string.onboarding_s2_desc_en,
-    descHiRes = R.string.onboarding_s2_desc_hi,
-    chipResIds = listOf(
-      R.string.onboarding_s2_chip_1,
-      R.string.onboarding_s2_chip_2,
-      R.string.onboarding_s2_chip_3
-    )
+    photoAlignment = Alignment.Center,
+    photoHeightFraction = 0.68f,
+    eyebrowRes = R.string.onboarding_s2_eyebrow,
+    eyebrowIcon = Icons.Rounded.Restaurant,
+    eyebrowAccent = BrightMint,
+    titleRes = R.string.onboarding_s2_title,
+    subtitleRes = R.string.onboarding_s2_subtitle
   ),
-  OnboardingSlideData(
-    imageRes = R.drawable.img_onboard_fast_delivery_1795550351201,
+  EditorialSlideData(
+    imageRes = R.drawable.img_onboard_delivery_nutrolix_1795587104630,
     imageCdRes = R.string.onboarding_s3_image_cd,
-    badgeRes = R.string.onboarding_s3_badge,
-    badgeIcon = Icons.Rounded.LocalOffer,
-    badgeBg = NutrolixGoldBg,
-    badgeTint = NutrolixOrange,
-    accentColor = NutrolixPrimaryGreen,
-    cardHaloStart = Color(0xFFFFF6E4),
-    cardHaloEnd = Color(0xFFE9F8F0),
-    titleEnRes = R.string.onboarding_s3_title_en,
-    titleHiRes = R.string.onboarding_s3_title_hi,
-    descEnRes = R.string.onboarding_s3_desc_en,
-    descHiRes = R.string.onboarding_s3_desc_hi,
-    chipResIds = listOf(
-      R.string.onboarding_s3_chip_1,
-      R.string.onboarding_s3_chip_2,
-      R.string.onboarding_s3_chip_3
-    )
+    photoAlignment = Alignment.TopCenter,
+    photoHeightFraction = 0.60f,
+    eyebrowRes = R.string.onboarding_s3_eyebrow,
+    eyebrowIcon = Icons.Rounded.LocalOffer,
+    eyebrowAccent = WarmGold,
+    titleRes = R.string.onboarding_s3_title,
+    subtitleRes = R.string.onboarding_s3_subtitle,
+    showAppRewardsShowcase = true
   )
 )
 
@@ -206,12 +188,12 @@ fun NutrolixNativeSplashScreen(
   onSplashFinished: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val logoScale = remember { Animatable(0.76f) }
+  val iconScale = remember { Animatable(0.74f) }
   val contentAlpha = remember { Animatable(0f) }
 
   LaunchedEffect(Unit) {
     launch {
-      logoScale.animateTo(
+      iconScale.animateTo(
         targetValue = 1f,
         animationSpec = spring(
           dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -225,11 +207,11 @@ fun NutrolixNativeSplashScreen(
         animationSpec = tween(durationMillis = 520, easing = FastOutSlowInEasing)
       )
     }
-    delay(1650L)
+    delay(2000L)
     onSplashFinished()
   }
 
-  val infiniteTransition = rememberInfiniteTransition(label = "splash_dots")
+  val infiniteTransition = rememberInfiniteTransition(label = "splash_motion")
   val pulsePhase by infiniteTransition.animateFloat(
     initialValue = 0f,
     targetValue = 3f,
@@ -237,7 +219,16 @@ fun NutrolixNativeSplashScreen(
       animation = tween(durationMillis = 900, easing = LinearEasing),
       repeatMode = RepeatMode.Restart
     ),
-    label = "splash_dot_phase"
+    label = "splash_pulse_phase"
+  )
+  val haloBreath by infiniteTransition.animateFloat(
+    initialValue = 0.94f,
+    targetValue = 1.07f,
+    animationSpec = infiniteRepeatable(
+      animation = tween(durationMillis = 1200, easing = FastOutSlowInEasing),
+      repeatMode = RepeatMode.Reverse
+    ),
+    label = "splash_halo_breath"
   )
 
   Box(
@@ -245,11 +236,7 @@ fun NutrolixNativeSplashScreen(
       .fillMaxSize()
       .background(
         Brush.verticalGradient(
-          colors = listOf(
-            Color(0xFFF0FAF4),
-            Color(0xFFFFFFFF),
-            Color(0xFFE9F6EE)
-          )
+          colors = listOf(DeepForest, RichEmerald, DeepForest)
         )
       )
       .statusBarsPadding()
@@ -257,22 +244,22 @@ fun NutrolixNativeSplashScreen(
       .testTag("nutrolix_native_splash"),
     contentAlignment = Alignment.Center
   ) {
-    // Soft decorative botanical glow shapes
+    // Subtle ambient emerald & warm gold light accents
     Box(
       modifier = Modifier
         .align(Alignment.TopEnd)
-        .offset(x = 70.dp, y = (-50).dp)
-        .size(220.dp)
+        .offset(x = 80.dp, y = (-60).dp)
+        .size(260.dp)
         .clip(CircleShape)
-        .background(NutrolixPrimaryGreen.copy(alpha = 0.08f))
+        .background(VibrantEmerald.copy(alpha = 0.14f))
     )
     Box(
       modifier = Modifier
         .align(Alignment.BottomStart)
-        .offset(x = (-75).dp, y = 60.dp)
+        .offset(x = (-80).dp, y = 70.dp)
         .size(240.dp)
         .clip(CircleShape)
-        .background(AmberWarm.copy(alpha = 0.09f))
+        .background(WarmGold.copy(alpha = 0.09f))
     )
 
     Column(
@@ -282,61 +269,69 @@ fun NutrolixNativeSplashScreen(
         .padding(horizontal = 32.dp)
         .alpha(contentAlpha.value)
     ) {
-      Surface(
-        modifier = Modifier
-          .size(118.dp)
-          .scale(logoScale.value)
-          .shadow(
-            elevation = 18.dp,
-            shape = RoundedCornerShape(32.dp),
-            ambientColor = NutrolixPrimaryGreen.copy(alpha = 0.24f),
-            spotColor = NutrolixPrimaryGreen.copy(alpha = 0.24f)
-          ),
-        shape = RoundedCornerShape(32.dp),
-        color = Color.White,
-        border = BorderStroke(1.5.dp, NutrolixPrimaryGreen.copy(alpha = 0.14f))
-      ) {
+      // Animated Glowing Frame with New Nutrolix Healthy Food Store Icon
+      Box(contentAlignment = Alignment.Center) {
         Box(
-          contentAlignment = Alignment.Center,
-          modifier = Modifier.padding(16.dp)
+          modifier = Modifier
+            .size(146.dp)
+            .scale(haloBreath)
+            .clip(RoundedCornerShape(40.dp))
+            .background(
+              Brush.radialGradient(
+                colors = listOf(
+                  BrightMint.copy(alpha = 0.28f),
+                  WarmGold.copy(alpha = 0.12f),
+                  Color.Transparent
+                )
+              )
+            )
+        )
+        Surface(
+          modifier = Modifier
+            .size(120.dp)
+            .scale(iconScale.value),
+          shape = RoundedCornerShape(32.dp),
+          color = Color.White,
+          shadowElevation = 20.dp,
+          border = BorderStroke(2.dp, BrightMint.copy(alpha = 0.45f))
         ) {
-          Image(
-            painter = painterResource(id = R.drawable.nutrolix_logo),
-            contentDescription = stringResource(id = R.string.splash_logo_cd),
-            contentScale = ContentScale.Fit,
-            modifier = Modifier.fillMaxSize()
-          )
+          Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.padding(10.dp)
+          ) {
+            Image(
+              painter = painterResource(id = R.drawable.img_nutrolix_store_icon),
+              contentDescription = stringResource(id = R.string.splash_logo_cd),
+              contentScale = ContentScale.Fit,
+              modifier = Modifier
+                .fillMaxSize()
+                .clip(RoundedCornerShape(22.dp))
+            )
+          }
         }
       }
 
-      Spacer(modifier = Modifier.height(24.dp))
+      Spacer(modifier = Modifier.height(22.dp))
 
       Text(
         text = stringResource(id = R.string.splash_brand_title),
         style = MaterialTheme.typography.headlineMedium.copy(
           fontWeight = FontWeight.ExtraBold,
-          letterSpacing = 3.5.sp,
-          color = NutrolixDarkGreen
+          letterSpacing = 5.sp,
+          color = Color.White
         )
       )
 
-      Spacer(modifier = Modifier.height(8.dp))
+      Spacer(modifier = Modifier.height(6.dp))
 
-      Surface(
-        shape = RoundedCornerShape(50),
-        color = NutrolixLightGreen,
-        border = BorderStroke(1.dp, NutrolixPrimaryGreen.copy(alpha = 0.15f))
-      ) {
-        Text(
-          text = "${stringResource(id = R.string.splash_tagline_en)}  •  ${stringResource(id = R.string.splash_tagline_hi)}",
-          style = MaterialTheme.typography.labelLarge.copy(
-            fontWeight = FontWeight.SemiBold,
-            color = NutrolixPrimaryGreen
-          ),
-          textAlign = TextAlign.Center,
-          modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp)
+      Text(
+        text = stringResource(id = R.string.splash_tagline),
+        style = MaterialTheme.typography.bodyMedium.copy(
+          fontWeight = FontWeight.Medium,
+          letterSpacing = 1.2.sp,
+          color = BrightMint.copy(alpha = 0.92f)
         )
-      }
+      )
 
       Spacer(modifier = Modifier.height(34.dp))
 
@@ -349,11 +344,9 @@ fun NutrolixNativeSplashScreen(
           val active = (1f - distance.coerceIn(0f, 1f))
           Box(
             modifier = Modifier
-              .size(8.dp + (active * 3f).dp)
+              .size(6.dp + (active * 3f).dp)
               .clip(CircleShape)
-              .background(
-                NutrolixPrimaryGreen.copy(alpha = 0.25f + (active * 0.75f))
-              )
+              .background(BrightMint.copy(alpha = 0.25f + (active * 0.75f)))
           )
         }
       }
@@ -361,14 +354,15 @@ fun NutrolixNativeSplashScreen(
 
     Text(
       text = stringResource(id = R.string.splash_footer_trust),
-      style = MaterialTheme.typography.labelMedium.copy(
-        color = NutrolixTextSecondary,
-        fontWeight = FontWeight.Medium,
-        letterSpacing = 0.4.sp
+      style = MaterialTheme.typography.labelSmall.copy(
+        color = Color.White.copy(alpha = 0.62f),
+        fontWeight = FontWeight.SemiBold,
+        letterSpacing = 1.1.sp
       ),
+      textAlign = TextAlign.Center,
       modifier = Modifier
         .align(Alignment.BottomCenter)
-        .padding(bottom = 26.dp)
+        .padding(bottom = 26.dp, start = 24.dp, end = 24.dp)
         .alpha(contentAlpha.value)
     )
   }
@@ -379,12 +373,11 @@ fun NutrolixOnboardingFlow(
   onComplete: () -> Unit,
   modifier: Modifier = Modifier
 ) {
-  val slides = NutrolixOnboardingSlides
+  val slides = NutrolixEditorialSlides
   val pagerState = rememberPagerState(pageCount = { slides.size })
   val coroutineScope = rememberCoroutineScope()
   val isLastPage = pagerState.currentPage == slides.lastIndex
 
-  // Handle system back cleanly across onboarding slides
   BackHandler(enabled = pagerState.currentPage > 0) {
     coroutineScope.launch {
       pagerState.animateScrollToPage(pagerState.currentPage - 1)
@@ -394,236 +387,213 @@ fun NutrolixOnboardingFlow(
   Box(
     modifier = modifier
       .fillMaxSize()
-      .background(
-        Brush.verticalGradient(
-          colors = listOf(
-            Color(0xFFF4FBF7),
-            Color(0xFFFFFFFF),
-            Color(0xFFF6FBF8)
-          )
-        )
-      )
-      .statusBarsPadding()
-      .navigationBarsPadding()
-      .testTag("nutrolix_onboarding_screen"),
-    contentAlignment = Alignment.TopCenter
+      .background(DeepForest)
+      .testTag("nutrolix_onboarding_screen")
   ) {
-    Column(
+    // Full-Bleed Editorial Photo Pager
+    HorizontalPager(
+      state = pagerState,
       modifier = Modifier
         .fillMaxSize()
-        .widthIn(max = 540.dp)
-        .padding(horizontal = 20.dp),
-      horizontalAlignment = Alignment.CenterHorizontally
+        .testTag("onboarding_pager")
+    ) { pageIndex ->
+      EditorialSlidePage(
+        slide = slides[pageIndex],
+        slideIndex = pageIndex
+      )
+    }
+
+    // Floating Frosted Top Header (Brand Icon + Skip)
+    Row(
+      modifier = Modifier
+        .align(Alignment.TopCenter)
+        .fillMaxWidth()
+        .widthIn(max = 560.dp)
+        .statusBarsPadding()
+        .padding(horizontal = 20.dp, vertical = 14.dp),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically
     ) {
-      // Top Navigation Bar: Brand Pill + Skip Button
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(top = 12.dp, bottom = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+      Surface(
+        shape = RoundedCornerShape(50),
+        color = Color.Black.copy(alpha = 0.42f),
+        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f))
       ) {
-        Surface(
-          shape = RoundedCornerShape(50),
-          color = Color.White,
-          border = BorderStroke(1.dp, NutrolixPrimaryGreen.copy(alpha = 0.14f)),
-          shadowElevation = 2.dp
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier.padding(start = 6.dp, end = 14.dp, top = 5.dp, bottom = 5.dp)
         ) {
-          Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
+          Surface(
+            shape = CircleShape,
+            color = Color.White,
+            modifier = Modifier.size(28.dp)
           ) {
             Image(
-              painter = painterResource(id = R.drawable.nutrolix_logo),
+              painter = painterResource(id = R.drawable.img_nutrolix_store_icon),
               contentDescription = stringResource(id = R.string.splash_logo_cd),
               contentScale = ContentScale.Fit,
-              modifier = Modifier.size(22.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-              text = stringResource(id = R.string.app_name),
-              style = MaterialTheme.typography.titleSmall.copy(
-                fontWeight = FontWeight.Bold,
-                color = NutrolixDarkGreen
-              )
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Box(
               modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(NutrolixLightGreen)
-                .padding(horizontal = 8.dp, vertical = 2.dp)
-            ) {
-              Text(
-                text = stringResource(
-                  id = R.string.onboarding_step_format,
-                  pagerState.currentPage + 1,
-                  slides.size
-                ),
-                style = MaterialTheme.typography.labelSmall.copy(
-                  fontWeight = FontWeight.Bold,
-                  color = NutrolixPrimaryGreen
-                )
-              )
-            }
+                .fillMaxSize()
+                .padding(2.dp)
+                .clip(CircleShape)
+            )
           }
+          Spacer(modifier = Modifier.width(8.dp))
+          Text(
+            text = stringResource(id = R.string.splash_brand_title),
+            style = MaterialTheme.typography.labelLarge.copy(
+              fontWeight = FontWeight.ExtraBold,
+              letterSpacing = 1.6.sp,
+              color = Color.White
+            )
+          )
         }
+      }
 
-        AnimatedVisibility(
-          visible = !isLastPage,
-          enter = fadeIn(),
-          exit = fadeOut()
+      AnimatedVisibility(
+        visible = !isLastPage,
+        enter = fadeIn(),
+        exit = fadeOut()
+      ) {
+        Surface(
+          onClick = onComplete,
+          shape = RoundedCornerShape(50),
+          color = Color.Black.copy(alpha = 0.40f),
+          border = BorderStroke(1.dp, Color.White.copy(alpha = 0.24f)),
+          modifier = Modifier
+            .heightIn(min = 48.dp)
+            .testTag("onboarding_skip_button")
         ) {
-          TextButton(
-            onClick = onComplete,
-            modifier = Modifier
-              .heightIn(min = 48.dp)
-              .testTag("onboarding_skip_button"),
-            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 8.dp)
+          Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp)
           ) {
             Text(
               text = stringResource(id = R.string.onboarding_skip),
               style = MaterialTheme.typography.labelLarge.copy(
                 fontWeight = FontWeight.SemiBold,
-                color = NutrolixTextSecondary
+                color = Color.White
               )
             )
           }
         }
       }
+    }
 
-      // Main 3-Slide Pager
-      HorizontalPager(
-        state = pagerState,
-        modifier = Modifier
-          .fillMaxWidth()
-          .weight(1f)
-          .testTag("onboarding_pager")
-      ) { pageIndex ->
-        OnboardingSlideContent(
-          slide = slides[pageIndex],
-          slideIndex = pageIndex
-        )
+    // Bottom Navigation Action Bar
+    Row(
+      modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .fillMaxWidth()
+        .widthIn(max = 560.dp)
+        .navigationBarsPadding()
+        .padding(start = 24.dp, end = 24.dp, bottom = 22.dp, top = 8.dp),
+      horizontalArrangement = Arrangement.SpaceBetween,
+      verticalAlignment = Alignment.CenterVertically
+    ) {
+      // Sleek Expanding Progress Pills
+      Row(
+        horizontalArrangement = Arrangement.spacedBy(7.dp),
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        repeat(slides.size) { idx ->
+          val isSelected = pagerState.currentPage == idx
+          val dotWidth by animateDpAsState(
+            targetValue = if (isSelected) 30.dp else 8.dp,
+            animationSpec = spring(
+              dampingRatio = Spring.DampingRatioMediumBouncy,
+              stiffness = Spring.StiffnessMediumLow
+            ),
+            label = "editorial_dot_$idx"
+          )
+          Box(
+            modifier = Modifier
+              .height(6.dp)
+              .width(dotWidth)
+              .clip(CircleShape)
+              .background(
+                if (isSelected) BrightMint else Color.White.copy(alpha = 0.30f)
+              )
+          )
+        }
       }
 
-      // Bottom Controls: Animated Dots + Back + Next / Get Started
-      Surface(
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(top = 8.dp, bottom = 18.dp),
-        shape = RoundedCornerShape(26.dp),
-        color = Color.White,
-        border = BorderStroke(1.dp, NutrolixPrimaryGreen.copy(alpha = 0.10f)),
-        shadowElevation = 6.dp
+      Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically
       ) {
-        Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
+        AnimatedVisibility(
+          visible = pagerState.currentPage > 0,
+          enter = fadeIn() + scaleIn(initialScale = 0.85f),
+          exit = fadeOut() + scaleOut(targetScale = 0.85f)
         ) {
-          // Page indicator dots
-          Row(
-            horizontalArrangement = Arrangement.spacedBy(7.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(start = 4.dp)
+          Surface(
+            shape = CircleShape,
+            color = Color.White.copy(alpha = 0.14f),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)),
+            modifier = Modifier.size(52.dp)
           ) {
-            repeat(slides.size) { idx ->
-              val isSelected = pagerState.currentPage == idx
-              val dotWidth by animateDpAsState(
-                targetValue = if (isSelected) 28.dp else 8.dp,
-                animationSpec = spring(
-                  dampingRatio = Spring.DampingRatioMediumBouncy,
-                  stiffness = Spring.StiffnessMediumLow
-                ),
-                label = "onboarding_dot_$idx"
-              )
-              Box(
-                modifier = Modifier
-                  .height(8.dp)
-                  .width(dotWidth)
-                  .clip(CircleShape)
-                  .background(
-                    if (isSelected) NutrolixPrimaryGreen else NutrolixPrimaryGreen.copy(alpha = 0.22f)
-                  )
-              )
-            }
-          }
-
-          Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            AnimatedVisibility(
-              visible = pagerState.currentPage > 0,
-              enter = fadeIn() + scaleIn(initialScale = 0.85f),
-              exit = fadeOut() + scaleOut(targetScale = 0.85f)
-            ) {
-              FilledTonalIconButton(
-                onClick = {
-                  coroutineScope.launch {
-                    pagerState.animateScrollToPage((pagerState.currentPage - 1).coerceAtLeast(0))
-                  }
-                },
-                colors = IconButtonDefaults.filledTonalIconButtonColors(
-                  containerColor = NutrolixLightGreen,
-                  contentColor = NutrolixDarkGreen
-                ),
-                modifier = Modifier
-                  .size(48.dp)
-                  .testTag("onboarding_back_button")
-              ) {
-                Icon(
-                  imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
-                  contentDescription = stringResource(id = R.string.onboarding_back_cd)
-                )
-              }
-            }
-
-            Button(
+            IconButton(
               onClick = {
-                if (isLastPage) {
-                  onComplete()
-                } else {
-                  coroutineScope.launch {
-                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                  }
+                coroutineScope.launch {
+                  pagerState.animateScrollToPage((pagerState.currentPage - 1).coerceAtLeast(0))
                 }
               },
-              shape = RoundedCornerShape(16.dp),
-              colors = ButtonDefaults.buttonColors(
-                containerColor = NutrolixPrimaryGreen,
-                contentColor = Color.White
-              ),
-              elevation = ButtonDefaults.buttonElevation(
-                defaultElevation = 3.dp,
-                pressedElevation = 1.dp
-              ),
-              contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
               modifier = Modifier
-                .heightIn(min = 50.dp)
-                .testTag(if (isLastPage) "onboarding_get_started_button" else "onboarding_next_button")
+                .fillMaxSize()
+                .testTag("onboarding_back_button")
             ) {
-              Text(
-                text = stringResource(
-                  id = if (isLastPage) R.string.onboarding_get_started else R.string.onboarding_next
-                ),
-                style = MaterialTheme.typography.labelLarge.copy(
-                  fontWeight = FontWeight.Bold,
-                  fontSize = 14.sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-              )
-              Spacer(modifier = Modifier.width(8.dp))
               Icon(
-                imageVector = if (isLastPage) Icons.Rounded.CheckCircle else Icons.AutoMirrored.Rounded.ArrowForward,
-                contentDescription = null,
-                modifier = Modifier.size(19.dp)
+                imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                contentDescription = stringResource(id = R.string.onboarding_back_cd),
+                tint = Color.White
               )
             }
           }
+        }
+
+        Button(
+          onClick = {
+            if (isLastPage) {
+              onComplete()
+            } else {
+              coroutineScope.launch {
+                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+              }
+            }
+          },
+          shape = RoundedCornerShape(50),
+          colors = ButtonDefaults.buttonColors(
+            containerColor = if (isLastPage) VibrantEmerald else Color.White,
+            contentColor = if (isLastPage) Color.White else DeepForest
+          ),
+          elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 6.dp,
+            pressedElevation = 2.dp
+          ),
+          contentPadding = PaddingValues(horizontal = 24.dp, vertical = 14.dp),
+          modifier = Modifier
+            .heightIn(min = 52.dp)
+            .testTag(if (isLastPage) "onboarding_get_started_button" else "onboarding_next_button")
+        ) {
+          Text(
+            text = stringResource(
+              id = if (isLastPage) R.string.onboarding_get_started else R.string.onboarding_next
+            ),
+            style = MaterialTheme.typography.labelLarge.copy(
+              fontWeight = FontWeight.Bold,
+              fontSize = 15.sp,
+              letterSpacing = 0.2.sp
+            ),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+          )
+          Spacer(modifier = Modifier.width(8.dp))
+          Icon(
+            imageVector = Icons.AutoMirrored.Rounded.ArrowForward,
+            contentDescription = null,
+            modifier = Modifier.size(19.dp)
+          )
         }
       }
     }
@@ -631,187 +601,335 @@ fun NutrolixOnboardingFlow(
 }
 
 @Composable
-private fun OnboardingSlideContent(
-  slide: OnboardingSlideData,
+private fun EditorialSlidePage(
+  slide: EditorialSlideData,
   slideIndex: Int
 ) {
-  val scrollState = rememberScrollState()
-
-  Column(
+  Box(
     modifier = Modifier
       .fillMaxSize()
-      .verticalScroll(scrollState)
-      .padding(vertical = 8.dp)
-      .testTag("onboarding_slide_${slideIndex + 1}"),
-    horizontalAlignment = Alignment.CenterHorizontally,
-    verticalArrangement = Arrangement.Center
+      .background(DeepForest)
+      .testTag("onboarding_slide_${slideIndex + 1}")
   ) {
-    // Stylized Cartoon Illustration Card
+    // Upper Full-Bleed Hero Photograph (keeps Nutrolix products, meal bowls & brown packet crystal clear)
     Box(
       modifier = Modifier
+        .align(Alignment.TopCenter)
         .fillMaxWidth()
-        .padding(horizontal = 6.dp),
-      contentAlignment = Alignment.Center
+        .fillMaxHeight(slide.photoHeightFraction)
     ) {
-      Surface(
+      Image(
+        painter = painterResource(id = slide.imageRes),
+        contentDescription = stringResource(id = slide.imageCdRes),
+        contentScale = ContentScale.Crop,
+        alignment = slide.photoAlignment,
+        modifier = Modifier.fillMaxSize()
+      )
+
+      // Subtle top contrast veil for status bar & brand pill + smooth bottom blend into DeepForest
+      Box(
         modifier = Modifier
-          .fillMaxWidth()
-          .widthIn(max = 340.dp)
-          .aspectRatio(1.06f)
-          .shadow(
-            elevation = 16.dp,
-            shape = RoundedCornerShape(32.dp),
-            ambientColor = NutrolixPrimaryGreen.copy(alpha = 0.16f),
-            spotColor = NutrolixPrimaryGreen.copy(alpha = 0.16f)
-          ),
-        shape = RoundedCornerShape(32.dp),
-        color = Color.White,
-        border = BorderStroke(1.5.dp, Color.White)
-      ) {
-        Box(
-          modifier = Modifier
-            .fillMaxSize()
-            .background(
-              Brush.linearGradient(
-                colors = listOf(slide.cardHaloStart, slide.cardHaloEnd)
+          .fillMaxSize()
+          .background(
+            Brush.verticalGradient(
+              colorStops = arrayOf(
+                0.00f to Color.Black.copy(alpha = 0.34f),
+                0.20f to Color.Transparent,
+                0.72f to Color.Transparent,
+                0.90f to DeepForest.copy(alpha = 0.78f),
+                1.00f to DeepForest
               )
             )
-        ) {
-          Image(
-            painter = painterResource(id = slide.imageRes),
-            contentDescription = stringResource(id = slide.imageCdRes),
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-              .fillMaxSize()
-              .clip(RoundedCornerShape(32.dp))
           )
+      )
+    }
 
-          // Floating Category / Feature Badge
-          Surface(
-            modifier = Modifier
-              .align(Alignment.TopStart)
-              .padding(14.dp),
-            shape = RoundedCornerShape(50),
-            color = Color.White.copy(alpha = 0.94f),
-            border = BorderStroke(1.dp, slide.badgeTint.copy(alpha = 0.18f)),
-            shadowElevation = 4.dp
-          ) {
+    // Editorial Single-Feature Content Block pinned cleanly in the lower forest-emerald zone
+    Column(
+      modifier = Modifier
+        .align(Alignment.BottomCenter)
+        .fillMaxWidth()
+        .widthIn(max = 560.dp)
+        .navigationBarsPadding()
+        .padding(start = 24.dp, end = 24.dp, bottom = 92.dp),
+      horizontalAlignment = Alignment.Start
+    ) {
+      // Minimal Eyebrow Pill
+      Surface(
+        shape = RoundedCornerShape(50),
+        color = slide.eyebrowAccent.copy(alpha = 0.16f),
+        border = BorderStroke(1.dp, slide.eyebrowAccent.copy(alpha = 0.42f))
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+        ) {
+          Icon(
+            imageVector = slide.eyebrowIcon,
+            contentDescription = null,
+            tint = slide.eyebrowAccent,
+            modifier = Modifier.size(15.dp)
+          )
+          Spacer(modifier = Modifier.width(6.dp))
+          Text(
+            text = stringResource(id = slide.eyebrowRes),
+            style = MaterialTheme.typography.labelSmall.copy(
+              fontWeight = FontWeight.ExtraBold,
+              letterSpacing = 1.2.sp,
+              color = slide.eyebrowAccent
+            )
+          )
+        }
+      }
+
+      Spacer(modifier = Modifier.height(12.dp))
+
+      // Bold Clean Single-Feature Headline
+      Text(
+        text = stringResource(id = slide.titleRes),
+        style = MaterialTheme.typography.headlineLarge.copy(
+          fontWeight = FontWeight.ExtraBold,
+          fontSize = 30.sp,
+          lineHeight = 35.sp,
+          letterSpacing = (-0.5).sp,
+          color = Color.White
+        )
+      )
+
+      Spacer(modifier = Modifier.height(6.dp))
+
+      // Minimal 1-line Subtitle
+      Text(
+        text = stringResource(id = slide.subtitleRes),
+        style = MaterialTheme.typography.bodyLarge.copy(
+          fontSize = 14.5.sp,
+          lineHeight = 21.sp,
+          color = Color.White.copy(alpha = 0.80f)
+        ),
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis
+      )
+
+      // Clean 2x2 Certification Grid on Slide 1 (Lab Tested, FSSAI Approved, GMP Certified, ISO Certified)
+      if (slide.showCertificationsGrid) {
+        Spacer(modifier = Modifier.height(16.dp))
+        Column(
+          verticalArrangement = Arrangement.spacedBy(10.dp),
+          modifier = Modifier.fillMaxWidth()
+        ) {
+          QualityCertifications.chunked(2).forEach { rowItems ->
             Row(
-              verticalAlignment = Alignment.CenterVertically,
-              modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+              horizontalArrangement = Arrangement.spacedBy(10.dp),
+              modifier = Modifier.fillMaxWidth()
             ) {
-              Icon(
-                imageVector = slide.badgeIcon,
-                contentDescription = null,
-                tint = slide.badgeTint,
-                modifier = Modifier.size(16.dp)
-              )
-              Spacer(modifier = Modifier.width(6.dp))
-              Text(
-                text = stringResource(id = slide.badgeRes),
-                style = MaterialTheme.typography.labelMedium.copy(
-                  fontWeight = FontWeight.Bold,
-                  color = NutrolixTextPrimary
+              rowItems.forEach { cert ->
+                CertificationGlassPill(
+                  cert = cert,
+                  modifier = Modifier.weight(1f)
                 )
-              )
+              }
             }
           }
         }
       }
-    }
 
-    Spacer(modifier = Modifier.height(22.dp))
-
-    // English Primary Headline
-    Text(
-      text = stringResource(id = slide.titleEnRes),
-      style = MaterialTheme.typography.headlineSmall.copy(
-        fontWeight = FontWeight.ExtraBold,
-        color = NutrolixTextPrimary,
-        lineHeight = 30.sp
-      ),
-      textAlign = TextAlign.Center,
-      modifier = Modifier.padding(horizontal = 8.dp)
-    )
-
-    Spacer(modifier = Modifier.height(6.dp))
-
-    // Hindi Highlight Headline
-    Text(
-      text = stringResource(id = slide.titleHiRes),
-      style = MaterialTheme.typography.titleMedium.copy(
-        fontWeight = FontWeight.Bold,
-        color = slide.accentColor,
-        lineHeight = 24.sp
-      ),
-      textAlign = TextAlign.Center,
-      modifier = Modifier.padding(horizontal = 8.dp)
-    )
-
-    Spacer(modifier = Modifier.height(12.dp))
-
-    // Clean Bilingual Description Card
-    Surface(
-      shape = RoundedCornerShape(20.dp),
-      color = Color.White.copy(alpha = 0.92f),
-      border = BorderStroke(1.dp, NutrolixPrimaryGreen.copy(alpha = 0.10f)),
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 4.dp)
-    ) {
-      Column(
-        modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-      ) {
-        Text(
-          text = stringResource(id = slide.descEnRes),
-          style = MaterialTheme.typography.bodyMedium.copy(
-            color = NutrolixTextPrimary.copy(alpha = 0.88f),
-            lineHeight = 20.sp
-          ),
-          textAlign = TextAlign.Center
-        )
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-          text = stringResource(id = slide.descHiRes),
-          style = MaterialTheme.typography.bodyMedium.copy(
-            color = NutrolixTextSecondary,
-            fontWeight = FontWeight.Medium,
-            lineHeight = 21.sp
-          ),
-          textAlign = TextAlign.Center
-        )
+      // Stylish App-Only Welcome Rewards Showcase on Slide 3
+      if (slide.showAppRewardsShowcase) {
+        Spacer(modifier = Modifier.height(16.dp))
+        AppRewardsShowcaseCard()
       }
     }
+  }
+}
 
-    Spacer(modifier = Modifier.height(14.dp))
-
-    // Feature Highlight Chips Row
+@Composable
+private fun AppRewardsShowcaseCard() {
+  Column(
+    verticalArrangement = Arrangement.spacedBy(10.dp),
+    modifier = Modifier
+      .fillMaxWidth()
+      .testTag("onboarding_s3_rewards_card")
+  ) {
     Row(
-      modifier = Modifier
-        .fillMaxWidth()
-        .padding(horizontal = 4.dp),
-      horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-      verticalAlignment = Alignment.CenterVertically
+      horizontalArrangement = Arrangement.spacedBy(10.dp),
+      modifier = Modifier.fillMaxWidth()
     ) {
-      slide.chipResIds.forEach { chipRes ->
-        Surface(
-          shape = RoundedCornerShape(50),
-          color = slide.badgeBg,
-          border = BorderStroke(1.dp, slide.badgeTint.copy(alpha = 0.18f))
+      RewardHighlightTile(
+        icon = Icons.Rounded.LocalShipping,
+        accent = BrightMint,
+        title = stringResource(id = R.string.onboarding_s3_offer_free_delivery_title),
+        subtitle = stringResource(id = R.string.onboarding_s3_offer_free_delivery_sub),
+        modifier = Modifier.weight(1f)
+      )
+      RewardHighlightTile(
+        icon = Icons.Rounded.CardGiftcard,
+        accent = WarmGold,
+        title = stringResource(id = R.string.onboarding_s3_offer_100_title),
+        subtitle = stringResource(id = R.string.onboarding_s3_offer_100_sub),
+        modifier = Modifier.weight(1f)
+      )
+    }
+
+    // Highlighted 10% Extra App-Only Banner
+    Surface(
+      shape = RoundedCornerShape(16.dp),
+      color = Color.Transparent,
+      border = BorderStroke(1.2.dp, WarmGold.copy(alpha = 0.55f)),
+      modifier = Modifier.fillMaxWidth()
+    ) {
+      Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier
+          .fillMaxWidth()
+          .background(
+            Brush.horizontalGradient(
+              colors = listOf(
+                WarmGold.copy(alpha = 0.22f),
+                VibrantEmerald.copy(alpha = 0.20f)
+              )
+            )
+          )
+          .padding(horizontal = 14.dp, vertical = 12.dp)
+      ) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier.weight(1f)
         ) {
+          Surface(
+            shape = CircleShape,
+            color = WarmGold.copy(alpha = 0.22f),
+            modifier = Modifier.size(34.dp)
+          ) {
+            Box(contentAlignment = Alignment.Center) {
+              Icon(
+                imageVector = Icons.Rounded.AutoAwesome,
+                contentDescription = null,
+                tint = WarmGold,
+                modifier = Modifier.size(18.dp)
+              )
+            }
+          }
+          Spacer(modifier = Modifier.width(10.dp))
           Text(
-            text = stringResource(id = chipRes),
-            style = MaterialTheme.typography.labelSmall.copy(
-              fontWeight = FontWeight.Bold,
-              color = slide.badgeTint
+            text = stringResource(id = R.string.onboarding_s3_offer_extra_title),
+            style = MaterialTheme.typography.titleSmall.copy(
+              fontWeight = FontWeight.ExtraBold,
+              color = Color.White,
+              letterSpacing = 0.1.sp
             ),
             maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
+            overflow = TextOverflow.Ellipsis
+          )
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Surface(
+          shape = RoundedCornerShape(50),
+          color = WarmGold
+        ) {
+          Text(
+            text = stringResource(id = R.string.onboarding_s3_offer_extra_badge),
+            style = MaterialTheme.typography.labelSmall.copy(
+              fontWeight = FontWeight.ExtraBold,
+              letterSpacing = 0.8.sp,
+              color = DeepForest
+            ),
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
           )
         }
       }
+    }
+  }
+}
+
+@Composable
+private fun RewardHighlightTile(
+  icon: ImageVector,
+  accent: Color,
+  title: String,
+  subtitle: String,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    modifier = modifier,
+    shape = RoundedCornerShape(16.dp),
+    color = Color.White.copy(alpha = 0.11f),
+    border = BorderStroke(1.dp, accent.copy(alpha = 0.34f))
+  ) {
+    Column(
+      modifier = Modifier.padding(horizontal = 13.dp, vertical = 12.dp)
+    ) {
+      Surface(
+        shape = RoundedCornerShape(10.dp),
+        color = accent.copy(alpha = 0.18f),
+        modifier = Modifier.size(32.dp)
+      ) {
+        Box(contentAlignment = Alignment.Center) {
+          Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier.size(18.dp)
+          )
+        }
+      }
+      Spacer(modifier = Modifier.height(8.dp))
+      Text(
+        text = title,
+        style = MaterialTheme.typography.titleMedium.copy(
+          fontWeight = FontWeight.ExtraBold,
+          color = Color.White
+        ),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+      )
+      Spacer(modifier = Modifier.height(2.dp))
+      Text(
+        text = subtitle,
+        style = MaterialTheme.typography.labelSmall.copy(
+          color = Color.White.copy(alpha = 0.74f),
+          fontWeight = FontWeight.Medium
+        ),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+      )
+    }
+  }
+}
+
+@Composable
+private fun CertificationGlassPill(
+  cert: CertBadge,
+  modifier: Modifier = Modifier
+) {
+  Surface(
+    modifier = modifier,
+    shape = RoundedCornerShape(14.dp),
+    color = Color.White.copy(alpha = 0.10f),
+    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.16f))
+  ) {
+    Row(
+      verticalAlignment = Alignment.CenterVertically,
+      modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+      Icon(
+        imageVector = cert.icon,
+        contentDescription = null,
+        tint = BrightMint,
+        modifier = Modifier.size(18.dp)
+      )
+      Spacer(modifier = Modifier.width(8.dp))
+      Text(
+        text = stringResource(id = cert.labelRes),
+        style = MaterialTheme.typography.labelMedium.copy(
+          fontWeight = FontWeight.Bold,
+          color = Color.White
+        ),
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
+      )
     }
   }
 }

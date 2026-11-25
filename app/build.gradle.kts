@@ -9,7 +9,7 @@ plugins {
   alias(libs.plugins.google.services)
 }
 
-val appRole = (project.findProperty("appRole") as? String) ?: "admin"
+val appRole = (project.findProperty("appRole") as? String) ?: "customer"
 val isAdmin = !appRole.equals("customer", ignoreCase = true)
 
 android {
