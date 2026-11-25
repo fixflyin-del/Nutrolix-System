@@ -3055,6 +3055,125 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Privacy-Safe Single Order Live Tracking API (allows WhatsApp tracking links without forcing repeat OTP)
+  if (reqPath === '/api/orders/track' || reqPath === '/api/nutrition-orders/track') {
+    const trackCorsHeaders = {
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS'
+    };
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204, trackCorsHeaders);
+      res.end();
+      return;
+    }
+    if (req.method !== 'GET') {
+      res.writeHead(405, { ...trackCorsHeaders, 'Allow': 'GET' });
+      res.end(JSON.stringify({ success: false, error: 'Method not allowed.' }));
+      return;
+    }
+    const cleanOrderId = String(parsedUrl.query.orderId || parsedUrl.query.id || '').trim();
+    if (!/^[A-Za-z0-9_-]{4,40}$/.test(cleanOrderId)) {
+      res.writeHead(400, trackCorsHeaders);
+      res.end(JSON.stringify({ success: false, error: 'Invalid order ID.' }));
+      return;
+    }
+    try {
+      const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
+      const localOrders = safeReadJson(ordersFile, []);
+      let found = (Array.isArray(localOrders) ? localOrders : []).find(
+        (o) => String(o.orderId || o.id || '').trim() === cleanOrderId
+      ) || null;
+
+      try {
+        const fsDoc = await nutrolixCore.firestoreGetFirstAvailable('orders/' + cleanOrderId);
+        if (fsDoc) {
+          const cleanDoc = { ...fsDoc, id: cleanOrderId, orderId: cleanOrderId };
+          delete cleanDoc._docId;
+          delete cleanDoc._docName;
+          found = found ? { ...found, ...cleanDoc } : cleanDoc;
+        }
+      } catch (_) {}
+
+      if (!found) {
+        res.writeHead(404, trackCorsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'Order not found.' }));
+        return;
+      }
+
+      const methodStr = String(found.paymentMethod || '').toLowerCase();
+      const payStatusStr = String(found.paymentStatus || '').trim().toLowerCase();
+      const isOnlinePay = Boolean(found.txnid) || /payu|online|upi|card|net.?bank/i.test(methodStr);
+      const isPaid = !isOnlinePay || /^(paid|success|successful|completed|captured)(\b|\s)/i.test(payStatusStr);
+      if (!isPaid) {
+        res.writeHead(404, trackCorsHeaders);
+        res.end(JSON.stringify({ success: false, error: 'Order payment is not yet confirmed.' }));
+        return;
+      }
+
+      const rawName = String((found.customer && found.customer.name) || found.customerName || 'Customer').trim();
+      const firstName = rawName.split(/\s+/)[0] || 'Customer';
+      const rawPhone = normalizePhone((found.customer && found.customer.phone) || found.customerPhone || '');
+      const maskedPhone = rawPhone.length >= 4 ? ('XXXXXX' + rawPhone.slice(-4)) : '';
+      const rawAddr = found.deliveryAddress || {};
+      const safeTrackingUrl = /^https?:\/\//i.test(String(found.trackingUrl || '').trim())
+        ? String(found.trackingUrl).trim()
+        : '';
+
+      const safeItems = (Array.isArray(found.items) ? found.items : []).map((it) => ({
+        id: it.id || it.productId || '',
+        title: String(it.title || it.name || it.mealName || 'Nutrolix Item'),
+        variant: String(it.variant || ''),
+        quantity: Number(it.quantity || 1),
+        price: Number(it.price || 0),
+        image: String(it.image || (Array.isArray(it.images) ? it.images[0] : '') || ''),
+        addons: Array.isArray(it.addons)
+          ? it.addons.filter((a) => a && a.name).map((a) => ({ name: String(a.name), price: Number(a.price || 0) }))
+          : []
+      }));
+
+      const trackingPayload = {
+        success: true,
+        guestTrackingView: true,
+        order: {
+          id: cleanOrderId,
+          orderId: cleanOrderId,
+          status: String(found.status || 'Confirmed'),
+          createdAt: found.createdAt || found.orderTime || '',
+          timestamp: Number(found.timestamp || found.orderTimeMillis || 0),
+          courierName: String(found.courierName || found.courier || ''),
+          trackingNumber: String(found.trackingNumber || ''),
+          trackingUrl: safeTrackingUrl,
+          paymentMethod: String(found.paymentMethod || 'Online Payment'),
+          paymentStatus: String(found.paymentStatus || ''),
+          subtotal: Number(found.subtotal || found.grandTotal || found.total || 0),
+          discount: Number(found.discount || 0),
+          shipping: Number(found.shipping || 0),
+          grandTotal: Number(found.grandTotal || found.total || 0),
+          items: safeItems,
+          customer: {
+            name: firstName,
+            phone: maskedPhone
+          },
+          deliveryAddress: {
+            city: String(rawAddr.city || ''),
+            state: String(rawAddr.state || ''),
+            pincode: String(rawAddr.pincode || '')
+          },
+          guestTrackingView: true
+        }
+      };
+
+      res.writeHead(200, trackCorsHeaders);
+      res.end(JSON.stringify(trackingPayload));
+    } catch (e) {
+      res.writeHead(500, trackCorsHeaders);
+      res.end(JSON.stringify({ success: false, error: 'Unable to fetch live order tracking right now.' }));
+    }
+    return;
+  }
+
   // Nutrition Orders API (Durable Firestore + Validation + Idempotency + Notifications)
   if (reqPath === '/api/nutrition-orders' || reqPath === '/api/orders') {
     const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');

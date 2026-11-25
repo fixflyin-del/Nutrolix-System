@@ -4123,7 +4123,7 @@
       return data;
     };
 
-    // WhatsApp Order Update
+    // WhatsApp Order Update (Detailed ONLY for first confirmation; crisp & short for subsequent status updates)
     window.sendWhatsAppUpdate = function(orderId) {
       const order = (window.packagedOrders || []).find(o => o.id === orderId);
       if (!order) return alert('Order not found');
@@ -4133,16 +4133,45 @@
       const targetPhone = cleanPhone.startsWith('91') && cleanPhone.length > 10 ? cleanPhone : ('91' + (cleanPhone.slice(-10) || '9076254354'));
 
       const customerName = order.customer?.name || 'Valued Customer';
-      const itemsList = (order.items || []).map(i => {
-        const vStr = i.variant ? ` (${i.variant})` : '';
-        const aStr = (Array.isArray(i.addons) && i.addons.length)
-          ? ` [+ ${i.addons.map(a => `${a.name} ₹${a.price}`).join(', ')}]`
-          : '';
-        return `• ${i.title}${vStr}${aStr} × ${i.quantity}`;
-      }).join('\n');
+      const statusText = String(order.status || 'Confirmed').trim();
+      const sLower = statusText.toLowerCase();
+      const trackingLink = `https://nutrolix.in/orders.html?orderId=${encodeURIComponent(order.id)}`;
       const trackingMsg = order.trackingNumber ? `\n🚚 *Courier:* ${order.courierName || 'Partner'} | *AWB:* ${order.trackingNumber}` : '';
 
-      const text = `Hello *${customerName}*,\n\nYour Nutrolix Order *#${order.id}* update:\n📊 *Status:* ${order.status || 'Confirmed'}${trackingMsg}\n\n🛍️ *Ordered Items:*\n${itemsList}\n💰 *Total Amount:* ₹${order.grandTotal} (${order.paymentMethod || 'Online'})\n\n🔗 *Track Live Order:* https://nutrolix.in/orders.html?orderId=${order.id}\n\n🌿 *Nutrolix Functional Nutrition*\nNeed help? WhatsApp: +91 90762 54354`;
+      const isConfirmationStatus = !sLower ||
+        sLower === 'confirmed' ||
+        sLower === 'order confirmed' ||
+        sLower === 'order placed' ||
+        sLower === 'placed' ||
+        sLower === 'pending' ||
+        sLower === 'new';
+
+      let text = '';
+      if (isConfirmationStatus) {
+        const itemsList = (order.items || []).map(i => {
+          const vStr = i.variant ? ` (${i.variant})` : '';
+          const aStr = (Array.isArray(i.addons) && i.addons.length)
+            ? ` [+ ${i.addons.map(a => `${a.name} ₹${a.price}`).join(', ')}]`
+            : '';
+          return `• ${i.title}${vStr}${aStr} × ${i.quantity}`;
+        }).join('\n');
+
+        text = `Hello *${customerName}*,\n\n✅ Your Nutrolix Order *#${order.id}* is *${statusText || 'Confirmed'}*!${trackingMsg}\n\n🛍️ *Ordered Items:*\n${itemsList}\n💰 *Total Amount:* ₹${order.grandTotal} (${order.paymentMethod || 'Online'})\n\n🔗 *Track Live Order:* ${trackingLink}\n\n🌿 *Nutrolix Functional Nutrition*\nNeed help? WhatsApp: +91 90762 54354`;
+      } else if (sLower.includes('cancel') || sLower.includes('reject')) {
+        text = `Hello *${customerName}*,\n❌ Your Nutrolix Order *#${order.id}* has been *${statusText}*.\nReply here if you need any assistance.`;
+      } else if (sLower.includes('out for delivery') || sLower.includes('out_for_delivery')) {
+        text = `Hello *${customerName}*,\n🛵 Your Nutrolix Order *#${order.id}* is *Out for Delivery*!${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
+      } else if (sLower.includes('deliver') || sLower.includes('complete')) {
+        text = `Hello *${customerName}*,\n🎉 Your Nutrolix Order *#${order.id}* has been *Delivered*! Enjoy your healthy Nutrolix meal 💚\n🔗 View Order: ${trackingLink}`;
+      } else if (sLower.includes('pack')) {
+        text = `Hello *${customerName}*,\n📦 Your Nutrolix Order *#${order.id}* is *Packed* and ready for dispatch!${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
+      } else if (sLower.includes('prepar') || sLower.includes('process')) {
+        text = `Hello *${customerName}*,\n👨‍🍳 Your Nutrolix Order *#${order.id}* is now *${statusText}*!${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
+      } else if (sLower.includes('ship') || sLower.includes('dispatch') || sLower.includes('transit')) {
+        text = `Hello *${customerName}*,\n🚚 Your Nutrolix Order *#${order.id}* has been *${statusText}*!${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
+      } else {
+        text = `Hello *${customerName}*,\n📊 Order *#${order.id}* Status: *${statusText}*${trackingMsg}\n🔗 Track Live: ${trackingLink}`;
+      }
 
       const url = `https://wa.me/${targetPhone}?text=${encodeURIComponent(text)}`;
       window.open(url, '_blank');

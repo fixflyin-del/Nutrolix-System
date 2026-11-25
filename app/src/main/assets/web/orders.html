@@ -282,7 +282,7 @@
           </div>
         </div>
         <div class="flex items-center space-x-3 shrink-0">
-          <button onclick="window.handleNutrolixSignOut()" class="text-xs text-rose-600 font-bold hover:underline px-3 py-1.5 rounded-lg hover:bg-rose-50 transition flex items-center space-x-1">
+          <button id="ordersHeaderAuthBtn" onclick="window.handleNutrolixSignOut()" class="text-xs text-rose-600 font-bold hover:underline px-3 py-1.5 rounded-lg hover:bg-rose-50 transition flex items-center space-x-1">
             <i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i>
             <span>Sign Out</span>
           </button>
@@ -312,7 +312,7 @@
       <div id="orderDetailView" class="hidden space-y-6">
         
         <!-- Back Button to Return to History List -->
-        <button onclick="window.backToOrderList()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-black transition flex items-center space-x-2 active:scale-95">
+        <button id="backToOrderListBtn" onclick="window.backToOrderList()" class="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-black transition flex items-center space-x-2 active:scale-95">
           <i class="fa-solid fa-arrow-left"></i>
           <span>Back to Order History</span>
         </button>
@@ -554,6 +554,28 @@
     let firestoreOrdersUnsub = null;
     let firestoreOrderList = [];
     let pendingQueryOrderId = new URLSearchParams(window.location.search).get('orderId') || new URLSearchParams(window.location.search).get('id') || '';
+    let isGuestTrackingMode = false;
+    let guestTrackingPollTimer = null;
+
+    function escapeOrderHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function isSafeHttpUrl(url) {
+      return /^https?:\/\//i.test(String(url || '').trim());
+    }
+
+    function stopGuestTrackingPoll() {
+      if (guestTrackingPollTimer) {
+        clearInterval(guestTrackingPollTimer);
+        guestTrackingPollTimer = null;
+      }
+    }
 
     function clean10Phone(p) {
       return p ? String(p).replace(/\D/g, '').slice(-10) : '';
@@ -629,20 +651,103 @@
       }
     };
 
+    window.openOrdersSignInGate = function() {
+      stopGuestTrackingPoll();
+      isGuestTrackingMode = false;
+      const authGate = document.getElementById('authGateContainer');
+      const authContent = document.getElementById('authenticatedOrdersContent');
+      if (authGate) authGate.classList.remove('hidden');
+      if (authContent) authContent.classList.add('hidden');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    async function loadGuestOrderTracking(orderId, silent = false) {
+      const cleanId = String(orderId || '').trim();
+      if (!/^[A-Za-z0-9_-]{4,40}$/.test(cleanId)) {
+        window.openOrdersSignInGate();
+        return;
+      }
+      const authGate = document.getElementById('authGateContainer');
+      const authContent = document.getElementById('authenticatedOrdersContent');
+      const headerBtn = document.getElementById('ordersHeaderAuthBtn');
+      const backBtn = document.getElementById('backToOrderListBtn');
+
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/orders/track?orderId=' + encodeURIComponent(cleanId), { cache: 'no-store' });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data || !data.success || !data.order) {
+          if (!silent) {
+            window.openOrdersSignInGate();
+          }
+          return;
+        }
+
+        isGuestTrackingMode = true;
+        if (authGate) authGate.classList.add('hidden');
+        if (authContent) authContent.classList.remove('hidden');
+
+        document.getElementById('userDisplayName').textContent = 'Live Order Tracking';
+        document.getElementById('userDisplayEmail').textContent = `Order #${cleanId} • Instant status without OTP`;
+        if (headerBtn) {
+          headerBtn.onclick = () => window.openOrdersSignInGate();
+          headerBtn.className = 'text-xs text-emerald-700 font-bold hover:underline px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 transition flex items-center space-x-1';
+          headerBtn.innerHTML = '<i class="fa-brands fa-whatsapp text-xs"></i><span>All Orders</span>';
+        }
+        if (backBtn) {
+          backBtn.onclick = () => window.openOrdersSignInGate();
+          backBtn.innerHTML = '<i class="fa-solid fa-clock-rotate-left"></i><span>Sign In to View All Orders</span>';
+        }
+
+        userOrders = [data.order];
+        window.showOrderDetail(cleanId);
+
+        if (!guestTrackingPollTimer) {
+          guestTrackingPollTimer = setInterval(() => {
+            if (document.visibilityState === 'visible' && isGuestTrackingMode && !window.getNutrolixUser()) {
+              loadGuestOrderTracking(cleanId, true);
+            }
+          }, 20000);
+        }
+      } catch (_) {
+        if (!silent) window.openOrdersSignInGate();
+      }
+    }
+
     function checkAuthAndLoadOrders() {
       const user = window.getNutrolixUser();
       const authGate = document.getElementById('authGateContainer');
       const authContent = document.getElementById('authenticatedOrdersContent');
+      const headerBtn = document.getElementById('ordersHeaderAuthBtn');
+      const backBtn = document.getElementById('backToOrderListBtn');
 
       if (!user) {
+        if (firestoreOrdersUnsub) { try { firestoreOrdersUnsub(); } catch (_) {} firestoreOrdersUnsub = null; }
+        if (pendingQueryOrderId && /^[A-Za-z0-9_-]{4,40}$/.test(pendingQueryOrderId.trim())) {
+          loadGuestOrderTracking(pendingQueryOrderId.trim());
+          return;
+        }
+        stopGuestTrackingPoll();
+        isGuestTrackingMode = false;
         authGate.classList.remove('hidden');
         authContent.classList.add('hidden');
-        if (firestoreOrdersUnsub) { try { firestoreOrdersUnsub(); } catch (_) {} firestoreOrdersUnsub = null; }
         return;
       }
 
+      stopGuestTrackingPoll();
+      isGuestTrackingMode = false;
       authGate.classList.add('hidden');
       authContent.classList.remove('hidden');
+
+      if (headerBtn) {
+        headerBtn.onclick = () => window.handleNutrolixSignOut();
+        headerBtn.className = 'text-xs text-rose-600 font-bold hover:underline px-3 py-1.5 rounded-lg hover:bg-rose-50 transition flex items-center space-x-1';
+        headerBtn.innerHTML = '<i class="fa-solid fa-arrow-right-from-bracket text-[10px]"></i><span>Sign Out</span>';
+      }
+      if (backBtn) {
+        backBtn.onclick = () => window.backToOrderList();
+        backBtn.innerHTML = '<i class="fa-solid fa-arrow-left"></i><span>Back to Order History</span>';
+      }
 
       const isGenericName = !user.name || user.name === 'Nutrolix Customer' || user.name === 'Nutrolix Member';
       const phoneStr = user.verifiedPhone || user.phone || user.whatsappNumber || '';
@@ -896,22 +1001,24 @@
       document.getElementById('detailItemsContainer').innerHTML = (order.items || []).map(it => {
         const itImgRaw = it.image || (it.images && it.images[0]) || '';
         const itImg = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(itImgRaw) : (itImgRaw || 'assets/aistudio/image_6061bdc8.png');
-        const cleanVar = (it.variant && !['Standard', 'Standard Pack', 'Fresh Kitchen Meal'].includes(it.variant)) ? it.variant : '';
+        const safeImgSrc = escapeOrderHtml(itImg);
+        const safeTitle = escapeOrderHtml(it.title || it.name || 'Nutrolix Item');
+        const cleanVar = (it.variant && !['Standard', 'Standard Pack', 'Fresh Kitchen Meal'].includes(it.variant)) ? escapeOrderHtml(it.variant) : '';
         const addonsList = Array.isArray(it.addons) ? it.addons.filter(a => a && a.name) : [];
         const addonsHtml = addonsList.length
-          ? `<div class="text-[11px] text-amber-700 font-semibold mt-0.5">+ ${addonsList.map(a => `${a.name} (₹${a.price})`).join(', ')}</div>`
+          ? `<div class="text-[11px] text-amber-700 font-semibold mt-0.5">+ ${addonsList.map(a => `${escapeOrderHtml(a.name)} (₹${Number(a.price || 0)})`).join(', ')}</div>`
           : '';
         return `
         <div class="flex items-start justify-between py-3 text-xs gap-3">
           <div class="flex items-start space-x-3 min-w-0 flex-1">
-            <img src="${itImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" class="w-12 h-12 rounded-xl object-cover border border-slate-100 bg-slate-50 shrink-0">
+            <img src="${safeImgSrc}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" class="w-12 h-12 rounded-xl object-cover border border-slate-100 bg-slate-50 shrink-0">
             <div class="min-w-0 flex-1">
-              <h5 class="font-extrabold text-slate-900 leading-snug line-clamp-2 break-words">${it.title || it.name}</h5>
-              <span class="text-slate-500 text-[11px] block mt-0.5 break-words">${cleanVar ? `${cleanVar} • ` : ''}Qty: ${it.quantity || 1} • ₹${it.price} each</span>
+              <h5 class="font-extrabold text-slate-900 leading-snug line-clamp-2 break-words">${safeTitle}</h5>
+              <span class="text-slate-500 text-[11px] block mt-0.5 break-words">${cleanVar ? `${cleanVar} • ` : ''}Qty: ${Number(it.quantity || 1)} • ₹${Number(it.price || 0)} each</span>
               ${addonsHtml}
             </div>
           </div>
-          <div class="font-black text-slate-900 text-sm shrink-0">₹${(it.price || 0) * (it.quantity || 1)}</div>
+          <div class="font-black text-slate-900 text-sm shrink-0">₹${Number(it.price || 0) * Number(it.quantity || 1)}</div>
         </div>
       `;
       }).join('');
@@ -919,17 +1026,27 @@
       const cust = order.customer || {};
       const addr = order.deliveryAddress || {};
       document.getElementById('detailRecipientName').textContent = cust.name || 'Valued Customer';
-      document.getElementById('detailAddressText').textContent = [addr.address1 || addr.street, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ') || 'Address on file';
-      document.getElementById('detailPhoneText').textContent = 'Phone: ' + (cust.phone || 'Provided during checkout');
-
-      if (addr.googleMapsUrl || (addr.gpsLat && addr.gpsLon) || (order.deliveryCoordinates && order.deliveryCoordinates.lat)) {
-        const lat = addr.gpsLat || order.deliveryCoordinates?.lat;
-        const lng = addr.gpsLon || order.deliveryCoordinates?.lng;
-        const mapsUrl = addr.googleMapsUrl || `https://maps.google.com/?q=${lat},${lng}`;
-        document.getElementById('detailMapsLink').href = mapsUrl;
-        document.getElementById('detailMapsLinkRow').classList.remove('hidden');
-      } else {
+      if (order.guestTrackingView) {
+        document.getElementById('detailAddressText').textContent = [addr.city, addr.state, addr.pincode].filter(Boolean).join(', ') || 'Delivery address verified';
+        document.getElementById('detailPhoneText').textContent = cust.phone ? ('Phone: ' + cust.phone + ' (Protected)') : 'Verified customer phone';
         document.getElementById('detailMapsLinkRow').classList.add('hidden');
+      } else {
+        document.getElementById('detailAddressText').textContent = [addr.address1 || addr.street, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ') || 'Address on file';
+        document.getElementById('detailPhoneText').textContent = 'Phone: ' + (cust.phone || 'Provided during checkout');
+
+        if (addr.googleMapsUrl || (addr.gpsLat && addr.gpsLon) || (order.deliveryCoordinates && order.deliveryCoordinates.lat)) {
+          const lat = addr.gpsLat || order.deliveryCoordinates?.lat;
+          const lng = addr.gpsLon || order.deliveryCoordinates?.lng;
+          const mapsUrl = addr.googleMapsUrl || `https://maps.google.com/?q=${encodeURIComponent(lat)},${encodeURIComponent(lng)}`;
+          if (isSafeHttpUrl(mapsUrl)) {
+            document.getElementById('detailMapsLink').href = mapsUrl;
+            document.getElementById('detailMapsLinkRow').classList.remove('hidden');
+          } else {
+            document.getElementById('detailMapsLinkRow').classList.add('hidden');
+          }
+        } else {
+          document.getElementById('detailMapsLinkRow').classList.add('hidden');
+        }
       }
 
       document.getElementById('detailPaymentMethod').textContent = order.paymentMethod || 'PayU Online';
@@ -939,7 +1056,7 @@
       document.getElementById('detailGrandTotal').textContent = `₹${order.grandTotal || order.total || 0}`;
 
       const reviewBox = document.getElementById('deliveredReviewPromptBox');
-      if (!sLower.includes('out for delivery') && !sLower.includes('out_for_delivery') && !sLower.includes('cancel') && (sLower.includes('deliver') || sLower.includes('complete'))) {
+      if (!order.guestTrackingView && !sLower.includes('out for delivery') && !sLower.includes('out_for_delivery') && !sLower.includes('cancel') && (sLower.includes('deliver') || sLower.includes('complete'))) {
         reviewBox.classList.remove('hidden');
         const hasRev = Boolean(window.NutrolixReviews && typeof window.NutrolixReviews.hasReviewForOrder === 'function' && window.NutrolixReviews.hasReviewForOrder(ordIdText));
         const existingRev = hasRev && window.NutrolixReviews.getReviewForOrder ? window.NutrolixReviews.getReviewForOrder(ordIdText) : null;
@@ -1044,7 +1161,11 @@
 
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === 'visible') {
-        loadUserOrders(true);
+        if (isGuestTrackingMode && pendingQueryOrderId && !window.getNutrolixUser()) {
+          loadGuestOrderTracking(pendingQueryOrderId, true);
+        } else {
+          loadUserOrders(true);
+        }
       }
     });
 

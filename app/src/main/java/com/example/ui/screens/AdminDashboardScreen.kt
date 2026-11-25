@@ -1857,65 +1857,56 @@ fun sendCustomerStatusWhatsApp(context: android.content.Context, order: Order, n
   val cleanPhone = order.customerPhone.filter { it.isDigit() }
   val targetPhone = if (cleanPhone.length == 10) "91$cleanPhone" else cleanPhone
 
+  val trackingUrl = "https://nutrolix.in/orders.html?orderId=${java.net.URLEncoder.encode(order.orderNumber, "UTF-8")}"
   val message = when (newStatus) {
-    OrderStatus.PREPARING, OrderStatus.CONFIRMED -> {
+    OrderStatus.CONFIRMED -> {
       """
 Hello *${order.customerName}*,
 
-Your Nutrolix order *#${order.orderNumber}* has been accepted and is currently being freshly prepared in our kitchen! 👨‍🍳🥗
+✅ Your Nutrolix Order *#${order.orderNumber}* is *Confirmed*!
 
-*Estimated Delivery:* ~25-35 minutes
-*Items:* ${order.items.joinToString(", ") { "${it.quantity}x ${it.meal.name}" }}
-*Delivery to:* ${order.deliveryAddress}
+🛍️ *Ordered Items:*
+${order.items.joinToString("\n") { "• ${it.meal.name} × ${it.quantity}" }}
+💰 *Total Amount:* ₹${order.total.toInt()} (${order.paymentMethod})
 
-Track your live order in the app or visit: https://nutrolix.in
-Thank you for choosing Nutrolix Clean Nutrition! ✨
+🔗 *Track Live Order:* $trackingUrl
+
+🌿 *Nutrolix Functional Nutrition*
+      """.trimIndent()
+    }
+    OrderStatus.PREPARING -> {
+      """
+Hello *${order.customerName}*,
+👨‍🍳 Your Nutrolix Order *#${order.orderNumber}* is now *Preparing*!
+🔗 Track Live: $trackingUrl
       """.trimIndent()
     }
     OrderStatus.READY -> {
       """
 Hello *${order.customerName}*,
-
-Great news! Your Nutrolix order *#${order.orderNumber}* is freshly prepared, packed with fresh hygiene standards, and is ready for courier dispatch! 📦🚀
-
-*Track live order:* https://nutrolix.in
-Nutrolix Health Kitchen
+📦 Your Nutrolix Order *#${order.orderNumber}* is *Packed* and ready for dispatch!
+🔗 Track Live: $trackingUrl
       """.trimIndent()
     }
     OrderStatus.OUT_FOR_DELIVERY -> {
       """
 Hello *${order.customerName}*,
-
-Your Nutrolix order *#${order.orderNumber}* is out for delivery! 🛵💨
-
-Our delivery partner is on the way to your doorstep at:
-📍 ${order.deliveryAddress}
-
-*Track live delivery partner:* https://nutrolix.in
+🛵 Your Nutrolix Order *#${order.orderNumber}* is *Out for Delivery*!
+🔗 Track Live: $trackingUrl
       """.trimIndent()
     }
     OrderStatus.DELIVERED -> {
       """
 Hello *${order.customerName}*,
-
-Your Nutrolix order *#${order.orderNumber}* has been successfully delivered! 🎉🥗
-We hope you enjoy your clean, nutritious meal.
-
-⭐⭐⭐⭐⭐
-*Please take a moment to rate and review your experience:*
-Your feedback helps our kitchen team serve you the best nutrition.
-👉 Rate now: https://nutrolix.in
-
-Stay healthy & energized with Nutrolix! 💚
+🎉 Your Nutrolix Order *#${order.orderNumber}* has been *Delivered*! Enjoy your healthy Nutrolix meal 💚
+🔗 View Order: $trackingUrl
       """.trimIndent()
     }
     else -> {
       """
 Hello *${order.customerName}*,
-
-Update on your Nutrolix order *#${order.orderNumber}*: Current status is *${newStatus.title}*.
-
-*Track live:* https://nutrolix.in
+📊 Order *#${order.orderNumber}* Status: *${newStatus.title}*
+🔗 Track Live: $trackingUrl
       """.trimIndent()
     }
   }
