@@ -121,9 +121,36 @@
     </div>
   </div>
   <script>
+    window.isNativeAdminApp = function() {
+      try {
+        return Boolean(window.NutrolixAdminNativeBridge) ||
+          /;\s*wv\)/i.test(navigator.userAgent || '') ||
+          window.location.protocol === 'file:';
+      } catch (_) {
+        return false;
+      }
+    };
+
+    window.isAdminPortalUnlocked = function() {
+      try {
+        if (sessionStorage.getItem('nutrolix_admin_portal_unlocked') === '1') return true;
+        if (window.isNativeAdminApp()) {
+          if (localStorage.getItem('nutrolix_admin_app_pin_unlocked') === '1') return true;
+          if (window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.isPinUnlocked === 'function') {
+            if (window.NutrolixAdminNativeBridge.isPinUnlocked() === true) {
+              try { localStorage.setItem('nutrolix_admin_app_pin_unlocked', '1'); } catch (_) {}
+              return true;
+            }
+          }
+        }
+      } catch (_) {}
+      return false;
+    };
+
     (function() {
       try {
-        if (sessionStorage.getItem('nutrolix_admin_portal_unlocked') === '1') {
+        if (window.isAdminPortalUnlocked()) {
+          try { sessionStorage.setItem('nutrolix_admin_portal_unlocked', '1'); } catch (_) {}
           var overlay = document.getElementById('adminPortalLockOverlay');
           if (overlay) overlay.classList.add('hidden');
         } else {
@@ -7960,6 +7987,14 @@
 
       window.unlockAdminAudio();
       try { sessionStorage.setItem('nutrolix_admin_portal_unlocked', '1'); } catch (_) {}
+      if (typeof window.isNativeAdminApp === 'function' && window.isNativeAdminApp()) {
+        try { localStorage.setItem('nutrolix_admin_app_pin_unlocked', '1'); } catch (_) {}
+        try {
+          if (window.NutrolixAdminNativeBridge && typeof window.NutrolixAdminNativeBridge.setPinUnlocked === 'function') {
+            window.NutrolixAdminNativeBridge.setPinUnlocked(true);
+          }
+        } catch (_) {}
+      }
       if (overlay) overlay.classList.add('hidden');
       document.body.classList.remove('overflow-hidden');
       if (pinEl) pinEl.value = '';
@@ -8045,14 +8080,14 @@
     };
 
     window.addEventListener("DOMContentLoaded", () => {
-      if (sessionStorage.getItem('nutrolix_admin_portal_unlocked') === '1') {
+      if (typeof window.isAdminPortalUnlocked === 'function' ? window.isAdminPortalUnlocked() : sessionStorage.getItem('nutrolix_admin_portal_unlocked') === '1') {
         window.ensureAdminSessionToken();
       }
       window.initNutrolixAdmin();
     });
     if (document.readyState === "interactive" || document.readyState === "complete") {
       setTimeout(() => {
-        if (sessionStorage.getItem('nutrolix_admin_portal_unlocked') === '1') {
+        if (typeof window.isAdminPortalUnlocked === 'function' ? window.isAdminPortalUnlocked() : sessionStorage.getItem('nutrolix_admin_portal_unlocked') === '1') {
           window.ensureAdminSessionToken();
         }
         window.initNutrolixAdmin();

@@ -375,6 +375,26 @@ fun NutrolixAdminWebViewApp(
                     }
                   }
                 }
+
+                @JavascriptInterface
+                fun isPinUnlocked(): Boolean {
+                  return try {
+                    ctx.getSharedPreferences("nutrolix_admin_prefs", Context.MODE_PRIVATE)
+                      .getBoolean("admin_pin_unlocked", false)
+                  } catch (_: Exception) {
+                    false
+                  }
+                }
+
+                @JavascriptInterface
+                fun setPinUnlocked(unlocked: Boolean) {
+                  try {
+                    ctx.getSharedPreferences("nutrolix_admin_prefs", Context.MODE_PRIVATE)
+                      .edit()
+                      .putBoolean("admin_pin_unlocked", unlocked)
+                      .apply()
+                  } catch (_: Exception) {}
+                }
               },
               "NutrolixAdminNativeBridge"
             )
