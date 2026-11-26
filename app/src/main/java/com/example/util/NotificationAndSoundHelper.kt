@@ -29,9 +29,9 @@ import kotlinx.coroutines.*
 object OrderNotificationHelper {
   private const val CHANNEL_ID = "nutrolix_orders_channel_v3"
   private const val CHANNEL_NAME = "Nutrolix Order Notifications"
-  // Bumped channel ID (v3) so Android discards older cached channels that used TYPE_RINGTONE.
+  // Bumped channel ID (v4) so Android discards older cached channels cleanly.
   // Sound is set to null on this visual channel so OrderAlarmPlayer alone plays the single custom order chime.
-  private const val ADMIN_CHANNEL_ID = "nutrolix_admin_orders_channel_v3"
+  private const val ADMIN_CHANNEL_ID = "nutrolix_admin_orders_channel_v4"
   private const val ADMIN_CHANNEL_NAME = "Nutrolix Admin Order Alerts"
 
   // Prevent duplicate notifications for the same order in the current process
@@ -235,8 +235,9 @@ object OrderNotificationHelper {
   }
 
   fun sendAdminNewOrderNotification(context: Context, order: com.example.model.Order) {
-    if (notifiedAdminOrderIds.contains(order.id)) return
-    notifiedAdminOrderIds.add(order.id)
+    val isTestOrder = order.id.startsWith("TEST_", ignoreCase = true)
+    if (!isTestOrder && notifiedAdminOrderIds.contains(order.id)) return
+    if (!isTestOrder) notifiedAdminOrderIds.add(order.id)
     initChannel(context)
 
     val itemsSummary = if (order.items.isNotEmpty()) {
@@ -355,11 +356,44 @@ object OrderAlarmPlayer {
     // 1. Acquire WakeLock to light up / wake the device even if screen is locked
     refreshScreenWakeLock(context)
 
-    // 2. Request transient alarm audio focus
+    // 2. Ensure audible alarm volume; fall back to USAGE_MEDIA if STREAM_ALARM is locked at 0
     val appCtx = context.applicationContext
     val audioManager = appCtx.getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+    var useMediaFallbackStream = false
+
+    if (audioManager != null) {
+      try {
+        val maxAlarm = audioManager.getStreamMaxVolume(AudioManager.STREAM_ALARM)
+        val curAlarm = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+        if (maxAlarm > 0 && curAlarm < (maxAlarm * 0.75f).toInt().coerceAtLeast(1)) {
+          val targetAlarm = (maxAlarm * 0.85f).toInt().coerceAtLeast(1)
+          try {
+            audioManager.setStreamVolume(AudioManager.STREAM_ALARM, targetAlarm, 0)
+          } catch (_: SecurityException) {
+            // DND or system policy prevented changing STREAM_ALARM
+          } catch (_: Exception) {}
+        }
+        val finalAlarm = audioManager.getStreamVolume(AudioManager.STREAM_ALARM)
+        if (finalAlarm <= 0) {
+          useMediaFallbackStream = true
+          val maxMusic = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+          val curMusic = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
+          if (maxMusic > 0 && curMusic < (maxMusic * 0.75f).toInt().coerceAtLeast(1)) {
+            val targetMusic = (maxMusic * 0.85f).toInt().coerceAtLeast(1)
+            try {
+              audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, targetMusic, 0)
+            } catch (_: Exception) {}
+          }
+        }
+      } catch (e: Exception) {
+        Log.w(TAG, "Volume check notice: ${e.message}")
+      }
+    }
+
+    val chosenUsage = if (useMediaFallbackStream) AudioAttributes.USAGE_MEDIA else AudioAttributes.USAGE_ALARM
+    val chosenStream = if (useMediaFallbackStream) AudioManager.STREAM_MUSIC else AudioManager.STREAM_ALARM
     val alarmAttributes = AudioAttributes.Builder()
-      .setUsage(AudioAttributes.USAGE_ALARM)
+      .setUsage(chosenUsage)
       .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
       .build()
 
@@ -374,7 +408,7 @@ object OrderAlarmPlayer {
         audioManager?.requestAudioFocus(req)
       } else {
         @Suppress("DEPRECATION")
-        audioManager?.requestAudioFocus(null, AudioManager.STREAM_ALARM, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+        audioManager?.requestAudioFocus(null, chosenStream, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
       }
     } catch (e: Exception) {
       Log.w(TAG, "AudioFocus notice: ${e.message}")
@@ -403,14 +437,14 @@ object OrderAlarmPlayer {
       }
       mediaPlayer = mp
       startedMedia = true
-      Log.i(TAG, "Started single clean Nutrolix Order Notification Chime")
+      Log.i(TAG, "Started single clean Nutrolix Order Notification Chime (stream=${if (useMediaFallbackStream) "MUSIC" else "ALARM"})")
     } catch (e: Exception) {
       Log.e(TAG, "Failed playing custom order chime raw resource: ${e.message}")
       try { mp?.release() } catch (_: Exception) {}
     }
 
     if (!startedMedia) {
-      startFallbackChimeTone()
+      startFallbackChimeTone(chosenStream)
     }
 
     // 4. Rhythmic vibration loop (no extra audio)
@@ -434,12 +468,12 @@ object OrderAlarmPlayer {
     } catch (_: Exception) {}
   }
 
-  private fun startFallbackChimeTone() {
+  private fun startFallbackChimeTone(streamType: Int = AudioManager.STREAM_ALARM) {
     ringJob?.cancel()
     ringJob = scope.launch {
       var toneGen: ToneGenerator? = null
       try {
-        toneGen = ToneGenerator(AudioManager.STREAM_ALARM, 100)
+        toneGen = ToneGenerator(streamType, 100)
         while (isActive && isAlarmActive) {
           toneGen.startTone(ToneGenerator.TONE_PROP_BEEP2, 300)
           delay(450)

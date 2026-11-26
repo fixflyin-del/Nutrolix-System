@@ -544,18 +544,6 @@
               <span>Coupon Discount (<span id="couponCodeLabel"></span>)</span>
               <span id="summaryCouponDiscount" class="font-bold">-₹0</span>
             </div>
-            <!-- Healthy Food First Order & Subsequent Discount (Part B) -->
-            <div id="healthyFoodDiscountRow" class="hidden flex justify-between text-orange-600 font-extrabold">
-              <span class="flex items-center space-x-1">
-                <i class="fa-solid fa-utensils text-xs text-orange-500"></i>
-                <span id="healthyFoodDiscountLabel">First Meal Promo (₹100 OFF)</span>
-              </span>
-              <span id="summaryFoodDiscount" class="font-black text-orange-600">-₹100</span>
-            </div>
-            <div id="healthyFoodDiscountHint" class="hidden p-2 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-900 flex items-center space-x-1.5">
-              <i class="fa-solid fa-circle-info text-amber-600"></i>
-              <span id="healthyFoodDiscountHintText"></span>
-            </div>
             <div class="flex justify-between text-slate-600">
               <span class="flex items-center space-x-1">
                 <span>Shipping Fee</span>
@@ -761,9 +749,6 @@
       <span class="text-[10px]">Shop</span>
     </a>
     <a href="food.html" class="relative flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
-      <span class="absolute -top-1.5 right-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-sm leading-tight border border-amber-300 pointer-events-none">
-        ₹100 OFF
-      </span>
       <i class="fa-solid fa-utensils text-lg mb-0.5"></i>
       <span class="text-[10px]">Healthy Food</span>
     </a>
@@ -923,45 +908,27 @@
 
     function getStoreCoupons() {
       try {
-        const defaultCoupons = [
-          { code: 'NUTRO10', title: '10% OFF on All Products', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true },
-          { code: 'NUTRO20', title: '20% OFF on Orders > ₹1499', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true },
-          { code: 'APP10', title: 'Extra 10% OFF on Nutrolix App', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true, appOnly: true }
-        ];
         const saved = JSON.parse(localStorage.getItem('nutrolix_coupons') || 'null');
-        const list = (saved && Array.isArray(saved) && saved.length > 0) ? saved : defaultCoupons;
-        const normalized = list.map(c => {
+        if (!Array.isArray(saved) || saved.length === 0) return [];
+        return saved.map(c => {
           const code = String(c.code || '').toUpperCase().trim();
+          const type = (c.type === 'flat' || c.type === 'FIXED_AMOUNT') ? 'flat' : 'percentage';
+          const value = Number(c.value !== undefined ? c.value : (c.discountPercent || 0));
           return {
             code,
-            title: c.title || (c.type === 'flat' ? `Flat ₹${c.value} OFF` : `${c.value || c.discountPercent || 10}% OFF`),
-            type: (c.type === 'flat' || c.type === 'FIXED_AMOUNT') ? 'flat' : 'percentage',
-            value: Number(c.value !== undefined ? c.value : (c.discountPercent || 10)),
-            discountPercent: Number(c.discountPercent !== undefined ? c.discountPercent : (c.value || 10)),
-            minOrder: Number(c.minOrder || 0),
+            title: c.title || (type === 'flat' ? `Flat ₹${value} OFF` : `${value}% OFF`),
+            type,
+            value,
+            discountPercent: type === 'percentage' ? value : 0,
+            minOrder: Math.max(0, Number(c.minOrder || 0)),
+            maxDiscount: Math.max(0, Number(c.maxDiscount || 0)),
+            firstOrderOnly: Boolean(c.firstOrderOnly),
             active: c.active !== false && c.status !== 'Inactive',
-            appOnly: Boolean(c.appOnly || code === 'APP10')
+            appOnly: Boolean(c.appOnly)
           };
-        });
-        if (!normalized.some(c => c.code === 'APP10')) {
-          normalized.push({
-            code: 'APP10',
-            title: 'Extra 10% OFF on Nutrolix App',
-            type: 'percentage',
-            value: 10,
-            discountPercent: 10,
-            minOrder: 0,
-            active: true,
-            appOnly: true
-          });
-        }
-        return normalized;
+        }).filter(c => c.code && c.value > 0 && c.active);
       } catch (_) {
-        return [
-          { code: 'NUTRO10', title: '10% OFF', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true, appOnly: false },
-          { code: 'NUTRO20', title: '20% OFF', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true, appOnly: false },
-          { code: 'APP10', title: 'Extra 10% OFF on Nutrolix App', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true, appOnly: true }
-        ];
+        return [];
       }
     }
 
@@ -1040,7 +1007,7 @@
       applyCoupon(code);
     }
 
-    function applyCoupon(explicitCode) {
+    async function applyCoupon(explicitCode) {
       const inp = document.getElementById('couponInput');
       const code = String(explicitCode !== undefined ? explicitCode : (inp ? inp.value : '')).trim().toUpperCase();
       const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
@@ -1055,36 +1022,87 @@
       const allCoupons = getStoreCoupons();
       const match = allCoupons.find(c => c.code === code && c.active !== false);
 
-      if (match) {
-        const minOrder = Number(match.minOrder || 0);
-        if (match.appOnly && !window.isNutrolixAndroidApp()) {
-          appliedCoupon = null;
-          setOfferProgressFeedback(`📱 ${match.code} is exclusive to the Nutrolix Android App! <a href="${PLAY_STORE_APP_URL}" target="_blank" rel="noopener noreferrer" class="underline text-emerald-700 ml-1">Download on Google Play →</a>`, true);
-        } else if (subtotal < minOrder) {
-          setOfferProgressFeedback(`⚠️ ${match.code} requires minimum order value of ₹${minOrder}.`, true);
-          appliedCoupon = null;
-        } else {
-          if (match.code === 'APP10') app10UserDismissed = false;
-          appliedCoupon = {
-            code: match.code,
-            type: match.type,
-            value: match.value,
-            minOrder: minOrder,
-            discountPercent: match.type === 'percentage' ? match.value : 0,
-            appOnly: Boolean(match.appOnly)
-          };
-          const savedText = match.type === 'flat' ? `₹${match.value} OFF` : `${match.value}% OFF`;
-          setOfferProgressFeedback(
-            match.appOnly
-              ? `🎉 App Exclusive ${match.code} applied! Extra ${savedText} saved.`
-              : `🎉 Coupon ${match.code} applied! ${savedText} saved.`,
-            false
-          );
-        }
-      } else {
+      if (!match) {
         appliedCoupon = null;
-        setOfferProgressFeedback('Invalid coupon code.', true);
+        setOfferProgressFeedback('Invalid or inactive coupon code.', true);
+        renderSummary();
+        return;
       }
+
+      const minOrder = Number(match.minOrder || 0);
+      if (match.appOnly && !window.isNutrolixAndroidApp()) {
+        appliedCoupon = null;
+        setOfferProgressFeedback(`📱 ${match.code} is exclusive to the Nutrolix Android App! <a href="${PLAY_STORE_APP_URL}" target="_blank" rel="noopener noreferrer" class="underline text-emerald-700 ml-1">Download on Google Play →</a>`, true);
+        renderSummary();
+        return;
+      }
+      if (subtotal < minOrder) {
+        appliedCoupon = null;
+        setOfferProgressFeedback(`⚠️ ${match.code} requires minimum order value of ₹${minOrder}.`, true);
+        renderSummary();
+        return;
+      }
+
+      // Server-side authoritative verification (enforces firstOrderOnly, minOrder, maxDiscount & active status)
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const isAppUser = typeof window.isNutrolixAndroidApp === 'function' && window.isNutrolixAndroidApp();
+        let currentUser = null;
+        try { if (typeof window.getNutrolixUser === 'function') currentUser = window.getNutrolixUser(); } catch (_) {}
+        const phoneInput = (document.getElementById('custPhone')?.value || '').replace(/\D/g, '').slice(-10);
+        const emailInput = (document.getElementById('custEmail')?.value || '').trim();
+        const verifiedPhone = (currentUser && (currentUser.verifiedPhone || currentUser.phone)) || phoneInput || '';
+        const valRes = await fetch(host + '/api/coupons/validate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            couponCode: code,
+            items: cart,
+            customerPhone: verifiedPhone,
+            customerEmail: (currentUser && currentUser.email) || emailInput || '',
+            uid: (currentUser && currentUser.uid) || '',
+            orderSource: isAppUser ? 'App' : 'Website',
+            platform: isAppUser ? 'android_app' : 'web'
+          })
+        });
+        const valData = await valRes.json().catch(() => null);
+        if (valRes.ok && valData) {
+          if (!valData.valid || !valData.coupon) {
+            appliedCoupon = null;
+            setOfferProgressFeedback(`⚠️ ${valData.error || 'This coupon is not eligible for your order.'}`, true);
+            renderSummary();
+            return;
+          }
+          const srvCoupon = valData.coupon;
+          appliedCoupon = {
+            code: srvCoupon.code,
+            type: srvCoupon.type,
+            value: Number(srvCoupon.value || 0),
+            minOrder: Number(srvCoupon.minOrder || 0),
+            maxDiscount: Number(srvCoupon.maxDiscount || 0),
+            firstOrderOnly: Boolean(srvCoupon.firstOrderOnly),
+            discountPercent: srvCoupon.type === 'percentage' ? Number(srvCoupon.value || 0) : 0,
+            appOnly: Boolean(srvCoupon.appOnly)
+          };
+          const savedText = srvCoupon.type === 'flat' ? `₹${valData.discount} OFF` : `${srvCoupon.value}% OFF (₹${valData.discount})`;
+          setOfferProgressFeedback(`🎉 Coupon ${srvCoupon.code} applied! ${savedText} saved.`, false);
+          renderSummary();
+          return;
+        }
+      } catch (_) {}
+
+      appliedCoupon = {
+        code: match.code,
+        type: match.type,
+        value: match.value,
+        minOrder: minOrder,
+        maxDiscount: Number(match.maxDiscount || 0),
+        firstOrderOnly: Boolean(match.firstOrderOnly),
+        discountPercent: match.type === 'percentage' ? match.value : 0,
+        appOnly: Boolean(match.appOnly)
+      };
+      const savedText = match.type === 'flat' ? `₹${match.value} OFF` : `${match.value}% OFF`;
+      setOfferProgressFeedback(`🎉 Coupon ${match.code} applied! ${savedText} saved.`, false);
       renderSummary();
     }
 
@@ -1094,6 +1112,15 @@
       const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       const productDiscount = Math.max(0, mrpTotal - subtotal);
       const isAppUser = typeof window.isNutrolixAndroidApp === 'function' && window.isNutrolixAndroidApp();
+
+      // Revoke applied coupon if admin removed it or disabled it
+      if (appliedCoupon) {
+        const liveMatch = getStoreCoupons().find(c => c.code === appliedCoupon.code && c.active !== false);
+        if (!liveMatch) {
+          appliedCoupon = null;
+          setOfferProgressFeedback('');
+        }
+      }
 
       // Revoke app-only coupon if not in the Nutrolix Android App
       if (appliedCoupon && appliedCoupon.appOnly && !isAppUser) {
@@ -1107,27 +1134,16 @@
         setOfferProgressFeedback('');
       }
 
-      // Auto-apply extra 10% OFF APP10 coupon for Nutrolix Android App users
-      if (subtotal > 0 && !appliedCoupon && !app10UserDismissed && isAppUser) {
-        const appCoupon = getStoreCoupons().find(c => c.code === 'APP10' && c.active !== false);
-        if (appCoupon && subtotal >= Number(appCoupon.minOrder || 0)) {
-          appliedCoupon = {
-            code: appCoupon.code,
-            type: appCoupon.type,
-            value: appCoupon.value,
-            minOrder: Number(appCoupon.minOrder || 0),
-            discountPercent: appCoupon.type === 'percentage' ? appCoupon.value : 0,
-            appOnly: true
-          };
-        }
-      }
-
       let couponDiscount = 0;
       if (appliedCoupon) {
         if (appliedCoupon.type === 'flat') {
           couponDiscount = Math.min(subtotal, Math.round(appliedCoupon.value));
         } else {
-          couponDiscount = Math.round((subtotal * appliedCoupon.value) / 100);
+          let pctDisc = Math.round((subtotal * appliedCoupon.value) / 100);
+          if (Number(appliedCoupon.maxDiscount || 0) > 0) {
+            pctDisc = Math.min(pctDisc, Math.round(appliedCoupon.maxDiscount));
+          }
+          couponDiscount = Math.min(subtotal, pctDisc);
         }
         document.getElementById('couponDiscountRow').classList.remove('hidden');
         document.getElementById('couponCodeLabel').innerText = appliedCoupon.code;
@@ -1136,79 +1152,14 @@
         document.getElementById('couponDiscountRow').classList.add('hidden');
       }
 
-      // Check for Healthy Food Discount (Part B: Strictly for Healthy Food / Cloud Kitchen orders)
-      const healthyFoodItems = cart.filter(item => {
-        const cat = (item.category || '').toLowerCase();
-        const id = (item.id || '').toLowerCase();
-        return Boolean(
-          item.isFood ||
-          item.type === 'healthy_food' ||
-          cat.includes('food') ||
-          cat.includes('meal') ||
-          cat.includes('thali') ||
-          cat.includes('salad') ||
-          cat.includes('bowl') ||
-          cat.includes('combos') ||
-          id.startsWith('food_') ||
-          id.startsWith('meal_') ||
-          id.startsWith('healthy_')
-        );
-      });
-
-      const healthyFoodSubtotal = healthyFoodItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-
-      // Check Customer Eligibility (First order: ₹100 OFF min ₹349; Subsequent: ₹50 OFF min ₹249)
-      let user = null;
-      try {
-        if (typeof window.getNutrolixUser === 'function') user = window.getNutrolixUser();
-      } catch (_) {}
-
-      // Check past orders for ₹100 redemption
-      let is100Redeemed = false;
-      try {
-        const localOrders = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
-        is100Redeemed = localOrders.some(o => (o.foodDiscount && o.foodDiscount >= 100) || (o.couponCode === 'FIRST100'));
-      } catch (_) {}
-
-      const offerType = is100Redeemed ? 'SUBSEQUENT50' : 'FIRST100';
-      const minRequired = is100Redeemed ? 249 : 349; // ₹249 confirmed by user
-      const discountAmount = is100Redeemed ? 50 : 100;
-      const offerLabel = is100Redeemed ? 'Healthy Meal Special (₹50 OFF)' : 'First Meal Special (₹100 OFF)';
-
-      let foodDiscount = 0;
-      const foodRow = document.getElementById('healthyFoodDiscountRow');
-      const foodLabel = document.getElementById('healthyFoodDiscountLabel');
-      const foodDiscountVal = document.getElementById('summaryFoodDiscount');
-      const hintRow = document.getElementById('healthyFoodDiscountHint');
-      const hintText = document.getElementById('healthyFoodDiscountHintText');
-
-      if (healthyFoodSubtotal >= minRequired) {
-        foodDiscount = discountAmount;
-        window.activeFoodDiscount = foodDiscount;
-        window.activeFoodOfferType = offerType;
-        if (foodRow) foodRow.classList.remove('hidden');
-        if (foodLabel) foodLabel.innerText = offerLabel;
-        if (foodDiscountVal) foodDiscountVal.innerText = `-₹${foodDiscount}`;
-        if (hintRow) hintRow.classList.add('hidden');
-      } else {
-        window.activeFoodDiscount = 0;
-        window.activeFoodOfferType = null;
-        if (foodRow) foodRow.classList.add('hidden');
-        if (healthyFoodSubtotal > 0) {
-          const remaining = minRequired - healthyFoodSubtotal;
-          if (hintRow && hintText) {
-            hintText.innerText = `Add ₹${remaining} more Healthy Food to unlock ${offerLabel}!`;
-            hintRow.classList.remove('hidden');
-          }
-        } else {
-          if (hintRow) hintRow.classList.add('hidden');
-        }
-      }
+      // All automatic healthy-food / first-order discounts permanently removed — Admin coupons only
+      window.activeFoodDiscount = 0;
+      window.activeFoodOfferType = null;
 
       const isFreeShipping = subtotal >= settings.freeDeliveryThreshold;
       const shipping = (subtotal === 0 || isFreeShipping) ? 0 : settings.deliveryFee;
-      const grandTotal = Math.max(0, subtotal - couponDiscount - foodDiscount + shipping);
-      const totalSaved = productDiscount + couponDiscount + foodDiscount;
+      const grandTotal = Math.max(0, subtotal - couponDiscount + shipping);
+      const totalSaved = productDiscount + couponDiscount;
 
       document.getElementById('summaryMrpTotal').innerText = `₹${mrpTotal}`;
       document.getElementById('summaryProductDiscount').innerText = `-₹${productDiscount}`;
@@ -1218,11 +1169,7 @@
 
       renderOfferProgressBars({
         subtotal,
-        healthyFoodSubtotal,
-        settings,
-        minRequired,
-        discountAmount,
-        offerLabel
+        settings
       });
     }
 
@@ -1231,9 +1178,6 @@
     };
 
     window.removeOfferProgressCoupon = function() {
-      if (appliedCoupon && appliedCoupon.code === 'APP10') {
-        app10UserDismissed = true;
-      }
       appliedCoupon = null;
       setOfferProgressFeedback('');
       renderSummary();
@@ -1245,7 +1189,6 @@
       if (!banner || !listEl) return;
 
       const subtotal = Number(ctx && ctx.subtotal) || 0;
-      const healthyFoodSubtotal = Number(ctx && ctx.healthyFoodSubtotal) || 0;
       const settings = (ctx && ctx.settings) || getStoreSettings();
       const freeThreshold = Math.max(1, Number(settings.freeDeliveryThreshold || 499));
       const isAppUser = typeof window.isNutrolixAndroidApp === 'function' && window.isNutrolixAndroidApp();
@@ -1271,24 +1214,6 @@
         actionHtml: '',
         hidePctWhenAction: false
       });
-
-      // 2. Healthy Meal Special Offer Bar (when cart has Healthy Food items)
-      if (healthyFoodSubtotal > 0) {
-        const mealMin = Math.max(1, Number(ctx.minRequired || 349));
-        const mealDisc = Number(ctx.discountAmount || 100);
-        const mealRemaining = Math.max(0, Math.ceil(mealMin - healthyFoodSubtotal));
-        const mealPct = Math.min(100, Math.max(0, Math.round((healthyFoodSubtotal / mealMin) * 100)));
-        rows.push({
-          iconHtml: `<i class="fa-solid fa-utensils text-orange-500 text-base sm:text-lg shrink-0"></i>`,
-          labelHtml: mealRemaining > 0
-            ? `Add <span class="font-black text-slate-950">₹${mealRemaining}</span> Healthy Food for <span class="text-orange-700 font-black">₹${mealDisc} OFF</span>`
-            : `<span class="text-emerald-800 font-black">₹${mealDisc} OFF Healthy Meal Unlocked!</span> <span class="text-xs font-bold text-emerald-700">✨ Auto-applied</span>`,
-          pct: mealPct,
-          barGradient: mealRemaining > 0 ? 'from-[#fbbf24] via-[#f97316] to-[#ea580c]' : 'from-[#059669] via-[#22c55e] to-[#84cc16]',
-          actionHtml: '',
-          hidePctWhenAction: false
-        });
-      }
 
       // 3. All Active Discount / Coupon Offers (sorted by minOrder ascending; mini Apply button appears inline right when 100% unlocked)
       const activeCoupons = (getStoreCoupons() || [])
@@ -2664,13 +2589,19 @@
       const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
       let couponDiscount = 0;
       if (appliedCoupon) {
-        couponDiscount = appliedCoupon.type === 'flat'
-          ? Math.min(subtotal, Math.round(appliedCoupon.value || 0))
-          : Math.round((subtotal * (appliedCoupon.discountPercent || appliedCoupon.value || 0)) / 100);
+        if (appliedCoupon.type === 'flat') {
+          couponDiscount = Math.min(subtotal, Math.round(appliedCoupon.value || 0));
+        } else {
+          let pctDisc = Math.round((subtotal * (appliedCoupon.discountPercent || appliedCoupon.value || 0)) / 100);
+          if (Number(appliedCoupon.maxDiscount || 0) > 0) {
+            pctDisc = Math.min(pctDisc, Math.round(appliedCoupon.maxDiscount));
+          }
+          couponDiscount = Math.min(subtotal, pctDisc);
+        }
       }
-      const foodDiscount = window.activeFoodDiscount || 0;
+      const foodDiscount = 0;
       const shipping = subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee;
-      const grandTotal = Math.max(0, subtotal - couponDiscount - foodDiscount + shipping);
+      const grandTotal = Math.max(0, subtotal - couponDiscount + shipping);
 
       const idemInfo = getOrCreateCheckoutIdempotencyKey();
       const generatedOrderId = idemInfo.orderId;
@@ -2720,9 +2651,9 @@
         paymentMethod,
         subtotal,
         discount: couponDiscount,
-        foodDiscount: foodDiscount,
-        foodOfferType: window.activeFoodOfferType || null,
-        couponCode: appliedCoupon ? appliedCoupon.code : (foodDiscount > 0 ? (window.activeFoodOfferType || 'HEALTHY_PROMO') : null),
+        foodDiscount: 0,
+        foodOfferType: null,
+        couponCode: appliedCoupon ? appliedCoupon.code : null,
         shipping,
         grandTotal,
         total: grandTotal,
@@ -2834,10 +2765,10 @@
               platform: isFromApp ? 'android_app' : 'web',
               subtotal,
               discount: couponDiscount,
-              foodDiscount: foodDiscount,
-              foodOfferType: window.activeFoodOfferType || null,
+              foodDiscount: 0,
+              foodOfferType: null,
               shipping,
-              couponCode: orderPayload.couponCode || null
+              couponCode: appliedCoupon ? appliedCoupon.code : null
             })
           });
           const payuData = await payuRes.json();

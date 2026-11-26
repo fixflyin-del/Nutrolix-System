@@ -529,118 +529,281 @@ function saveCustomerDiscountsStore(store) {
   safeWriteJson(file, store);
 }
 
-function buildEligibilityResponse(is100Redeemed) {
-  if (!is100Redeemed) {
-    return {
-      eligible: true,
-      offerType: 'FIRST100',
-      discount: 100,
-      minOrder: 349,
-      title: '₹100 OFF on First Healthy Meal',
-      description: 'Get ₹100 OFF on your first Healthy Food order (Min. order ₹349)',
-      bannerText: 'Order Ready Healthy Meals Now & Get ₹100 OFF on Your First Order! (Min. Order ₹349)'
-    };
-  }
+function buildEligibilityResponse() {
   return {
-    eligible: true,
-    offerType: 'SUBSEQUENT50',
-    discount: 50,
-    minOrder: 249,
-    title: '₹50 OFF on Healthy Food',
-    description: 'Get ₹50 OFF on your next Healthy Food order (Min. order ₹249)',
-    bannerText: 'Keep Your Health Streak Going: Get ₹50 OFF on Your Next Meal! (Min. Order ₹249)'
+    eligible: false,
+    disabled: true,
+    offerType: null,
+    discount: 0,
+    minOrder: 0,
+    title: '',
+    description: '',
+    bannerText: ''
   };
 }
 
-function getCustomerHealthyFoodEligibility(phoneRaw, emailRaw) {
-  const phone = normalizePhone(phoneRaw);
-  const email = normalizeEmail(emailRaw);
-  const store = getCustomerDiscountsStore();
+function getCustomerHealthyFoodEligibility() {
+  return buildEligibilityResponse();
+}
 
-  let customerRecord = null;
-  if (phone && store[phone]) customerRecord = store[phone];
-  else if (email && store[email]) customerRecord = store[email];
+async function getCustomerHealthyFoodEligibilityDurable() {
+  return buildEligibilityResponse();
+}
 
-  if (!customerRecord) {
+async function recordHealthyFoodRedemption() {
+  return;
+}
+
+function isCountableCompletedOrActiveOrder(order) {
+  if (!order || typeof order !== 'object') return false;
+  const st = String(order.status || '').trim().toLowerCase();
+  const paySt = String(order.paymentStatus || '').trim().toLowerCase();
+  if (
+    st.includes('cancel') ||
+    st.includes('reject') ||
+    st.includes('fail') ||
+    st.includes('payment pending') ||
+    paySt.includes('payment_pending') ||
+    paySt.includes('payment_failed') ||
+    paySt === 'failed'
+  ) {
+    return false;
+  }
+  return true;
+}
+
+async function countCustomerPriorOrders({ phone = '', email = '', uid = '', excludeOrderId = '' } = {}) {
+  const cleanPhone = normalizePhone(phone);
+  const cleanEmail = normalizeEmail(email);
+  const cleanUid = nutrolixCore.canonicalCustomerUid(cleanPhone) || String(uid || '').trim();
+  const seenIds = new Set();
+
+  const registerIfMatch = (o) => {
+    if (!o || !isCountableCompletedOrActiveOrder(o)) return;
+    const oid = String(o.orderId || o.id || o._docId || '').trim();
+    if (!oid || (excludeOrderId && oid === excludeOrderId)) return;
+    const oPhone = customerSync.extractOrderPhone(o);
+    const oEmail = customerSync.extractOrderEmail(o);
+    const oUid = String(o.uid || '').trim();
+    const matched =
+      (cleanPhone && oPhone && oPhone === cleanPhone) ||
+      (cleanUid && oUid && oUid === cleanUid) ||
+      (cleanEmail && oEmail && oEmail === cleanEmail);
+    if (matched) seenIds.add(oid);
+  };
+
+  // 1. Check local JSON cache
+  try {
     const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
-    try {
-      const orders = safeReadJson(ordersFile, []);
-      const hasPast100Order = orders.some(o => {
-        const ordPhone = customerSync.extractOrderPhone(o);
-        const ordEmail = customerSync.extractOrderEmail(o);
-        const matches = (phone && ordPhone === phone) || (email && ordEmail === email);
-        const hasFoodDiscount = (o.foodDiscount && o.foodDiscount >= 50) || (o.couponCode === 'FIRST100');
-        return matches && hasFoodDiscount;
+    const localOrders = safeReadJson(ordersFile, []);
+    if (Array.isArray(localOrders)) localOrders.forEach(registerIfMatch);
+  } catch (_) {}
+
+  // 2. Check both Firestore databases authoritatively by phone / uid / email
+  const queries = [];
+  if (cleanPhone) {
+    for (const fieldPath of ['customerPhone', 'verifiedPhone']) {
+      queries.push({
+        from: [{ collectionId: 'orders' }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath },
+            op: 'EQUAL',
+            value: { stringValue: cleanPhone }
+          }
+        },
+        limit: 20
       });
-      if (hasPast100Order) {
-        customerRecord = { first100Redeemed: true };
-        if (phone) store[phone] = customerRecord;
-        if (email) store[email] = customerRecord;
-        saveCustomerDiscountsStore(store);
+    }
+  }
+  if (cleanUid) {
+    queries.push({
+      from: [{ collectionId: 'orders' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'uid' },
+          op: 'EQUAL',
+          value: { stringValue: cleanUid }
+        }
+      },
+      limit: 20
+    });
+  }
+  if (cleanEmail) {
+    queries.push({
+      from: [{ collectionId: 'orders' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'customerEmail' },
+          op: 'EQUAL',
+          value: { stringValue: cleanEmail }
+        }
+      },
+      limit: 20
+    });
+  }
+
+  if (queries.length > 0) {
+    try {
+      const tasks = [];
+      for (const dbId of nutrolixCore.BOTH_DB_IDS) {
+        for (const q of queries) {
+          tasks.push(nutrolixCore.firestoreRunQuery(q, '', dbId).catch(() => []));
+        }
+      }
+      const results = await Promise.all(tasks);
+      for (const docs of results) {
+        if (Array.isArray(docs)) docs.forEach(registerIfMatch);
       }
     } catch (_) {}
   }
 
-  return buildEligibilityResponse(Boolean(customerRecord && customerRecord.first100Redeemed));
-}
-
-async function getCustomerHealthyFoodEligibilityDurable(phoneRaw, emailRaw) {
-  const phone = normalizePhone(phoneRaw);
-  const email = normalizeEmail(emailRaw);
-  const local = getCustomerHealthyFoodEligibility(phoneRaw, emailRaw);
-  if (local.offerType === 'SUBSEQUENT50') return local;
-
-  try {
-    const discountKey = phone || (email ? 'email_' + crypto.createHash('sha1').update(email).digest('hex').slice(0, 12) : '');
-    if (discountKey) {
-      const fsDisc = await nutrolixCore.firestoreGetFirstAvailable(`customerDiscounts/${discountKey}`);
-      if (fsDisc && fsDisc.first100Redeemed) {
-        const store = getCustomerDiscountsStore();
-        store[discountKey] = fsDisc;
-        saveCustomerDiscountsStore(store);
-        return buildEligibilityResponse(true);
+  // 3. Fallback scan if phone-matched docs were stored under nested customer.phone only
+  if (seenIds.size === 0 && (cleanPhone || cleanEmail || cleanUid)) {
+    try {
+      const [defRes, namedRes] = await Promise.all([
+        nutrolixCore.firestoreListAllDocuments('orders', nutrolixCore.DEFAULT_DB_ID, 400),
+        nutrolixCore.firestoreListAllDocuments('orders', nutrolixCore.NAMED_DB_ID, 400)
+      ]);
+      for (const doc of [...(defRes.docs || []), ...(namedRes.docs || [])]) {
+        registerIfMatch(doc);
       }
-    }
-  } catch (_) {}
-  return local;
-}
-
-async function recordHealthyFoodRedemption(order) {
-  if (!order || !order.foodDiscount || Number(order.foodDiscount) <= 0) return;
-  const phone = customerSync.extractOrderPhone(order);
-  const email = customerSync.extractOrderEmail(order);
-  const store = getCustomerDiscountsStore();
-  const key = phone || email;
-  if (!key) return;
-
-  const existing = (phone && store[phone]) || (email && store[email]) || {};
-  const rec = { ...existing };
-  if (order.couponCode === 'FIRST100' || Number(order.foodDiscount) >= 100 || !rec.first100Redeemed) {
-    rec.first100Redeemed = true;
-    rec.first100RedeemedAt = new Date().toISOString();
-    rec.first100OrderId = order.orderId || order.id;
-  } else {
-    if (!Array.isArray(rec.subsequentRedemptions)) rec.subsequentRedemptions = [];
-    rec.subsequentRedemptions.push({
-      orderId: order.orderId || order.id,
-      amount: Number(order.foodDiscount),
-      date: new Date().toISOString()
-    });
+    } catch (_) {}
   }
 
-  if (phone) store[phone] = rec;
-  if (email) store[email] = rec;
-  saveCustomerDiscountsStore(store);
+  return { count: seenIds.size, hasPriorOrders: seenIds.size > 0 };
+}
 
-  const fsKey = phone || ('email_' + crypto.createHash('sha1').update(email).digest('hex').slice(0, 12));
-  try {
-    await nutrolixCore.firestorePatchBothDbs(`customerDiscounts/${fsKey}`, {
-      ...rec,
-      phone,
-      email,
-      updatedAt: new Date().toISOString()
-    });
-  } catch (_) {}
+function normalizeStoreCouponRecord(c) {
+  if (!c || typeof c !== 'object') return null;
+  const code = String(c.code || '').trim().toUpperCase();
+  if (!code || !/^[A-Z0-9_-]{2,40}$/.test(code)) return null;
+  const rawType = String(c.type || '').trim().toLowerCase();
+  const type = (rawType === 'flat' || rawType === 'fixed_amount' || rawType === 'fixed') ? 'flat' : 'percentage';
+  const rawVal = Number(c.value !== undefined ? c.value : (c.discountPercent !== undefined ? c.discountPercent : 0));
+  const value = Number.isFinite(rawVal) && rawVal > 0 ? rawVal : 0;
+  if (value <= 0) return null;
+  const minOrder = Math.max(0, Number(c.minOrder || 0) || 0);
+  const maxDiscount = Math.max(0, Number(c.maxDiscount || 0) || 0);
+  const active = c.active !== false && String(c.status || '').toLowerCase() !== 'inactive';
+  return {
+    code,
+    title: String(c.title || (type === 'flat' ? `Flat ₹${value} OFF` : `${value}% OFF`)).trim(),
+    type,
+    value,
+    discountPercent: type === 'percentage' ? value : 0,
+    minOrder,
+    maxDiscount,
+    firstOrderOnly: Boolean(c.firstOrderOnly),
+    appOnly: Boolean(c.appOnly),
+    active,
+    status: active ? 'Active' : 'Inactive'
+  };
+}
+
+const LEGACY_REMOVED_AUTO_CODES = new Set(['FIRST100', 'SUBSEQUENT50', 'HEALTHY50', 'HEALTHY_PROMO']);
+
+async function getAuthoritativeAdminCoupons() {
+  const couponsFile = path.join(PUBLIC_DIR, 'data', 'store_coupons.json');
+  const raw = await readCatalogDocOrFallback('store_coupons', couponsFile, []);
+  if (!Array.isArray(raw)) return [];
+  return raw.map(normalizeStoreCouponRecord).filter(Boolean);
+}
+
+async function validateAndCalculateOrderPricing({
+  items = [],
+  couponCode = '',
+  customerPhone = '',
+  customerEmail = '',
+  uid = '',
+  orderSource = '',
+  platform = '',
+  excludeOrderId = ''
+} = {}) {
+  const settingsFile = path.join(PUBLIC_DIR, 'data', 'store_settings.json');
+  const [storedSettings, adminCoupons] = await Promise.all([
+    readCatalogDocOrFallback('store_settings', settingsFile, {}),
+    getAuthoritativeAdminCoupons()
+  ]);
+  const settings = normalizeStoreSettingsPayload(storedSettings, {});
+
+  let subtotal = 0;
+  if (Array.isArray(items)) {
+    for (const it of items) {
+      if (!it || typeof it !== 'object') continue;
+      const unitPrice = Number(it.price);
+      const qty = Number(it.quantity ?? it.qty ?? 1);
+      if (Number.isFinite(unitPrice) && unitPrice >= 0 && Number.isFinite(qty) && qty > 0) {
+        subtotal += unitPrice * qty;
+      }
+    }
+  }
+  subtotal = Math.max(0, Math.round(subtotal * 100) / 100);
+
+  const rawCode = String(couponCode || '').trim().toUpperCase();
+  const isLegacyAutoCode = LEGACY_REMOVED_AUTO_CODES.has(rawCode);
+  const srcLower = String(orderSource || platform || '').trim().toLowerCase();
+  const isAppOrder = srcLower === 'app' || srcLower.includes('android') || srcLower.includes('apk') || srcLower.includes('mobile_app');
+
+  let appliedCoupon = null;
+  let couponDiscount = 0;
+  let couponValid = true;
+  let couponError = '';
+
+  if (rawCode && !isLegacyAutoCode) {
+    const match = adminCoupons.find((c) => c.code === rawCode && c.active !== false);
+    if (!match) {
+      couponValid = false;
+      couponError = `Coupon "${rawCode}" is invalid or no longer active.`;
+    } else if (match.appOnly && !isAppOrder) {
+      couponValid = false;
+      couponError = `Coupon "${match.code}" is valid only on the Nutrolix Android App.`;
+    } else if (match.minOrder > 0 && subtotal < match.minOrder) {
+      couponValid = false;
+      couponError = `Coupon "${match.code}" requires a minimum order value of ₹${match.minOrder}.`;
+    } else if (match.firstOrderOnly) {
+      const prior = await countCustomerPriorOrders({
+        phone: customerPhone,
+        email: customerEmail,
+        uid,
+        excludeOrderId
+      });
+      if (prior.hasPriorOrders) {
+        couponValid = false;
+        couponError = `Coupon "${match.code}" is valid only on your first order.`;
+      }
+    }
+
+    if (couponValid && match) {
+      if (match.type === 'flat') {
+        couponDiscount = Math.min(subtotal, Math.max(0, Math.round(match.value)));
+      } else {
+        let pctDisc = Math.round((subtotal * match.value) / 100);
+        if (match.maxDiscount > 0) pctDisc = Math.min(pctDisc, Math.round(match.maxDiscount));
+        couponDiscount = Math.min(subtotal, Math.max(0, pctDisc));
+      }
+      appliedCoupon = match;
+    }
+  }
+
+  const freeThreshold = Number(settings.freeDeliveryThreshold || settings.freeDeliveryAbove || 499);
+  const deliveryFee = Number(settings.deliveryFee !== undefined ? settings.deliveryFee : 49);
+  const shipping = (subtotal <= 0 || subtotal >= freeThreshold) ? 0 : deliveryFee;
+  const grandTotal = Math.max(0, Math.round((subtotal - couponDiscount + shipping) * 100) / 100);
+
+  return {
+    subtotal,
+    discount: couponDiscount,
+    foodDiscount: 0,
+    foodOfferType: null,
+    shipping,
+    grandTotal,
+    couponCode: appliedCoupon ? appliedCoupon.code : null,
+    appliedCoupon,
+    couponValid,
+    couponError,
+    isLegacyAutoCode
+  };
 }
 
 function makeTokenDocId(rawVal) {
@@ -1117,7 +1280,7 @@ async function dispatchPushToAdmins({ orderId = '', title = '', message = '', to
           body: finalBody,
           orderId,
           url: '/admin.html',
-          channelId: 'nutrolix_admin_orders_channel_v3',
+          channelId: 'nutrolix_admin_orders_channel_v4',
           dataOnlyAndroid: !isWebTarget,
           data: {
             type: 'ADMIN_NEW_ORDER',
@@ -3253,6 +3416,46 @@ const server = http.createServer(async (req, res) => {
 
         try {
           const order = validation.normalizedOrder;
+          // Authoritative server-side pricing & admin-only coupon enforcement (never trust client discount)
+          const pricing = await validateAndCalculateOrderPricing({
+            items: order.items,
+            couponCode: order.couponCode || '',
+            customerPhone: order.customerPhone,
+            customerEmail: order.customerEmail,
+            uid: order.uid,
+            orderSource: order.orderSource,
+            platform: order.platform,
+            excludeOrderId: order.orderId
+          });
+          if (!pricing.couponValid) {
+            res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({ success: false, error: pricing.couponError || 'Coupon is not valid for this order.' }));
+            return;
+          }
+          const clientRequestedTotal = Number(order.grandTotal || order.total || 0);
+          if (pricing.subtotal > 0 && Math.abs(pricing.grandTotal - clientRequestedTotal) > 1 && Number(rawPayload.foodDiscount || 0) > 0) {
+            res.writeHead(409, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({
+              success: false,
+              code: 'PRICE_UPDATED',
+              updatedTotal: pricing.grandTotal,
+              error: 'Automatic meal discount has been discontinued. Please review your updated cart total and place the order again.'
+            }));
+            return;
+          }
+          if (pricing.subtotal > 0) {
+            order.subtotal = pricing.subtotal;
+            order.discount = pricing.discount;
+            order.foodDiscount = 0;
+            order.foodOfferType = null;
+            order.couponCode = pricing.couponCode;
+            order.shipping = pricing.shipping;
+            order.grandTotal = pricing.grandTotal;
+            order.total = pricing.grandTotal;
+          } else {
+            order.foodDiscount = 0;
+            order.foodOfferType = null;
+          }
           let orders = safeReadJson(ordersFile, []);
           if (!Array.isArray(orders)) orders = [];
 
@@ -3490,68 +3693,118 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Discount Validation APIs (Part B: Healthy Food Exclusivity)
-  if (reqPath === '/api/discounts/healthy-food-eligibility' && req.method === 'GET') {
-    const phone = parsedUrl.query.phone || '';
-    const email = parsedUrl.query.email || '';
-    const eligibility = await getCustomerHealthyFoodEligibilityDurable(phone, email);
-    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-    res.end(JSON.stringify(eligibility));
+  // Lightweight ultra-fast polling endpoint dedicated for Admin App background ring service
+  if (reqPath === '/api/admin/live-orders-poll' && req.method === 'GET') {
+    try {
+      const ordersFile = path.join(PUBLIC_DIR, 'data', 'nutrition_orders.json');
+      const localOrders = safeReadJson(ordersFile, []);
+      const byOrderId = new Map();
+      for (const o of Array.isArray(localOrders) ? localOrders.slice(0, 60) : []) {
+        const oid = String(o.orderId || o.id || '').trim();
+        if (oid) byOrderId.set(oid, o);
+      }
+
+      try {
+        const [defRes, namedRes] = await Promise.all([
+          nutrolixCore.firestoreListAllDocuments('orders', nutrolixCore.DEFAULT_DB_ID, 200),
+          nutrolixCore.firestoreListAllDocuments('orders', nutrolixCore.NAMED_DB_ID, 200)
+        ]);
+        for (const doc of [...(defRes.docs || []), ...(namedRes.docs || [])]) {
+          const oid = String(doc.orderId || doc.id || doc._docId || '').trim();
+          if (!oid) continue;
+          byOrderId.set(oid, { ...(byOrderId.get(oid) || {}), ...doc, id: oid, orderId: oid });
+        }
+      } catch (_) {}
+
+      const compact = Array.from(byOrderId.values())
+        .map((o) => {
+          const rawTs = Number(o.orderTimeMillis || o.timestamp || Date.parse(o.confirmedAt || o.createdAt || o.orderTime || 0) || 0);
+          const normTs = (rawTs > 0 && rawTs < 1e12) ? rawTs * 1000 : rawTs;
+          const custObj = (o.customer && typeof o.customer === 'object') ? o.customer : {};
+          return {
+            id: String(o.orderId || o.id || '').trim(),
+            orderId: String(o.orderId || o.id || '').trim(),
+            orderNumber: String(o.orderNumber || o.orderId || o.id || '').trim(),
+            status: String(o.status || 'Order Placed'),
+            paymentStatus: String(o.paymentStatus || ''),
+            paymentMethod: String(o.paymentMethod || 'Online'),
+            orderSource: String(o.orderSource || 'Website'),
+            customerName: String(o.customerName || custObj.name || 'Customer'),
+            customerPhone: String(o.customerPhone || custObj.phone || ''),
+            grandTotal: Number(o.grandTotal ?? o.total ?? o.amount ?? 0),
+            orderTimeMillis: normTs || Date.now(),
+            timestamp: normTs || Date.now(),
+            createdAt: o.confirmedAt || o.createdAt || o.orderTime || ''
+          };
+        })
+        .filter((o) => o.id)
+        .sort((a, b) => (b.orderTimeMillis || 0) - (a.orderTimeMillis || 0))
+        .slice(0, 40);
+
+      res.writeHead(200, NO_STORE_JSON_HEADERS);
+      res.end(JSON.stringify(compact));
+    } catch (err) {
+      res.writeHead(500, NO_STORE_JSON_HEADERS);
+      res.end(JSON.stringify({ success: false, error: err.message }));
+    }
     return;
   }
 
-  if (reqPath === '/api/discounts/validate-healthy-food' && req.method === 'POST') {
+  // Authoritative Server-Side Coupon Validation API (Admin-Created Coupons Only)
+  if (reqPath === '/api/coupons/validate' && req.method === 'POST') {
     let body = '';
     req.on('data', chunk => body += chunk);
     req.on('end', async () => {
       try {
-        const { items, customerPhone, customerEmail } = JSON.parse(body || '{}');
-        const eligibility = await getCustomerHealthyFoodEligibilityDurable(customerPhone, customerEmail);
-
-        // Calculate subtotal strictly for Healthy Food / Cloud Kitchen meals (Excluding packaged store goods)
-        let healthyFoodSubtotal = 0;
-        if (Array.isArray(items)) {
-          for (const it of items) {
-            const cat = (it.category || '').toLowerCase();
-            const id = (it.id || '').toLowerCase();
-            const isFood = Boolean(
-              it.isFood ||
-              cat.includes('food') ||
-              cat.includes('meal') ||
-              cat.includes('thali') ||
-              cat.includes('salad') ||
-              cat.includes('bowl') ||
-              cat.includes('combos') ||
-              id.startsWith('food_') ||
-              id.startsWith('meal_') ||
-              id.startsWith('healthy_')
-            );
-            if (isFood) {
-              healthyFoodSubtotal += (Number(it.price) || 0) * (Number(it.quantity) || 1);
-            }
-          }
-        }
-
-        const minOrder = eligibility.minOrder; // 349 for FIRST100, 249 for SUBSEQUENT50
-        const isEligibleForDiscount = healthyFoodSubtotal >= minOrder;
-        const discountAmount = isEligibleForDiscount ? eligibility.discount : 0;
-
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        const payload = JSON.parse(body || '{}');
+        const pricing = await validateAndCalculateOrderPricing({
+          items: Array.isArray(payload.items) ? payload.items : [],
+          couponCode: payload.couponCode || payload.code || '',
+          customerPhone: payload.customerPhone || payload.phone || '',
+          customerEmail: payload.customerEmail || payload.email || '',
+          uid: payload.uid || '',
+          orderSource: payload.orderSource || '',
+          platform: payload.platform || ''
+        });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({
-          valid: isEligibleForDiscount,
-          offerType: eligibility.offerType,
-          discountAmount: discountAmount,
-          healthyFoodSubtotal: healthyFoodSubtotal,
-          minOrderRequired: minOrder,
-          remainingForDiscount: Math.max(0, minOrder - healthyFoodSubtotal),
-          title: eligibility.title,
-          description: eligibility.description
+          valid: Boolean(pricing.couponValid && pricing.appliedCoupon),
+          error: pricing.couponError || (pricing.isLegacyAutoCode ? 'This promotional offer is no longer active.' : (!pricing.appliedCoupon ? 'Invalid or expired coupon code.' : '')),
+          coupon: pricing.appliedCoupon || null,
+          discount: pricing.discount,
+          subtotal: pricing.subtotal,
+          shipping: pricing.shipping,
+          grandTotal: pricing.grandTotal
         }));
-      } catch (e) {
-        res.writeHead(400, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: e.message }));
+      } catch (err) {
+        res.writeHead(400, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ valid: false, error: err.message || 'Coupon validation failed.' }));
       }
     });
+    return;
+  }
+
+  // Legacy Healthy Food Automatic Discount APIs (Permanently Disabled — Admin Coupons Only)
+  if (reqPath === '/api/discounts/healthy-food-eligibility' && req.method === 'GET') {
+    res.writeHead(200, NO_STORE_JSON_HEADERS);
+    res.end(JSON.stringify(buildEligibilityResponse()));
+    return;
+  }
+
+  if (reqPath === '/api/discounts/validate-healthy-food' && req.method === 'POST') {
+    res.writeHead(200, NO_STORE_JSON_HEADERS);
+    res.end(JSON.stringify({
+      valid: false,
+      eligible: false,
+      disabled: true,
+      offerType: null,
+      discountAmount: 0,
+      healthyFoodSubtotal: 0,
+      minOrderRequired: 0,
+      remainingForDiscount: 0,
+      title: '',
+      description: ''
+    }));
     return;
   }
 
@@ -3925,15 +4178,8 @@ const server = http.createServer(async (req, res) => {
         const orderData = JSON.parse(body || '{}');
         const orderId = orderData.orderId || ('ORD-' + Math.floor(100000 + Math.random() * 900000));
         const txnid = 'NTX_' + orderId + '_' + Date.now().toString(36);
-        const numericAmount = Number(orderData.totalAmount || orderData.total || orderData.grandTotal || orderData.amount || 0);
-        if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
-          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
-          res.end(JSON.stringify({ success: false, error: 'Valid payable amount is required for online payment.' }));
-          return;
-        }
-        const amount = numericAmount.toFixed(2);
         const productinfo = (orderData.items && orderData.items.length)
-          ? orderData.items.map(i => i.name).join(', ').substring(0, 90)
+          ? orderData.items.map(i => i.name || i.title || 'Item').join(', ').substring(0, 90)
           : (orderData.productinfo || 'Nutrolix Functional Nutrition');
         const firstname = (orderData.customerName || orderData.name || orderData.firstname || 'Customer').split(' ')[0] || 'Customer';
         const email = (orderData.customerEmail || orderData.email || 'customer@nutrolix.in').trim();
@@ -3944,6 +4190,44 @@ const server = http.createServer(async (req, res) => {
           return;
         }
         const canonicalUid = nutrolixCore.canonicalCustomerUid(phone) || orderData.uid || '';
+        const rawPayuSource = String(orderData.orderSource || orderData.source || orderData.platform || '').trim().toLowerCase();
+        const payuOrderSource = (rawPayuSource === 'app' || rawPayuSource.includes('android') || rawPayuSource.includes('apk')) ? 'App' : 'Website';
+
+        // Authoritative server-side price & coupon verification (blocks unauthorized or expired discounts)
+        const pricing = await validateAndCalculateOrderPricing({
+          items: Array.isArray(orderData.items) ? orderData.items : [],
+          couponCode: orderData.couponCode || '',
+          customerPhone: phone,
+          customerEmail: email,
+          uid: canonicalUid,
+          orderSource: payuOrderSource,
+          platform: orderData.platform || (payuOrderSource === 'App' ? 'android_app' : 'web'),
+          excludeOrderId: orderId
+        });
+        if (!pricing.couponValid) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: pricing.couponError || 'Coupon is not valid for this order.' }));
+          return;
+        }
+        const clientAmount = Number(orderData.totalAmount || orderData.total || orderData.grandTotal || orderData.amount || 0);
+        if (pricing.subtotal > 0 && Number(orderData.foodDiscount || 0) > 0 && Math.abs(pricing.grandTotal - clientAmount) > 1) {
+          res.writeHead(409, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({
+            success: false,
+            code: 'PRICE_UPDATED',
+            updatedTotal: pricing.grandTotal,
+            error: 'Automatic meal discount has been removed. Please refresh your cart to continue with the updated total.'
+          }));
+          return;
+        }
+
+        const numericAmount = pricing.subtotal > 0 ? pricing.grandTotal : clientAmount;
+        if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({ success: false, error: 'Valid payable amount is required for online payment.' }));
+          return;
+        }
+        const amount = numericAmount.toFixed(2);
 
         // Calculate Official PayU SHA-512 Hash
         const hashString = `${PAYU_KEY}|${txnid}|${amount}|${productinfo}|${firstname}|${email}|||||||||||${PAYU_SALT}`;
@@ -3956,8 +4240,6 @@ const server = http.createServer(async (req, res) => {
         const surl = `${baseUrl}/api/payu/response`;
         const furl = `${baseUrl}/api/payu/response`;
 
-        const rawPayuSource = String(orderData.orderSource || orderData.source || orderData.platform || '').trim().toLowerCase();
-        const payuOrderSource = (rawPayuSource === 'app' || rawPayuSource.includes('android') || rawPayuSource.includes('apk')) ? 'App' : 'Website';
         const pendingOrder = {
           ...orderData,
           id: orderId,
@@ -3965,12 +4247,12 @@ const server = http.createServer(async (req, res) => {
           uid: canonicalUid,
           orderSource: payuOrderSource,
           platform: orderData.platform || (payuOrderSource === 'App' ? 'android_app' : 'web'),
-          subtotal: Number.isFinite(Number(orderData.subtotal)) ? Number(orderData.subtotal) : numericAmount,
-          discount: Number.isFinite(Number(orderData.discount)) ? Number(orderData.discount) : 0,
-          foodDiscount: Number.isFinite(Number(orderData.foodDiscount)) ? Number(orderData.foodDiscount) : 0,
-          couponCode: orderData.couponCode ? String(orderData.couponCode).trim() : null,
-          foodOfferType: orderData.foodOfferType ? String(orderData.foodOfferType).trim() : null,
-          shipping: Number.isFinite(Number(orderData.shipping)) ? Number(orderData.shipping) : 0,
+          subtotal: pricing.subtotal > 0 ? pricing.subtotal : numericAmount,
+          discount: pricing.discount,
+          foodDiscount: 0,
+          couponCode: pricing.couponCode,
+          foodOfferType: null,
+          shipping: pricing.subtotal > 0 ? pricing.shipping : (Number.isFinite(Number(orderData.shipping)) ? Number(orderData.shipping) : 0),
           customerPhone: phone,
           verifiedPhone: phone,
           customerEmail: normalizeEmail(email),
@@ -3982,8 +4264,8 @@ const server = http.createServer(async (req, res) => {
           total: numericAmount,
           amount,
           createdAt: orderData.createdAt || new Date().toISOString(),
-          timestamp: Number(orderData.timestamp) || Date.now(),
-          orderTimeMillis: Number(orderData.orderTimeMillis) || Date.now()
+          timestamp: Date.now(),
+          orderTimeMillis: Date.now()
         };
         // Keep unpaid checkout attempts outside the customer/admin orders collection.
         // They become real orders only after a verified PayU success callback.
@@ -4079,6 +4361,8 @@ const server = http.createServer(async (req, res) => {
           Boolean(txnid && orderId && targetOrder && targetOrder.txnid === txnid && amountMatches);
 
         if (verifiedSuccess) {
+          const confirmedNowMs = Date.now();
+          const confirmedNowIso = new Date(confirmedNowMs).toISOString();
           const confirmedOrder = {
             ...(targetOrder || {}),
             id: orderId || (targetOrder && targetOrder.orderId),
@@ -4087,7 +4371,12 @@ const server = http.createServer(async (req, res) => {
             paymentStatus: 'PAID via PayU India',
             status: 'Order Confirmed',
             payuPaymentId: mihpayid,
-            statusUpdatedAt: new Date().toISOString()
+            foodDiscount: 0,
+            foodOfferType: null,
+            confirmedAt: confirmedNowIso,
+            statusUpdatedAt: confirmedNowIso,
+            timestamp: confirmedNowMs,
+            orderTimeMillis: confirmedNowMs
           };
           delete confirmedOrder._docId;
           delete confirmedOrder._docName;
@@ -4105,13 +4394,13 @@ const server = http.createServer(async (req, res) => {
                 payuPaymentId: mihpayid,
                 updatedAt: confirmedOrder.statusUpdatedAt
               }),
-              nutrolixCore.firestoreDeleteBothDbs(`payuPendingOrders/${confirmedOrder.orderId}`),
-              recordHealthyFoodRedemption(confirmedOrder)
+              nutrolixCore.firestoreDeleteBothDbs(`payuPendingOrders/${confirmedOrder.orderId}`)
             ]);
 
-            try {
-              const confirmedCopy = nutrolixCore.buildOrderStatusNotificationCopy(confirmedOrder.orderId, 'Order Confirmed');
-              await dispatchPushToCustomer({
+            // Isolate customer push & admin push so a customer push error can NEVER skip Admin Ring push
+            const confirmedCopy = nutrolixCore.buildOrderStatusNotificationCopy(confirmedOrder.orderId, 'Order Confirmed');
+            await Promise.allSettled([
+              dispatchPushToCustomer({
                 uid: confirmedOrder.uid || '',
                 customerPhone: customerSync.extractOrderPhone(confirmedOrder),
                 customerEmail: customerSync.extractOrderEmail(confirmedOrder) || email || '',
@@ -4120,16 +4409,18 @@ const server = http.createServer(async (req, res) => {
                 title: confirmedCopy.title,
                 message: confirmedCopy.message,
                 dedupKey: confirmedCopy.dedupKey
-              });
-              await dispatchPushToAdmins({
+              }),
+              dispatchPushToAdmins({
                 orderId: confirmedOrder.orderId,
                 total: confirmedOrder.grandTotal || Number(amount) || 0,
                 customerName: confirmedOrder.customerName || firstname,
                 customerPhone: customerSync.extractOrderPhone(confirmedOrder),
                 paymentMethod: confirmedOrder.paymentMethod || 'PayU Online',
                 orderSource: confirmedOrder.orderSource || 'Website'
-              });
-            } catch (_) {}
+              }).then(() => {
+                markAdminOrderNotified(confirmedOrder.orderId);
+              })
+            ]);
           }
           res.writeHead(302, { 'Location': `/orders.html?orderId=${encodeURIComponent(confirmedOrder.orderId || orderId)}&payment=success` });
           res.end();
@@ -5818,30 +6109,65 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
-  // Store Coupons
+  // Store Coupons (Admin-Managed Only — zero hardcoded default coupons)
   if (reqPath === '/api/coupons' || reqPath === '/api/store-coupons') {
     const couponsFile = path.join(PUBLIC_DIR, 'data', 'store_coupons.json');
     if (req.method === 'GET') {
-      const data = await readCatalogDocOrFallback('store_coupons', couponsFile, [
-        { code: 'NUTRO10', title: '10% OFF on All Products', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true },
-        { code: 'NUTRO15', title: '15% OFF on Orders > ₹499', type: 'percentage', value: 15, discountPercent: 15, minOrder: 499, active: true },
-        { code: 'NUTRO20', title: '20% OFF on Orders > ₹1499', type: 'percentage', value: 20, discountPercent: 20, minOrder: 1499, active: true },
-        { code: 'APP10', title: 'Extra 10% OFF on Nutrolix App', type: 'percentage', value: 10, discountPercent: 10, minOrder: 0, active: true, appOnly: true }
-      ]);
+      const data = await getAuthoritativeAdminCoupons();
       res.writeHead(200, NO_STORE_JSON_HEADERS);
-      res.end(JSON.stringify(Array.isArray(data) ? data : []));
+      res.end(JSON.stringify(data));
       return;
     } else if (req.method === 'POST') {
       let body = '';
       req.on('data', chunk => body += chunk);
       req.on('end', async () => {
+        const reqOrigin = String(req.headers.origin || '').trim();
+        const allowedOrigin = (
+          reqOrigin === 'https://nutrolix.in' ||
+          reqOrigin === 'https://www.nutrolix.in' ||
+          reqOrigin === 'https://nutrolixweb.vercel.app' ||
+          reqOrigin === 'null' ||
+          /^https:\/\/[a-z0-9-]+\.run\.app$/i.test(reqOrigin) ||
+          /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(reqOrigin)
+        ) ? reqOrigin : 'https://nutrolix.in';
+        try { res.removeHeader('Access-Control-Allow-Origin'); } catch (_) {}
+        const couponWriteHeaders = {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': allowedOrigin,
+          'Vary': 'Origin',
+          'Cache-Control': 'no-store'
+        };
         try {
-          const newCoupons = JSON.parse(body || '[]');
-          await writeCatalogDocAndLocal('store_coupons', couponsFile, Array.isArray(newCoupons) ? newCoupons : []);
-          res.writeHead(200, NO_STORE_JSON_HEADERS);
-          res.end(JSON.stringify({ success: true, coupons: newCoupons }));
+          const headerAdminToken = req.headers['x-nutrolix-admin-token'] || '';
+          const authHeader = req.headers['authorization'] || '';
+          let authorizedAdmin = nutrolixCore.verifyAdminSessionToken(headerAdminToken || authHeader);
+          if (!authorizedAdmin && authHeader) {
+            const decodedUser = await nutrolixCore.verifyFirebaseIdToken(authHeader, __dirname);
+            if (decodedUser && decodedUser.uid) {
+              if (decodedUser.email === 'nutrolix.in@gmail.com') {
+                authorizedAdmin = { email: decodedUser.email, role: 'ADMIN' };
+              } else {
+                const adminDoc = await nutrolixCore.firestoreGetFirstAvailable(`admins/${decodedUser.uid}`);
+                if (adminDoc && (adminDoc.role === 'admin' || adminDoc.isAdmin === true)) {
+                  authorizedAdmin = { email: decodedUser.email || decodedUser.uid, role: 'ADMIN' };
+                }
+              }
+            }
+          }
+          if (!authorizedAdmin) {
+            res.writeHead(401, couponWriteHeaders);
+            res.end(JSON.stringify({ success: false, error: 'Admin authorization required to update coupons.' }));
+            return;
+          }
+          const parsed = JSON.parse(body || '[]');
+          const normalized = Array.isArray(parsed)
+            ? parsed.map(normalizeStoreCouponRecord).filter(Boolean)
+            : [];
+          await writeCatalogDocAndLocal('store_coupons', couponsFile, normalized);
+          res.writeHead(200, couponWriteHeaders);
+          res.end(JSON.stringify({ success: true, coupons: normalized }));
         } catch (err) {
-          res.writeHead(400, NO_STORE_JSON_HEADERS);
+          res.writeHead(400, couponWriteHeaders);
           res.end(JSON.stringify({ error: err.message }));
         }
       });

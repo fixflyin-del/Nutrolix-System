@@ -13,6 +13,7 @@ class BootCompletedReceiver : BroadcastReceiver() {
       action == Intent.ACTION_LOCKED_BOOT_COMPLETED ||
       action == Intent.ACTION_MY_PACKAGE_REPLACED
     ) {
+      AdminOrderBackgroundService.scheduleWatchdogAlarm(context)
       AdminOrderBackgroundService.start(context)
     }
   }

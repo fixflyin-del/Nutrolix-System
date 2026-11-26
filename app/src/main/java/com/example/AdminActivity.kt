@@ -3,7 +3,7 @@ package com.example
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
-import android.app.KeyguardManager
+import android.app.AlarmManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
@@ -81,11 +81,13 @@ class AdminActivity : ComponentActivity() {
 
     // Initialize notification channels and real-time 24/7 background order alert service
     OrderNotificationHelper.initChannel(this)
+    AdminOrderBackgroundService.scheduleWatchdogAlarm(this)
     AdminOrderBackgroundService.start(this)
 
-    // Only stop alarm if user tapped the notification or manually opened while unlocked
+    // Only stop alarm if user explicitly tapped the notification to open/silence
     handleIntentAlarmStop(intent)
     requestBatteryOptimizationExemptionIfNeeded()
+    requestExactAlarmPermissionIfNeeded()
 
     setContent {
       MyApplicationTheme {
@@ -126,15 +128,10 @@ class AdminActivity : ComponentActivity() {
 
   private fun handleIntentAlarmStop(targetIntent: Intent?) {
     val explicitStop = targetIntent?.getBooleanExtra("stop_alarm_on_open", false) == true
-    val isFromLockscreen = targetIntent?.getBooleanExtra("from_lockscreen_alert", false) == true
-    val km = getSystemService(Context.KEYGUARD_SERVICE) as? KeyguardManager
-    val isLocked = km?.isKeyguardLocked == true
-
     if (explicitStop) {
       OrderAlarmPlayer.stopOrderAlarm(this)
       OrderNotificationHelper.cancelAdminOrderNotification(this, targetIntent?.getStringExtra("order_id"))
-    } else if (!isFromLockscreen && !isLocked) {
-      OrderAlarmPlayer.stopOrderAlarm(this)
+      targetIntent?.removeExtra("stop_alarm_on_open")
     }
   }
 
@@ -157,9 +154,28 @@ class AdminActivity : ComponentActivity() {
     }
   }
 
+  private fun requestExactAlarmPermissionIfNeeded() {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      try {
+        val am = getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return
+        if (!am.canScheduleExactAlarms()) {
+          val prefs = getSharedPreferences("nutrolix_admin_ui_prefs", Context.MODE_PRIVATE)
+          if (!prefs.getBoolean("exact_alarm_prompted_v1", false)) {
+            prefs.edit().putBoolean("exact_alarm_prompted_v1", true).apply()
+            val intent = Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM).apply {
+              data = Uri.parse("package:$packageName")
+            }
+            startActivity(intent)
+          }
+        }
+      } catch (_: Exception) {}
+    }
+  }
+
   override fun onResume() {
     super.onResume()
-    // Ensure service stays alive and running whenever admin checks terminal
+    // Ensure service & watchdog stay alive whenever admin opens terminal — NEVER silently stop an active ring
+    AdminOrderBackgroundService.scheduleWatchdogAlarm(this)
     AdminOrderBackgroundService.start(this)
     handleIntentAlarmStop(intent)
   }
@@ -315,6 +331,14 @@ fun NutrolixAdminWebViewApp(
                 @JavascriptInterface
                 fun playAlarm() {
                   OrderAlarmPlayer.playOrderAlarm(ctx)
+                }
+
+                @JavascriptInterface
+                fun testAlarm() {
+                  OrderAlarmPlayer.playOrderAlarm(ctx)
+                  (ctx as? Activity)?.runOnUiThread {
+                    Toast.makeText(ctx, "🔔 Testing Order Ring — Tap red bar to silence", Toast.LENGTH_SHORT).show()
+                  }
                 }
 
                 @JavascriptInterface

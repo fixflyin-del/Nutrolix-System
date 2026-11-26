@@ -436,9 +436,6 @@
       <span class="text-[10px]">Shop</span>
     </a>
     <a href="food.html" class="relative flex flex-col items-center justify-center py-1 px-2 text-slate-950 font-bold hover:text-emerald-800 active:scale-95 transition">
-      <span class="absolute -top-1.5 right-0.5 bg-gradient-to-r from-amber-500 to-orange-500 text-slate-950 text-[8px] font-black px-1.5 py-0.2 rounded-full shadow-sm leading-tight border border-amber-300 pointer-events-none">
-        ₹100 OFF
-      </span>
       <i class="fa-solid fa-utensils text-lg mb-0.5"></i>
       <span class="text-[10px]">Healthy Food</span>
     </a>
@@ -844,64 +841,12 @@
       if (badge2) badge2.textContent = count;
     }
 
-    // Dynamic Healthy Food Promo Banner (Part C)
+    // Automatic hardcoded healthy food promo banner permanently disabled — only Admin Panel coupons apply
     async function initShopPromoBanner() {
       const bannerEl = document.getElementById('shopHealthyMealPromoBanner');
-      if (!bannerEl) return;
-
-      let user = null;
-      try {
-        if (typeof window.getNutrolixUser === 'function') user = window.getNutrolixUser();
-      } catch (_) {}
-
-      const phone = user ? (user.phone || '') : '';
-      const email = user ? (user.email || '') : '';
-
-      try {
-        const res = await fetch(`/api/discounts/healthy-food-eligibility?phone=${encodeURIComponent(phone)}&email=${encodeURIComponent(email)}`);
-        if (!res.ok) return;
-        const data = await res.json();
-
-        if (!data || !data.eligible) {
-          bannerEl.classList.add('hidden');
-          return;
-        }
-
-        const is100 = (data.offerType === 'FIRST100');
-        const badgeText = is100 ? '₹100 OFF' : '₹50 OFF';
-        const promoCode = is100 ? 'FIRST100' : 'HEALTHY50';
-        const titleText = is100 
-          ? 'First-Time Special: Get ₹100 OFF on Your First Healthy Meal Order!' 
-          : 'Healthy Nutrition Special: Enjoy ₹50 OFF on Your Next Meal!';
-        const subText = is100 
-          ? 'Freshly crafted clinical macro bowls, high-protein platters & detox salads. Valid on orders ₹349 & above.' 
-          : 'Keep your health streak going with doctor-designed healthy food meals. Valid on orders ₹249 & above.';
-
-        bannerEl.innerHTML = `
-          <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-950 via-nutro-forest to-emerald-900 border border-emerald-500/30 p-6 sm:p-8 shadow-xl text-white">
-            <div class="absolute -right-12 -top-12 w-48 h-48 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none"></div>
-            <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-              <div class="space-y-2 max-w-2xl">
-                <div class="inline-flex items-center space-x-2 bg-amber-400 text-slate-950 px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow">
-                  <i class="fa-solid fa-utensils text-xs"></i>
-                  <span>${badgeText} • Cloud Kitchen Offer</span>
-                </div>
-                <h3 class="text-xl sm:text-2xl font-black text-white tracking-tight leading-snug">${titleText}</h3>
-                <p class="text-xs sm:text-sm text-emerald-100/90 font-medium leading-relaxed">${subText}</p>
-              </div>
-
-              <div class="shrink-0 flex items-center space-x-3">
-                <a href="food.html?promo=${promoCode}" class="inline-flex items-center space-x-2 bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-slate-950 font-black text-xs sm:text-sm px-6 py-3.5 rounded-2xl shadow-lg shadow-amber-400/20 transition-all transform active:scale-95 group">
-                  <span>Explore Healthy Food</span>
-                  <i class="fa-solid fa-arrow-right text-xs group-hover:translate-x-1 transition-transform"></i>
-                </a>
-              </div>
-            </div>
-          </div>
-        `;
-        bannerEl.classList.remove('hidden');
-      } catch (e) {
-        console.warn('Failed to load healthy food promo banner:', e);
+      if (bannerEl) {
+        bannerEl.innerHTML = '';
+        bannerEl.classList.add('hidden');
       }
     }
 
