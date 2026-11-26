@@ -21,6 +21,7 @@ const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.js': 'application/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -6732,7 +6733,9 @@ const server = http.createServer(async (req, res) => {
     }
 
     const ext = path.extname(filePath).toLowerCase();
-    const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+    const contentType = path.basename(filePath) === 'manifest.json'
+      ? 'application/manifest+json; charset=utf-8'
+      : (MIME_TYPES[ext] || 'application/octet-stream');
 
     fs.readFile(filePath, (readErr, content) => {
       if (readErr) {

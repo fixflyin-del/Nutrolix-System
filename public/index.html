@@ -8,7 +8,13 @@
   <meta name="robots" content="index, follow, max-image-preview:large">
   <link rel="canonical" href="https://nutrolix.in/">
   <link rel="icon" href="assets/nutrolix-logo.png">
-  <link rel="apple-touch-icon" href="assets/nutrolix-logo.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#0F3E2E">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Nutrolix">
+  <link rel="apple-touch-icon" href="/assets/pwa-icon-192.png">
+  <script defer src="/assets/pwa-install.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <meta property="og:site_name" content="Nutrolix">
@@ -1421,6 +1427,8 @@
               </a>
             </div>
           </div>
+          <!-- PWA Install App Button Slot (Auto-hidden when already installed) -->
+          <div class="nutrolix-pwa-footer-slot"></div>
         </div>
 
         <!-- Col 2: Nutrition Store (Requirement 6: Six Authorized Categories) -->

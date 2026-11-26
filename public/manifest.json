@@ -1,0 +1,34 @@
+{
+  "id": "/",
+  "name": "Nutrolix – Healthy Food & Functional Nutrition",
+  "short_name": "Nutrolix",
+  "description": "Shop lab-tested functional nutrition staples and order fresh high-protein healthy meals from Nutrolix Wellness.",
+  "start_url": "/?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#0F3E2E",
+  "theme_color": "#0F3E2E",
+  "categories": ["food", "health", "shopping"],
+  "icons": [
+    {
+      "src": "/assets/pwa-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/pwa-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/pwa-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -7,6 +7,16 @@ self.addEventListener('activate', event => {
   event.waitUntil(self.clients.claim());
 });
 
+// Lightweight pass-through fetch listener for full PWA installability.
+// Intentionally avoids caching or intercepting API, auth, or payment requests.
+self.addEventListener('fetch', event => {
+  if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/')) return;
+  event.respondWith(fetch(event.request));
+});
+
 self.addEventListener('push', event => {
   let raw = {};
   if (event.data) {
