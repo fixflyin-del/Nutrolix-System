@@ -37,8 +37,8 @@ private const val FOREGROUND_NOTIFICATION_ID = 9076
 private const val PREFS_NAME = "nutrolix_admin_service_prefs"
 private const val KEY_KNOWN_IDS = "known_order_ids_v2"
 private const val KEY_SEEDED = "initial_seed_done_v2"
-private const val WATCHDOG_INTERVAL_MS = 20_000L
-private const val POLL_INTERVAL_MS = 6_000L
+private const val WATCHDOG_INTERVAL_MS = 60_000L
+private const val POLL_INTERVAL_MS = 20_000L
 private const val RECENT_ORDER_WINDOW_MS = 6L * 60L * 60L * 1000L // 6 hours
 
 class AdminOrderBackgroundService : Service() {
@@ -505,7 +505,12 @@ class AdminOrderBackgroundService : Service() {
         val defaultDb = FirebaseFirestore.getInstance()
         defaultFirestoreListener = defaultDb.collection("orders").addSnapshotListener { snapshot, error ->
           if (error != null) {
-            Log.w(TAG, "Default Firestore listen notice: ${error.message}")
+            val msg = error.message ?: ""
+            Log.w(TAG, "Default Firestore listen notice: $msg")
+            if (msg.contains("NOT_FOUND", ignoreCase = true) || msg.contains("does not exist", ignoreCase = true)) {
+              try { defaultFirestoreListener?.remove() } catch (_: Exception) {}
+              defaultFirestoreListener = null
+            }
             return@addSnapshotListener
           }
           if (snapshot == null) return@addSnapshotListener

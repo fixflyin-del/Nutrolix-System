@@ -1,11 +1,5 @@
 [
   {
-    "title": "Test Resilience Product",
-    "price": 349,
-    "category": "High Protein",
-    "id": "prod_mwbytsx8"
-  },
-  {
     "id": "prod_high_protein_atta",
     "name": "Nutrolix High Protein Atta",
     "tagline": "46g Plant Protein Per 100g • 100% Whole Grain",

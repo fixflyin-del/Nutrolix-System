@@ -166,6 +166,11 @@
 
   <!-- Top Navigation Header: Hamburger (Mobile) + Logo Only + Compact Open/Close & Ring -->
   <header class="nutrolix-green text-white shadow-md sticky top-0 z-40">
+    <!-- Database Quota Alert Banner (shown ONLY if Firestore daily free read quota is exceeded) -->
+    <div id="adminQuotaAlertBanner" class="hidden bg-amber-500 text-slate-950 px-4 py-2 text-xs font-extrabold flex items-center justify-center gap-2 text-center">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span>Database daily free read quota reached — your data is 100% safe and NOT deleted. Live data will automatically reappear after quota reset or Standard DB upgrade.</span>
+    </div>
     <div class="max-w-[1700px] mx-auto px-3 sm:px-6 lg:px-8">
       <div class="flex items-center justify-between h-14 sm:h-16 gap-2">
         
@@ -3920,7 +3925,8 @@
       window.updateKPIs();
       window.updateOrderFilterCounts();
       window.renderPackagedOrdersTable();
-      if (typeof window.loadUsers === 'function') window.loadUsers();
+      // Merge locally without triggering redundant /api/users Firestore scans on every order tick
+      if (typeof window.mergeAndRenderUsers === 'function') window.mergeAndRenderUsers();
 
       if (newlyArrivedOrder) {
         console.log('🚨 NEW LIVE ORDER DETECTED:', newlyArrivedOrder.id);
@@ -3991,11 +3997,69 @@
       window.hasCompletedHttpInitialPoll = true;
       window.mergeAndRenderAllOrders(allowAlarm);
 
-      // Ensure 5-second live background polling is active alongside Firestore listener
+      // Build lightweight delta signature from currently rendered orders
+      window._lastOrderFeedSig = (window.packagedOrders || [])
+        .slice(0, 25)
+        .map(o => `${o.id}:${o.status}:${o.timestampMs || 0}`)
+        .join('|');
+
+      // Check database health once on boot (surfaces clear banner if free-tier quota was exceeded)
+      if (!window._adminHealthChecked) {
+        window._adminHealthChecked = true;
+        fetch((window.NUTROLIX_API_HOST || '') + '/api/health', { cache: 'no-store' })
+          .then(r => r && r.ok ? r.json() : null)
+          .then(h => {
+            const banner = document.getElementById('adminQuotaAlertBanner');
+            if (banner && h && h.firestore && h.firestore.quotaExceeded) {
+              banner.classList.remove('hidden');
+            }
+          })
+          .catch(() => {});
+      }
+
+      // Smart 1-read background delta watcher (30s, pauses on hidden tabs, ONLY reloads full orders when a new order/status change occurs)
       if (!window.orderPollingTimer) {
+        window.checkLiveOrdersFeedDelta = async function() {
+          if (typeof document !== 'undefined' && document.hidden) return;
+          try {
+            const host = window.NUTROLIX_API_HOST || '';
+            const res = await fetch(host + '/api/admin/live-orders-poll', { cache: 'no-store' });
+            if (!res || !res.ok) return;
+            const compact = await res.json();
+            if (!Array.isArray(compact)) return;
+
+            const sig = compact
+              .slice(0, 25)
+              .map(o => `${o.id || o.orderId}:${o.status || ''}:${o.orderTimeMillis || o.timestamp || 0}`)
+              .join('|');
+
+            // Detect brand-new live order immediately from the 1-read feed
+            let detectedNewOrder = null;
+            if (window.hasCompletedInitialOrderCheck) {
+              for (const o of compact) {
+                const oid = String(o.id || o.orderId || '').trim();
+                const st = String(o.status || '').toLowerCase();
+                if (oid && !window.knownAdminOrderIds.has(oid) && !window.permanentlyDeletedOrderIds.has(oid) && !['cancelled', 'rejected', 'delivered'].includes(st)) {
+                  detectedNewOrder = o;
+                  break;
+                }
+              }
+            }
+
+            if (detectedNewOrder || (sig && sig !== window._lastOrderFeedSig)) {
+              window._lastOrderFeedSig = sig;
+              await window.loadPackagedOrders();
+            }
+          } catch (_) {}
+        };
+
         window.orderPollingTimer = setInterval(() => {
-          window.loadPackagedOrders();
-        }, 5000);
+          window.checkLiveOrdersFeedDelta();
+        }, 30000);
+
+        document.addEventListener('visibilitychange', () => {
+          if (!document.hidden) window.checkLiveOrdersFeedDelta();
+        });
       }
     };
 
@@ -7396,10 +7460,17 @@
       window.renderUsers();
     };
 
-    window.loadUsers = async function() {
+    window._lastUsersFetchMs = 0;
+    window.loadUsers = async function(force = false) {
+      const now = Date.now();
+      if (!force && window._lastUsersFetchMs && (now - window._lastUsersFetchMs) < 120000 && Array.isArray(window.liveUsersBucket.api) && window.liveUsersBucket.api.length > 0) {
+        window.mergeAndRenderUsers();
+        return;
+      }
+      window._lastUsersFetchMs = now;
       try {
         const host = window.NUTROLIX_API_HOST || "";
-        const res = await fetch(host + "/api/users", { cache: 'no-store' });
+        const res = await fetch(host + "/api/users" + (force ? "?fresh=1" : ""), { cache: 'no-store' });
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) window.liveUsersBucket.api = data;

@@ -554,10 +554,11 @@
     }
   }
 
-  // Background polling fallback for user-history when WebView/browser stays open
+  // Background polling fallback for user-history when WebView/browser stays open (90s, visible tabs only; FCM/Firestore still instant)
   function initOrderNotificationSync() {
     let firstPoll = true;
     setInterval(async () => {
+      if (typeof document !== 'undefined' && document.visibilityState && document.visibilityState !== 'visible') return;
       const { uid, phone, email } = getCustomerInfo();
       if (!uid && !phone) return;
       try {
@@ -585,7 +586,7 @@
         }
         firstPoll = false;
       } catch (_) {}
-    }, 15000);
+    }, 90000);
   }
 
   window.addEventListener('nutrolix:auth-changed', async () => {

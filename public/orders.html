@@ -711,7 +711,7 @@
             if (document.visibilityState === 'visible' && isGuestTrackingMode && !window.getNutrolixUser()) {
               loadGuestOrderTracking(cleanId, true);
             }
-          }, 20000);
+          }, 45000);
         }
       } catch (_) {
         if (!silent) window.openOrdersSignInGate();
