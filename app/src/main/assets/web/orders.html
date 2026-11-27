@@ -1029,14 +1029,40 @@
 
       const cust = order.customer || {};
       const addr = order.deliveryAddress || {};
-      document.getElementById('detailRecipientName').textContent = cust.name || 'Valued Customer';
+      const pickDisplayRecipient = (...vals) => {
+        const blocked = new Set(['', 'nutrolix customer', 'nutrolix member', 'valued customer', 'customer', 'guest', 'guest customer', 'user', 'unknown']);
+        for (const v of vals) {
+          const clean = String(v || '').trim();
+          if (clean.length >= 2 && /[A-Za-z]/.test(clean) && !blocked.has(clean.toLowerCase())) return clean;
+        }
+        for (const v of vals) {
+          const clean = String(v || '').trim();
+          if (clean.length > 0 && !blocked.has(clean.toLowerCase())) return clean;
+        }
+        return 'Valued Customer';
+      };
+      const formatCleanAddress = (a) => {
+        const line = String(a.address1 || a.street || '').trim();
+        const city = String(a.city || '').trim();
+        const state = String(a.state || '').trim();
+        const pin = String(a.pincode || '').replace(/\D/g, '').slice(0, 6);
+        const parts = [];
+        if (line) parts.push(line);
+        const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const existingBlob = norm(line);
+        if (city && !existingBlob.includes(norm(city))) parts.push(city);
+        if (state && !existingBlob.includes(norm(state))) parts.push(state);
+        if (pin && !line.includes(pin)) parts.push(pin);
+        return parts.join(', ');
+      };
+      document.getElementById('detailRecipientName').textContent = pickDisplayRecipient(addr.name, cust.name, order.customerName);
       if (order.guestTrackingView) {
         document.getElementById('detailAddressText').textContent = [addr.city, addr.state, addr.pincode].filter(Boolean).join(', ') || 'Delivery address verified';
         document.getElementById('detailPhoneText').textContent = cust.phone ? ('Phone: ' + cust.phone + ' (Protected)') : 'Verified customer phone';
         document.getElementById('detailMapsLinkRow').classList.add('hidden');
       } else {
-        document.getElementById('detailAddressText').textContent = [addr.address1 || addr.street, addr.city, addr.state, addr.pincode].filter(Boolean).join(', ') || 'Address on file';
-        document.getElementById('detailPhoneText').textContent = 'Phone: ' + (cust.phone || 'Provided during checkout');
+        document.getElementById('detailAddressText').textContent = formatCleanAddress(addr) || 'Address on file';
+        document.getElementById('detailPhoneText').textContent = 'Phone: ' + (addr.phone || addr.recipientPhone || cust.phone || 'Provided during checkout');
 
         if (addr.googleMapsUrl || (addr.gpsLat && addr.gpsLon) || (order.deliveryCoordinates && order.deliveryCoordinates.lat)) {
           const lat = addr.gpsLat || order.deliveryCoordinates?.lat;

@@ -1170,7 +1170,9 @@
               const knownOverride = resolveKnownIndianPostalCodeClient(data);
               const resolvedPin = (knownOverride && knownOverride.pincode) || data.pincode || '';
               const resolvedCity = data.city || (knownOverride && knownOverride.city) || '';
-              const fallbackLine = [resolvedCity, data.state, resolvedPin].filter(Boolean).join(', ');
+              const resolvedState = (knownOverride && knownOverride.state) || data.state || '';
+              if (resolvedState) window._accountModalResolvedState = resolvedState;
+              const fallbackLine = [resolvedCity, resolvedState, resolvedPin].filter(Boolean).join(', ');
               let line = data.formattedAddress || fallbackLine;
               if (data.pincode && resolvedPin && data.pincode !== resolvedPin && line.includes(data.pincode)) {
                 line = line.replace(new RegExp('\\b' + data.pincode + '\\b', 'g'), resolvedPin);
@@ -1192,6 +1194,8 @@
           const knownOverride = resolveKnownIndianPostalCodeClient(geo);
           const resolvedPin = (knownOverride && knownOverride.pincode) || geo.pincode || '';
           const resolvedCity = geo.city || (knownOverride && knownOverride.city) || '';
+          const resolvedState = (knownOverride && knownOverride.state) || geo.state || '';
+          if (resolvedState) window._accountModalResolvedState = resolvedState;
           let finalAddr = geoAddress;
           if (geo.pincode && resolvedPin && geo.pincode !== resolvedPin && finalAddr.includes(geo.pincode)) {
             finalAddr = finalAddr.replace(new RegExp('\\b' + geo.pincode + '\\b', 'g'), resolvedPin);
@@ -1248,6 +1252,17 @@
       const recName = (document.getElementById('newAddrRecipientName')?.value || '').trim() || (user && user.name) || 'Customer';
       const recPhoneRaw = (document.getElementById('newAddrRecipientPhone')?.value || '').replace(/\D/g, '').slice(-10);
       const recPhone = recPhoneRaw.length === 10 ? recPhoneRaw : ((user && (user.verifiedPhone || user.phone)) || '');
+      let resolvedSaveState = String(window._accountModalResolvedState || '').trim();
+      if (!resolvedSaveState && pincode.length === 6) {
+        try {
+          const host = window.NUTROLIX_API_HOST || '';
+          const stRes = await fetch(`${host}/api/location/pincode?pin=${encodeURIComponent(pincode)}`);
+          if (stRes.ok) {
+            const stData = await stRes.json();
+            if (stData && stData.success && stData.state) resolvedSaveState = String(stData.state).trim();
+          }
+        } catch (_) {}
+      }
       const newAddr = {
         id: 'addr_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6),
         uid: (user && user.uid) || '',
@@ -1259,7 +1274,7 @@
         street,
         address1: street,
         city,
-        state: 'Maharashtra',
+        state: resolvedSaveState || '',
         pincode,
         isDefault: saved.length === 0,
         updatedAt: new Date().toISOString(),

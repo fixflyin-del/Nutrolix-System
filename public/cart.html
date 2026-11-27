@@ -405,7 +405,7 @@
             <div class="grid grid-cols-12 gap-2.5">
               <div class="col-span-7 sm:col-span-8">
                 <label class="block text-xs font-black text-slate-800 mb-1">Address *</label>
-                <input type="text" id="custAddress1" required oninput="saveUserProfile()" placeholder="Flat, Building, Street, Area" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                <input type="text" id="custAddress1" required oninput="window.handleAddressLineInput(this.value)" placeholder="Flat, Building, Street, Area" class="w-full text-sm bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 font-bold focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500">
               </div>
               <div class="col-span-5 sm:col-span-4">
                 <label class="block text-xs font-black text-slate-800 mb-1">Name <span class="text-[10px] font-medium text-slate-400">(Optional)</span></label>
@@ -441,16 +441,16 @@
               <div class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 <div>
                   <label class="block font-black text-slate-700 mb-1">PIN Code *</label>
-                  <input type="text" id="custPincode" maxlength="6" inputmode="numeric" oninput="window.handlePincodeChange(this.value)" placeholder="e.g. 410208" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 font-bold bg-white focus:ring-2 focus:ring-emerald-500">
+                  <input type="text" id="custPincode" maxlength="6" inputmode="numeric" oninput="window.cartLocationUserEdited=true; window.handlePincodeChange(this.value)" placeholder="e.g. 410208" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 font-bold bg-white focus:ring-2 focus:ring-emerald-500">
                   <span id="pinLookupStatus" class="text-[10px] text-emerald-700 font-bold block mt-1"></span>
                 </div>
                 <div>
                   <label class="block font-black text-slate-700 mb-1">City *</label>
-                  <input type="text" id="custCity" oninput="saveUserProfile(); window.refreshLocationSummaryText()" placeholder="City" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 font-bold bg-white focus:ring-2 focus:ring-emerald-500">
+                  <input type="text" id="custCity" oninput="window.cartLocationUserEdited=true; saveUserProfile(); window.refreshLocationSummaryText()" placeholder="City" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 font-bold bg-white focus:ring-2 focus:ring-emerald-500">
                 </div>
                 <div>
                   <label class="block font-black text-slate-700 mb-1">State</label>
-                  <input type="text" id="custState" oninput="saveUserProfile(); window.refreshLocationSummaryText()" placeholder="State" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 font-bold bg-white focus:ring-2 focus:ring-emerald-500">
+                  <input type="text" id="custState" oninput="window.cartLocationUserEdited=true; saveUserProfile(); window.refreshLocationSummaryText()" placeholder="State" class="w-full text-sm p-2.5 rounded-xl border border-slate-300 font-bold bg-white focus:ring-2 focus:ring-emerald-500">
                 </div>
               </div>
             </div>
@@ -913,11 +913,24 @@
       } catch (_) {}
     }
 
+    const DEFAULT_APP10_COUPON = {
+      code: 'APP10',
+      title: 'App Exclusive 10% OFF',
+      type: 'percentage',
+      value: 10,
+      discountPercent: 10,
+      minOrder: 0,
+      maxDiscount: 0,
+      firstOrderOnly: false,
+      active: true,
+      appOnly: true
+    };
+
     function getStoreCoupons() {
       try {
         const saved = JSON.parse(localStorage.getItem('nutrolix_coupons') || 'null');
-        if (!Array.isArray(saved) || saved.length === 0) return [];
-        return saved.map(c => {
+        const rawList = Array.isArray(saved) ? saved : [];
+        const normalizedAll = rawList.map(c => {
           const code = String(c.code || '').toUpperCase().trim();
           const type = (c.type === 'flat' || c.type === 'FIXED_AMOUNT') ? 'flat' : 'percentage';
           const value = Number(c.value !== undefined ? c.value : (c.discountPercent || 0));
@@ -931,11 +944,17 @@
             maxDiscount: Math.max(0, Number(c.maxDiscount || 0)),
             firstOrderOnly: Boolean(c.firstOrderOnly),
             active: c.active !== false && c.status !== 'Inactive',
-            appOnly: Boolean(c.appOnly)
+            appOnly: Boolean(c.appOnly || code === 'APP10')
           };
-        }).filter(c => c.code && c.value > 0 && c.active);
+        }).filter(c => c.code && c.value > 0);
+        // Include APP10 by default unless Admin explicitly configured or disabled APP10
+        const hasApp10Entry = normalizedAll.some(c => c.code === 'APP10');
+        if (!hasApp10Entry) {
+          normalizedAll.unshift({ ...DEFAULT_APP10_COUPON });
+        }
+        return normalizedAll.filter(c => c.active);
       } catch (_) {
-        return [];
+        return [{ ...DEFAULT_APP10_COUPON }];
       }
     }
 
@@ -1141,6 +1160,27 @@
         setOfferProgressFeedback('');
       }
 
+      // Auto-apply APP10 inside the Nutrolix Customer Android App when cart has items and no coupon is applied
+      if (isAppUser && subtotal > 0 && !appliedCoupon && !app10UserDismissed) {
+        const appCoupon = getStoreCoupons().find(
+          c => c.active !== false && c.code === 'APP10' && subtotal >= Number(c.minOrder || 0)
+        );
+        if (appCoupon) {
+          appliedCoupon = {
+            code: appCoupon.code,
+            type: appCoupon.type,
+            value: Number(appCoupon.value || 10),
+            minOrder: Number(appCoupon.minOrder || 0),
+            maxDiscount: Number(appCoupon.maxDiscount || 0),
+            firstOrderOnly: Boolean(appCoupon.firstOrderOnly),
+            discountPercent: appCoupon.type === 'percentage' ? Number(appCoupon.value || 10) : 0,
+            appOnly: true
+          };
+          const appSavedLabel = appCoupon.type === 'flat' ? `₹${appCoupon.value} OFF` : `${appCoupon.value}% OFF`;
+          setOfferProgressFeedback(`📱 App-Exclusive ${appCoupon.code} (${appSavedLabel}) auto-applied!`, false);
+        }
+      }
+
       let couponDiscount = 0;
       if (appliedCoupon) {
         if (appliedCoupon.type === 'flat') {
@@ -1159,7 +1199,7 @@
         document.getElementById('couponDiscountRow').classList.add('hidden');
       }
 
-      // All automatic healthy-food / first-order discounts permanently removed — Admin coupons only
+      // All automatic healthy-food / first-order discounts permanently removed — Admin coupons & APP10 only
       window.activeFoodDiscount = 0;
       window.activeFoodOfferType = null;
 
@@ -1181,10 +1221,16 @@
     }
 
     window.applyOfferProgressCoupon = function(code) {
+      if (String(code || '').trim().toUpperCase() === 'APP10') {
+        app10UserDismissed = false;
+      }
       applyCoupon(code);
     };
 
     window.removeOfferProgressCoupon = function() {
+      if (appliedCoupon && appliedCoupon.code === 'APP10') {
+        app10UserDismissed = true;
+      }
       appliedCoupon = null;
       setOfferProgressFeedback('');
       renderSummary();
@@ -1549,6 +1595,26 @@
       '400001': { city: 'Mumbai', state: 'Maharashtra', area: 'Fort / South Mumbai' }
     };
 
+    window.cartLocationUserEdited = false;
+    window._lastAddressExtractedPin = '';
+    window._modalResolvedState = '';
+
+    // If customer types a 6-digit Indian PIN inside their address line (e.g. "Bhimjipura Road, Ahmedabad - 380013"),
+    // automatically sync PIN, City & State via official India Post so hidden/stale GPS data NEVER conflicts.
+    window.handleAddressLineInput = function(rawText) {
+      saveUserProfile();
+      const match = String(rawText || '').match(/\b([1-9][0-9]{5})\b/);
+      if (match && match[1]) {
+        const extractedPin = match[1];
+        const currentPin = (document.getElementById('custPincode')?.value || '').trim();
+        if (extractedPin !== window._lastAddressExtractedPin && extractedPin !== currentPin) {
+          window._lastAddressExtractedPin = extractedPin;
+          window.cartLocationUserEdited = true;
+          window.handlePincodeChange(extractedPin);
+        }
+      }
+    };
+
     // Pincode resolution for page input
     window.handlePincodeChange = async function(pincode) {
       const pin = (pincode || '').replace(/\D/g, '').slice(0, 6);
@@ -1575,8 +1641,8 @@
             const ipData = await ipRes.json();
             if (ipData && ipData.success && (ipData.city || ipData.state)) {
               document.getElementById('custCity').value = ipData.city || ipData.district || '';
-              document.getElementById('custState').value = ipData.state || 'Maharashtra';
-              if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>${ipData.area || ipData.city}, ${ipData.state}`;
+              if (ipData.state) document.getElementById('custState').value = ipData.state;
+              if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>${ipData.area || ipData.city}, ${ipData.state || ''}`;
               window.refreshLocationSummaryText();
               saveUserProfile();
               return;
@@ -1590,9 +1656,9 @@
             if (data && data.places && data.places.length > 0) {
               const place = data.places[0];
               const city = place['place name'] || place.state;
-              const state = place.state || 'Maharashtra';
+              const state = place.state || '';
               document.getElementById('custCity').value = city;
-              document.getElementById('custState').value = state;
+              if (state) document.getElementById('custState').value = state;
               if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>${place['place name']}, ${state}`;
               window.refreshLocationSummaryText();
               saveUserProfile();
@@ -1618,6 +1684,7 @@
         if (PINCODE_LOOKUP_MAP[pin]) {
           const info = PINCODE_LOOKUP_MAP[pin];
           document.getElementById('delivModalCity').value = info.city;
+          window._modalResolvedState = info.state;
           if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>${info.area}, ${info.city}`;
           return;
         }
@@ -1628,7 +1695,8 @@
             const ipData = await ipRes.json();
             if (ipData && ipData.success && (ipData.city || ipData.state)) {
               document.getElementById('delivModalCity').value = ipData.city || ipData.district || ipData.state;
-              if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>${ipData.area || ipData.city}, ${ipData.state}`;
+              window._modalResolvedState = ipData.state || '';
+              if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>${ipData.area || ipData.city}, ${ipData.state || ''}`;
               return;
             }
           }
@@ -1640,6 +1708,7 @@
             if (data && data.places && data.places.length > 0) {
               const place = data.places[0];
               document.getElementById('delivModalCity').value = place['place name'] || place.state;
+              window._modalResolvedState = place.state || '';
               if (statusEl) statusEl.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i>${place['place name']}, ${place.state}`;
               return;
             }
@@ -1803,7 +1872,7 @@
       return null;
     }
 
-    async function applyReverseGeocodedCoords(lat, lon, nativeGeocoder = null) {
+    async function applyReverseGeocodedCoords(lat, lon, nativeGeocoder = null, isManualForce = false) {
       locationConsentGranted = true;
       document.getElementById('custGpsLat').value = lat;
       document.getElementById('custGpsLon').value = lon;
@@ -1826,6 +1895,11 @@
         resolved = nativeGeocoder;
       }
 
+      // If the user already manually entered a PIN/City while background GPS was locating, never overwrite their manual input
+      if (!isManualForce && window.cartLocationUserEdited) {
+        return;
+      }
+
       const knownPostal = resolveKnownIndianPostalCode({ ...(resolved || {}), lat, lon });
       const finalPostal = knownPostal || resolved;
       if (finalPostal) {
@@ -1842,6 +1916,10 @@
         }
         if (finalPostal.city) document.getElementById('custCity').value = finalPostal.city;
         if (finalState) document.getElementById('custState').value = finalState;
+        // If GPS resolved city/state but could not verify an exact 6-digit PIN, reveal the PIN box so user can enter it immediately
+        if (!document.getElementById('custPincode').value.trim()) {
+          window.toggleLocationEdit(true);
+        }
       }
       window.refreshLocationSummaryText();
       saveUserProfile();
@@ -1874,55 +1952,45 @@
       }
     }
 
+    // Never silently auto-fill delivery address from inaccurate ISP IP geolocation (which regularly maps
+    // Indian mobile/broadband users to the wrong city/state). When GPS is unavailable, prompt cleanly
+    // so the customer's 6-digit PIN code triggers exact official India Post lookup instead.
     async function tryFreeIpLocationFallback() {
-      try {
-        const res = await fetch('https://ipwho.is/');
-        if (!res.ok) return false;
-        const data = await res.json();
-        if (data && data.success) {
-          const rawPin = String(data.postal || '').replace(/\D/g, '').slice(0, 6);
-          const city = data.city || '';
-          const state = data.region || '';
-
-          // Check if IP coords/locality match an authoritative known locality override
-          const knownOverride = resolveKnownIndianPostalCode({
-            city,
-            state,
-            lat: data.latitude,
-            lon: data.longitude
-          });
-
-          // NEVER blindly trust ISP/GeoIP postal codes (e.g. ipwho.is returning 497586 for Panvel, Maharashtra)
-          let safePin = '';
-          if (knownOverride && knownOverride.pincode) {
-            safePin = knownOverride.pincode;
-          } else if (rawPin.length === 6 && isValidIndianPincodeForState(rawPin, state)) {
-            const confirmed = await verifyCandidatePinWithIndiaPost(rawPin, state, city);
-            if (confirmed) safePin = rawPin;
-          }
-
-          const finalCity = (knownOverride && knownOverride.city) || city;
-          const finalState = (knownOverride && knownOverride.state) || state;
-
-          const currPin = (document.getElementById('custPincode').value || '').trim();
-          if (currPin && !isValidIndianPincodeForState(currPin, finalState || document.getElementById('custState').value)) {
-            document.getElementById('custPincode').value = '';
-          }
-          if (safePin && !document.getElementById('custPincode').value.trim()) {
-            document.getElementById('custPincode').value = safePin;
-          }
-          if (finalCity && !document.getElementById('custCity').value.trim()) {
-            document.getElementById('custCity').value = finalCity;
-          }
-          if (finalState && !document.getElementById('custState').value.trim()) {
-            document.getElementById('custState').value = finalState;
-          }
-          window.refreshLocationSummaryText();
-          saveUserProfile();
-          return Boolean(safePin || finalCity || finalState);
-        }
-      } catch (_) {}
+      const summaryEl = document.getElementById('locationAutoSummaryText');
+      const existingPin = (document.getElementById('custPincode')?.value || '').trim();
+      const existingCity = (document.getElementById('custCity')?.value || '').trim();
+      if (summaryEl && !existingPin && !existingCity) {
+        summaryEl.innerHTML = '<span class="text-amber-700 font-black">GPS unavailable:</span> Tap <b>Edit</b> &amp; enter your 6-digit PIN code for exact City &amp; State';
+      }
       return false;
+    }
+
+    function pickBestCartName(...vals) {
+      const blocked = new Set(['', 'nutrolix customer', 'nutrolix member', 'valued customer', 'customer', 'guest', 'guest customer', 'user', 'unknown']);
+      for (const v of vals) {
+        const clean = String(v || '').trim();
+        if (clean.length >= 2 && /[A-Za-z]/.test(clean) && !blocked.has(clean.toLowerCase())) return clean;
+      }
+      for (const v of vals) {
+        const clean = String(v || '').trim();
+        if (clean.length > 0 && !blocked.has(clean.toLowerCase())) return clean;
+      }
+      return '';
+    }
+
+    function formatCleanDeliveryAddressLine(address1, city, state, pincode) {
+      const line = String(address1 || '').trim();
+      const c = String(city || '').trim();
+      const s = String(state || '').trim();
+      const pin = String(pincode || '').replace(/\D/g, '').slice(0, 6);
+      const parts = [];
+      if (line) parts.push(line);
+      const norm = (v) => String(v || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const lineNorm = norm(line);
+      if (c && !lineNorm.includes(norm(c))) parts.push(c);
+      if (s && !lineNorm.includes(norm(s))) parts.push(s);
+      if (pin && !line.includes(pin)) parts.push(pin);
+      return parts.join(', ');
     }
 
     // Automatic PIN, City & State detection when Cart/Checkout opens
@@ -1948,17 +2016,23 @@
         summaryEl.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-emerald-700 mr-1"></i>Detecting exact GPS PIN, City &amp; State...';
       }
 
+      if (force) {
+        window.cartLocationUserEdited = false;
+      }
+
       if (window.AndroidNative && typeof window.AndroidNative.requestCurrentLocation === 'function') {
         window.onNativeLocationSuccess = function(payload) {
           const lon = payload ? (payload.lon ?? payload.lng) : undefined;
           if (payload && payload.lat !== undefined && lon !== undefined) {
-            applyReverseGeocodedCoords(payload.lat, lon, payload.nativeGeocoder || null);
+            applyReverseGeocodedCoords(payload.lat, lon, payload.nativeGeocoder || null, force);
           } else {
             tryFreeIpLocationFallback().then(() => window.refreshLocationSummaryText());
           }
         };
         window.onNativeLocationError = function() {
-          tryFreeIpLocationFallback().then(() => window.refreshLocationSummaryText());
+          tryFreeIpLocationFallback().then(() => {
+            if (force) window.toggleLocationEdit(true);
+          });
         };
         window.AndroidNative.requestCurrentLocation();
         return;
@@ -1967,16 +2041,18 @@
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           async (pos) => {
-            await applyReverseGeocodedCoords(pos.coords.latitude, pos.coords.longitude, null);
+            await applyReverseGeocodedCoords(pos.coords.latitude, pos.coords.longitude, null, force);
           },
           async () => {
             await tryFreeIpLocationFallback();
-            window.refreshLocationSummaryText();
+            if (force) window.toggleLocationEdit(true);
           },
-          { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 15000 }
         );
       } else {
-        tryFreeIpLocationFallback().then(() => window.refreshLocationSummaryText());
+        tryFreeIpLocationFallback().then(() => {
+          if (force) window.toggleLocationEdit(true);
+        });
       }
     };
 
@@ -1984,10 +2060,8 @@
       try {
         const authUser = (typeof window.getNutrolixUser === 'function') ? window.getNutrolixUser() : null;
         const profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}');
-        const resolvedName = (profile.name && profile.name !== 'Nutrolix Customer' && profile.name !== 'Nutrolix Member')
-          ? profile.name
-          : ((authUser && authUser.name && authUser.name !== 'Nutrolix Customer' && authUser.name !== 'Nutrolix Member') ? authUser.name : '');
-        if (resolvedName && !document.getElementById('custName').value.trim()) {
+        const resolvedName = pickBestCartName(profile.name, authUser && authUser.name);
+        if (resolvedName && resolvedName.length >= 2 && !document.getElementById('custName').value.trim()) {
           document.getElementById('custName').value = resolvedName;
         }
         const phoneEl = document.getElementById('custPhone');
@@ -2035,9 +2109,13 @@
         // When an authenticated user is adding a different delivery address / recipient phone,
         // keep their verified profile login phone, whatsappNumber & existing defaultAddress untouched.
         const preserveExistingDefault = Boolean(window.isAddingNewAddress);
+        // Never save a 1-character partial typing stub (e.g. 'S' while typing 'Shubham Dave') into stored profile name
+        const safeSavedName = (!preserveExistingDefault && typedName.length >= 2)
+          ? typedName
+          : pickBestCartName(existing.name, typedName.length >= 2 ? typedName : '');
         const profile = {
           ...existing,
-          name: (!preserveExistingDefault && typedName) ? typedName : (existing.name || typedName || ''),
+          name: safeSavedName,
           whatsappNumber: isAuthed
             ? (existing.whatsappNumber || preservedVerifiedPhone || '')
             : (typedPhone || existing.whatsappNumber || ''),
@@ -2237,8 +2315,9 @@
       if (!bar) return;
 
       if (user) {
-        const displayName = (user.name && user.name !== 'Nutrolix Customer' && user.name !== 'Nutrolix Member')
-          ? user.name
+        const bestUserName = pickBestCartName(user.name);
+        const displayName = bestUserName.length >= 2
+          ? bestUserName
           : (user.verifiedPhone ? `+91 ${user.verifiedPhone}` : 'Verified');
         bar.innerHTML = `
           <div class="flex items-center space-x-2 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-full">
@@ -2248,8 +2327,8 @@
           </div>
         `;
         if (subtitle) subtitle.textContent = 'Signed in with WhatsApp • Confirm your delivery address below';
-        if (!document.getElementById('custName').value && user.name && user.name !== 'Nutrolix Customer' && user.name !== 'Nutrolix Member') {
-          document.getElementById('custName').value = user.name;
+        if (!document.getElementById('custName').value.trim() && bestUserName.length >= 2) {
+          document.getElementById('custName').value = bestUserName;
         }
         const phoneEl = document.getElementById('custPhone');
         if (phoneEl && !phoneEl.value && !window.cartPhoneUserEdited && document.activeElement !== phoneEl && (user.whatsappNumber || user.verifiedPhone || user.phone)) {
@@ -2358,9 +2437,10 @@
       document.getElementById('cartInlineOtpBox')?.classList.add('hidden');
       window.checkCartAuthStatus();
 
-      if (userProfile && userProfile.name && userProfile.name !== 'Nutrolix Customer' && userProfile.name !== 'Nutrolix Member') {
+      const authBestName = pickBestCartName(userProfile && userProfile.name);
+      if (authBestName.length >= 2) {
         const nameEl = document.getElementById('custName');
-        if (nameEl && !nameEl.value.trim()) nameEl.value = userProfile.name;
+        if (nameEl && !nameEl.value.trim()) nameEl.value = authBestName;
       }
       if (userProfile && (userProfile.verifiedPhone || userProfile.whatsappNumber)) {
         const ph = String(userProfile.whatsappNumber || userProfile.verifiedPhone).replace(/\D/g, '').slice(-10);
@@ -2414,10 +2494,12 @@
 
       document.getElementById('delivModalPhone').value = document.getElementById('custPhone').value || profile.whatsappNumber || user.verifiedPhone || '';
       document.getElementById('delivModalAddress').value = document.getElementById('custAddress1').value || profile.address1 || '';
-      document.getElementById('delivModalCustomerName').value = document.getElementById('custName').value || (profile.name && profile.name !== 'Nutrolix Customer' ? profile.name : '');
+      const bestModalName = pickBestCartName(document.getElementById('custName').value, profile.name, user.name);
+      document.getElementById('delivModalCustomerName').value = bestModalName.length >= 2 ? bestModalName : '';
       const pinVal = document.getElementById('custPincode').value || profile.pincode || '';
       const cityVal = document.getElementById('custCity').value || profile.city || '';
       const stateVal = document.getElementById('custState').value || profile.state || '';
+      window._modalResolvedState = stateVal;
       document.getElementById('delivModalPincode').value = pinVal;
       document.getElementById('delivModalCity').value = cityVal;
       const locSumEl = document.getElementById('delivModalLocationSummary');
@@ -2453,9 +2535,11 @@
       }
 
       document.getElementById('custAddress1').value = address;
-      if (optionalName) document.getElementById('custName').value = optionalName;
+      if (optionalName && optionalName.length >= 2) document.getElementById('custName').value = optionalName;
       document.getElementById('custPincode').value = pincode;
       if (city) document.getElementById('custCity').value = city;
+      if (window._modalResolvedState) document.getElementById('custState').value = window._modalResolvedState;
+      window.cartLocationUserEdited = true;
       window.refreshLocationSummaryText();
 
       saveUserProfile();
@@ -2539,7 +2623,8 @@
 
       let name, recipientPhone, email, address1, city, state, pincode, gpsLat, gpsLon, googleMapsLink;
       const storeCoordsAllowed = Boolean(locationConsentGranted);
-      const fallbackDisplayName = (user.name && user.name !== 'Nutrolix Customer' && user.name !== 'Nutrolix Member') ? user.name : 'Nutrolix Customer';
+      const liveTypedName = (document.getElementById('custName')?.value || '').trim();
+      const fallbackDisplayName = pickBestCartName(liveTypedName, user.name, profile.name) || 'Nutrolix Customer';
       const verifiedPhone = String(
         user.verifiedPhone || user.phone || (String(user.uid || '').startsWith('phone_') ? String(user.uid).slice(6) : '')
       ).replace(/\D/g, '').slice(-10);
@@ -2548,7 +2633,8 @@
       const allowProfileFallback = (!window.isAddingNewAddress && getSavedAddresses().length === 0);
 
       if (useSaved) {
-        name = selectedSavedAddress.name || document.getElementById('custName').value.trim() || fallbackDisplayName;
+        // Prefer full multi-character name over any stale 1-character stub (e.g. 'S')
+        name = pickBestCartName(selectedSavedAddress.name, liveTypedName, user.name, profile.name) || 'Nutrolix Customer';
         recipientPhone = selectedSavedAddress.phone || document.getElementById('custPhone').value.trim() || verifiedPhone || '';
         email = user.email || profile.email || '';
         address1 = selectedSavedAddress.address1 || selectedSavedAddress.street || '';
@@ -2558,7 +2644,7 @@
         gpsLat = storeCoordsAllowed ? selectedSavedAddress.gpsLat : null;
         gpsLon = storeCoordsAllowed ? selectedSavedAddress.gpsLon : null;
       } else {
-        name = document.getElementById('custName').value.trim() || fallbackDisplayName;
+        name = pickBestCartName(liveTypedName, user.name, profile.name) || 'Nutrolix Customer';
         recipientPhone = document.getElementById('custPhone').value.trim() || verifiedPhone || '';
         email = user.email || document.getElementById('custEmail').value.trim() || profile.email || '';
         address1 = document.getElementById('custAddress1').value.trim() || (allowProfileFallback ? (profile.address1 || profile.defaultAddress || '') : '');
@@ -2617,7 +2703,12 @@
       const nowMs = Date.now();
       const isFromApp = typeof window.isNutrolixAndroidApp === 'function' && window.isNutrolixAndroidApp();
       const orderSource = isFromApp ? 'App' : 'Website';
-      const accountCustomerName = (user.name && user.name !== 'Nutrolix Customer' && user.name !== 'Nutrolix Member') ? user.name : name;
+      // Always prefer full live name over a corrupted 1-character stored name (e.g. 'S')
+      const accountCustomerName = pickBestCartName(
+        (!window.isAddingNewAddress ? name : ''),
+        user.name,
+        name
+      ) || 'Nutrolix Customer';
       const orderPayload = {
         id: generatedOrderId,
         orderId: generatedOrderId,
@@ -2738,7 +2829,7 @@
             phone: verifiedPhone,
             ...(addrToSave.isDefault ? {
               defaultAddress: address1,
-              currentAddress: [address1, city, state, pincode].filter(Boolean).join(', '),
+              currentAddress: formatCleanDeliveryAddressLine(address1, city, state, pincode),
               city,
               state,
               pincode
@@ -2756,14 +2847,16 @@
           const host = window.NUTROLIX_API_HOST || '';
           const payuRes = await fetch(host + '/api/payu/initiate', {
             method: 'POST',
+            cache: 'no-store',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               orderId: generatedOrderId,
               idempotencyKey,
+              attemptTs: Date.now(),
               uid: user.uid || '',
               verifiedPhone: verifiedPhone || phone,
               totalAmount: grandTotal,
-              customerName: name,
+              customerName: accountCustomerName,
               customerEmail: email,
               customerPhone: phone,
               items: cart,
@@ -2780,7 +2873,10 @@
           });
           const payuData = await payuRes.json();
           if (payuRes.ok && payuData && payuData.success) {
+            // Remove any leftover PayU form from a prior attempt before submitting the fresh txnid
+            document.querySelectorAll('form[data-payu-form="1"]').forEach(el => el.remove());
             const form = document.createElement('form');
+            form.setAttribute('data-payu-form', '1');
             form.method = 'POST';
             form.action = payuData.action; // https://secure.payu.in/_payment
 
@@ -2812,6 +2908,9 @@
               new Promise((r) => setTimeout(r, 600))
             ]);
             form.submit();
+            setTimeout(() => {
+              try { form.remove(); } catch (_) {}
+            }, 1500);
             return;
           } else {
             throw new Error((payuData && payuData.error) || 'Failed to initiate PayU payment');
@@ -2925,6 +3024,17 @@
 
     // Initialization on page load (Auto-fills PIN, City & State behind Edit button)
     document.addEventListener('DOMContentLoaded', () => {
+      const resetCheckoutSubmittingState = () => {
+        isExecutingOrderPlacement = false;
+        document.querySelectorAll('form[data-payu-form="1"]').forEach(el => el.remove());
+        const btn = document.getElementById('placeOrderBtn');
+        if (btn && btn.disabled) {
+          btn.disabled = false;
+          if (typeof window.updatePaymentMethodUi === 'function') {
+            window.updatePaymentMethodUi();
+          }
+        }
+      };
       loadUserProfile();
       checkAndRenderSavedAddresses();
       renderCart();
@@ -2932,8 +3042,16 @@
       syncLiveCartConfig();
       window.checkCartAuthStatus();
       window.autoDetectCheckoutLocation(false);
-      window.addEventListener('pageshow', (e) => { if (e.persisted) syncLiveCartConfig(); });
-      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncLiveCartConfig(); });
+      window.addEventListener('pageshow', (e) => {
+        resetCheckoutSubmittingState();
+        if (e.persisted) syncLiveCartConfig();
+      });
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          resetCheckoutSubmittingState();
+          syncLiveCartConfig();
+        }
+      });
 
       // Reactive cross-device Firebase / Firestore sync listeners
       window.addEventListener('nutrolix:auth-changed', () => {

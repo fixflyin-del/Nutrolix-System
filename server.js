@@ -704,11 +704,31 @@ function normalizeStoreCouponRecord(c) {
 
 const LEGACY_REMOVED_AUTO_CODES = new Set(['FIRST100', 'SUBSEQUENT50', 'HEALTHY50', 'HEALTHY_PROMO']);
 
+const DEFAULT_APP10_COUPON = {
+  code: 'APP10',
+  title: 'App Exclusive 10% OFF',
+  type: 'percentage',
+  value: 10,
+  discountPercent: 10,
+  minOrder: 0,
+  maxDiscount: 0,
+  firstOrderOnly: false,
+  appOnly: true,
+  active: true,
+  status: 'Active'
+};
+
 async function getAuthoritativeAdminCoupons() {
   const couponsFile = path.join(PUBLIC_DIR, 'data', 'store_coupons.json');
   const raw = await readCatalogDocOrFallback('store_coupons', couponsFile, []);
-  if (!Array.isArray(raw)) return [];
-  return raw.map(normalizeStoreCouponRecord).filter(Boolean);
+  const normalized = Array.isArray(raw) ? raw.map(normalizeStoreCouponRecord).filter(Boolean) : [];
+  // Ensure APP10 (App-Exclusive 10% OFF) is always available for Nutrolix Android App orders
+  // unless Admin has explicitly configured or disabled APP10 in Admin Panel.
+  const hasApp10 = normalized.some((c) => c.code === 'APP10');
+  if (!hasApp10) {
+    normalized.unshift({ ...DEFAULT_APP10_COUPON });
+  }
+  return normalized;
 }
 
 async function validateAndCalculateOrderPricing({
@@ -3581,8 +3601,13 @@ const server = http.createServer(async (req, res) => {
         if (order.uid) {
                     try {
                       const existingUser = await nutrolixCore.firestoreGetFirstAvailable(`users/${order.uid}`);
-                      const bestName = nutrolixCore.pickBestCustomerName(existingUser && existingUser.name, order.customerName);
                       const addr = order.deliveryAddress && typeof order.deliveryAddress === 'object' ? order.deliveryAddress : {};
+                      const bestName = nutrolixCore.pickBestCustomerName(
+                        addr.name,
+                        order.customer && order.customer.name,
+                        order.customerName,
+                        existingUser && existingUser.name
+                      );
                       const addrLine = String(addr.address1 || addr.street || '').trim();
                       const addrCity = String(addr.city || '').trim();
                       const addrState = String(addr.state || '').trim();
@@ -3590,11 +3615,11 @@ const server = http.createServer(async (req, res) => {
                       const formattedFullAddr = [addrLine, addrCity, addrState, addrPin].filter(Boolean).join(', ');
                       const nowIso = new Date().toISOString();
                       const nowMs = Date.now();
-        
+
                       const deliveryRecipientPhone =
                         normalizePhone(addr.phone || addr.recipientPhone || order.deliveryPhone) ||
                         order.customerPhone;
-                      const deliveryRecipientName = String(addr.name || bestName || '').trim() || bestName;
+                      const deliveryRecipientName = nutrolixCore.pickBestCustomerName(addr.name, bestName);
                       const profileWhatsapp = normalizePhone(
                         (existingUser && existingUser.whatsappNumber) || order.whatsappNumber || order.customerPhone
                       ) || order.customerPhone;
@@ -4178,15 +4203,40 @@ const server = http.createServer(async (req, res) => {
       try {
         const orderData = JSON.parse(body || '{}');
         const orderId = orderData.orderId || ('ORD-' + Math.floor(100000 + Math.random() * 900000));
-        const txnid = 'NTX_' + orderId + '_' + Date.now().toString(36);
-        const productinfo = (orderData.items && orderData.items.length)
-          ? orderData.items.map(i => i.name || i.title || 'Item').join(', ').substring(0, 90)
+        // Strictly <= 25 chars and cryptographically unique on EVERY click/retry so PayU never rejects a duplicate txnid
+        const cleanOrderToken = String(orderId).replace(/[^A-Za-z0-9]/g, '').slice(-8) || 'ORDER';
+        const txnid = ('NTX_' + cleanOrderToken + '_' + crypto.randomBytes(4).toString('hex').toUpperCase()).slice(0, 25);
+
+        // Sanitize productinfo & firstname so pipe '|' or special Unicode dashes in product titles NEVER break PayU SHA-512 hash or UPI notes
+        const sanitizePayuField = (val, fallback, maxLen) => {
+          const cleaned = String(val || '')
+            .replace(/[|\r\n]+/g, ' ')
+            .replace(/[^A-Za-z0-9 .,()-]/g, ' ')
+            .replace(/\s+/g, ' ')
+            .trim()
+            .slice(0, maxLen);
+          return cleaned || fallback;
+        };
+        const rawProductInfo = (orderData.items && orderData.items.length)
+          ? orderData.items.map(i => i.name || i.title || 'Nutrolix Item').join(', ')
           : (orderData.productinfo || 'Nutrolix Functional Nutrition');
-        const firstname = (orderData.customerName || orderData.name || orderData.firstname || 'Customer').split(' ')[0] || 'Customer';
-        const email = (orderData.customerEmail || orderData.email || 'customer@nutrolix.in').trim();
+        const productinfo = sanitizePayuField(rawProductInfo, 'Nutrolix Order', 80);
+
+        const resolvedFullCustomerName = nutrolixCore.pickBestCustomerName(
+          orderData.deliveryAddress && orderData.deliveryAddress.name,
+          orderData.customer && orderData.customer.name,
+          orderData.customerName,
+          orderData.name,
+          orderData.firstname
+        );
+        const rawFirst = resolvedFullCustomerName.split(/\s+/)[0] || 'Customer';
+        const firstname = sanitizePayuField(rawFirst, 'Customer', 32).replace(/[^A-Za-z0-9]/g, '') || 'Customer';
+
+        const rawEmail = String(orderData.customerEmail || orderData.email || '').trim();
+        const email = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : 'customer@nutrolix.in';
         const phone = customerSync.extractOrderPhone(orderData);
         if (!nutrolixCore.isValidIndianMobile(phone)) {
-          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
           res.end(JSON.stringify({ success: false, error: 'Valid 10-digit mobile number is required for online payment.' }));
           return;
         }
@@ -4246,6 +4296,18 @@ const server = http.createServer(async (req, res) => {
           id: orderId,
           orderId,
           uid: canonicalUid,
+          customerName: resolvedFullCustomerName,
+          customer: {
+            ...(orderData.customer && typeof orderData.customer === 'object' ? orderData.customer : {}),
+            name: resolvedFullCustomerName,
+            phone,
+            verifiedPhone: phone,
+            email: normalizeEmail(email)
+          },
+          deliveryAddress: {
+            ...(orderData.deliveryAddress && typeof orderData.deliveryAddress === 'object' ? orderData.deliveryAddress : {}),
+            name: nutrolixCore.pickBestCustomerName(orderData.deliveryAddress && orderData.deliveryAddress.name, resolvedFullCustomerName)
+          },
           orderSource: payuOrderSource,
           platform: orderData.platform || (payuOrderSource === 'App' ? 'android_app' : 'web'),
           subtotal: pricing.subtotal > 0 ? pricing.subtotal : numericAmount,
@@ -4287,7 +4349,7 @@ const server = http.createServer(async (req, res) => {
           throw new Error('Unable to securely save pending payment. Please retry payment.');
         }
 
-        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Access-Control-Allow-Origin': '*' });
         res.end(JSON.stringify({
           success: true,
           action: PAYU_PAYMENT_URL,

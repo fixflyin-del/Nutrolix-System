@@ -50,13 +50,17 @@ import com.example.ui.onboarding.NutrolixNativeSplashScreen
 import com.example.ui.onboarding.NutrolixOnboardingFlow
 import com.example.ui.onboarding.NutrolixOnboardingPrefs
 import com.example.ui.theme.MyApplicationTheme
+import android.content.ActivityNotFoundException
 import com.example.util.OrderNotificationHelper
 import com.example.util.PullToRefreshWebViewWrapper
+import com.google.android.gms.location.CurrentLocationRequest
+import com.google.android.gms.location.Granularity
 import com.google.android.gms.location.LocationCallback
 import com.google.android.gms.location.LocationRequest
 import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
+import com.google.android.gms.tasks.CancellationTokenSource
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.messaging.FirebaseMessaging
@@ -67,6 +71,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import kotlin.coroutines.resume
@@ -461,6 +466,13 @@ fun NutrolixSupplementBrandApp(
               userAgentString = settings.userAgentString + " NutrolixApp/2.0.0"
             }
 
+            // Enable cookies & third-party cookies (required by PayU checkout, UPI collect, & bank 3DS pages)
+            try {
+              val cookieManager = CookieManager.getInstance()
+              cookieManager.setAcceptCookie(true)
+              cookieManager.setAcceptThirdPartyCookies(this, true)
+            } catch (_: Throwable) {}
+
             addJavascriptInterface(object {
               @JavascriptInterface
               fun getAppVersion(): String = "2.0.0"
@@ -643,65 +655,137 @@ fun NutrolixSupplementBrandApp(
                   coroutineScope.launch {
                     try {
                       val fusedClient = LocationServices.getFusedLocationProviderClient(context)
-                      val coords = suspendCancellableCoroutine<Pair<Double, Double>?> { cont ->
-                        try {
-                          fusedClient.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, null)
-                            .addOnSuccessListener { loc ->
-                              if (loc != null) {
-                                if (cont.isActive) cont.resume(loc.latitude to loc.longitude)
-                              } else {
+                      val freshLocation = withTimeoutOrNull(12_000L) {
+                        suspendCancellableCoroutine<android.location.Location?> { cont ->
+                          try {
+                            val cts = CancellationTokenSource()
+                            cont.invokeOnCancellation { cts.cancel() }
+                            val currentReq = CurrentLocationRequest.Builder()
+                              .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                              .setGranularity(Granularity.GRANULARITY_FINE)
+                              .setMaxUpdateAgeMillis(15_000L)
+                              .setDurationMillis(9_000L)
+                              .build()
+
+                            fusedClient.getCurrentLocation(currentReq, cts.token)
+                              .addOnSuccessListener { loc ->
+                                if (loc != null && (!loc.hasAccuracy() || loc.accuracy <= 250f)) {
+                                  if (cont.isActive) cont.resume(loc)
+                                } else {
+                                  // Request a single fresh GPS fix rather than trusting a stale cached city from hours ago
+                                  val req = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1000L)
+                                    .setMaxUpdates(1)
+                                    .setDurationMillis(7_000L)
+                                    .build()
+                                  val cb = object : LocationCallback() {
+                                    override fun onLocationResult(res: LocationResult) {
+                                      fusedClient.removeLocationUpdates(this)
+                                      val l = res.lastLocation
+                                      if (cont.isActive) cont.resume(l ?: loc)
+                                    }
+                                  }
+                                  try {
+                                    fusedClient.requestLocationUpdates(req, cb, Looper.getMainLooper())
+                                    cont.invokeOnCancellation {
+                                      try { fusedClient.removeLocationUpdates(cb) } catch (_: Exception) {}
+                                    }
+                                  } catch (_: Exception) {
+                                    // Only accept lastLocation if fresh (<= 2 minutes) and reasonably accurate (<= 150m)
+                                    fusedClient.lastLocation
+                                      .addOnSuccessListener { lastLoc ->
+                                        val isFresh = lastLoc != null &&
+                                          (System.currentTimeMillis() - lastLoc.time) <= 120_000L &&
+                                          (!lastLoc.hasAccuracy() || lastLoc.accuracy <= 150f)
+                                        if (cont.isActive) cont.resume(if (isFresh) lastLoc else loc)
+                                      }
+                                      .addOnFailureListener {
+                                        if (cont.isActive) cont.resume(loc)
+                                      }
+                                  }
+                                }
+                              }
+                              .addOnFailureListener {
                                 fusedClient.lastLocation
                                   .addOnSuccessListener { lastLoc ->
-                                    if (lastLoc != null) {
-                                      if (cont.isActive) cont.resume(lastLoc.latitude to lastLoc.longitude)
-                                    } else {
-                                      val req = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1500L)
-                                        .setMaxUpdates(1)
-                                        .build()
-                                      val cb = object : LocationCallback() {
-                                        override fun onLocationResult(res: LocationResult) {
-                                          fusedClient.removeLocationUpdates(this)
-                                          val l = res.lastLocation
-                                          if (cont.isActive) cont.resume(l?.let { it.latitude to it.longitude })
-                                        }
-                                      }
-                                      fusedClient.requestLocationUpdates(req, cb, Looper.getMainLooper())
-                                    }
+                                    val isFresh = lastLoc != null &&
+                                      (System.currentTimeMillis() - lastLoc.time) <= 120_000L &&
+                                      (!lastLoc.hasAccuracy() || lastLoc.accuracy <= 150f)
+                                    if (cont.isActive) cont.resume(if (isFresh) lastLoc else null)
                                   }
                                   .addOnFailureListener {
                                     if (cont.isActive) cont.resume(null)
                                   }
                               }
-                            }
-                            .addOnFailureListener {
-                              if (cont.isActive) cont.resume(null)
-                            }
-                        } catch (_: Exception) {
-                          if (cont.isActive) cont.resume(null)
+                          } catch (_: Exception) {
+                            if (cont.isActive) cont.resume(null)
+                          }
                         }
                       }
 
-                      if (coords == null) {
-                        dispatchLocationError("GPS_UNAVAILABLE", "GPS is off or signal unavailable. Please enable location or enter address manually.")
+                      if (freshLocation == null) {
+                        dispatchLocationError("GPS_UNAVAILABLE", "GPS is off or signal unavailable. Please enable location or enter PIN code manually.")
                         return@launch
                       }
 
-                      val (lat, lon) = coords
+                      val lat = freshLocation.latitude
+                      val lon = freshLocation.longitude
                       val fallbackGeo = withContext(Dispatchers.IO) {
                         val out = JSONObject()
                         try {
-                          @Suppress("DEPRECATION")
-                          val addresses = Geocoder(context, Locale.getDefault()).getFromLocation(lat, lon, 1)
-                          val addr = addresses?.firstOrNull()
-                          if (addr != null) {
-                            out.put("pincode", addr.postalCode ?: "")
-                            val locality = listOfNotNull(addr.subLocality, addr.locality ?: addr.subAdminArea)
-                              .filter { it.isNotBlank() }
-                              .distinct()
-                              .joinToString(", ")
-                            out.put("city", locality)
-                            out.put("state", addr.adminArea ?: "")
-                            out.put("formattedAddress", addr.getAddressLine(0) ?: "")
+                          if (Geocoder.isPresent()) {
+                            val geocoder = Geocoder(context, Locale("en", "IN"))
+                            val addresses: List<android.location.Address>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                              withTimeoutOrNull(5_000L) {
+                                suspendCancellableCoroutine { geoCont ->
+                                  try {
+                                    geocoder.getFromLocation(lat, lon, 5, object : Geocoder.GeocodeListener {
+                                      override fun onGeocode(results: MutableList<android.location.Address>) {
+                                        if (geoCont.isActive) geoCont.resume(results)
+                                      }
+                                      override fun onError(errorMessage: String?) {
+                                        if (geoCont.isActive) geoCont.resume(emptyList())
+                                      }
+                                    })
+                                  } catch (_: Exception) {
+                                    if (geoCont.isActive) geoCont.resume(emptyList())
+                                  }
+                                }
+                              }
+                            } else {
+                              @Suppress("DEPRECATION")
+                              geocoder.getFromLocation(lat, lon, 5)
+                            }
+
+                            // Pick the best candidate that has a valid 6-digit Indian PIN and avoids bare Plus Codes (e.g. 24G5+3X)
+                            val isPlusCode: (String?) -> Boolean = { s ->
+                              val t = s?.trim().orEmpty()
+                              t.isEmpty() || Regex("^[23456789CFGHJMPQRVWX]{4,8}\\+[23456789CFGHJMPQRVWX]{2,3}$", RegexOption.IGNORE_CASE).matches(t)
+                            }
+                            val validPinRegex = Regex("^[1-9][0-9]{5}$")
+                            val list = addresses.orEmpty()
+                            val addr = list.firstOrNull { a ->
+                              validPinRegex.matches((a.postalCode ?: "").filter { it.isDigit() }) && !isPlusCode(a.thoroughfare ?: a.subLocality)
+                            } ?: list.firstOrNull { a ->
+                              validPinRegex.matches((a.postalCode ?: "").filter { it.isDigit() })
+                            } ?: list.firstOrNull()
+
+                            if (addr != null) {
+                              val cleanPin = (addr.postalCode ?: "").filter { it.isDigit() }.take(6)
+                              out.put("pincode", cleanPin)
+                              out.put("neighborhood", addr.subLocality ?: "")
+                              out.put("locality", addr.locality ?: "")
+                              out.put("district", addr.subAdminArea ?: "")
+                              val locality = listOfNotNull(addr.subLocality, addr.locality ?: addr.subAdminArea)
+                                .filter { it.isNotBlank() && !isPlusCode(it) }
+                                .distinct()
+                                .joinToString(", ")
+                              out.put("city", locality)
+                              out.put("state", addr.adminArea ?: "")
+                              val rawLine = addr.getAddressLine(0) ?: ""
+                              // Strip leading Google Plus Code token (e.g. "24G5+3X, ") from formattedAddress
+                              val cleanLine = rawLine.replace(Regex("^[23456789CFGHJMPQRVWX]{4,8}\\+[23456789CFGHJMPQRVWX]{2,3},?\\s*", RegexOption.IGNORE_CASE), "").trim()
+                              out.put("formattedAddress", cleanLine)
+                            }
                           }
                         } catch (_: Exception) {}
                         out
@@ -710,6 +794,7 @@ fun NutrolixSupplementBrandApp(
                       val payload = JSONObject().apply {
                         put("lat", lat)
                         put("lon", lon)
+                        put("accuracy", if (freshLocation.hasAccuracy()) freshLocation.accuracy.toDouble() else -1.0)
                         put("nativeGeocoder", fallbackGeo)
                       }.toString()
                       val quoted = JSONObject.quote(payload)
@@ -815,8 +900,45 @@ fun NutrolixSupplementBrandApp(
                 request: WebResourceRequest?
               ): Boolean {
                 val url = request?.url?.toString() ?: return false
+                val lowerUrl = url.lowercase(Locale.ROOT)
 
-                if (url.startsWith("intent://", ignoreCase = true)) {
+                // Handle ALL Indian UPI / Payment deep-link URL schemes cleanly (GPay, PhonePe, Paytm, BHIM, CRED, Amazon Pay, etc.)
+                val upiSchemes = listOf(
+                  "upi://", "tez://", "gpay://", "phonepe://", "ppe://",
+                  "paytmmp://", "bhim://", "credpay://", "amazonpay://",
+                  "mobikwik://", "freecharge://", "payzapp://", "icici://",
+                  "sbiyono://", "whatsapp://pay"
+                )
+                if (upiSchemes.any { lowerUrl.startsWith(it) }) {
+                  try {
+                    val upiIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                      flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    ctx.startActivity(upiIntent)
+                  } catch (_: ActivityNotFoundException) {
+                    // If a specific app scheme (e.g., phonepe://) is not installed, fall back to a generic upi:// chooser if query contains pa=
+                    val query = Uri.parse(url).encodedQuery
+                    if (!query.isNullOrBlank() && query.contains("pa=", ignoreCase = true) && !lowerUrl.startsWith("upi://")) {
+                      try {
+                        val genericUpi = Intent(Intent.ACTION_VIEW, Uri.parse("upi://pay?$query")).apply {
+                          flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        ctx.startActivity(Intent.createChooser(genericUpi, "Pay with UPI").apply {
+                          flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        })
+                      } catch (_: Exception) {
+                        Toast.makeText(ctx, "No UPI app found. Please pay using UPI ID or Card.", Toast.LENGTH_LONG).show()
+                      }
+                    } else {
+                      Toast.makeText(ctx, "No UPI app found. Please pay using UPI ID or Card.", Toast.LENGTH_LONG).show()
+                    }
+                  } catch (_: Exception) {
+                    Toast.makeText(ctx, "Unable to open UPI app. Please try entering your UPI ID.", Toast.LENGTH_SHORT).show()
+                  }
+                  return true
+                }
+
+                if (lowerUrl.startsWith("intent://")) {
                   try {
                     val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME).apply {
                       addCategory(Intent.CATEGORY_BROWSABLE)
@@ -824,19 +946,47 @@ fun NutrolixSupplementBrandApp(
                       selector = null
                       flags = Intent.FLAG_ACTIVITY_NEW_TASK
                     }
-                    ctx.startActivity(intent)
-                    return true
+                    try {
+                      ctx.startActivity(intent)
+                      return true
+                    } catch (_: ActivityNotFoundException) {
+                      // 1. If this is a UPI intent whose specific app package is not installed, open generic UPI chooser
+                      val dataUri = intent.data
+                      if (dataUri != null && (dataUri.scheme.equals("upi", ignoreCase = true) ||
+                          (dataUri.encodedQuery?.contains("pa=", ignoreCase = true) == true))
+                      ) {
+                        try {
+                          val genericUpi = Intent(Intent.ACTION_VIEW, Uri.parse("upi://pay?${dataUri.encodedQuery ?: ""}")).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                          }
+                          ctx.startActivity(Intent.createChooser(genericUpi, "Pay with UPI").apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                          })
+                          return true
+                        } catch (_: Exception) {}
+                      }
+                      // 2. Otherwise check safe https/http browser_fallback_url
+                      val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+                      if (!fallbackUrl.isNullOrBlank() &&
+                        (fallbackUrl.startsWith("https://", ignoreCase = true) || fallbackUrl.startsWith("http://", ignoreCase = true))
+                      ) {
+                        view?.loadUrl(fallbackUrl)
+                        return true
+                      }
+                      Toast.makeText(ctx, "Requested app is not installed on this device.", Toast.LENGTH_SHORT).show()
+                      return true
+                    }
                   } catch (_: Exception) {
                     return true
                   }
                 }
 
-                if (url.startsWith("tel:") || url.startsWith("mailto:") ||
-                  url.startsWith("geo:") || url.contains("google.com/maps") ||
-                  url.contains("maps.google.com") || url.contains("maps.app.goo.gl") ||
-                  url.startsWith("whatsapp:") || url.contains("wa.me") ||
-                  url.contains("share.google") || url.contains("instagram.com") ||
-                  url.contains("facebook.com") || url.contains("youtube.com")
+                if (lowerUrl.startsWith("tel:") || lowerUrl.startsWith("mailto:") ||
+                  lowerUrl.startsWith("geo:") || lowerUrl.contains("google.com/maps") ||
+                  lowerUrl.contains("maps.google.com") || lowerUrl.contains("maps.app.goo.gl") ||
+                  lowerUrl.startsWith("whatsapp:") || lowerUrl.contains("wa.me") ||
+                  lowerUrl.contains("share.google") || lowerUrl.contains("instagram.com") ||
+                  lowerUrl.contains("facebook.com") || lowerUrl.contains("youtube.com")
                 ) {
                   try {
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
@@ -920,6 +1070,15 @@ fun NutrolixSupplementBrandApp(
             }
           }
           PullToRefreshWebViewWrapper(ctx, webView) { wv ->
+            val currentUrl = (wv.url ?: "").lowercase(Locale.ROOT)
+            // NEVER reload an active PayU / bank payment page via pull-to-refresh (reloading re-POSTs the same txnid!)
+            if (currentUrl.contains("payu.in") || currentUrl.contains("payubiz") ||
+              currentUrl.contains("/_payment") || currentUrl.contains("npci") ||
+              currentUrl.contains("billdesk") || currentUrl.contains("razorpay")
+            ) {
+              ptrWrapper?.finishRefreshing()
+              return@PullToRefreshWebViewWrapper
+            }
             wv.clearCache(true)
             if (isUsingOfflineFallback) {
               isUsingOfflineFallback = false

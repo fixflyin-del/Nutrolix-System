@@ -32,14 +32,22 @@
   }
 
   function isMeaningfulName(n) {
-    const clean = String(n || '').trim().toLowerCase();
-    return Boolean(clean) && !['nutrolix customer', 'customer', 'guest', 'guest customer', 'user'].includes(clean);
+    const clean = String(n || '').trim();
+    const lower = clean.toLowerCase();
+    return clean.length >= 2 && /[A-Za-z]/.test(clean) && !['nutrolix customer', 'nutrolix member', 'valued customer', 'customer', 'guest', 'guest customer', 'user', 'unknown'].includes(lower);
   }
 
   function pickBestName() {
     for (let i = 0; i < arguments.length; i++) {
       const val = arguments[i];
       if (isMeaningfulName(val)) return String(val).trim();
+    }
+    for (let i = 0; i < arguments.length; i++) {
+      const clean = String(arguments[i] || '').trim();
+      const lower = clean.toLowerCase();
+      if (clean.length > 0 && !['nutrolix customer', 'nutrolix member', 'valued customer', 'customer', 'guest', 'guest customer', 'user', 'unknown'].includes(lower)) {
+        return clean;
+      }
     }
     return 'Nutrolix Customer';
   }
