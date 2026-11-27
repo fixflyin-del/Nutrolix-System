@@ -457,12 +457,17 @@ function normalizeProductMediaFields(p, liveReviews = []) {
   const variants = nutrolixCore.normalizeProductVariants(p.variants, p);
   const reviewSummary = nutrolixCore.computeProductReviewSummary(p, liveReviews);
   const nutritionFacts = normalizePackagedNutritionFacts(p.nutritionFacts, p);
+  const isOutOfStock = (p.inStock === false) || String(p.stockStatus || '').trim().toLowerCase() === 'out of stock';
+  const inStock = !isOutOfStock;
+  const stockStatus = inStock ? 'In Stock' : 'Out of Stock';
   return {
     ...p,
     images: finalImgs,
     image: finalImgs[0] || DEFAULT_SAMPLE_IMAGE_URL,
     variants,
     variantsConfigured: Boolean(p.variantsConfigured),
+    inStock,
+    stockStatus,
     ...(nutritionFacts !== undefined ? { nutritionFacts } : {}),
     reviews: reviewSummary.reviews,
     reviewCount: reviewSummary.reviewCount,
@@ -489,10 +494,15 @@ function normalizeFoodMenuRecord(item, liveReviews = []) {
   const priceNum = Number(item.price);
   const mrpNum = (item.mrp !== undefined && item.mrp !== null && String(item.mrp).trim() !== '') ? Number(item.mrp) : NaN;
   const normalizedMrp = (Number.isFinite(mrpNum) && mrpNum > 0) ? mrpNum : null;
+  const isOutOfStock = (item.inStock === false) || String(item.stockStatus || '').trim().toLowerCase() === 'out of stock';
+  const inStock = !isOutOfStock;
+  const stockStatus = inStock ? 'In Stock' : 'Out of Stock';
   return {
     ...base,
     price: Number.isFinite(priceNum) && priceNum > 0 ? priceNum : (base.price || 199),
     mrp: normalizedMrp,
+    inStock,
+    stockStatus,
     highlights,
     nutritionFacts,
     variants: nutrolixCore.normalizeProductVariants(item.variants, { id: item.id, variantsConfigured: true }),
@@ -501,6 +511,39 @@ function normalizeFoodMenuRecord(item, liveReviews = []) {
     reviewCount: reviewSummary.reviewCount,
     rating: reviewSummary.rating
   };
+}
+
+async function findOutOfStockItemsInCart(items = []) {
+  if (!Array.isArray(items) || items.length === 0) return [];
+  const productsFile = path.join(PUBLIC_DIR, 'data', 'nutrition_products.json');
+  const foodFile = path.join(PUBLIC_DIR, 'data', 'healthy_food_menu.json');
+  const [productsRaw, mealsRaw] = await Promise.all([
+    readCatalogDocOrFallback('nutrition_products', productsFile, []).catch(() => []),
+    readCatalogDocOrFallback('healthy_food_menu', foodFile, []).catch(() => [])
+  ]);
+  const outOfStockById = new Map();
+  const outOfStockByName = new Map();
+  const registerCatalogEntry = (entry) => {
+    if (!entry || typeof entry !== 'object') return;
+    const isOos = (entry.inStock === false) || String(entry.stockStatus || '').trim().toLowerCase() === 'out of stock';
+    if (!isOos) return;
+    const id = String(entry.id || '').trim();
+    const nm = String(entry.name || entry.title || '').trim();
+    if (id) outOfStockById.set(id.toLowerCase(), nm || id);
+    if (nm) outOfStockByName.set(nm.toLowerCase(), nm);
+  };
+  if (Array.isArray(productsRaw)) productsRaw.forEach(registerCatalogEntry);
+  if (Array.isArray(mealsRaw)) mealsRaw.forEach(registerCatalogEntry);
+
+  const blocked = [];
+  for (const it of items) {
+    if (!it || typeof it !== 'object') continue;
+    const idKey = String(it.id || '').trim().toLowerCase();
+    const nmKey = String(it.title || it.name || '').trim().toLowerCase();
+    const hit = (idKey && outOfStockById.get(idKey)) || (nmKey && outOfStockByName.get(nmKey));
+    if (hit && !blocked.includes(hit)) blocked.push(hit);
+  }
+  return blocked;
 }
 
 function normalizeHeroMedia(hero) {
@@ -2983,9 +3026,7 @@ const server = http.createServer(async (req, res) => {
           if (item.category) {
             item.category = nutrolixCore.normalizeStoreCategory(item.category, item.title || item.name || '');
           }
-          const variantsConfigured = true;
-          item.variantsConfigured = variantsConfigured;
-          item.variants = nutrolixCore.normalizeProductVariants(item.variants, { id: item.id, variantsConfigured });
+          const hasVariantsPayload = Array.isArray(item.variants);
           const [productsRaw, liveReviews] = await Promise.all([
             readCatalogDocOrFallback('nutrition_products', productsFile, []),
             loadAllMergedReviews().catch(() => [])
@@ -2995,17 +3036,23 @@ const server = http.createServer(async (req, res) => {
           let savedItem;
           if (existingIdx >= 0) {
             const existingProd = products[existingIdx] || {};
+            const nextVariantsConfigured = hasVariantsPayload ? true : Boolean(existingProd.variantsConfigured);
+            const nextVariants = hasVariantsPayload
+              ? nutrolixCore.normalizeProductVariants(item.variants, { id: item.id, variantsConfigured: true })
+              : existingProd.variants;
             const merged = {
               ...existingProd,
               ...item,
-              variants: item.variants,
-              variantsConfigured: true,
+              variants: nextVariants,
+              variantsConfigured: nextVariantsConfigured,
               reviews: Array.isArray(item.reviews) ? item.reviews : existingProd.reviews
             };
             savedItem = normalizeProductMediaFields(merged, liveReviews);
             products[existingIdx] = savedItem;
           } else {
             if (!item.id) item.id = 'prod_' + Date.now().toString(36);
+            item.variantsConfigured = true;
+            item.variants = nutrolixCore.normalizeProductVariants(item.variants, { id: item.id, variantsConfigured: true });
             savedItem = normalizeProductMediaFields(item, liveReviews);
             products.unshift(savedItem);
           }
@@ -3531,6 +3578,18 @@ const server = http.createServer(async (req, res) => {
 
         try {
           const order = validation.normalizedOrder;
+          // Block checkout if any item in the cart has been marked Out of Stock by Admin
+          const oosItems = await findOutOfStockItemsInCart(order.items);
+          if (oosItems.length > 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+            res.end(JSON.stringify({
+              success: false,
+              code: 'OUT_OF_STOCK',
+              outOfStockItems: oosItems,
+              error: `Sorry, "${oosItems.join(', ')}" is currently Out of Stock. Please remove it from your cart to continue.`
+            }));
+            return;
+          }
           // Authoritative server-side pricing & admin-only coupon enforcement (never trust client discount)
           const pricing = await validateAndCalculateOrderPricing({
             items: order.items,
@@ -4402,6 +4461,19 @@ const server = http.createServer(async (req, res) => {
         const canonicalUid = nutrolixCore.canonicalCustomerUid(phone) || orderData.uid || '';
         const rawPayuSource = String(orderData.orderSource || orderData.source || orderData.platform || '').trim().toLowerCase();
         const payuOrderSource = (rawPayuSource === 'app' || rawPayuSource.includes('android') || rawPayuSource.includes('apk')) ? 'App' : 'Website';
+
+        // Block online payment if any item in the cart has been marked Out of Stock by Admin
+        const oosPayuItems = await findOutOfStockItemsInCart(Array.isArray(orderData.items) ? orderData.items : []);
+        if (oosPayuItems.length > 0) {
+          res.writeHead(400, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+          res.end(JSON.stringify({
+            success: false,
+            code: 'OUT_OF_STOCK',
+            outOfStockItems: oosPayuItems,
+            error: `Sorry, "${oosPayuItems.join(', ')}" is currently Out of Stock. Please remove it from your cart to continue.`
+          }));
+          return;
+        }
 
         // Authoritative server-side price & coupon verification (blocks unauthorized or expired discounts)
         const pricing = await validateAndCalculateOrderPricing({

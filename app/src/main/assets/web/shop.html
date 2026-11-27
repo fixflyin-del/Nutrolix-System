@@ -768,21 +768,33 @@
       container.innerHTML = products.map(p => {
         const rawImg = (p.images && p.images[0]) || p.image || 'assets/aistudio/image_6061bdc8.png';
         const img = window.nutrolixResolveCatalogImage ? window.nutrolixResolveCatalogImage(rawImg) : rawImg;
+        const isOutOfStock = (p.inStock === false) || String(p.stockStatus || '').trim().toLowerCase() === 'out of stock';
         return `
-          <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition flex flex-col group">
+          <div class="bg-white rounded-2xl border ${isOutOfStock ? 'border-rose-200/90 bg-rose-50/15' : 'border-slate-200 hover:border-emerald-500/60'} overflow-hidden hover:shadow-xl transition flex flex-col group">
             <div class="relative aspect-square overflow-hidden bg-slate-100">
               <a href="product.html?id=${p.id}" class="block w-full h-full cursor-pointer">
-                <img src="${img}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+                <img src="${img}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${p.name}" class="w-full h-full object-cover ${isOutOfStock ? 'grayscale-[35%] opacity-75' : 'group-hover:scale-105'} transition duration-300">
               </a>
-              <span class="absolute top-2 sm:top-3 left-2 sm:left-3 bg-nutro-orange text-white text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm">
+              ${isOutOfStock ? `
+                <div class="absolute inset-0 bg-slate-950/35 backdrop-blur-[1px] flex items-center justify-center pointer-events-none p-2">
+                  <span class="bg-rose-600/95 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider px-3 py-1.5 rounded-xl shadow-lg border border-white/80 flex items-center gap-1.5">
+                    <i class="fa-solid fa-ban text-[10px]"></i>
+                    <span>Out of Stock</span>
+                  </span>
+                </div>
+              ` : ''}
+              <span class="absolute top-2 sm:top-3 left-2 sm:left-3 ${isOutOfStock ? 'bg-slate-700/90' : 'bg-nutro-orange'} text-white text-[9px] sm:text-[10px] font-black px-2 py-0.5 rounded-lg shadow-sm">
                 ${p.discountPercent || 20}% OFF
               </span>
             </div>
 
             <div class="p-2.5 sm:p-4 flex-1 flex flex-col justify-between">
               <div>
-                <span class="text-[9px] sm:text-[10px] font-bold text-nutro-emerald uppercase line-clamp-1">${p.category}</span>
-                <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 mt-0.5 line-clamp-2 group-hover:text-nutro-emerald transition leading-snug">
+                <div class="flex items-center justify-between gap-1">
+                  <span class="text-[9px] sm:text-[10px] font-bold text-nutro-emerald uppercase line-clamp-1">${p.category}</span>
+                  ${isOutOfStock ? `<span class="shrink-0 text-[8px] sm:text-[9px] font-black uppercase tracking-wide px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700 border border-rose-200">Unavailable</span>` : ''}
+                </div>
+                <h3 class="font-extrabold text-xs sm:text-sm ${isOutOfStock ? 'text-slate-700' : 'text-slate-900 group-hover:text-nutro-emerald'} mt-0.5 line-clamp-2 transition leading-snug">
                   <a href="product.html?id=${p.id}">${p.name}</a>
                 </h3>
 
@@ -801,14 +813,21 @@
 
               <div class="mt-2.5 sm:mt-4 pt-2 sm:pt-3 border-t border-slate-100 flex items-center justify-between gap-1">
                 <div>
-                  <div class="text-sm sm:text-base font-black text-slate-900">₹${(Array.isArray(p.variants) && p.variants.length > 0) ? p.variants[0].price : p.price}</div>
+                  <div class="text-sm sm:text-base font-black ${isOutOfStock ? 'text-slate-500' : 'text-slate-900'}">₹${(Array.isArray(p.variants) && p.variants.length > 0) ? p.variants[0].price : p.price}</div>
                   <div class="text-[9px] sm:text-[10px] text-slate-400 line-through">₹${(Array.isArray(p.variants) && p.variants.length > 0) ? (p.variants[0].mrp || p.mrp) : (p.mrp || (p.price + 100))}</div>
                 </div>
 
                 <div class="flex items-center space-x-1">
-                  <button onclick="window.shopAddToCart('${p.id}', ${p.price}, '${p.name.replace(/'/g, "\\'")}', '${img}')" class="bg-nutro-forest hover:bg-nutro-dark text-white text-[11px] sm:text-xs font-black px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-sm active:scale-95" title="Add to Bag">
-                    + Add
-                  </button>
+                  ${isOutOfStock ? `
+                    <button type="button" disabled class="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] sm:text-[11px] font-black px-2 sm:px-2.5 py-1.5 rounded-xl cursor-not-allowed flex items-center space-x-1" title="Currently Out of Stock">
+                      <i class="fa-solid fa-ban text-[9px]"></i>
+                      <span>Out of Stock</span>
+                    </button>
+                  ` : `
+                    <button onclick="window.shopAddToCart('${p.id}', ${p.price}, '${p.name.replace(/'/g, "\\'")}', '${img}')" class="bg-nutro-forest hover:bg-nutro-dark text-white text-[11px] sm:text-xs font-black px-2.5 sm:px-3 py-1.5 rounded-xl transition shadow-sm active:scale-95" title="Add to Bag">
+                      + Add
+                    </button>
+                  `}
                 </div>
               </div>
             </div>
@@ -819,6 +838,10 @@
 
     window.shopAddToCart = function(id, price, name, image) {
       const prod = (window.allProducts || []).find(item => item.id === id);
+      if (prod && (prod.inStock === false || String(prod.stockStatus || '').trim().toLowerCase() === 'out of stock')) {
+        alert('This product is currently Out of Stock.');
+        return;
+      }
       const hasVariants = prod && Array.isArray(prod.variants) && prod.variants.length > 0;
       const defaultVar = hasVariants ? prod.variants[0] : null;
       const unitPrice = Number((defaultVar && defaultVar.price) || price);

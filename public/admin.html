@@ -2961,12 +2961,14 @@
         const imgCount = (p.images || []).length;
         const protein = p.nutritionFacts?.per100g?.protein || p.protein || '30g';
         const varCount = Array.isArray(p.variants) ? p.variants.length : 0;
+        const isInStock = (p.inStock !== false) && String(p.stockStatus || 'In Stock').trim().toLowerCase() !== 'out of stock';
+        const safeProdId = String(p.id || '').replace(/'/g, "\\'");
         return `
-          <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+          <tr class="hover:bg-slate-50 transition border-b border-slate-100 ${isInStock ? '' : 'bg-rose-50/40'}">
             <td class="p-3.5">
               <div class="flex items-center space-x-3">
                 <div class="relative flex-shrink-0">
-                  <img src="${img}" alt="${p.name || p.title || "Nutrolix Product"}" class="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-slate-100">
+                  <img src="${img}" alt="${p.name || p.title || "Nutrolix Product"}" class="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-slate-100 ${isInStock ? '' : 'grayscale opacity-70'}">
                   <span class="absolute -top-1.5 -right-1.5 bg-slate-900 text-white text-[9px] font-bold px-1 rounded-full">${imgCount} 📷</span>
                 </div>
                 <div class="max-w-xs">
@@ -2996,24 +2998,73 @@
               </div>
             </td>
             <td class="p-3.5">
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-black ${p.stockStatus === 'In Stock' || !p.stockStatus ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">
-                ● ${p.stockStatus || 'In Stock'}
-              </span>
+              <div class="flex items-center gap-2">
+                <button type="button" role="switch" aria-checked="${isInStock ? 'true' : 'false'}" aria-label="Toggle stock status for ${window.escapeAdminHtml(p.name || p.title || 'Product')}" onclick="window.togglePackagedProductStock('${safeProdId}', this)" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${isInStock ? 'bg-emerald-600' : 'bg-rose-500'}" title="${isInStock ? 'Click to mark Out of Stock' : 'Click to mark In Stock'}">
+                  <span class="pointer-events-none inline-block h-4.5 w-4.5 rounded-full bg-white shadow transform transition duration-200 ${isInStock ? 'translate-x-5' : 'translate-x-0.5'}" style="width:18px;height:18px;"></span>
+                </button>
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap ${isInStock ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800 border border-rose-200'}">
+                  ${isInStock ? 'In Stock' : 'Out of Stock'}
+                </span>
+              </div>
             </td>
             <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
-              <button onclick="window.openAddProductReviewModal('${p.id}')" class="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 font-bold transition text-[11px]" title="Add Review for this Product">
+              <button onclick="window.openAddProductReviewModal('${safeProdId}')" class="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 font-bold transition text-[11px]" title="Add Review for this Product">
                 <i class="fa-solid fa-star text-amber-500"></i> + Review
               </button>
-              <button onclick="window.editPackagedProduct('${p.id}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition">
+              <button onclick="window.editPackagedProduct('${safeProdId}')" class="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold transition">
                 <i class="fa-solid fa-pen-to-square"></i>
               </button>
-              <button onclick="window.deletePackagedProduct('${p.id}')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold transition">
+              <button onclick="window.deletePackagedProduct('${safeProdId}')" class="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold transition">
                 <i class="fa-solid fa-trash-can"></i>
               </button>
             </td>
           </tr>
         `;
       }).join('');
+    };
+
+    window.togglePackagedProductStock = async function(productId, btnEl) {
+      const list = Array.isArray(window.packagedProducts) ? window.packagedProducts : [];
+      const idx = list.findIndex(p => p.id === productId);
+      if (idx < 0) return;
+
+      const prev = { ...list[idx] };
+      const currentlyInStock = (prev.inStock !== false) && String(prev.stockStatus || 'In Stock').trim().toLowerCase() !== 'out of stock';
+      const nextInStock = !currentlyInStock;
+      const nextStockStatus = nextInStock ? 'In Stock' : 'Out of Stock';
+
+      list[idx] = { ...prev, inStock: nextInStock, stockStatus: nextStockStatus };
+      try { localStorage.setItem('nutrolix_products', JSON.stringify(list)); } catch (_) {}
+      window.renderPackagedProductsTable();
+
+      if (btnEl) btnEl.disabled = true;
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/nutrition-products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: productId, inStock: nextInStock, stockStatus: nextStockStatus })
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || (data && data.error)) {
+          throw new Error((data && data.error) || `HTTP ${res.status}`);
+        }
+        if (data && data.product) {
+          list[idx] = { ...list[idx], ...data.product };
+          try { localStorage.setItem('nutrolix_products', JSON.stringify(list)); } catch (_) {}
+          window.renderPackagedProductsTable();
+        }
+        if (typeof window.showAdminNotification === 'function') {
+          window.showAdminNotification(`${nextInStock ? '✓' : '⚠️'} "${prev.name || prev.title || 'Product'}" marked ${nextStockStatus}`);
+        }
+      } catch (err) {
+        list[idx] = prev;
+        try { localStorage.setItem('nutrolix_products', JSON.stringify(list)); } catch (_) {}
+        window.renderPackagedProductsTable();
+        if (typeof window.showAdminNotification === 'function') {
+          window.showAdminNotification('Stock update failed: ' + err.message, 'error');
+        }
+      }
     };
 
     const LEGACY_UNCONFIGURED_VARIANT_IDS = new Set([
@@ -5531,10 +5582,12 @@
           : (m.image || 'assets/aistudio/image_6061bdc8.png');
         const mVarCount = Array.isArray(m.variants) ? m.variants.length : 0;
         const mAddonCount = Array.isArray(m.addons) ? m.addons.length : 0;
+        const mIsInStock = (m.inStock !== false) && String(m.stockStatus || 'In Stock').trim().toLowerCase() !== 'out of stock';
+        const safeMealId = String(m.id || '').replace(/'/g, "\\'");
         return `
-        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+        <tr class="hover:bg-slate-50 transition border-b border-slate-100 ${mIsInStock ? '' : 'bg-rose-50/40'}">
           <td class="p-3.5 flex items-center space-x-3">
-            <img src="${mImg}" alt="${m.name || m.title || "Healthy Meal"}" class="w-12 h-12 rounded-xl object-cover border border-slate-200">
+            <img src="${mImg}" alt="${m.name || m.title || "Healthy Meal"}" class="w-12 h-12 rounded-xl object-cover border border-slate-200 ${mIsInStock ? '' : 'grayscale opacity-70'}">
             <div>
               <span class="font-extrabold text-slate-900 block text-xs">${m.name || m.title || "Healthy Meal"}</span>
               <span class="text-[10px] text-slate-400 block">${m.id}</span>
@@ -5563,24 +5616,73 @@
           </td>
           <td class="p-3.5 text-xs text-slate-500">${m.prepTime || '20 mins'}</td>
           <td class="p-3.5">
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${m.inStock !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}">
-              ${m.inStock !== false ? 'In Stock' : 'Out of Stock'}
-            </span>
+            <div class="flex items-center gap-2">
+              <button type="button" role="switch" aria-checked="${mIsInStock ? 'true' : 'false'}" aria-label="Toggle stock status for ${window.escapeAdminHtml(m.name || m.title || 'Dish')}" onclick="window.toggleHealthyMealStock('${safeMealId}', this)" class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none ${mIsInStock ? 'bg-emerald-600' : 'bg-rose-500'}" title="${mIsInStock ? 'Click to mark Out of Stock' : 'Click to mark In Stock'}">
+                <span class="pointer-events-none inline-block rounded-full bg-white shadow transform transition duration-200 ${mIsInStock ? 'translate-x-5' : 'translate-x-0.5'}" style="width:18px;height:18px;"></span>
+              </button>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-black whitespace-nowrap ${mIsInStock ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800 border border-rose-200'}">
+                ${mIsInStock ? 'In Stock' : 'Out of Stock'}
+              </span>
+            </div>
           </td>
           <td class="p-3.5 text-right space-x-1 whitespace-nowrap">
-            <button onclick="window.openAddProductReviewModal('${m.id}')" class="px-2.5 py-1 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs" title="Add Review for this Dish">
+            <button onclick="window.openAddProductReviewModal('${safeMealId}')" class="px-2.5 py-1 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs" title="Add Review for this Dish">
               ★ Review
             </button>
-            <button onclick="window.editHealthyMeal('${m.id}')" class="px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs">
+            <button onclick="window.editHealthyMeal('${safeMealId}')" class="px-2.5 py-1 rounded-lg border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs">
               Edit
             </button>
-            <button onclick="window.deleteHealthyMeal('${m.id}')" class="px-2.5 py-1 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 font-bold text-xs">
+            <button onclick="window.deleteHealthyMeal('${safeMealId}')" class="px-2.5 py-1 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 font-bold text-xs">
               Delete
             </button>
           </td>
         </tr>
       `;
       }).join('');
+    };
+
+    window.toggleHealthyMealStock = async function(mealId, btnEl) {
+      const list = Array.isArray(window.healthyMeals) ? window.healthyMeals : [];
+      const idx = list.findIndex(m => m.id === mealId);
+      if (idx < 0) return;
+
+      const prev = { ...list[idx] };
+      const currentlyInStock = (prev.inStock !== false) && String(prev.stockStatus || 'In Stock').trim().toLowerCase() !== 'out of stock';
+      const nextInStock = !currentlyInStock;
+      const nextStockStatus = nextInStock ? 'In Stock' : 'Out of Stock';
+
+      list[idx] = { ...prev, inStock: nextInStock, stockStatus: nextStockStatus };
+      try { localStorage.setItem('nutrolix_healthy_food', JSON.stringify(list)); } catch (_) {}
+      window.renderFoodMenuTable();
+
+      if (btnEl) btnEl.disabled = true;
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/food-menu', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: mealId, inStock: nextInStock, stockStatus: nextStockStatus })
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || (data && data.error)) {
+          throw new Error((data && data.error) || `HTTP ${res.status}`);
+        }
+        if (data && Array.isArray(data.meals)) {
+          window.healthyMeals = data.meals;
+          try { localStorage.setItem('nutrolix_healthy_food', JSON.stringify(window.healthyMeals)); } catch (_) {}
+          window.renderFoodMenuTable();
+        }
+        if (typeof window.showAdminNotification === 'function') {
+          window.showAdminNotification(`${nextInStock ? '✓' : '⚠️'} "${prev.name || prev.title || 'Dish'}" marked ${nextStockStatus}`);
+        }
+      } catch (err) {
+        list[idx] = prev;
+        try { localStorage.setItem('nutrolix_healthy_food', JSON.stringify(list)); } catch (_) {}
+        window.renderFoodMenuTable();
+        if (typeof window.showAdminNotification === 'function') {
+          window.showAdminNotification('Stock update failed: ' + err.message, 'error');
+        }
+      }
     };
 
     window.renderMealVariantsEditor = function(variants = []) {

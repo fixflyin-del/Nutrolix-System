@@ -154,7 +154,15 @@
           <div id="mainImageContainer" class="w-full max-w-[460px] mx-auto aspect-square bg-white rounded-3xl border border-slate-200 p-2 sm:p-3 relative overflow-hidden flex items-center justify-center shadow-sm cursor-zoom-in select-none" onclick="window.openImageZoom()">
             <img id="mainProductImage" src="assets/aistudio/image_6061bdc8.png" alt="Nutrolix Functional Nutrition" class="w-full h-full object-cover rounded-2xl transition duration-300">
             
-            <span id="productDiscountBadge" class="absolute top-3 left-3 bg-nutro-orange text-white text-[11px] sm:text-xs font-black px-2.5 py-1 rounded-xl shadow-md">
+            <!-- Out of Stock Highlight Overlay -->
+            <div id="productOutOfStockOverlay" class="hidden absolute inset-2 sm:inset-3 rounded-2xl bg-slate-950/35 backdrop-blur-[1.5px] flex items-center justify-center pointer-events-none z-10">
+              <span class="bg-rose-600/95 text-white text-xs sm:text-sm font-black uppercase tracking-wider px-4 py-2 rounded-2xl shadow-xl border-2 border-white/80 flex items-center gap-2">
+                <i class="fa-solid fa-ban"></i>
+                <span>Out of Stock</span>
+              </span>
+            </div>
+
+            <span id="productDiscountBadge" class="absolute top-3 left-3 bg-nutro-orange text-white text-[11px] sm:text-xs font-black px-2.5 py-1 rounded-xl shadow-md z-20">
               22% OFF
             </span>
 
@@ -182,9 +190,9 @@
         <!-- Right: Product Purchase & Attributes Panel -->
         <div class="lg:col-span-5 space-y-4">
           <div>
-            <div class="flex items-center space-x-2">
+            <div class="flex flex-wrap items-center gap-2">
               <span id="productCategoryBadge" class="text-xs font-bold text-nutro-emerald bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 uppercase tracking-wide">Category</span>
-              <span class="text-xs font-semibold text-emerald-700"><i class="fa-solid fa-circle-check"></i> In Stock & Ready to Dispatch</span>
+              <span id="productStockStatusPill" class="text-xs font-semibold text-emerald-700"><i class="fa-solid fa-circle-check"></i> In Stock & Ready to Dispatch</span>
             </div>
             
             <h1 id="productTitle" class="text-xl sm:text-3xl font-black text-slate-900 mt-2 leading-tight">Product Name</h1>
@@ -225,15 +233,26 @@
             </ul>
           </div>
 
+          <!-- Out of Stock Highlight Notice -->
+          <div id="productOutOfStockBanner" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-3.5 flex items-center gap-3 text-rose-800">
+            <div class="w-9 h-9 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+              <i class="fa-solid fa-circle-exclamation text-base"></i>
+            </div>
+            <div>
+              <div class="text-xs font-black uppercase tracking-wide text-rose-800">Currently Out of Stock</div>
+              <div class="text-[11px] font-medium text-rose-700">This item is temporarily unavailable for ordering. Please check back soon!</div>
+            </div>
+          </div>
+
           <!-- Add to Cart Action Row -->
           <div class="flex items-center space-x-2.5 pt-1">
-            <div class="flex items-center border border-slate-300 rounded-xl bg-white px-2.5 py-2 space-x-2.5 shrink-0">
+            <div id="productQtyStepper" class="flex items-center border border-slate-300 rounded-xl bg-white px-2.5 py-2 space-x-2.5 shrink-0">
               <button onclick="window.changeQuantity(-1)" class="text-sm font-bold text-slate-600 hover:text-slate-950 px-1">-</button>
               <span id="selectedQty" class="text-sm font-black">1</span>
               <button onclick="window.changeQuantity(1)" class="text-sm font-bold text-slate-600 hover:text-slate-950 px-1">+</button>
             </div>
 
-            <button onclick="window.handleAddToCart()" class="flex-1 bg-nutro-forest hover:bg-nutro-dark text-white font-black py-3 rounded-xl transition shadow-lg flex items-center justify-center space-x-2 text-xs sm:text-sm">
+            <button id="productAddToBagBtn" onclick="window.handleAddToCart()" class="flex-1 bg-nutro-forest hover:bg-nutro-dark text-white font-black py-3 rounded-xl transition shadow-lg flex items-center justify-center space-x-2 text-xs sm:text-sm">
               <i class="fa-solid fa-cart-shopping"></i>
               <span>Add to Bag</span>
             </button>
@@ -757,6 +776,47 @@
         else mainImg.src = window.activeProductImages[0];
       }
 
+      // Dynamic Stock Availability Highlight (Admin ON/OFF Out of Stock sync)
+      const isOutOfStock = (p.inStock === false) || String(p.stockStatus || '').trim().toLowerCase() === 'out of stock';
+      const stockOverlay = document.getElementById('productOutOfStockOverlay');
+      const stockPill = document.getElementById('productStockStatusPill');
+      const stockBanner = document.getElementById('productOutOfStockBanner');
+      const qtyStepper = document.getElementById('productQtyStepper');
+      const addBtn = document.getElementById('productAddToBagBtn');
+      const discountBadge = document.getElementById('productDiscountBadge');
+
+      if (stockOverlay) stockOverlay.classList.toggle('hidden', !isOutOfStock);
+      if (stockBanner) stockBanner.classList.toggle('hidden', !isOutOfStock);
+      if (mainImg) {
+        mainImg.classList.toggle('grayscale-[35%]', isOutOfStock);
+        mainImg.classList.toggle('opacity-75', isOutOfStock);
+      }
+      if (discountBadge) {
+        discountBadge.classList.toggle('bg-nutro-orange', !isOutOfStock);
+        discountBadge.classList.toggle('bg-slate-700/90', isOutOfStock);
+      }
+      if (stockPill) {
+        if (isOutOfStock) {
+          stockPill.className = 'inline-flex items-center gap-1 text-xs font-black text-rose-700 bg-rose-50 px-2.5 py-0.5 rounded-full border border-rose-200';
+          stockPill.innerHTML = '<i class="fa-solid fa-ban"></i> Out of Stock • Currently Unavailable';
+        } else {
+          stockPill.className = 'text-xs font-semibold text-emerald-700';
+          stockPill.innerHTML = '<i class="fa-solid fa-circle-check"></i> In Stock & Ready to Dispatch';
+        }
+      }
+      if (qtyStepper) qtyStepper.classList.toggle('hidden', isOutOfStock);
+      if (addBtn) {
+        if (isOutOfStock) {
+          addBtn.disabled = true;
+          addBtn.className = 'flex-1 bg-rose-50 text-rose-700 border-2 border-rose-200 font-black py-3 rounded-xl cursor-not-allowed flex items-center justify-center space-x-2 text-xs sm:text-sm';
+          addBtn.innerHTML = '<i class="fa-solid fa-ban"></i><span>Out of Stock — Currently Unavailable</span>';
+        } else {
+          addBtn.disabled = false;
+          addBtn.className = 'flex-1 bg-nutro-forest hover:bg-nutro-dark text-white font-black py-3 rounded-xl transition shadow-lg flex items-center justify-center space-x-2 text-xs sm:text-sm';
+          addBtn.innerHTML = '<i class="fa-solid fa-cart-shopping"></i><span>Add to Bag</span>';
+        }
+      }
+
       const positionLabels = ['Main Product', 'Packaging', 'Benefits', 'Nutrition', 'Usage'];
       const thumbsContainer = document.getElementById('imageThumbnails');
       if (thumbsContainer) {
@@ -856,11 +916,17 @@
         const relPrice = (Array.isArray(rel.variants) && rel.variants.length > 0) ? rel.variants[0].price : rel.price;
         const relImg = resolveCatImg((rel.images && rel.images[0]) || rel.image || 'assets/aistudio/image_6061bdc8.png');
         const relRevCount = Number.isFinite(Number(rel.reviewCount)) ? Number(rel.reviewCount) : 0;
+        const relOut = (rel.inStock === false) || String(rel.stockStatus || '').trim().toLowerCase() === 'out of stock';
         return `
-        <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-lg transition p-2.5 sm:p-4 flex flex-col justify-between group">
+        <div class="bg-white rounded-2xl border ${relOut ? 'border-rose-200/90 bg-rose-50/15' : 'border-slate-200 hover:border-emerald-500/60'} overflow-hidden hover:shadow-lg transition p-2.5 sm:p-4 flex flex-col justify-between group">
           <div>
-            <a href="/product?id=${encodeURIComponent(rel.id)}" class="block aspect-square overflow-hidden rounded-xl bg-slate-100 mb-2.5 sm:mb-3">
-              <img src="${relImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${escRevHtml(rel.name)}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+            <a href="/product?id=${encodeURIComponent(rel.id)}" class="relative block aspect-square overflow-hidden rounded-xl bg-slate-100 mb-2.5 sm:mb-3">
+              <img src="${relImg}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${escRevHtml(rel.name)}" class="w-full h-full object-cover ${relOut ? 'grayscale-[35%] opacity-75' : 'group-hover:scale-105'} transition duration-300">
+              ${relOut ? `
+                <div class="absolute inset-0 bg-slate-950/35 backdrop-blur-[1px] flex items-center justify-center p-2">
+                  <span class="bg-rose-600/95 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg shadow border border-white/80">Out of Stock</span>
+                </div>
+              ` : ''}
             </a>
             <span class="text-[9px] sm:text-[10px] font-bold text-emerald-700 uppercase line-clamp-1">${escRevHtml(rel.category)}</span>
             <h4 class="font-extrabold text-xs sm:text-sm text-slate-900 mt-0.5 line-clamp-2 leading-snug"><a href="/product?id=${encodeURIComponent(rel.id)}" class="hover:text-emerald-700 transition">${escRevHtml(rel.name)}</a></h4>
@@ -871,8 +937,12 @@
             </div>
           </div>
           <div class="mt-2.5 sm:mt-4 flex items-center justify-between pt-2 sm:pt-3 border-t border-slate-100 gap-1">
-            <span class="font-black text-sm sm:text-base text-slate-900">₹${relPrice}</span>
-            <a href="/product?id=${encodeURIComponent(rel.id)}" class="text-[10px] sm:text-xs font-extrabold bg-nutro-forest hover:bg-nutro-dark text-white px-2.5 sm:px-3 py-1.5 rounded-lg transition">View</a>
+            <span class="font-black text-sm sm:text-base ${relOut ? 'text-slate-500' : 'text-slate-900'}">₹${relPrice}</span>
+            ${relOut ? `
+              <span class="text-[9px] sm:text-[10px] font-black bg-rose-50 text-rose-700 border border-rose-200 px-2 py-1 rounded-lg">Out of Stock</span>
+            ` : `
+              <a href="/product?id=${encodeURIComponent(rel.id)}" class="text-[10px] sm:text-xs font-extrabold bg-nutro-forest hover:bg-nutro-dark text-white px-2.5 sm:px-3 py-1.5 rounded-lg transition">View</a>
+            `}
           </div>
         </div>
       `;
@@ -1197,6 +1267,10 @@
     window.handleAddToCart = function() {
       if (!window.currentProduct) return;
       const p = window.currentProduct;
+      if (p.inStock === false || String(p.stockStatus || '').trim().toLowerCase() === 'out of stock') {
+        alert('This product is currently Out of Stock.');
+        return;
+      }
       const hasVariants = Array.isArray(p.variants) && p.variants.length > 0;
       const v = hasVariants ? (p.variants[window.selectedVariantIndex] || p.variants[0]) : null;
       const unitPrice = Number((v && v.price) || p.price);

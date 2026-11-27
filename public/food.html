@@ -366,17 +366,36 @@
         
         <!-- Main Dish Image with Badges -->
         <div class="relative w-full h-56 sm:h-72 rounded-2xl overflow-hidden bg-slate-100 shadow-inner">
-          <img id="modalDishImage" src="" alt="Dish Image" class="w-full h-full object-cover">
+          <img id="modalDishImage" src="" alt="Dish Image" class="w-full h-full object-cover transition duration-300">
           
+          <!-- Out of Stock Highlight Overlay -->
+          <div id="modalDishOutOfStockOverlay" class="hidden absolute inset-0 bg-slate-950/40 backdrop-blur-[1.5px] flex items-center justify-center pointer-events-none z-10">
+            <span class="bg-rose-600/95 text-white text-xs sm:text-sm font-black uppercase tracking-wider px-4 py-2 rounded-2xl shadow-xl border-2 border-white/80 flex items-center gap-2">
+              <i class="fa-solid fa-ban"></i>
+              <span>Out of Stock</span>
+            </span>
+          </div>
+
           <!-- Veg / Non-Veg Icon -->
-          <div id="modalDishVegBadge" class="absolute top-3 left-3 w-6 h-6 bg-white/95 backdrop-blur-sm rounded-lg flex items-center justify-center shadow-md border">
+          <div id="modalDishVegBadge" class="absolute top-3 left-3 w-6 h-6 bg-white/95 backdrop-blur-sm rounded-lg flex items-center justify-center shadow-md border z-20">
             <div id="modalDishVegDot" class="w-3 h-3 rounded-full"></div>
           </div>
 
           <!-- Macros Pill Overlay -->
-          <span id="modalDishMacroPill" class="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur-sm text-emerald-300 text-xs font-black px-3 py-1 rounded-xl border border-white/10 shadow-lg">
+          <span id="modalDishMacroPill" class="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur-sm text-emerald-300 text-xs font-black px-3 py-1 rounded-xl border border-white/10 shadow-lg z-20">
             34g Protein • 410 kcal
           </span>
+        </div>
+
+        <!-- Out of Stock Notice Banner -->
+        <div id="modalDishOutOfStockBanner" class="hidden bg-rose-50 border border-rose-200 rounded-2xl p-3 flex items-center gap-3 text-rose-800">
+          <div class="w-8 h-8 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+            <i class="fa-solid fa-circle-exclamation"></i>
+          </div>
+          <div>
+            <div class="text-xs font-black uppercase tracking-wide text-rose-800">Currently Out of Stock</div>
+            <div class="text-[11px] font-medium text-rose-700">This dish is temporarily unavailable from our kitchen today.</div>
+          </div>
         </div>
 
         <!-- Title & Price -->
@@ -484,14 +503,14 @@
 
         <div class="flex items-center space-x-3">
           <!-- Stepper -->
-          <div class="flex items-center space-x-2 bg-slate-100 rounded-xl p-1 border border-slate-200 font-black text-xs">
+          <div id="modalDishQtyStepper" class="flex items-center space-x-2 bg-slate-100 rounded-xl p-1 border border-slate-200 font-black text-xs">
             <button onclick="window.stepModalQuantity(-1)" class="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 flex items-center justify-center text-slate-800 transition shadow-sm">-</button>
             <span id="modalQuantityText" class="w-6 text-center text-sm font-black">1</span>
             <button onclick="window.stepModalQuantity(1)" class="w-8 h-8 rounded-lg bg-white hover:bg-slate-200 flex items-center justify-center text-slate-800 transition shadow-sm">+</button>
           </div>
 
           <!-- Add to Cart Button -->
-          <button onclick="window.submitModalAddToCart()" class="bg-nutro-forest hover:bg-nutro-dark text-white font-black text-xs sm:text-sm px-6 py-3 rounded-xl transition shadow-md flex items-center space-x-2 active:scale-95">
+          <button id="modalDishAddToCartBtn" onclick="window.submitModalAddToCart()" class="bg-nutro-forest hover:bg-nutro-dark text-white font-black text-xs sm:text-sm px-6 py-3 rounded-xl transition shadow-md flex items-center space-x-2 active:scale-95">
             <i class="fa-solid fa-bag-shopping text-emerald-400"></i>
             <span>Add to Cart</span>
           </button>
@@ -1210,6 +1229,7 @@
       const mealPrice = Number(m.price || 199);
       const rawMrp = (m.mrp !== undefined && m.mrp !== null && String(m.mrp).trim() !== '') ? Number(m.mrp) : NaN;
       const mealMrp = (Number.isFinite(rawMrp) && rawMrp > mealPrice) ? rawMrp : mealPrice;
+      const isInStock = (m.inStock !== false) && String(m.stockStatus || 'In Stock').trim().toLowerCase() !== 'out of stock';
       return {
         ...m,
         id: m.id || ('meal_' + Math.random().toString(36).substring(2, 8)),
@@ -1219,6 +1239,8 @@
         category: m.category || 'High Protein Meals',
         price: mealPrice,
         mrp: mealMrp,
+        inStock: isInStock,
+        stockStatus: isInStock ? 'In Stock' : 'Out of Stock',
         variants,
         addons,
         highlights,
@@ -1279,20 +1301,30 @@
       container.innerHTML = filtered.map(item => {
         const qty = cart.filter(i => i.id === item.id).reduce((s, i) => s + (i.quantity || 1), 0);
         const hasCustom = (item.variants && item.variants.length > 0) || (item.addons && item.addons.length > 0);
+        const isOutOfStock = (item.inStock === false) || String(item.stockStatus || '').trim().toLowerCase() === 'out of stock';
         const displayPrice = (item.variants && item.variants.length > 0) ? item.variants[0].price : item.price;
         const displayMrp = (item.variants && item.variants.length > 0)
           ? (Number(item.variants[0].mrp) > Number(displayPrice) ? Number(item.variants[0].mrp) : Number(displayPrice))
           : (Number(item.mrp) > Number(displayPrice) ? Number(item.mrp) : Number(displayPrice));
 
         return `
-          <div onclick="window.openFoodDetailModal('${item.id}')" class="cursor-pointer bg-white rounded-2xl border border-slate-200 overflow-hidden hover:border-emerald-500/60 hover:shadow-xl transition flex flex-col justify-between group active:scale-[0.99]">
+          <div onclick="window.openFoodDetailModal('${item.id}')" class="cursor-pointer bg-white rounded-2xl border ${isOutOfStock ? 'border-rose-200/90 bg-rose-50/15' : 'border-slate-200 hover:border-emerald-500/60'} overflow-hidden hover:shadow-xl transition flex flex-col justify-between group active:scale-[0.99]">
             
             <!-- Dish Image & Dietary Icon (Click opens detail modal) -->
             <div class="relative aspect-square overflow-hidden bg-slate-100">
-              <img src="${item.image}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${item.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              <img src="${item.image}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${item.name}" class="w-full h-full object-cover ${isOutOfStock ? 'grayscale-[35%] opacity-75' : 'group-hover:scale-105'} transition duration-300">
               
+              ${isOutOfStock ? `
+                <div class="absolute inset-0 bg-slate-950/35 backdrop-blur-[1px] flex items-center justify-center pointer-events-none p-2 z-10">
+                  <span class="bg-rose-600/95 text-white text-[10px] sm:text-xs font-black uppercase tracking-wider px-3 py-1.5 rounded-xl shadow-lg border border-white/80 flex items-center gap-1.5">
+                    <i class="fa-solid fa-ban text-[10px]"></i>
+                    <span>Out of Stock</span>
+                  </span>
+                </div>
+              ` : ''}
+
               <!-- Veg / Non-Veg Indicator -->
-              <div class="absolute top-2.5 left-2.5 w-5 h-5 bg-white/95 rounded-md flex items-center justify-center shadow-sm border ${item.isVeg ? 'border-emerald-600' : 'border-rose-600'}">
+              <div class="absolute top-2.5 left-2.5 w-5 h-5 bg-white/95 rounded-md flex items-center justify-center shadow-sm border ${item.isVeg ? 'border-emerald-600' : 'border-rose-600'} z-20">
                 <div class="w-2.5 h-2.5 rounded-full ${item.isVeg ? 'bg-emerald-600' : 'bg-rose-600'}"></div>
               </div>
 
@@ -1300,12 +1332,12 @@
               ${(() => {
                 const macroText = [item.protein, item.calories].filter(Boolean).join(' • ');
                 return macroText
-                  ? `<span class="absolute bottom-2 left-2 bg-slate-900/90 backdrop-blur-sm text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-lg border border-white/10">${macroText}</span>`
+                  ? `<span class="absolute bottom-2 left-2 bg-slate-900/90 backdrop-blur-sm text-emerald-300 text-[10px] font-black px-2 py-0.5 rounded-lg border border-white/10 z-20">${macroText}</span>`
                   : '';
               })()}
 
               <!-- Tap to view details hint -->
-              <span class="absolute top-2.5 right-2.5 bg-white/90 backdrop-blur-sm text-slate-700 text-[9px] font-black px-2 py-0.5 rounded-md shadow-sm">
+              <span class="absolute top-2.5 right-2.5 bg-white/90 backdrop-blur-sm text-slate-700 text-[9px] font-black px-2 py-0.5 rounded-md shadow-sm z-20">
                 View Details
               </span>
             </div>
@@ -1313,27 +1345,38 @@
             <!-- Dish Info & Actions -->
             <div class="p-3 flex-1 flex flex-col justify-between">
               <div>
-                <h3 class="font-extrabold text-xs sm:text-sm text-slate-900 leading-snug line-clamp-2">
+                <h3 class="font-extrabold text-xs sm:text-sm ${isOutOfStock ? 'text-slate-700' : 'text-slate-900'} leading-snug line-clamp-2">
                   ${item.name}
                 </h3>
                 <p class="text-[11px] text-slate-500 mt-1 line-clamp-2">
                   ${item.description}
                 </p>
-                ${hasCustom ? `<span class="inline-block mt-1.5 text-[9px] font-extrabold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">Customizable</span>` : ''}
+                <div class="flex flex-wrap items-center gap-1 mt-1.5">
+                  ${isOutOfStock ? `<span class="inline-block text-[9px] font-black uppercase tracking-wide text-rose-700 bg-rose-100 border border-rose-200 px-1.5 py-0.5 rounded-md">Out of Stock</span>` : ''}
+                  ${hasCustom ? `<span class="inline-block text-[9px] font-extrabold text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md">Customizable</span>` : ''}
+                </div>
               </div>
 
               <!-- Price & Plus/Add Stepper -->
-              <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between" onclick="event.stopPropagation()">
+              <div class="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between gap-1.5" onclick="event.stopPropagation()">
                 <div>
                   <div class="flex items-baseline space-x-1.5">
-                    <span class="text-sm sm:text-base font-black text-slate-900">₹${displayPrice}</span>
+                    <span class="text-sm sm:text-base font-black ${isOutOfStock ? 'text-slate-500' : 'text-slate-900'}">₹${displayPrice}</span>
                     ${displayMrp > displayPrice ? `<span class="text-[11px] font-bold text-slate-400 line-through">₹${displayMrp}</span>` : ''}
                   </div>
-                  <span class="text-[9px] text-slate-400 block -mt-0.5">Kitchen Fresh</span>
+                  <span class="text-[9px] ${isOutOfStock ? 'text-rose-600 font-bold' : 'text-slate-400'} block -mt-0.5">${isOutOfStock ? 'Unavailable' : 'Kitchen Fresh'}</span>
                 </div>
 
                 <div id="cartActionBox-${item.id}">
-                  ${qty > 0 ? `
+                  ${isOutOfStock ? `
+                    <div class="flex items-center space-x-1">
+                      <button type="button" disabled class="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] sm:text-[11px] font-black px-2.5 py-1.5 rounded-xl cursor-not-allowed flex items-center space-x-1">
+                        <i class="fa-solid fa-ban text-[9px]"></i>
+                        <span>Out of Stock</span>
+                      </button>
+                      ${qty > 0 ? `<button onclick="changeFoodQuantity('${item.id}', -1)" title="Remove from cart" class="w-7 h-7 rounded-lg bg-rose-100 hover:bg-rose-200 text-rose-700 flex items-center justify-center text-[10px] font-black transition"><i class="fa-solid fa-trash"></i></button>` : ''}
+                    </div>
+                  ` : (qty > 0 ? `
                     <div class="flex items-center space-x-1.5 bg-nutro-forest text-white rounded-xl px-2 py-1 shadow-sm text-xs font-black">
                       <button onclick="changeFoodQuantity('${item.id}', -1)" class="w-6 h-6 flex items-center justify-center hover:bg-emerald-800 rounded-lg transition">-</button>
                       <span class="px-1">${qty}</span>
@@ -1344,7 +1387,7 @@
                       <i class="fa-solid fa-plus text-[10px]"></i>
                       <span>Add</span>
                     </button>
-                  `}
+                  `)}
                 </div>
               </div>
             </div>
@@ -1690,6 +1733,32 @@
 
       updateModalPriceAndQty();
 
+      // Apply Out of Stock visual highlight & disable ordering inside modal
+      const isDishOutOfStock = (dish.inStock === false) || String(dish.stockStatus || '').trim().toLowerCase() === 'out of stock';
+      const modalImgEl = document.getElementById('modalDishImage');
+      const modalOosOverlay = document.getElementById('modalDishOutOfStockOverlay');
+      const modalOosBanner = document.getElementById('modalDishOutOfStockBanner');
+      const modalStepperEl = document.getElementById('modalDishQtyStepper');
+      const modalAddBtnEl = document.getElementById('modalDishAddToCartBtn');
+      if (modalImgEl) {
+        modalImgEl.classList.toggle('grayscale-[35%]', isDishOutOfStock);
+        modalImgEl.classList.toggle('opacity-75', isDishOutOfStock);
+      }
+      if (modalOosOverlay) modalOosOverlay.classList.toggle('hidden', !isDishOutOfStock);
+      if (modalOosBanner) modalOosBanner.classList.toggle('hidden', !isDishOutOfStock);
+      if (modalStepperEl) modalStepperEl.classList.toggle('hidden', isDishOutOfStock);
+      if (modalAddBtnEl) {
+        if (isDishOutOfStock) {
+          modalAddBtnEl.disabled = true;
+          modalAddBtnEl.className = 'bg-rose-50 text-rose-700 border-2 border-rose-200 font-black text-xs sm:text-sm px-5 py-3 rounded-xl cursor-not-allowed flex items-center space-x-2';
+          modalAddBtnEl.innerHTML = '<i class="fa-solid fa-ban"></i><span>Out of Stock</span>';
+        } else {
+          modalAddBtnEl.disabled = false;
+          modalAddBtnEl.className = 'bg-nutro-forest hover:bg-nutro-dark text-white font-black text-xs sm:text-sm px-6 py-3 rounded-xl transition shadow-md flex items-center space-x-2 active:scale-95';
+          modalAddBtnEl.innerHTML = '<i class="fa-solid fa-bag-shopping text-emerald-400"></i><span>Add to Cart</span>';
+        }
+      }
+
       // Show Modal
       document.getElementById('foodDishDetailModal').classList.remove('hidden');
       if (window.NutrolixBackHandler) {
@@ -1747,6 +1816,10 @@
 
     window.submitModalAddToCart = function() {
       if (!currentSelectedModalDish) return;
+      if (currentSelectedModalDish.inStock === false || String(currentSelectedModalDish.stockStatus || '').trim().toLowerCase() === 'out of stock') {
+        alert('This dish is currently Out of Stock.');
+        return;
+      }
 
       const { basePrice, addonsTotal, unitTotal, unitMrp, variantLabel, selectedAddons } = getModalUnitPricing();
       const addonKey = selectedAddons.map(a => a.name).sort().join('|');
@@ -1795,6 +1868,12 @@
     function changeFoodQuantity(id, delta) {
       const foodItem = getLiveHealthyFoodMenu().find(i => i.id === id);
       if (!foodItem) return;
+
+      const isOutOfStock = (foodItem.inStock === false) || String(foodItem.stockStatus || '').trim().toLowerCase() === 'out of stock';
+      if (delta > 0 && isOutOfStock) {
+        alert('This dish is currently Out of Stock.');
+        return;
+      }
 
       const hasCustom = (foodItem.variants && foodItem.variants.length > 0) || (foodItem.addons && foodItem.addons.length > 0);
       if (delta > 0 && hasCustom) {
@@ -1921,14 +2000,19 @@
       container.innerHTML = results.map(dish => {
         const qty = cart.filter(c => c.id === dish.id).reduce((s, c) => s + (c.quantity || 1), 0);
         const hasCustom = (dish.variants && dish.variants.length > 0) || (dish.addons && dish.addons.length > 0);
+        const isOutOfStock = (dish.inStock === false) || String(dish.stockStatus || '').trim().toLowerCase() === 'out of stock';
         return `
-          <div class="flex items-center justify-between p-2.5 bg-slate-50 hover:bg-emerald-50/50 rounded-2xl border border-slate-200 transition">
+          <div class="flex items-center justify-between p-2.5 ${isOutOfStock ? 'bg-rose-50/40 border-rose-200' : 'bg-slate-50 hover:bg-emerald-50/50 border-slate-200'} rounded-2xl border transition">
             <div class="flex items-center space-x-3 cursor-pointer flex-1 min-w-0" onclick="window.closeFoodSearchModal(); window.openFoodDetailModal('${dish.id}')">
-              <img src="${dish.image}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${dish.name}" class="w-14 h-14 rounded-xl object-cover shrink-0 shadow-sm">
+              <div class="relative w-14 h-14 rounded-xl overflow-hidden shrink-0 shadow-sm bg-slate-100">
+                <img src="${dish.image}" onerror="window.nutrolixFallbackOnError && window.nutrolixFallbackOnError(this)" alt="${dish.name}" class="w-full h-full object-cover ${isOutOfStock ? 'grayscale-[40%] opacity-75' : ''}">
+                ${isOutOfStock ? `<div class="absolute inset-0 bg-slate-950/35 flex items-center justify-center"><span class="bg-rose-600 text-white text-[7px] font-black uppercase px-1 py-0.5 rounded">Out</span></div>` : ''}
+              </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-center space-x-1.5 mb-0.5">
                   <span class="w-2.5 h-2.5 rounded-full ${dish.isVeg ? 'bg-emerald-600' : 'bg-red-600'} shrink-0"></span>
                   <span class="text-[9px] font-bold text-emerald-800 uppercase tracking-wider truncate">${dish.category}</span>
+                  ${isOutOfStock ? `<span class="text-[8px] font-black uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-700 border border-rose-200 shrink-0">Out of Stock</span>` : ''}
                 </div>
                 <h4 class="text-xs font-black text-slate-900 truncate">${dish.name}</h4>
                 ${(dish.protein || dish.calories) ? `
@@ -1940,8 +2024,12 @@
               </div>
             </div>
             <div class="flex flex-col items-end shrink-0 ml-3">
-              <span class="text-xs font-black text-slate-900 mb-1">₹${dish.price}</span>
-              ${qty > 0 ? `
+              <span class="text-xs font-black ${isOutOfStock ? 'text-slate-500' : 'text-slate-900'} mb-1">₹${dish.price}</span>
+              ${isOutOfStock ? `
+                <button type="button" disabled class="px-2.5 py-1 bg-rose-50 text-rose-700 border border-rose-200 rounded-lg text-[10px] font-black cursor-not-allowed">
+                  Out of Stock
+                </button>
+              ` : (qty > 0 ? `
                 <div class="flex items-center space-x-1.5 bg-nutro-forest text-white rounded-lg p-0.5 px-1.5 text-xs font-black">
                   <button onclick="window.changeFoodQuantity('${dish.id}', -1); window.handleFoodSearch(document.getElementById('foodSearchInput').value);" class="w-5 h-5 flex items-center justify-center hover:bg-white/20 rounded">-</button>
                   <span class="w-4 text-center">${qty}</span>
@@ -1951,7 +2039,7 @@
                 <button onclick="${hasCustom ? `window.closeFoodSearchModal(); window.openFoodDetailModal('${dish.id}')` : `window.changeFoodQuantity('${dish.id}', 1); window.handleFoodSearch(document.getElementById('foodSearchInput').value);`}" class="px-3 py-1 bg-nutro-forest hover:bg-nutro-dark text-white rounded-lg text-xs font-black shadow-sm transition active:scale-95">
                   + Add
                 </button>
-              `}
+              `)}
             </div>
           </div>
         `;
