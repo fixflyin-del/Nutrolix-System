@@ -573,22 +573,46 @@ function isCountableCompletedOrActiveOrder(order) {
   return true;
 }
 
+function isFirstOrderCouponCodeOrTitle(code, title = '') {
+  const cleanCode = String(code || '').trim().toUpperCase();
+  const cleanTitle = String(title || '').trim();
+  if (/(^FIRST([_-]?(ORDER|TIME|BUY|PURCHASE|\d+))?$)|FIRST[_-]?ORDER|FIRST[_-]?TIME/i.test(cleanCode)) {
+    return true;
+  }
+  if (/\bfirst[\s_-]*order\b/i.test(cleanTitle)) {
+    return true;
+  }
+  return false;
+}
+
 async function countCustomerPriorOrders({ phone = '', email = '', uid = '', excludeOrderId = '' } = {}) {
   const cleanPhone = normalizePhone(phone);
   const cleanEmail = normalizeEmail(email);
-  const cleanUid = nutrolixCore.canonicalCustomerUid(cleanPhone) || String(uid || '').trim();
+  const rawUid = String(uid || '').trim();
+  const canonicalUid = nutrolixCore.canonicalCustomerUid(cleanPhone) || '';
+  const candidateUids = Array.from(new Set([rawUid, canonicalUid].filter(Boolean)));
+  const phoneVariants = cleanPhone
+    ? Array.from(new Set([cleanPhone, `+91${cleanPhone}`, `91${cleanPhone}`, `+91 ${cleanPhone}`]))
+    : [];
   const seenIds = new Set();
+
+  if (!cleanPhone && !cleanEmail && candidateUids.length === 0) {
+    return { count: 0, hasPriorOrders: false };
+  }
 
   const registerIfMatch = (o) => {
     if (!o || !isCountableCompletedOrActiveOrder(o)) return;
     const oid = String(o.orderId || o.id || o._docId || '').trim();
     if (!oid || (excludeOrderId && oid === excludeOrderId)) return;
-    const oPhone = customerSync.extractOrderPhone(o);
+    const oPhonePrimary = customerSync.extractOrderPhone(o);
+    const oPhoneDelivery = normalizePhone(
+      o.deliveryPhone || (o.deliveryAddress && (o.deliveryAddress.phone || o.deliveryAddress.recipientPhone || o.deliveryAddress.whatsappNumber)) || ''
+    );
     const oEmail = customerSync.extractOrderEmail(o);
     const oUid = String(o.uid || '').trim();
     const matched =
-      (cleanPhone && oPhone && oPhone === cleanPhone) ||
-      (cleanUid && oUid && oUid === cleanUid) ||
+      (cleanPhone && ((oPhonePrimary && oPhonePrimary === cleanPhone) || (oPhoneDelivery && oPhoneDelivery === cleanPhone))) ||
+      (candidateUids.length > 0 && oUid && candidateUids.includes(oUid)) ||
       (cleanEmail && oEmail && oEmail === cleanEmail);
     if (matched) seenIds.add(oid);
   };
@@ -600,31 +624,34 @@ async function countCustomerPriorOrders({ phone = '', email = '', uid = '', excl
     if (Array.isArray(localOrders)) localOrders.forEach(registerIfMatch);
   } catch (_) {}
 
-  // 2. Check both Firestore databases authoritatively by phone / uid / email
+  // 2. Check both Firestore databases authoritatively by all phone variants, all candidate UIDs, email, and users/{uid}/orders
   const queries = [];
-  if (cleanPhone) {
-    for (const fieldPath of ['customerPhone', 'verifiedPhone']) {
+  if (phoneVariants.length > 0) {
+    const arrayVal = { values: phoneVariants.map((v) => ({ stringValue: v })) };
+    for (const fieldPath of ['customerPhone', 'verifiedPhone', 'whatsappNumber', 'deliveryPhone', 'customer.phone', 'customer.verifiedPhone']) {
       queries.push({
         from: [{ collectionId: 'orders' }],
         where: {
           fieldFilter: {
             field: { fieldPath },
-            op: 'EQUAL',
-            value: { stringValue: cleanPhone }
+            op: 'IN',
+            value: { arrayValue: arrayVal }
           }
         },
         limit: 20
       });
     }
   }
-  if (cleanUid) {
+  if (candidateUids.length > 0) {
     queries.push({
       from: [{ collectionId: 'orders' }],
       where: {
         fieldFilter: {
           field: { fieldPath: 'uid' },
-          op: 'EQUAL',
-          value: { stringValue: cleanUid }
+          op: candidateUids.length > 1 ? 'IN' : 'EQUAL',
+          value: candidateUids.length > 1
+            ? { arrayValue: { values: candidateUids.map((u) => ({ stringValue: u })) } }
+            : { stringValue: candidateUids[0] }
         }
       },
       limit: 20
@@ -644,12 +671,19 @@ async function countCustomerPriorOrders({ phone = '', email = '', uid = '', excl
     });
   }
 
-  if (queries.length > 0) {
+  if (queries.length > 0 || candidateUids.length > 0) {
     try {
       const tasks = [];
       for (const dbId of nutrolixCore.BOTH_DB_IDS) {
         for (const q of queries) {
           tasks.push(nutrolixCore.firestoreRunQuery(q, '', dbId).catch(() => []));
+        }
+        for (const u of candidateUids) {
+          tasks.push(
+            nutrolixCore.firestoreListAllDocuments(`users/${u}/orders`, dbId, 50)
+              .then((res) => (res && Array.isArray(res.docs) ? res.docs : []))
+              .catch(() => [])
+          );
         }
       }
       const results = await Promise.all(tasks);
@@ -659,12 +693,12 @@ async function countCustomerPriorOrders({ phone = '', email = '', uid = '', excl
     } catch (_) {}
   }
 
-  // 3. Fallback scan if phone-matched docs were stored under nested customer.phone only
-  if (seenIds.size === 0 && (cleanPhone || cleanEmail || cleanUid)) {
+  // 3. Fallback scan if order phone was stored in a non-indexed nested format (e.g. formatted with spaces/dashes)
+  if (seenIds.size === 0 && (cleanPhone || cleanEmail || candidateUids.length > 0)) {
     try {
       const [defRes, namedRes] = await Promise.all([
-        nutrolixCore.firestoreListAllDocuments('orders', nutrolixCore.DEFAULT_DB_ID, 400),
-        nutrolixCore.firestoreListAllDocuments('orders', nutrolixCore.NAMED_DB_ID, 400)
+        nutrolixCore.firestoreListAllDocuments('orders', nutrolixCore.DEFAULT_DB_ID, 1500),
+        nutrolixCore.firestoreListAllDocuments('orders', nutrolixCore.NAMED_DB_ID, 1500)
       ]);
       for (const doc of [...(defRes.docs || []), ...(namedRes.docs || [])]) {
         registerIfMatch(doc);
@@ -687,16 +721,18 @@ function normalizeStoreCouponRecord(c) {
   const minOrder = Math.max(0, Number(c.minOrder || 0) || 0);
   const maxDiscount = Math.max(0, Number(c.maxDiscount || 0) || 0);
   const active = c.active !== false && String(c.status || '').toLowerCase() !== 'inactive';
+  const title = String(c.title || (type === 'flat' ? `Flat ₹${value} OFF` : `${value}% OFF`)).trim();
+  const firstOrderOnly = Boolean(c.firstOrderOnly || c.first_order_only || isFirstOrderCouponCodeOrTitle(code, title));
   return {
     code,
-    title: String(c.title || (type === 'flat' ? `Flat ₹${value} OFF` : `${value}% OFF`)).trim(),
+    title,
     type,
     value,
     discountPercent: type === 'percentage' ? value : 0,
     minOrder,
     maxDiscount,
-    firstOrderOnly: Boolean(c.firstOrderOnly),
-    appOnly: Boolean(c.appOnly),
+    firstOrderOnly,
+    appOnly: Boolean(c.appOnly || code === 'APP10'),
     active,
     status: active ? 'Active' : 'Inactive'
   };
@@ -731,9 +767,22 @@ async function getAuthoritativeAdminCoupons() {
   return normalized;
 }
 
+function computeSingleCouponDiscount(coupon, subtotal) {
+  if (!coupon || subtotal <= 0) return 0;
+  if (coupon.type === 'flat') {
+    return Math.min(subtotal, Math.max(0, Math.round(Number(coupon.value || 0))));
+  }
+  let pctDisc = Math.round((subtotal * Number(coupon.value || 0)) / 100);
+  if (Number(coupon.maxDiscount || 0) > 0) {
+    pctDisc = Math.min(pctDisc, Math.round(Number(coupon.maxDiscount)));
+  }
+  return Math.min(subtotal, Math.max(0, pctDisc));
+}
+
 async function validateAndCalculateOrderPricing({
   items = [],
   couponCode = '',
+  additionalCouponCode = '',
   customerPhone = '',
   customerEmail = '',
   uid = '',
@@ -761,21 +810,55 @@ async function validateAndCalculateOrderPricing({
   }
   subtotal = Math.max(0, Math.round(subtotal * 100) / 100);
 
-  const rawCode = String(couponCode || '').trim().toUpperCase();
-  const isLegacyAutoCode = LEGACY_REMOVED_AUTO_CODES.has(rawCode);
   const srcLower = String(orderSource || platform || '').trim().toLowerCase();
   const isAppOrder = srcLower === 'app' || srcLower.includes('android') || srcLower.includes('apk') || srcLower.includes('mobile_app');
 
-  let appliedCoupon = null;
-  let couponDiscount = 0;
+  // Parse single or stacked coupon inputs (e.g., "BIG15", "APP10", "APP10 + BIG15", "APP10,BIG15")
+  const rawTokens = [
+    ...String(couponCode || '').split(/[+,]/),
+    ...String(additionalCouponCode || '').split(/[+,]/)
+  ]
+    .map((t) => String(t || '').trim().toUpperCase())
+    .filter(Boolean);
+  const uniqueTokens = Array.from(new Set(rawTokens));
+  const isLegacyAutoCode = uniqueTokens.some((t) => LEGACY_REMOVED_AUTO_CODES.has(t));
+  const explicitApp10Requested = uniqueTokens.includes('APP10');
+  const extraTokens = uniqueTokens.filter((t) => t !== 'APP10' && !LEGACY_REMOVED_AUTO_CODES.has(t));
+
+  let appCoupon = null;
+  let appDiscount = 0;
+  let promoCoupon = null;
+  let promoDiscount = 0;
   let couponValid = true;
   let couponError = '';
 
-  if (rawCode && !isLegacyAutoCode) {
-    const match = adminCoupons.find((c) => c.code === rawCode && c.active !== false);
+  // 1. Always-on APP10 inside the Nutrolix Customer Android App (never applied on Website)
+  if (explicitApp10Requested && !isAppOrder) {
+    couponValid = false;
+    couponError = 'Coupon "APP10" is valid only on the Nutrolix Android App.';
+  } else if (isAppOrder && subtotal > 0) {
+    const app10Match = adminCoupons.find((c) => c.code === 'APP10' && c.active !== false);
+    if (app10Match && (app10Match.minOrder <= 0 || subtotal >= app10Match.minOrder)) {
+      appCoupon = app10Match;
+      appDiscount = computeSingleCouponDiscount(app10Match, subtotal);
+    } else if (explicitApp10Requested) {
+      couponValid = false;
+      couponError = !app10Match
+        ? 'Coupon "APP10" is invalid or no longer active.'
+        : `Coupon "APP10" requires a minimum order value of ₹${app10Match.minOrder}.`;
+    }
+  }
+
+  // 2. Optional Additional Admin Coupon (stackable with APP10 in Android App, standalone on Website)
+  if (couponValid && extraTokens.length > 1) {
+    couponValid = false;
+    couponError = 'Only one additional promotional coupon can be applied per order.';
+  } else if (couponValid && extraTokens.length === 1) {
+    const extraCode = extraTokens[0];
+    const match = adminCoupons.find((c) => c.code === extraCode && c.active !== false);
     if (!match) {
       couponValid = false;
-      couponError = `Coupon "${rawCode}" is invalid or no longer active.`;
+      couponError = `Coupon "${extraCode}" is invalid or no longer active.`;
     } else if (match.appOnly && !isAppOrder) {
       couponValid = false;
       couponError = `Coupon "${match.code}" is valid only on the Nutrolix Android App.`;
@@ -783,44 +866,55 @@ async function validateAndCalculateOrderPricing({
       couponValid = false;
       couponError = `Coupon "${match.code}" requires a minimum order value of ₹${match.minOrder}.`;
     } else if (match.firstOrderOnly) {
-      const prior = await countCustomerPriorOrders({
-        phone: customerPhone,
-        email: customerEmail,
-        uid,
-        excludeOrderId
-      });
-      if (prior.hasPriorOrders) {
+      const hasIdentity = Boolean(normalizePhone(customerPhone) || normalizeEmail(customerEmail) || String(uid || '').trim());
+      if (!hasIdentity) {
         couponValid = false;
-        couponError = `Coupon "${match.code}" is valid only on your first order.`;
+        couponError = `Please log in with your mobile number to verify and apply "${match.code}".`;
+      } else {
+        const prior = await countCustomerPriorOrders({
+          phone: customerPhone,
+          email: customerEmail,
+          uid,
+          excludeOrderId
+        });
+        if (prior.hasPriorOrders) {
+          couponValid = false;
+          couponError = `Coupon "${match.code}" is valid only on your first order.`;
+        }
       }
     }
 
     if (couponValid && match) {
-      if (match.type === 'flat') {
-        couponDiscount = Math.min(subtotal, Math.max(0, Math.round(match.value)));
-      } else {
-        let pctDisc = Math.round((subtotal * match.value) / 100);
-        if (match.maxDiscount > 0) pctDisc = Math.min(pctDisc, Math.round(match.maxDiscount));
-        couponDiscount = Math.min(subtotal, Math.max(0, pctDisc));
-      }
-      appliedCoupon = match;
+      promoCoupon = match;
+      promoDiscount = computeSingleCouponDiscount(match, subtotal);
     }
   }
+
+  // Cap combined discount at subtotal so grandTotal never drops below 0
+  const totalDiscount = Math.min(subtotal, Math.max(0, appDiscount + promoDiscount));
+  const clampedPromoDiscount = Math.max(0, totalDiscount - appDiscount);
+  const appliedCoupons = [appCoupon ? appCoupon.code : null, promoCoupon ? promoCoupon.code : null].filter(Boolean);
+  const combinedCouponCode = appliedCoupons.length > 0 ? appliedCoupons.join(' + ') : null;
 
   const freeThreshold = Number(settings.freeDeliveryThreshold || settings.freeDeliveryAbove || 499);
   const deliveryFee = Number(settings.deliveryFee !== undefined ? settings.deliveryFee : 49);
   const shipping = (subtotal <= 0 || subtotal >= freeThreshold) ? 0 : deliveryFee;
-  const grandTotal = Math.max(0, Math.round((subtotal - couponDiscount + shipping) * 100) / 100);
+  const grandTotal = Math.max(0, Math.round((subtotal - totalDiscount + shipping) * 100) / 100);
 
   return {
     subtotal,
-    discount: couponDiscount,
+    discount: totalDiscount,
+    appDiscount,
+    promoDiscount: clampedPromoDiscount,
     foodDiscount: 0,
     foodOfferType: null,
     shipping,
     grandTotal,
-    couponCode: appliedCoupon ? appliedCoupon.code : null,
-    appliedCoupon,
+    couponCode: combinedCouponCode,
+    appliedCoupon: promoCoupon || appCoupon || null,
+    appCoupon,
+    promoCoupon,
+    appliedCoupons,
     couponValid,
     couponError,
     isLegacyAutoCode
@@ -3441,6 +3535,7 @@ const server = http.createServer(async (req, res) => {
           const pricing = await validateAndCalculateOrderPricing({
             items: order.items,
             couponCode: order.couponCode || '',
+            additionalCouponCode: rawPayload.additionalCouponCode || '',
             customerPhone: order.customerPhone,
             customerEmail: order.customerEmail,
             uid: order.uid,
@@ -3467,9 +3562,12 @@ const server = http.createServer(async (req, res) => {
           if (pricing.subtotal > 0) {
             order.subtotal = pricing.subtotal;
             order.discount = pricing.discount;
+            order.appDiscount = pricing.appDiscount;
+            order.promoDiscount = pricing.promoDiscount;
             order.foodDiscount = 0;
             order.foodOfferType = null;
             order.couponCode = pricing.couponCode;
+            order.appliedCoupons = pricing.appliedCoupons;
             order.shipping = pricing.shipping;
             order.grandTotal = pricing.grandTotal;
             order.total = pricing.grandTotal;
@@ -3776,6 +3874,54 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Authoritative Server-Side Customer First-Order Coupon Eligibility Check
+  if (reqPath === '/api/coupons/customer-eligibility' && (req.method === 'POST' || req.method === 'GET')) {
+    const runEligibilityCheck = async (params) => {
+      try {
+        const phone = params.customerPhone || params.phone || '';
+        const email = params.customerEmail || params.email || '';
+        const uidVal = params.uid || '';
+        const hasIdentity = Boolean(normalizePhone(phone) || normalizeEmail(email) || String(uidVal || '').trim());
+        if (!hasIdentity) {
+          res.writeHead(200, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({
+            checked: false,
+            loggedIn: false,
+            hasPriorOrders: false,
+            priorOrderCount: 0,
+            eligibleForFirstOrderCoupon: true
+          }));
+          return;
+        }
+        const prior = await countCustomerPriorOrders({ phone, email, uid: uidVal });
+        res.writeHead(200, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({
+          checked: true,
+          loggedIn: true,
+          hasPriorOrders: Boolean(prior.hasPriorOrders),
+          priorOrderCount: Number(prior.count || 0),
+          eligibleForFirstOrderCoupon: !prior.hasPriorOrders
+        }));
+      } catch (err) {
+        res.writeHead(500, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ checked: false, error: err.message || 'Eligibility check failed.' }));
+      }
+    };
+    if (req.method === 'GET') {
+      const q = parsedUrl.query || {};
+      await runEligibilityCheck(q);
+      return;
+    }
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', async () => {
+      let payload = {};
+      try { payload = JSON.parse(body || '{}'); } catch (_) { payload = {}; }
+      await runEligibilityCheck(payload);
+    });
+    return;
+  }
+
   // Authoritative Server-Side Coupon Validation API (Admin-Created Coupons Only)
   if (reqPath === '/api/coupons/validate' && req.method === 'POST') {
     let body = '';
@@ -3783,21 +3929,34 @@ const server = http.createServer(async (req, res) => {
     req.on('end', async () => {
       try {
         const payload = JSON.parse(body || '{}');
+        const requestedCode = String(payload.couponCode || payload.code || '').trim().toUpperCase();
         const pricing = await validateAndCalculateOrderPricing({
           items: Array.isArray(payload.items) ? payload.items : [],
-          couponCode: payload.couponCode || payload.code || '',
+          couponCode: requestedCode,
+          additionalCouponCode: payload.additionalCouponCode || '',
           customerPhone: payload.customerPhone || payload.phone || '',
           customerEmail: payload.customerEmail || payload.email || '',
           uid: payload.uid || '',
           orderSource: payload.orderSource || '',
           platform: payload.platform || ''
         });
+        const matchedTargetCoupon = requestedCode === 'APP10'
+          ? pricing.appCoupon
+          : (requestedCode ? pricing.promoCoupon : (pricing.promoCoupon || pricing.appCoupon));
+        const isValid = Boolean(pricing.couponValid && !pricing.isLegacyAutoCode && matchedTargetCoupon);
         res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({
-          valid: Boolean(pricing.couponValid && pricing.appliedCoupon),
-          error: pricing.couponError || (pricing.isLegacyAutoCode ? 'This promotional offer is no longer active.' : (!pricing.appliedCoupon ? 'Invalid or expired coupon code.' : '')),
-          coupon: pricing.appliedCoupon || null,
-          discount: pricing.discount,
+          valid: isValid,
+          error: pricing.couponError || (pricing.isLegacyAutoCode ? 'This promotional offer is no longer active.' : (!matchedTargetCoupon ? 'Invalid or expired coupon code.' : '')),
+          coupon: matchedTargetCoupon || null,
+          appCoupon: pricing.appCoupon || null,
+          promoCoupon: pricing.promoCoupon || null,
+          appliedCoupons: pricing.appliedCoupons || [],
+          couponCode: pricing.couponCode || null,
+          discount: requestedCode === 'APP10' ? pricing.appDiscount : (requestedCode ? pricing.promoDiscount : pricing.discount),
+          appDiscount: pricing.appDiscount,
+          promoDiscount: pricing.promoDiscount,
+          totalDiscount: pricing.discount,
           subtotal: pricing.subtotal,
           shipping: pricing.shipping,
           grandTotal: pricing.grandTotal
@@ -4248,6 +4407,7 @@ const server = http.createServer(async (req, res) => {
         const pricing = await validateAndCalculateOrderPricing({
           items: Array.isArray(orderData.items) ? orderData.items : [],
           couponCode: orderData.couponCode || '',
+          additionalCouponCode: orderData.additionalCouponCode || '',
           customerPhone: phone,
           customerEmail: email,
           uid: canonicalUid,
@@ -4312,8 +4472,11 @@ const server = http.createServer(async (req, res) => {
           platform: orderData.platform || (payuOrderSource === 'App' ? 'android_app' : 'web'),
           subtotal: pricing.subtotal > 0 ? pricing.subtotal : numericAmount,
           discount: pricing.discount,
+          appDiscount: pricing.appDiscount,
+          promoDiscount: pricing.promoDiscount,
           foodDiscount: 0,
           couponCode: pricing.couponCode,
+          appliedCoupons: pricing.appliedCoupons,
           foodOfferType: null,
           shipping: pricing.subtotal > 0 ? pricing.shipping : (Number.isFinite(Number(orderData.shipping)) ? Number(orderData.shipping) : 0),
           customerPhone: phone,

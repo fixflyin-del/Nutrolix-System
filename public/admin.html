@@ -1882,6 +1882,46 @@
     </div>
   </div>
 
+  <!-- MODAL: Confirm Order Status Change -->
+  <div id="statusConfirmModal" onclick="if (event.target === this) window.cancelPendingStatusChange()" class="fixed inset-0 bg-black/60 backdrop-blur-[1px] z-[85] hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+      <div class="flex items-start gap-3.5 mb-4">
+        <div id="statusConfirmIconBox" class="w-11 h-11 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center text-lg shrink-0">
+          <i class="fa-solid fa-circle-question"></i>
+        </div>
+        <div class="min-w-0 flex-1">
+          <h3 class="text-base font-black text-slate-900">Change Order Status?</h3>
+          <p class="text-xs text-slate-600 mt-0.5 leading-relaxed">
+            Are you sure you want to change this order's status? The customer will be notified of this update.
+          </p>
+        </div>
+      </div>
+
+      <div class="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 mb-5 space-y-2">
+        <div class="flex items-center justify-between gap-2">
+          <span id="statusConfirmOrderId" class="text-xs font-black text-slate-900">#ORD-000000</span>
+          <span id="statusConfirmAmount" class="text-xs font-black text-emerald-700">₹0</span>
+        </div>
+        <p id="statusConfirmCustomer" class="text-xs font-bold text-slate-600 truncate">Customer</p>
+        <div class="flex items-center gap-2 pt-1.5 border-t border-slate-200/80 text-[11px] font-black">
+          <span id="statusConfirmFromBadge" class="px-2.5 py-1 rounded-lg bg-white text-slate-700 border border-slate-200">Current</span>
+          <i class="fa-solid fa-arrow-right text-slate-400 text-[10px]"></i>
+          <span id="statusConfirmToBadge" class="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200">Next</span>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end gap-2">
+        <button type="button" onclick="window.cancelPendingStatusChange()" class="min-h-[44px] px-4 py-2 text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition cursor-pointer">
+          Cancel
+        </button>
+        <button type="button" id="confirmStatusChangeBtn" onclick="window.confirmPendingStatusChange()" class="min-h-[44px] px-4 py-2 text-xs font-black bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center gap-1.5 cursor-pointer">
+          <i class="fa-solid fa-check text-[11px]"></i>
+          <span>Yes, Change Status</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: Add / Edit Meal -->
   <div id="mealModal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl overflow-y-auto max-h-[90vh]">
@@ -4394,7 +4434,7 @@
         }
 
         const rawSrc = String(order.orderSource || order.source || order.platform || '').trim().toLowerCase();
-        const isAppOrder = rawSrc === 'app' || rawSrc.includes('android') || rawSrc.includes('apk') || rawSrc.includes('mobile_app') || order.isAppOrder === true || String(order.couponCode || '').toUpperCase() === 'APP10';
+        const isAppOrder = rawSrc === 'app' || rawSrc.includes('android') || rawSrc.includes('apk') || rawSrc.includes('mobile_app') || order.isAppOrder === true || String(order.couponCode || '').toUpperCase().includes('APP10');
         const sourceBadge = isAppOrder
           ? '<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-mobile-screen-button text-[9px]"></i>App</span>'
           : '<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-black bg-sky-50 text-sky-700 border border-sky-200"><i class="fa-solid fa-globe text-[9px]"></i>Web</span>';
@@ -4528,8 +4568,81 @@
       }).join('');
     };
 
-    // Single One-Tap Auto-Converting Status Transition (New -> Preparing -> Ready -> Out for Delivery -> Delivered)
-    window.advanceOrderStatus = async function(orderId, nextStatus, btnEl) {
+    let pendingStatusChangePayload = null;
+
+    window.cancelPendingStatusChange = function() {
+      pendingStatusChangePayload = null;
+      const modal = document.getElementById('statusConfirmModal');
+      if (modal) modal.classList.add('hidden');
+    };
+
+    window.openStatusConfirmModal = function(orderId, nextStatus, btnEl) {
+      const order = (window.packagedOrders || []).find(o => o.id === orderId || o.orderId === orderId);
+      const currentStatus = window.normalizeOrderStatus((order && order.status) || 'New');
+      pendingStatusChangePayload = { orderId, nextStatus, btnEl: btnEl || null };
+
+      const idEl = document.getElementById('statusConfirmOrderId');
+      if (idEl) idEl.textContent = '#' + orderId;
+
+      const amtEl = document.getElementById('statusConfirmAmount');
+      if (amtEl) {
+        const amt = Number((order && (order.grandTotal || order.total)) || 0);
+        amtEl.textContent = `₹${amt.toLocaleString('en-IN')}`;
+      }
+
+      const custEl = document.getElementById('statusConfirmCustomer');
+      if (custEl) {
+        const cName = (order && order.customer && order.customer.name) ? order.customer.name : 'Customer';
+        const cPhone = (order && order.customer && order.customer.phone) ? ` • ${order.customer.phone}` : '';
+        custEl.textContent = cName + cPhone;
+      }
+
+      const fromEl = document.getElementById('statusConfirmFromBadge');
+      if (fromEl) fromEl.textContent = currentStatus;
+
+      const toEl = document.getElementById('statusConfirmToBadge');
+      if (toEl) {
+        toEl.textContent = nextStatus;
+        let toCls = 'px-2.5 py-1 rounded-lg border ';
+        if (nextStatus === 'Preparing') toCls += 'bg-emerald-100 text-emerald-800 border-emerald-200';
+        else if (nextStatus === 'Ready') toCls += 'bg-amber-100 text-amber-800 border-amber-200';
+        else if (nextStatus === 'Out for Delivery') toCls += 'bg-indigo-100 text-indigo-800 border-indigo-200';
+        else if (nextStatus === 'Delivered') toCls += 'bg-emerald-100 text-emerald-900 border-emerald-300';
+        else toCls += 'bg-slate-100 text-slate-800 border-slate-200';
+        toEl.className = toCls;
+      }
+
+      const confirmBtn = document.getElementById('confirmStatusChangeBtn');
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = `<i class="fa-solid fa-check text-[11px]"></i><span>Yes, Mark ${window.escapeAdminHtml(nextStatus)}</span>`;
+      }
+
+      const modal = document.getElementById('statusConfirmModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+      } else {
+        // Fallback if modal element is unavailable
+        if (window.confirm(`Are you sure you want to change order #${orderId} status from "${currentStatus}" to "${nextStatus}"?`)) {
+          window.confirmPendingStatusChange();
+        } else {
+          pendingStatusChangePayload = null;
+        }
+      }
+    };
+
+    window.confirmPendingStatusChange = async function() {
+      const payload = pendingStatusChangePayload;
+      if (!payload || !payload.orderId || !payload.nextStatus) return;
+      const { orderId, nextStatus, btnEl } = payload;
+      pendingStatusChangePayload = null;
+
+      const confirmBtn = document.getElementById('confirmStatusChangeBtn');
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-xs"></i><span>Updating...</span>';
+      }
+
       acknowledgedOrderIds.add(orderId);
       if (btnEl) {
         btnEl.disabled = true;
@@ -4543,7 +4656,6 @@
 
       const courier = nextStatus === 'Out for Delivery' ? 'Nutrolix Express' : '';
       try {
-        // Optimistic immediate UI update for instant Zomato-like button conversion
         if (Array.isArray(window.packagedOrders)) {
           const found = window.packagedOrders.find(o => o.id === orderId || o.orderId === orderId);
           if (found) found.status = nextStatus;
@@ -4551,6 +4663,9 @@
         window.updateKPIs();
         window.updateOrderFilterCounts();
         window.renderPackagedOrdersTable();
+
+        const modal = document.getElementById('statusConfirmModal');
+        if (modal) modal.classList.add('hidden');
 
         await window.callOrderStatusEndpoint(orderId, nextStatus, courier, '');
         if (typeof window.showAdminNotification === 'function') {
@@ -4562,7 +4677,17 @@
           window.showAdminNotification('Status update failed: ' + err.message, 'error');
         }
         window.loadPackagedOrders();
+      } finally {
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML = '<i class="fa-solid fa-check text-[11px]"></i><span>Yes, Change Status</span>';
+        }
       }
+    };
+
+    // Always prompt Admin confirmation before changing order status (prevents accidental single-tap updates)
+    window.advanceOrderStatus = function(orderId, nextStatus, btnEl) {
+      window.openStatusConfirmModal(orderId, nextStatus, btnEl);
     };
 
     window.acceptPackagedOrder = async function(orderId) {
@@ -4743,7 +4868,7 @@
       }).join('');
 
       const invSrcRaw = String(order.orderSource || order.source || order.platform || '').trim().toLowerCase();
-      const invSourceLabel = (invSrcRaw === 'app' || invSrcRaw.includes('android') || invSrcRaw.includes('apk') || invSrcRaw.includes('mobile_app') || order.isAppOrder === true || String(order.couponCode || '').toUpperCase() === 'APP10')
+      const invSourceLabel = (invSrcRaw === 'app' || invSrcRaw.includes('android') || invSrcRaw.includes('apk') || invSrcRaw.includes('mobile_app') || order.isAppOrder === true || String(order.couponCode || '').toUpperCase().includes('APP10'))
         ? 'App'
         : 'Website';
       const invShipping = Number(order.shipping !== undefined ? order.shipping : (order.deliveryFee || 0));
@@ -7498,6 +7623,15 @@
       return data;
     }
 
+    function isFirstOrderCouponCodeOrTitle(code, title = '') {
+      const cleanCode = String(code || '').trim().toUpperCase();
+      const cleanTitle = String(title || '').trim();
+      if (/(^FIRST([_-]?(ORDER|TIME|BUY|PURCHASE|\d+))?$)|FIRST[_-]?ORDER|FIRST[_-]?TIME/i.test(cleanCode)) {
+        return true;
+      }
+      return /\bfirst[\s_-]*order\b/i.test(cleanTitle);
+    }
+
     window.saveCoupon = async function(e) {
       if (e && e.preventDefault) e.preventDefault();
       const code = (document.getElementById("couponCode")?.value || "").trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "");
@@ -7506,7 +7640,7 @@
       const value = parseFloat(document.getElementById("couponValue")?.value || "10");
       const minOrder = Math.max(0, parseFloat(document.getElementById("couponMinOrder")?.value || "0") || 0);
       const maxDiscount = Math.max(0, parseFloat(document.getElementById("couponMaxDiscount")?.value || "0") || 0);
-      const firstOrderOnly = Boolean(document.getElementById("couponFirstOrderOnly")?.checked);
+      const firstOrderOnly = Boolean(document.getElementById("couponFirstOrderOnly")?.checked || isFirstOrderCouponCodeOrTitle(code, title));
 
       if (!code) return alert("Please enter coupon code");
       if (!Number.isFinite(value) || value <= 0) return alert("Please enter a valid discount value");
@@ -7578,7 +7712,7 @@
           const safeCodeAttr = encodeURIComponent(String(c.code || ''));
           const discountLabel = c.type === 'percentage' ? `${Number(c.value) || 0}% OFF` : `₹${Number(c.value) || 0} OFF`;
           const minOrderAmt = Number(c.minOrder) || 0;
-          const isFirstOnly = Boolean(c.firstOrderOnly || c.first_order_only);
+          const isFirstOnly = Boolean(c.firstOrderOnly || c.first_order_only || isFirstOrderCouponCodeOrTitle(c.code, c.title));
           return `
         <div class="p-3 bg-purple-50/70 rounded-2xl border border-purple-200 flex items-center justify-between gap-2 shadow-xs">
           <div class="min-w-0">
@@ -7636,7 +7770,7 @@
       const type = document.getElementById('newCouponType')?.value || 'percentage';
       const val = parseFloat(document.getElementById('newCouponValue')?.value || '10');
       const minOrder = Math.max(0, parseFloat(document.getElementById('newCouponMinOrder')?.value || '0') || 0);
-      const firstOrderOnly = Boolean(document.getElementById('newCouponFirstOrderOnly')?.checked);
+      const firstOrderOnly = Boolean(document.getElementById('newCouponFirstOrderOnly')?.checked || isFirstOrderCouponCodeOrTitle(code));
 
       if (!code) {
         alert('Please enter a coupon code.');

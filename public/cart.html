@@ -547,6 +547,10 @@
               <span>Product Discount</span>
               <span id="summaryProductDiscount" class="font-bold">-₹0</span>
             </div>
+            <div id="appCouponDiscountRow" class="hidden flex justify-between text-emerald-700">
+              <span>App Exclusive (<span id="appCouponCodeLabel">APP10</span>)</span>
+              <span id="summaryAppCouponDiscount" class="font-bold">-₹0</span>
+            </div>
             <div id="couponDiscountRow" class="hidden flex justify-between text-purple-600">
               <span>Coupon Discount (<span id="couponCodeLabel"></span>)</span>
               <span id="summaryCouponDiscount" class="font-bold">-₹0</span>
@@ -785,8 +789,8 @@
     };
 
     let cart = [];
+    let appliedAppCoupon = null;
     let appliedCoupon = null;
-    let app10UserDismissed = false;
     let selectedSavedAddress = null;
 
     window.updatePaymentMethodUi = function() {
@@ -833,7 +837,7 @@
 
     function getCartSignature() {
       const pm = document.querySelector('input[name="paymentMethod"]:checked')?.value || 'PayU Online Payment';
-      const coupon = appliedCoupon ? appliedCoupon.code : '';
+      const coupon = [appliedAppCoupon ? appliedAppCoupon.code : '', appliedCoupon ? appliedCoupon.code : ''].filter(Boolean).join('+');
       const addr = (document.getElementById('custAddress1')?.value || '').trim().slice(0, 40);
       const pin = (document.getElementById('custPincode')?.value || '').trim();
       const itemsSig = (cart || []).map(i => {
@@ -882,6 +886,167 @@
       }
     }
 
+    let customerOrderHistoryState = {
+      key: '',
+      checked: false,
+      hasPriorOrders: false,
+      priorOrderCount: 0
+    };
+    let customerEligibilityInFlightKey = '';
+
+    function isFirstOrderCouponCodeOrTitle(code, title = '') {
+      const cleanCode = String(code || '').trim().toUpperCase();
+      const cleanTitle = String(title || '').trim();
+      if (/(^FIRST([_-]?(ORDER|TIME|BUY|PURCHASE|\d+))?$)|FIRST[_-]?ORDER|FIRST[_-]?TIME/i.test(cleanCode)) {
+        return true;
+      }
+      if (/\bfirst[\s_-]*order\b/i.test(cleanTitle)) {
+        return true;
+      }
+      return false;
+    }
+
+    function getCurrentCustomerIdentity() {
+      let currentUser = null;
+      let profile = {};
+      try { if (typeof window.getNutrolixUser === 'function') currentUser = window.getNutrolixUser(); } catch (_) {}
+      try { profile = JSON.parse(localStorage.getItem('nutrolix_user_profile') || '{}') || {}; } catch (_) {}
+      const rawPhone =
+        (currentUser && (currentUser.verifiedPhone || currentUser.phone)) ||
+        (document.getElementById('custPhone')?.value || '') ||
+        (document.getElementById('cartInlinePhoneInput')?.value || '') ||
+        profile.verifiedPhone ||
+        profile.whatsappNumber ||
+        profile.phone ||
+        '';
+      const digits = String(rawPhone || '').replace(/\D/g, '');
+      const phone = digits.length >= 10 ? digits.slice(-10) : '';
+      const email = String((currentUser && currentUser.email) || (document.getElementById('custEmail')?.value || '') || profile.email || '').trim().toLowerCase();
+      const uid = String((currentUser && currentUser.uid) || (phone ? `phone_${phone}` : '')).trim();
+      const key = [phone, uid, email].filter(Boolean).join('|');
+      return { phone, email, uid, key, hasIdentity: Boolean(phone || uid || email) };
+    }
+
+    function hasLocalCachedPriorOrders(identity) {
+      if (!identity || !identity.hasIdentity) return false;
+      try {
+        const cached = JSON.parse(localStorage.getItem('nutrolix_orders') || '[]');
+        if (!Array.isArray(cached) || cached.length === 0) return false;
+        return cached.some((o) => {
+          if (!o || typeof o !== 'object') return false;
+          const st = String(o.status || '').toLowerCase();
+          const paySt = String(o.paymentStatus || '').toLowerCase();
+          if (st.includes('cancel') || st.includes('reject') || st.includes('fail') || st.includes('payment pending') || paySt.includes('pending') || paySt.includes('fail')) {
+            return false;
+          }
+          const oPhoneDigits = String(o.customerPhone || o.verifiedPhone || o.whatsappNumber || (o.customer && o.customer.phone) || '').replace(/\D/g, '').slice(-10);
+          const oUid = String(o.uid || '').trim();
+          const oEmail = String(o.customerEmail || (o.customer && o.customer.email) || '').trim().toLowerCase();
+          return Boolean(
+            (identity.phone && oPhoneDigits && oPhoneDigits === identity.phone) ||
+            (identity.uid && oUid && oUid === identity.uid) ||
+            (identity.email && oEmail && oEmail === identity.email)
+          );
+        });
+      } catch (_) {
+        return false;
+      }
+    }
+
+    function applyFastLocalEligibilitySnapshot() {
+      const id = getCurrentCustomerIdentity();
+      if (!id.hasIdentity) {
+        customerOrderHistoryState = { key: '', checked: false, hasPriorOrders: false, priorOrderCount: 0 };
+        return;
+      }
+      let sessionHasPrior = false;
+      try {
+        sessionHasPrior = sessionStorage.getItem(`nutrolix_prior_orders_${id.key}`) === '1';
+      } catch (_) {}
+      const localHasPrior = hasLocalCachedPriorOrders(id);
+      if (sessionHasPrior || localHasPrior) {
+        customerOrderHistoryState = {
+          key: id.key,
+          checked: customerOrderHistoryState.key === id.key ? customerOrderHistoryState.checked : false,
+          hasPriorOrders: true,
+          priorOrderCount: Math.max(1, customerOrderHistoryState.priorOrderCount || 0)
+        };
+        if (appliedCoupon && appliedCoupon.firstOrderOnly) {
+          appliedCoupon = null;
+        }
+      } else if (customerOrderHistoryState.key !== id.key) {
+        customerOrderHistoryState = { key: id.key, checked: false, hasPriorOrders: false, priorOrderCount: 0 };
+      }
+    }
+
+    async function refreshCustomerCouponEligibility(force = false) {
+      const id = getCurrentCustomerIdentity();
+      applyFastLocalEligibilitySnapshot();
+      if (!id.hasIdentity) {
+        renderAvailableCoupons();
+        renderSummary();
+        return customerOrderHistoryState;
+      }
+      if (!force && customerOrderHistoryState.checked && customerOrderHistoryState.key === id.key) {
+        return customerOrderHistoryState;
+      }
+      if (!force && customerEligibilityInFlightKey === id.key) {
+        return customerOrderHistoryState;
+      }
+      customerEligibilityInFlightKey = id.key;
+      try {
+        const host = window.NUTROLIX_API_HOST || '';
+        const res = await fetch(host + '/api/coupons/customer-eligibility', {
+          method: 'POST',
+          cache: 'no-store',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            customerPhone: id.phone,
+            customerEmail: id.email,
+            uid: id.uid
+          })
+        });
+        const data = await res.json().catch(() => null);
+        if (res.ok && data && data.checked) {
+          const hasPrior = Boolean(data.hasPriorOrders);
+          customerOrderHistoryState = {
+            key: id.key,
+            checked: true,
+            hasPriorOrders: hasPrior,
+            priorOrderCount: Number(data.priorOrderCount || 0)
+          };
+          try {
+            if (hasPrior) {
+              sessionStorage.setItem(`nutrolix_prior_orders_${id.key}`, '1');
+            } else {
+              sessionStorage.removeItem(`nutrolix_prior_orders_${id.key}`);
+            }
+          } catch (_) {}
+          if (hasPrior && appliedCoupon && appliedCoupon.firstOrderOnly) {
+            const removedName = appliedCoupon.code;
+            appliedCoupon = null;
+            setOfferProgressFeedback(`⚠️ ${removedName} is valid only on your first order and has been removed.`, true);
+          }
+          renderAvailableCoupons();
+          renderSummary();
+        }
+      } catch (_) {
+      } finally {
+        if (customerEligibilityInFlightKey === id.key) {
+          customerEligibilityInFlightKey = '';
+        }
+      }
+      return customerOrderHistoryState;
+    }
+
+    function isCouponVisibleForCustomer(c) {
+      if (!c || c.active === false) return false;
+      if (c.firstOrderOnly && customerOrderHistoryState.hasPriorOrders) {
+        return false;
+      }
+      return true;
+    }
+
     async function syncLiveCartConfig() {
       try {
         const host = window.NUTROLIX_API_HOST || '';
@@ -910,6 +1075,7 @@
           renderAvailableCoupons();
           renderSummary();
         }
+        refreshCustomerCouponEligibility(false);
       } catch (_) {}
     }
 
@@ -934,15 +1100,16 @@
           const code = String(c.code || '').toUpperCase().trim();
           const type = (c.type === 'flat' || c.type === 'FIXED_AMOUNT') ? 'flat' : 'percentage';
           const value = Number(c.value !== undefined ? c.value : (c.discountPercent || 0));
+          const title = c.title || (type === 'flat' ? `Flat ₹${value} OFF` : `${value}% OFF`);
           return {
             code,
-            title: c.title || (type === 'flat' ? `Flat ₹${value} OFF` : `${value}% OFF`),
+            title,
             type,
             value,
             discountPercent: type === 'percentage' ? value : 0,
             minOrder: Math.max(0, Number(c.minOrder || 0)),
             maxDiscount: Math.max(0, Number(c.maxDiscount || 0)),
-            firstOrderOnly: Boolean(c.firstOrderOnly),
+            firstOrderOnly: Boolean(c.firstOrderOnly || c.first_order_only || isFirstOrderCouponCodeOrTitle(code, title)),
             active: c.active !== false && c.status !== 'Inactive',
             appOnly: Boolean(c.appOnly || code === 'APP10')
           };
@@ -961,7 +1128,8 @@
     function renderAvailableCoupons() {
       const container = document.getElementById('couponSuggestionsContainer');
       if (!container) return;
-      const coupons = getStoreCoupons().filter(c => c.active);
+      applyFastLocalEligibilitySnapshot();
+      const coupons = getStoreCoupons().filter(c => c.active && isCouponVisibleForCustomer(c));
       if (coupons.length === 0) {
         container.innerHTML = '<span class="text-[11px] text-slate-400">No promo codes active right now</span>';
         return;
@@ -1033,14 +1201,103 @@
       applyCoupon(code);
     }
 
+    function calcSingleCouponDiscount(coupon, subtotal) {
+      if (!coupon || subtotal <= 0) return 0;
+      if (coupon.type === 'flat') {
+        return Math.min(subtotal, Math.max(0, Math.round(Number(coupon.value || 0))));
+      }
+      let pctDisc = Math.round((subtotal * Number(coupon.discountPercent || coupon.value || 0)) / 100);
+      if (Number(coupon.maxDiscount || 0) > 0) {
+        pctDisc = Math.min(pctDisc, Math.round(Number(coupon.maxDiscount)));
+      }
+      return Math.min(subtotal, Math.max(0, pctDisc));
+    }
+
+    function syncAlwaysOnApp10(subtotal) {
+      const isAppUser = typeof window.isNutrolixAndroidApp === 'function' && window.isNutrolixAndroidApp();
+      if (!isAppUser || subtotal <= 0) {
+        appliedAppCoupon = null;
+        return null;
+      }
+      const app10 = (getStoreCoupons() || []).find(
+        c => c && c.active !== false && c.code === 'APP10' && subtotal >= Number(c.minOrder || 0)
+      );
+      if (!app10) {
+        appliedAppCoupon = null;
+        return null;
+      }
+      appliedAppCoupon = {
+        code: app10.code,
+        type: app10.type || 'percentage',
+        value: Number(app10.value || 10),
+        minOrder: Number(app10.minOrder || 0),
+        maxDiscount: Number(app10.maxDiscount || 0),
+        firstOrderOnly: Boolean(app10.firstOrderOnly),
+        discountPercent: (app10.type || 'percentage') === 'percentage' ? Number(app10.value || 10) : 0,
+        appOnly: true
+      };
+      return appliedAppCoupon;
+    }
+
+    function getCombinedCouponBreakdown(subtotal) {
+      syncAlwaysOnApp10(subtotal);
+      const appDiscount = calcSingleCouponDiscount(appliedAppCoupon, subtotal);
+      const rawPromoDiscount = calcSingleCouponDiscount(appliedCoupon, subtotal);
+      const totalDiscount = Math.min(subtotal, Math.max(0, appDiscount + rawPromoDiscount));
+      const promoDiscount = Math.max(0, totalDiscount - appDiscount);
+      const appliedCoupons = [
+        appliedAppCoupon ? appliedAppCoupon.code : null,
+        appliedCoupon ? appliedCoupon.code : null
+      ].filter(Boolean);
+      const couponCode = appliedCoupons.length > 0 ? appliedCoupons.join(' + ') : null;
+      return {
+        appCoupon: appliedAppCoupon,
+        promoCoupon: appliedCoupon,
+        appDiscount,
+        promoDiscount,
+        totalDiscount,
+        appliedCoupons,
+        couponCode
+      };
+    }
+
     async function applyCoupon(explicitCode) {
       const inp = document.getElementById('couponInput');
       const code = String(explicitCode !== undefined ? explicitCode : (inp ? inp.value : '')).trim().toUpperCase();
       const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const isAppUser = typeof window.isNutrolixAndroidApp === 'function' && window.isNutrolixAndroidApp();
+
+      // Always keep APP10 synced in the Nutrolix Android App
+      syncAlwaysOnApp10(subtotal);
 
       if (!code) {
         appliedCoupon = null;
-        setOfferProgressFeedback('');
+        if (appliedAppCoupon) {
+          const appDisc = calcSingleCouponDiscount(appliedAppCoupon, subtotal);
+          setOfferProgressFeedback(`📱 App-Exclusive ${appliedAppCoupon.code} (${appliedAppCoupon.value}% OFF • ₹${appDisc}) is active on your order.`, false);
+        } else {
+          setOfferProgressFeedback('');
+        }
+        renderSummary();
+        return;
+      }
+
+      // APP10 is always auto-applied in the Nutrolix Android App — never overwrite any additional coupon
+      if (code === 'APP10') {
+        if (!isAppUser) {
+          setOfferProgressFeedback(`📱 APP10 is exclusive to the Nutrolix Android App! <a href="${PLAY_STORE_APP_URL}" target="_blank" rel="noopener noreferrer" class="underline text-emerald-700 ml-1">Download on Google Play →</a>`, true);
+          renderSummary();
+          return;
+        }
+        if (appliedAppCoupon) {
+          const bd = getCombinedCouponBreakdown(subtotal);
+          const msg = appliedCoupon
+            ? `📱 ${appliedAppCoupon.code} + ${appliedCoupon.code} are both active! Total coupon savings: ₹${bd.totalDiscount}.`
+            : `📱 App-Exclusive ${appliedAppCoupon.code} (${appliedAppCoupon.value}% OFF • ₹${bd.appDiscount}) is already auto-applied!`;
+          setOfferProgressFeedback(msg, false);
+        } else {
+          setOfferProgressFeedback('⚠️ APP10 is currently unavailable for this cart.', true);
+        }
         renderSummary();
         return;
       }
@@ -1056,7 +1313,7 @@
       }
 
       const minOrder = Number(match.minOrder || 0);
-      if (match.appOnly && !window.isNutrolixAndroidApp()) {
+      if (match.appOnly && !isAppUser) {
         appliedCoupon = null;
         setOfferProgressFeedback(`📱 ${match.code} is exclusive to the Nutrolix Android App! <a href="${PLAY_STORE_APP_URL}" target="_blank" rel="noopener noreferrer" class="underline text-emerald-700 ml-1">Download on Google Play →</a>`, true);
         renderSummary();
@@ -1069,24 +1326,39 @@
         return;
       }
 
-      // Server-side authoritative verification (enforces firstOrderOnly, minOrder, maxDiscount & active status)
+      // Strict First-Order-Only Guard: block repeat customers immediately & require login/mobile before applying
+      const custId = getCurrentCustomerIdentity();
+      applyFastLocalEligibilitySnapshot();
+      if (match.firstOrderOnly) {
+        if (customerOrderHistoryState.hasPriorOrders) {
+          appliedCoupon = null;
+          setOfferProgressFeedback(`⚠️ ${match.code} is valid only on your first order.`, true);
+          renderAvailableCoupons();
+          renderSummary();
+          return;
+        }
+        if (!custId.hasIdentity) {
+          appliedCoupon = null;
+          setOfferProgressFeedback(`⚠️ Please log in or enter your 10-digit mobile number first to apply ${match.code}.`, true);
+          renderSummary();
+          return;
+        }
+      }
+
+      // Server-side authoritative verification (enforces firstOrderOnly, minOrder, maxDiscount & active status while keeping APP10 stacked)
       try {
         const host = window.NUTROLIX_API_HOST || '';
-        const isAppUser = typeof window.isNutrolixAndroidApp === 'function' && window.isNutrolixAndroidApp();
-        let currentUser = null;
-        try { if (typeof window.getNutrolixUser === 'function') currentUser = window.getNutrolixUser(); } catch (_) {}
-        const phoneInput = (document.getElementById('custPhone')?.value || '').replace(/\D/g, '').slice(-10);
-        const emailInput = (document.getElementById('custEmail')?.value || '').trim();
-        const verifiedPhone = (currentUser && (currentUser.verifiedPhone || currentUser.phone)) || phoneInput || '';
         const valRes = await fetch(host + '/api/coupons/validate', {
           method: 'POST',
+          cache: 'no-store',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             couponCode: code,
+            additionalCouponCode: code,
             items: cart,
-            customerPhone: verifiedPhone,
-            customerEmail: (currentUser && currentUser.email) || emailInput || '',
-            uid: (currentUser && currentUser.uid) || '',
+            customerPhone: custId.phone,
+            customerEmail: custId.email,
+            uid: custId.uid,
             orderSource: isAppUser ? 'App' : 'Website',
             platform: isAppUser ? 'android_app' : 'web'
           })
@@ -1095,27 +1367,52 @@
         if (valRes.ok && valData) {
           if (!valData.valid || !valData.coupon) {
             appliedCoupon = null;
+            if (match.firstOrderOnly && /first order/i.test(String(valData.error || ''))) {
+              customerOrderHistoryState = {
+                key: custId.key,
+                checked: true,
+                hasPriorOrders: true,
+                priorOrderCount: Math.max(1, customerOrderHistoryState.priorOrderCount || 0)
+              };
+              try { if (custId.key) sessionStorage.setItem(`nutrolix_prior_orders_${custId.key}`, '1'); } catch (_) {}
+              renderAvailableCoupons();
+            }
             setOfferProgressFeedback(`⚠️ ${valData.error || 'This coupon is not eligible for your order.'}`, true);
             renderSummary();
             return;
           }
-          const srvCoupon = valData.coupon;
+          const srvCoupon = valData.promoCoupon || valData.coupon;
           appliedCoupon = {
             code: srvCoupon.code,
             type: srvCoupon.type,
             value: Number(srvCoupon.value || 0),
             minOrder: Number(srvCoupon.minOrder || 0),
             maxDiscount: Number(srvCoupon.maxDiscount || 0),
-            firstOrderOnly: Boolean(srvCoupon.firstOrderOnly),
+            firstOrderOnly: Boolean(srvCoupon.firstOrderOnly || isFirstOrderCouponCodeOrTitle(srvCoupon.code, srvCoupon.title)),
             discountPercent: srvCoupon.type === 'percentage' ? Number(srvCoupon.value || 0) : 0,
             appOnly: Boolean(srvCoupon.appOnly)
           };
-          const savedText = srvCoupon.type === 'flat' ? `₹${valData.discount} OFF` : `${srvCoupon.value}% OFF (₹${valData.discount})`;
-          setOfferProgressFeedback(`🎉 Coupon ${srvCoupon.code} applied! ${savedText} saved.`, false);
+          const bd = getCombinedCouponBreakdown(subtotal);
+          const extraAmt = Number(valData.promoDiscount !== undefined ? valData.promoDiscount : bd.promoDiscount);
+          const totalAmt = Number(valData.totalDiscount !== undefined ? valData.totalDiscount : bd.totalDiscount);
+          const savedText = srvCoupon.type === 'flat' ? `₹${extraAmt} OFF` : `${srvCoupon.value}% OFF (₹${extraAmt})`;
+          if (appliedAppCoupon) {
+            setOfferProgressFeedback(`🎉 ${srvCoupon.code} (${savedText}) applied along with ${appliedAppCoupon.code}! Total coupon savings: ₹${totalAmt}.`, false);
+          } else {
+            setOfferProgressFeedback(`🎉 Coupon ${srvCoupon.code} applied! ${savedText} saved.`, false);
+          }
           renderSummary();
           return;
         }
       } catch (_) {}
+
+      // NEVER apply a first-order-only coupon offline without server verification
+      if (match.firstOrderOnly) {
+        appliedCoupon = null;
+        setOfferProgressFeedback(`⚠️ Could not verify first-order eligibility for ${match.code}. Please check your connection and try again.`, true);
+        renderSummary();
+        return;
+      }
 
       appliedCoupon = {
         code: match.code,
@@ -1127,8 +1424,13 @@
         discountPercent: match.type === 'percentage' ? match.value : 0,
         appOnly: Boolean(match.appOnly)
       };
-      const savedText = match.type === 'flat' ? `₹${match.value} OFF` : `${match.value}% OFF`;
-      setOfferProgressFeedback(`🎉 Coupon ${match.code} applied! ${savedText} saved.`, false);
+      const bd = getCombinedCouponBreakdown(subtotal);
+      const savedText = match.type === 'flat' ? `₹${bd.promoDiscount} OFF` : `${match.value}% OFF (₹${bd.promoDiscount})`;
+      if (appliedAppCoupon) {
+        setOfferProgressFeedback(`🎉 ${match.code} (${savedText}) applied along with ${appliedAppCoupon.code}! Total coupon savings: ₹${bd.totalDiscount}.`, false);
+      } else {
+        setOfferProgressFeedback(`🎉 Coupon ${match.code} applied! ${savedText} saved.`, false);
+      }
       renderSummary();
     }
 
@@ -1139,74 +1441,79 @@
       const productDiscount = Math.max(0, mrpTotal - subtotal);
       const isAppUser = typeof window.isNutrolixAndroidApp === 'function' && window.isNutrolixAndroidApp();
 
-      // Revoke applied coupon if admin removed it or disabled it
+      applyFastLocalEligibilitySnapshot();
+
+      // Revoke additional coupon if admin removed it, disabled it, or it is APP10 (handled by appliedAppCoupon)
       if (appliedCoupon) {
         const liveMatch = getStoreCoupons().find(c => c.code === appliedCoupon.code && c.active !== false);
-        if (!liveMatch) {
+        if (!liveMatch || appliedCoupon.code === 'APP10') {
+          appliedCoupon = null;
+          setOfferProgressFeedback('');
+        } else if ((liveMatch.firstOrderOnly || appliedCoupon.firstOrderOnly) && customerOrderHistoryState.hasPriorOrders) {
           appliedCoupon = null;
           setOfferProgressFeedback('');
         }
       }
 
-      // Revoke app-only coupon if not in the Nutrolix Android App
+      // Revoke app-only additional coupon if not in the Nutrolix Android App
       if (appliedCoupon && appliedCoupon.appOnly && !isAppUser) {
         appliedCoupon = null;
         setOfferProgressFeedback('');
       }
 
-      // Automatically revoke applied coupon if cart subtotal drops below its minimum threshold
+      // Automatically revoke additional coupon if cart subtotal drops below its minimum threshold
       if (appliedCoupon && Number(appliedCoupon.minOrder || 0) > 0 && subtotal < Number(appliedCoupon.minOrder || 0)) {
         appliedCoupon = null;
         setOfferProgressFeedback('');
       }
 
-      // Auto-apply APP10 inside the Nutrolix Customer Android App when cart has items and no coupon is applied
-      if (isAppUser && subtotal > 0 && !appliedCoupon && !app10UserDismissed) {
-        const appCoupon = getStoreCoupons().find(
-          c => c.active !== false && c.code === 'APP10' && subtotal >= Number(c.minOrder || 0)
-        );
-        if (appCoupon) {
-          appliedCoupon = {
-            code: appCoupon.code,
-            type: appCoupon.type,
-            value: Number(appCoupon.value || 10),
-            minOrder: Number(appCoupon.minOrder || 0),
-            maxDiscount: Number(appCoupon.maxDiscount || 0),
-            firstOrderOnly: Boolean(appCoupon.firstOrderOnly),
-            discountPercent: appCoupon.type === 'percentage' ? Number(appCoupon.value || 10) : 0,
-            appOnly: true
-          };
-          const appSavedLabel = appCoupon.type === 'flat' ? `₹${appCoupon.value} OFF` : `${appCoupon.value}% OFF`;
-          setOfferProgressFeedback(`📱 App-Exclusive ${appCoupon.code} (${appSavedLabel}) auto-applied!`, false);
+      const hadApp10Before = Boolean(appliedAppCoupon);
+      const bd = getCombinedCouponBreakdown(subtotal);
+
+      // Show default APP10 auto-applied feedback in Android App if feedback banner is currently empty
+      if (bd.appCoupon && subtotal > 0) {
+        const fbEl = document.getElementById('offerProgressFeedback');
+        const fbHidden = !fbEl || fbEl.classList.contains('hidden') || !fbEl.textContent.trim();
+        if (!hadApp10Before || fbHidden) {
+          const hasOtherActiveCoupons = (getStoreCoupons() || []).some(c => c && c.active !== false && c.code && c.code !== 'APP10');
+          const appSavedLabel = bd.appCoupon.type === 'flat' ? `₹${bd.appDiscount} OFF` : `${bd.appCoupon.value}% OFF • ₹${bd.appDiscount}`;
+          const stackHint = (!bd.promoCoupon && hasOtherActiveCoupons) ? ' Tap Apply on any unlocked offer below for extra savings!' : '';
+          setOfferProgressFeedback(`📱 App-Exclusive ${bd.appCoupon.code} (${appSavedLabel}) auto-applied!${stackHint}`, false);
         }
       }
 
-      let couponDiscount = 0;
-      if (appliedCoupon) {
-        if (appliedCoupon.type === 'flat') {
-          couponDiscount = Math.min(subtotal, Math.round(appliedCoupon.value));
+      const appRow = document.getElementById('appCouponDiscountRow');
+      if (appRow) {
+        if (bd.appCoupon && bd.appDiscount > 0) {
+          appRow.classList.remove('hidden');
+          const appCodeEl = document.getElementById('appCouponCodeLabel');
+          const appDiscEl = document.getElementById('summaryAppCouponDiscount');
+          if (appCodeEl) appCodeEl.innerText = bd.appCoupon.code;
+          if (appDiscEl) appDiscEl.innerText = `-₹${bd.appDiscount}`;
         } else {
-          let pctDisc = Math.round((subtotal * appliedCoupon.value) / 100);
-          if (Number(appliedCoupon.maxDiscount || 0) > 0) {
-            pctDisc = Math.min(pctDisc, Math.round(appliedCoupon.maxDiscount));
-          }
-          couponDiscount = Math.min(subtotal, pctDisc);
+          appRow.classList.add('hidden');
         }
-        document.getElementById('couponDiscountRow').classList.remove('hidden');
-        document.getElementById('couponCodeLabel').innerText = appliedCoupon.code;
-        document.getElementById('summaryCouponDiscount').innerText = `-₹${couponDiscount}`;
-      } else {
-        document.getElementById('couponDiscountRow').classList.add('hidden');
       }
 
-      // All automatic healthy-food / first-order discounts permanently removed — Admin coupons & APP10 only
+      const promoRow = document.getElementById('couponDiscountRow');
+      if (promoRow) {
+        if (bd.promoCoupon && bd.promoDiscount > 0) {
+          promoRow.classList.remove('hidden');
+          document.getElementById('couponCodeLabel').innerText = bd.promoCoupon.code;
+          document.getElementById('summaryCouponDiscount').innerText = `-₹${bd.promoDiscount}`;
+        } else {
+          promoRow.classList.add('hidden');
+        }
+      }
+
+      // All automatic healthy-food / first-order discounts permanently removed — APP10 (App-only) + Admin coupons only
       window.activeFoodDiscount = 0;
       window.activeFoodOfferType = null;
 
       const isFreeShipping = subtotal >= settings.freeDeliveryThreshold;
       const shipping = (subtotal === 0 || isFreeShipping) ? 0 : settings.deliveryFee;
-      const grandTotal = Math.max(0, subtotal - couponDiscount + shipping);
-      const totalSaved = productDiscount + couponDiscount;
+      const grandTotal = Math.max(0, subtotal - bd.totalDiscount + shipping);
+      const totalSaved = productDiscount + bd.totalDiscount;
 
       document.getElementById('summaryMrpTotal').innerText = `₹${mrpTotal}`;
       document.getElementById('summaryProductDiscount').innerText = `-₹${productDiscount}`;
@@ -1221,18 +1528,19 @@
     }
 
     window.applyOfferProgressCoupon = function(code) {
-      if (String(code || '').trim().toUpperCase() === 'APP10') {
-        app10UserDismissed = false;
-      }
       applyCoupon(code);
     };
 
     window.removeOfferProgressCoupon = function() {
-      if (appliedCoupon && appliedCoupon.code === 'APP10') {
-        app10UserDismissed = true;
-      }
+      const removedCode = appliedCoupon ? appliedCoupon.code : '';
       appliedCoupon = null;
-      setOfferProgressFeedback('');
+      const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      const bd = getCombinedCouponBreakdown(subtotal);
+      if (bd.appCoupon && removedCode) {
+        setOfferProgressFeedback(`📱 ${removedCode} removed — App-Exclusive ${bd.appCoupon.code} (₹${bd.appDiscount} OFF) remains applied!`, false);
+      } else {
+        setOfferProgressFeedback('');
+      }
       renderSummary();
     };
 
@@ -1268,24 +1576,31 @@
         hidePctWhenAction: false
       });
 
-      // 3. All Active Discount / Coupon Offers (sorted by minOrder ascending; mini Apply button appears inline right when 100% unlocked)
+      // 2. All Active Discount / Coupon Offers (hide first-order-only coupons completely for repeat customers)
       const activeCoupons = (getStoreCoupons() || [])
-        .filter(c => c && c.active !== false && c.code)
-        .sort((a, b) => Number(a.minOrder || 0) - Number(b.minOrder || 0));
+        .filter(c => c && c.active !== false && c.code && isCouponVisibleForCustomer(c))
+        .sort((a, b) => {
+          if (isAppUser && a.code === 'APP10' && b.code !== 'APP10') return -1;
+          if (isAppUser && b.code === 'APP10' && a.code !== 'APP10') return 1;
+          return Number(a.minOrder || 0) - Number(b.minOrder || 0);
+        });
 
       activeCoupons.forEach(c => {
         const minOrder = Math.max(0, Number(c.minOrder || 0));
         const offerTitle = c.type === 'flat' ? `₹${c.value} OFF` : `${c.value}% OFF`;
-        const isApplied = appliedCoupon && appliedCoupon.code === c.code;
+        const isApp10Row = c.code === 'APP10';
+        const isApplied = isApp10Row
+          ? Boolean(appliedAppCoupon && appliedAppCoupon.code === 'APP10')
+          : Boolean(appliedCoupon && appliedCoupon.code === c.code);
         const remaining = minOrder > 0 ? Math.max(0, Math.ceil(minOrder - subtotal)) : 0;
         const pct = minOrder > 0 ? Math.min(100, Math.max(0, Math.round((subtotal / minOrder) * 100))) : 100;
-        const safeCode = String(c.code).replace(/'/g, "\\'");
+        const safeCode = String(c.code).replace(/[^A-Z0-9_-]/gi, '');
 
-        // App-Exclusive coupon (e.g., APP10): show Google Play CTA on Web Browser, Apply / Applied in Nutrolix Android App
+        // App-Exclusive coupon (e.g., APP10): show Google Play CTA on Web Browser, permanent Auto-Applied badge in Nutrolix Android App
         if (c.appOnly && !isAppUser) {
           rows.push({
             iconHtml: `<i class="fa-brands fa-google-play text-emerald-600 text-base sm:text-lg shrink-0"></i>`,
-            labelHtml: `Get <span class="text-emerald-800 font-black">Extra ${offerTitle}</span> on Nutrolix App <span class="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded-md ml-1">${c.code}</span>`,
+            labelHtml: `Get <span class="text-emerald-800 font-black">Extra ${offerTitle}</span> on Nutrolix App <span class="text-[10px] font-black text-emerald-800 bg-emerald-100 border border-emerald-200 px-1.5 py-0.5 rounded-md ml-1">${safeCode}</span>`,
             pct: 100,
             barGradient: 'from-[#059669] via-[#14b8a6] to-[#84cc16]',
             actionHtml: `<a href="${PLAY_STORE_APP_URL}" target="_blank" rel="noopener noreferrer" class="px-3 py-1 rounded-full bg-emerald-700 hover:bg-emerald-800 text-white text-[11px] font-black tracking-wide shadow-sm transition active:scale-95 whitespace-nowrap inline-flex items-center gap-1"><i class="fa-brands fa-google-play text-[10px] text-lime-300"></i> Get App</a>`,
@@ -1296,9 +1611,15 @@
 
         let actionHtml = '';
         if (remaining === 0) {
-          actionHtml = isApplied
-            ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-black tracking-wide shadow-xs whitespace-nowrap">Applied ✓ <button type="button" onclick="window.removeOfferProgressCoupon()" title="Remove coupon" aria-label="Remove coupon" class="ml-0.5 w-3.5 h-3.5 rounded-full bg-emerald-800/80 hover:bg-emerald-900 text-emerald-100 inline-flex items-center justify-center text-[10px] leading-none cursor-pointer">×</button></span>`
-            : `<button type="button" onclick="window.applyOfferProgressCoupon('${safeCode}')" class="px-3 py-1 rounded-full bg-[#05442e] hover:bg-emerald-800 text-lime-300 text-[11px] font-black tracking-wide shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap">Apply</button>`;
+          if (isApp10Row && isAppUser) {
+            // APP10 is ALWAYS auto-applied in the Nutrolix Android App (non-removable, stackable with additional coupons)
+            actionHtml = `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-black tracking-wide shadow-xs whitespace-nowrap">Auto-Applied ✓</span>`;
+          } else {
+            const applyLabel = (isAppUser && appliedAppCoupon) ? '+ Apply' : 'Apply';
+            actionHtml = isApplied
+              ? `<span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-black tracking-wide shadow-xs whitespace-nowrap">Applied ✓ <button type="button" onclick="window.removeOfferProgressCoupon()" title="Remove additional coupon" aria-label="Remove additional coupon" class="ml-0.5 w-3.5 h-3.5 rounded-full bg-emerald-800/80 hover:bg-emerald-900 text-emerald-100 inline-flex items-center justify-center text-[10px] leading-none cursor-pointer">×</button></span>`
+              : `<button type="button" onclick="window.applyOfferProgressCoupon('${safeCode}')" class="px-3 py-1 rounded-full bg-[#05442e] hover:bg-emerald-800 text-lime-300 text-[11px] font-black tracking-wide shadow-sm transition active:scale-95 cursor-pointer whitespace-nowrap">${applyLabel}</button>`;
+          }
         }
 
         const iconHtml = c.appOnly
@@ -1310,8 +1631,8 @@
         rows.push({
           iconHtml,
           labelHtml: remaining > 0
-            ? `Add <span class="font-black text-slate-950">₹${remaining}</span> for <span class="text-slate-900 font-black">${offerTitle}</span> <span class="text-[10px] font-black text-amber-800 bg-amber-200/70 px-1.5 py-0.5 rounded-md ml-1">${c.code}</span>`
-            : `<span class="text-emerald-800 font-black">${unlockedPrefix}</span> <span class="text-[10px] font-black text-emerald-800 bg-emerald-200/70 px-1.5 py-0.5 rounded-md ml-1">${c.code}</span>`,
+            ? `Add <span class="font-black text-slate-950">₹${remaining}</span> for <span class="text-slate-900 font-black">${offerTitle}</span> <span class="text-[10px] font-black text-amber-800 bg-amber-200/70 px-1.5 py-0.5 rounded-md ml-1">${safeCode}</span>`
+            : `<span class="text-emerald-800 font-black">${unlockedPrefix}</span> <span class="text-[10px] font-black text-emerald-800 bg-emerald-200/70 px-1.5 py-0.5 rounded-md ml-1">${safeCode}</span>`,
           pct,
           barGradient: remaining > 0 ? 'from-[#fbbf24] via-[#f97316] to-[#ea580c]' : 'from-[#059669] via-[#22c55e] to-[#84cc16]',
           actionHtml,
@@ -2675,23 +2996,35 @@
         btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin text-base mr-2"></i><span>Placing Order...</span>';
       }
 
+      // Final authoritative guard before COD or PayU Online Payment: block first-order-only coupon if customer has prior orders
+      if (appliedCoupon && (appliedCoupon.firstOrderOnly || isFirstOrderCouponCodeOrTitle(appliedCoupon.code, appliedCoupon.title))) {
+        const elig = await refreshCustomerCouponEligibility(true);
+        if (!elig.checked || elig.hasPriorOrders) {
+          const blockedCode = appliedCoupon.code;
+          appliedCoupon = null;
+          renderAvailableCoupons();
+          renderSummary();
+          isExecutingOrderPlacement = false;
+          if (btn) {
+            btn.disabled = false;
+            if (typeof window.updatePaymentMethodUi === 'function') window.updatePaymentMethodUi();
+          }
+          const msg = elig.hasPriorOrders
+            ? `Coupon "${blockedCode}" is valid only on your first order and has been removed. Please review your updated total and place your order.`
+            : `Unable to verify first-order eligibility for "${blockedCode}". Please try again.`;
+          setOfferProgressFeedback(`⚠️ ${msg}`, true);
+          alert(msg);
+          return;
+        }
+      }
+
       googleMapsLink = (gpsLat && gpsLon) ? `https://maps.google.com/?q=${gpsLat},${gpsLon}` : '';
 
       const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked') ? document.querySelector('input[name="paymentMethod"]:checked').value : 'PayU Online Payment';
       const settings = getStoreSettings();
       const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-      let couponDiscount = 0;
-      if (appliedCoupon) {
-        if (appliedCoupon.type === 'flat') {
-          couponDiscount = Math.min(subtotal, Math.round(appliedCoupon.value || 0));
-        } else {
-          let pctDisc = Math.round((subtotal * (appliedCoupon.discountPercent || appliedCoupon.value || 0)) / 100);
-          if (Number(appliedCoupon.maxDiscount || 0) > 0) {
-            pctDisc = Math.min(pctDisc, Math.round(appliedCoupon.maxDiscount));
-          }
-          couponDiscount = Math.min(subtotal, pctDisc);
-        }
-      }
+      const couponBd = getCombinedCouponBreakdown(subtotal);
+      const couponDiscount = couponBd.totalDiscount;
       const foodDiscount = 0;
       const shipping = subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFee;
       const grandTotal = Math.max(0, subtotal - couponDiscount + shipping);
@@ -2749,9 +3082,13 @@
         paymentMethod,
         subtotal,
         discount: couponDiscount,
+        appDiscount: couponBd.appDiscount,
+        promoDiscount: couponBd.promoDiscount,
         foodDiscount: 0,
         foodOfferType: null,
-        couponCode: appliedCoupon ? appliedCoupon.code : null,
+        couponCode: couponBd.couponCode,
+        additionalCouponCode: couponBd.promoCoupon ? couponBd.promoCoupon.code : null,
+        appliedCoupons: couponBd.appliedCoupons,
         shipping,
         grandTotal,
         total: grandTotal,
@@ -2865,10 +3202,14 @@
               platform: isFromApp ? 'android_app' : 'web',
               subtotal,
               discount: couponDiscount,
+              appDiscount: couponBd.appDiscount,
+              promoDiscount: couponBd.promoDiscount,
               foodDiscount: 0,
               foodOfferType: null,
               shipping,
-              couponCode: appliedCoupon ? appliedCoupon.code : null
+              couponCode: couponBd.couponCode,
+              additionalCouponCode: couponBd.promoCoupon ? couponBd.promoCoupon.code : null,
+              appliedCoupons: couponBd.appliedCoupons
             })
           });
           const payuData = await payuRes.json();
@@ -3038,18 +3379,35 @@
       loadUserProfile();
       checkAndRenderSavedAddresses();
       renderCart();
+      applyFastLocalEligibilitySnapshot();
       renderAvailableCoupons();
       syncLiveCartConfig();
+      refreshCustomerCouponEligibility(true);
       window.checkCartAuthStatus();
       window.autoDetectCheckoutLocation(false);
+      ['custPhone', 'cartInlinePhoneInput'].forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.addEventListener('input', () => {
+            const digits = String(el.value || '').replace(/\D/g, '');
+            if (digits.length >= 10) refreshCustomerCouponEligibility(false);
+          });
+          el.addEventListener('blur', () => {
+            const digits = String(el.value || '').replace(/\D/g, '');
+            if (digits.length >= 10) refreshCustomerCouponEligibility(false);
+          });
+        }
+      });
       window.addEventListener('pageshow', (e) => {
         resetCheckoutSubmittingState();
         if (e.persisted) syncLiveCartConfig();
+        refreshCustomerCouponEligibility(false);
       });
       document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'visible') {
           resetCheckoutSubmittingState();
           syncLiveCartConfig();
+          refreshCustomerCouponEligibility(false);
         }
       });
 
@@ -3059,7 +3417,10 @@
         checkAndRenderSavedAddresses();
         window.checkCartAuthStatus();
         window.updateCartPhoneOkButtonState();
+        applyFastLocalEligibilitySnapshot();
+        renderAvailableCoupons();
         renderSummary();
+        refreshCustomerCouponEligibility(true);
       });
       window.addEventListener('nutrolix:addresses-updated', () => {
         checkAndRenderSavedAddresses();
