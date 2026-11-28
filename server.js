@@ -258,9 +258,11 @@ function getStorefrontCacheHeaders(parsedUrl) {
   return {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Cache-Control': 'public, max-age=0, s-maxage=30, stale-while-revalidate=180'
+    'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=300'
   };
 }
+const RESET_STATE_MEM_CACHE = { epoch: null, ts: 0 };
+const RESET_STATE_MEM_TTL_MS = 5 * 60 * 1000;
 
 function compactOrderSummary(o) {
   if (!o || typeof o !== 'object') return null;
@@ -377,20 +379,73 @@ async function readCatalogDocOrFallback(docKey, localFile, fallbackValue, opts =
   return safeReadJson(localFile, fallbackValue);
 }
 
+// Strict authoritative read required BEFORE any catalog mutation (POST/DELETE).
+// NEVER falls back to static sample JSON when Firestore returns 429/5xx/network error —
+// prevents a failed read from overwriting the entire live catalog in Firestore!
+async function readCatalogDocStrictForWrite(docKey, localFile, fallbackValue) {
+  const res = await nutrolixCore.firestoreGetFirstAvailableDetailed(`catalogStore/${docKey}`);
+  if (res.found && res.doc) {
+    let parsed = null;
+    if (res.doc.dataJson) {
+      parsed = JSON.parse(res.doc.dataJson);
+    } else if (res.doc.items !== undefined) {
+      parsed = res.doc.items;
+    }
+    if (parsed !== null) {
+      CATALOG_MEM_CACHE.set(docKey, { val: parsed, ts: Date.now() });
+      CATALOG_LKG_CACHE.set(docKey, parsed);
+      writeLkgToDisk(docKey, parsed);
+      return parsed;
+    }
+  }
+  if (res.transientError) {
+    const err = new Error(
+      res.quotaExceeded
+        ? 'Database daily read quota is currently reached. Save blocked to protect your existing products from being overwritten. Please retry after quota reset.'
+        : 'Could not verify live database state before saving. Save blocked to protect your existing catalog. Please retry.'
+    );
+    err.statusCode = 503;
+    err.code = res.quotaExceeded ? 'FIRESTORE_QUOTA_EXCEEDED' : 'CATALOG_READ_UNAVAILABLE';
+    throw err;
+  }
+  // Only reached when Firestore explicitly confirmed 404 (brand-new document)
+  if (CATALOG_LKG_CACHE.has(docKey)) return CATALOG_LKG_CACHE.get(docKey);
+  return safeReadJson(localFile, fallbackValue);
+}
+
 async function writeCatalogDocAndLocal(docKey, localFile, value) {
+  let cleanValue = value;
+  if (docKey === 'nutrition_products' && Array.isArray(cleanValue)) {
+    cleanValue = cleanValue.filter(
+      (p) => p && p.id !== 'prod_mwbytsx8' && !/test resilience product/i.test(String(p.name || p.title || ''))
+    );
+  }
+  const prevLkg = CATALOG_LKG_CACHE.get(docKey);
+  if ((docKey === 'nutrition_products' || docKey === 'healthy_food_menu') && Array.isArray(prevLkg) && prevLkg.length > 0) {
+    const prevJson = JSON.stringify(prevLkg);
+    const nextJson = JSON.stringify(cleanValue);
+    if (prevJson !== nextJson) {
+      nutrolixCore.firestorePatchBothDbs(`catalogStore/${docKey}_prev_backup`, {
+        key: `${docKey}_prev_backup`,
+        dataJson: prevJson,
+        updatedAt: new Date().toISOString(),
+        updatedAtMillis: Date.now()
+      }).catch(() => {});
+    }
+  }
   CATALOG_MEM_CACHE.delete(docKey);
-  CATALOG_LKG_CACHE.set(docKey, value);
-  writeLkgToDisk(docKey, value);
-  safeWriteJson(localFile, value);
+  CATALOG_LKG_CACHE.set(docKey, cleanValue);
+  writeLkgToDisk(docKey, cleanValue);
+  safeWriteJson(localFile, cleanValue);
   try {
     await nutrolixCore.firestorePatchBothDbs(`catalogStore/${docKey}`, {
       key: docKey,
-      dataJson: JSON.stringify(value),
+      dataJson: JSON.stringify(cleanValue),
       updatedAt: new Date().toISOString(),
       updatedAtMillis: Date.now()
     });
   } catch (_) {}
-  CATALOG_MEM_CACHE.set(docKey, { val: value, ts: Date.now() });
+  CATALOG_MEM_CACHE.set(docKey, { val: cleanValue, ts: Date.now() });
 }
 
 const DEFAULT_SAMPLE_IMAGE_URL = '/assets/aistudio/image_6061bdc8.png';
@@ -2794,7 +2849,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       const rawHero = await readCatalogDocOrFallback('hero_products', heroFile, defaultHero);
       const data = normalizeHeroMedia(rawHero);
-      res.writeHead(200, NO_STORE_JSON_HEADERS);
+      res.writeHead(200, getStorefrontCacheHeaders(parsedUrl));
       res.end(JSON.stringify({ success: true, heroProducts: data }));
       return;
     } else if (req.method === 'POST') {
@@ -2819,7 +2874,7 @@ const server = http.createServer(async (req, res) => {
     const bannersFile = path.join(PUBLIC_DIR, 'data', 'banners.json');
     if (req.method === 'GET') {
       const banners = await readCatalogDocOrFallback('banners', bannersFile, []);
-      res.writeHead(200, NO_STORE_JSON_HEADERS);
+      res.writeHead(200, getStorefrontCacheHeaders(parsedUrl));
       res.end(JSON.stringify(Array.isArray(banners) ? banners : []));
       return;
     } else if (req.method === 'POST') {
@@ -2828,7 +2883,7 @@ const server = http.createServer(async (req, res) => {
       req.on('end', async () => {
         try {
           const payload = JSON.parse(bodyData || '{}');
-          let banners = await readCatalogDocOrFallback('banners', bannersFile, []);
+          let banners = await readCatalogDocStrictForWrite('banners', bannersFile, []);
           if (!Array.isArray(banners)) banners = [];
           if (Array.isArray(payload)) {
             banners = payload;
@@ -2851,7 +2906,7 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: true, banners }));
         } catch (err) {
-          res.writeHead(400, NO_STORE_JSON_HEADERS);
+          res.writeHead(err.statusCode || 400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: false, error: err.message }));
         }
       });
@@ -2866,7 +2921,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const { id } = JSON.parse(bodyData || '{}');
         const bannersFile = path.join(PUBLIC_DIR, 'data', 'banners.json');
-        let banners = await readCatalogDocOrFallback('banners', bannersFile, []);
+        let banners = await readCatalogDocStrictForWrite('banners', bannersFile, []);
         if (!Array.isArray(banners)) banners = [];
         banners = banners.filter(b => b.id !== id);
         await writeCatalogDocAndLocal('banners', bannersFile, banners);
@@ -3176,7 +3231,7 @@ const server = http.createServer(async (req, res) => {
           }
           const hasVariantsPayload = Array.isArray(item.variants);
           const [productsRaw, liveReviews] = await Promise.all([
-            readCatalogDocOrFallback('nutrition_products', productsFile, []),
+            readCatalogDocStrictForWrite('nutrition_products', productsFile, []),
             loadAllMergedReviews().catch(() => [])
           ]);
           const products = Array.isArray(productsRaw) ? productsRaw : [];
@@ -3208,22 +3263,22 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: true, product: savedItem }));
         } catch (err) {
-          res.writeHead(400, NO_STORE_JSON_HEADERS);
-          res.end(JSON.stringify({ error: err.message }));
+          res.writeHead(err.statusCode || 400, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({ error: err.message, code: err.code || 'PRODUCT_SAVE_ERROR' }));
         }
       });
       return;
     } else if (req.method === 'DELETE') {
       try {
         const id = parsedUrl.query.id;
-        let products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
+        let products = await readCatalogDocStrictForWrite('nutrition_products', productsFile, []);
         if (id) products = products.filter(p => p.id !== id);
         await writeCatalogDocAndLocal('nutrition_products', productsFile, products);
         res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
-        res.writeHead(400, NO_STORE_JSON_HEADERS);
-        res.end(JSON.stringify({ error: err.message }));
+        res.writeHead(err.statusCode || 400, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ error: err.message, code: err.code || 'PRODUCT_DELETE_ERROR' }));
       }
       return;
     }
@@ -3236,14 +3291,14 @@ const server = http.createServer(async (req, res) => {
       try {
         const { id } = JSON.parse(body || '{}');
         const productsFile = path.join(PUBLIC_DIR, 'data', 'nutrition_products.json');
-        let products = await readCatalogDocOrFallback('nutrition_products', productsFile, []);
+        let products = await readCatalogDocStrictForWrite('nutrition_products', productsFile, []);
         products = products.filter(p => p.id !== id);
         await writeCatalogDocAndLocal('nutrition_products', productsFile, products);
         res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ success: true }));
       } catch (err) {
-        res.writeHead(400, NO_STORE_JSON_HEADERS);
-        res.end(JSON.stringify({ error: err.message }));
+        res.writeHead(err.statusCode || 400, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ error: err.message, code: err.code || 'PRODUCT_DELETE_ERROR' }));
       }
     });
     return;
@@ -3279,7 +3334,7 @@ const server = http.createServer(async (req, res) => {
         const list = (Array.isArray(data.reviews) ? data.reviews : (Array.isArray(data.featuredReviews) ? data.featuredReviews : []))
           .map(normalizeGoogleReviewItem)
           .filter(Boolean);
-        res.writeHead(200, NO_STORE_JSON_HEADERS);
+        res.writeHead(200, getStorefrontCacheHeaders(parsedUrl));
         res.end(JSON.stringify({ ...defaultGoogleData, ...data, reviews: list, featuredReviews: list }));
       } catch (e) {
         res.writeHead(200, NO_STORE_JSON_HEADERS);
@@ -3339,7 +3394,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       try {
         const vids = await readCatalogDocOrFallback('video_reviews', vidsFile, []);
-        res.writeHead(200, NO_STORE_JSON_HEADERS);
+        res.writeHead(200, getStorefrontCacheHeaders(parsedUrl));
         res.end(JSON.stringify(Array.isArray(vids) ? vids : []));
       } catch (e) {
         res.writeHead(200, NO_STORE_JSON_HEADERS);
@@ -3417,7 +3472,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const blogs = await readCatalogDocOrFallback('blogs', blogsFile, []);
         const normalized = Array.isArray(blogs) ? blogs.map(normalizeSingleImageRecord) : [];
-        res.writeHead(200, NO_STORE_JSON_HEADERS);
+        res.writeHead(200, getStorefrontCacheHeaders(parsedUrl));
         res.end(JSON.stringify(normalized));
       } catch (e) {
         res.writeHead(200, NO_STORE_JSON_HEADERS);
@@ -3430,7 +3485,7 @@ const server = http.createServer(async (req, res) => {
       req.on('end', async () => {
         try {
           const blog = JSON.parse(body || '{}');
-          let blogs = await readCatalogDocOrFallback('blogs', blogsFile, []);
+          let blogs = await readCatalogDocStrictForWrite('blogs', blogsFile, []);
           if (!blog.id) blog.id = 'blog_' + Date.now().toString(36);
           if (!blog.date) blog.date = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
           if (!blog.readTime) blog.readTime = '4 min read';
@@ -3445,7 +3500,7 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: true, blog }));
         } catch (err) {
-          res.writeHead(400, NO_STORE_JSON_HEADERS);
+          res.writeHead(err.statusCode || 400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
         }
       });
@@ -3460,7 +3515,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const { id } = JSON.parse(body || '{}');
         const blogsFile = path.join(PUBLIC_DIR, 'data', 'blogs.json');
-        let blogs = await readCatalogDocOrFallback('blogs', blogsFile, []);
+        let blogs = await readCatalogDocStrictForWrite('blogs', blogsFile, []);
         blogs = blogs.filter(b => b.id !== id);
         await writeCatalogDocAndLocal('blogs', blogsFile, blogs);
         res.writeHead(200, NO_STORE_JSON_HEADERS);
@@ -5310,7 +5365,7 @@ const server = http.createServer(async (req, res) => {
         try {
           const meal = JSON.parse(body || '{}');
           const [mealsRaw, liveReviews] = await Promise.all([
-            readCatalogDocOrFallback('healthy_food_menu', foodFile, []),
+            readCatalogDocStrictForWrite('healthy_food_menu', foodFile, []),
             loadAllMergedReviews().catch(() => [])
           ]);
           let meals = Array.isArray(mealsRaw) ? mealsRaw : [];
@@ -5337,22 +5392,22 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: true, meals: meals.map(m => normalizeFoodMenuRecord(m, liveReviews)) }));
         } catch (err) {
-          res.writeHead(400, NO_STORE_JSON_HEADERS);
-          res.end(JSON.stringify({ error: err.message }));
+          res.writeHead(err.statusCode || 400, NO_STORE_JSON_HEADERS);
+          res.end(JSON.stringify({ error: err.message, code: err.code || 'MENU_SAVE_ERROR' }));
         }
       });
       return;
     } else if (req.method === 'DELETE') {
       try {
         const id = parsedUrl.query.id;
-        let meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
+        let meals = await readCatalogDocStrictForWrite('healthy_food_menu', foodFile, []);
         if (id) meals = meals.filter(m => m.id !== id);
         await writeCatalogDocAndLocal('healthy_food_menu', foodFile, meals);
         res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ success: true, meals }));
       } catch (err) {
-        res.writeHead(400, NO_STORE_JSON_HEADERS);
-        res.end(JSON.stringify({ error: err.message }));
+        res.writeHead(err.statusCode || 400, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ error: err.message, code: err.code || 'MENU_DELETE_ERROR' }));
       }
       return;
     }
@@ -5365,14 +5420,14 @@ const server = http.createServer(async (req, res) => {
       try {
         const { id } = JSON.parse(body || '{}');
         const foodFile = path.join(PUBLIC_DIR, 'data', 'healthy_food_menu.json');
-        let meals = await readCatalogDocOrFallback('healthy_food_menu', foodFile, []);
+        let meals = await readCatalogDocStrictForWrite('healthy_food_menu', foodFile, []);
         meals = meals.filter(m => m.id !== id);
         await writeCatalogDocAndLocal('healthy_food_menu', foodFile, meals);
         res.writeHead(200, NO_STORE_JSON_HEADERS);
         res.end(JSON.stringify({ success: true, meals }));
       } catch (err) {
-        res.writeHead(400, NO_STORE_JSON_HEADERS);
-        res.end(JSON.stringify({ error: err.message }));
+        res.writeHead(err.statusCode || 400, NO_STORE_JSON_HEADERS);
+        res.end(JSON.stringify({ error: err.message, code: err.code || 'MENU_DELETE_ERROR' }));
       }
     });
     return;
@@ -5393,7 +5448,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method === 'GET') {
       try {
         const cats = await readCatalogDocOrFallback('healthy_food_categories', catFile, defaults);
-        res.writeHead(200, NO_STORE_JSON_HEADERS);
+        res.writeHead(200, getStorefrontCacheHeaders(parsedUrl));
         res.end(JSON.stringify(cats));
       } catch (e) {
         res.writeHead(200, NO_STORE_JSON_HEADERS);
@@ -5406,7 +5461,7 @@ const server = http.createServer(async (req, res) => {
       req.on('end', async () => {
         try {
           const payload = JSON.parse(body || '{}');
-          let cats = await readCatalogDocOrFallback('healthy_food_categories', catFile, defaults);
+          let cats = await readCatalogDocStrictForWrite('healthy_food_categories', catFile, defaults);
 
           if (Array.isArray(payload)) {
             cats = payload;
@@ -5425,7 +5480,7 @@ const server = http.createServer(async (req, res) => {
           res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ success: true, categories: cats }));
         } catch (err) {
-          res.writeHead(400, NO_STORE_JSON_HEADERS);
+          res.writeHead(err.statusCode || 400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
         }
       });
@@ -5440,7 +5495,7 @@ const server = http.createServer(async (req, res) => {
       try {
         const { id, name } = JSON.parse(body || '{}');
         const catFile = path.join(PUBLIC_DIR, 'data', 'healthy_food_categories.json');
-        let cats = await readCatalogDocOrFallback('healthy_food_categories', catFile, []);
+        let cats = await readCatalogDocStrictForWrite('healthy_food_categories', catFile, []);
         cats = cats.filter(c => c.id !== id && (!name || c.name !== name));
         await writeCatalogDocAndLocal('healthy_food_categories', catFile, cats);
         res.writeHead(200, NO_STORE_JSON_HEADERS);
@@ -5648,6 +5703,12 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && reqPath === '/api/system/reset-state') {
+    const forceFresh = String((parsedUrl.query && parsedUrl.query.fresh) || '') === '1';
+    if (!forceFresh && RESET_STATE_MEM_CACHE.epoch !== null && (Date.now() - RESET_STATE_MEM_CACHE.ts) < RESET_STATE_MEM_TTL_MS) {
+      res.writeHead(200, getStorefrontCacheHeaders(parsedUrl));
+      res.end(JSON.stringify({ success: true, resetEpoch: RESET_STATE_MEM_CACHE.epoch }));
+      return;
+    }
     let resetEpoch = 0;
     try {
       const localReset = safeReadJson(path.join(PUBLIC_DIR, 'data', 'system_reset.json'), {});
@@ -5658,11 +5719,9 @@ const server = http.createServer(async (req, res) => {
       const fsEpoch = Number(fsReset && fsReset.resetEpoch) || 0;
       if (fsEpoch > resetEpoch) resetEpoch = fsEpoch;
     } catch (_) {}
-    res.writeHead(200, {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'no-store'
-    });
+    RESET_STATE_MEM_CACHE.epoch = resetEpoch;
+    RESET_STATE_MEM_CACHE.ts = Date.now();
+    res.writeHead(200, getStorefrontCacheHeaders(parsedUrl));
     res.end(JSON.stringify({ success: true, resetEpoch }));
     return;
   }
@@ -6706,13 +6765,13 @@ const server = http.createServer(async (req, res) => {
       req.on('end', async () => {
         try {
           const payload = JSON.parse(body || '{}');
-          const prev = await readCatalogDocOrFallback('store_settings', settingsFile, {});
+          const prev = await readCatalogDocStrictForWrite('store_settings', settingsFile, {});
           const merged = normalizeStoreSettingsPayload(payload, prev);
           await writeCatalogDocAndLocal('store_settings', settingsFile, merged);
           res.writeHead(200, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ ...merged, success: true, settings: merged }));
         } catch (err) {
-          res.writeHead(400, NO_STORE_JSON_HEADERS);
+          res.writeHead(err.statusCode || 400, NO_STORE_JSON_HEADERS);
           res.end(JSON.stringify({ error: err.message }));
         }
       });
@@ -7080,7 +7139,7 @@ const server = http.createServer(async (req, res) => {
       const finalHtml = seoOptions ? nutrolixSeo.injectSeoIntoHtml(rawHtml, seoOptions) : rawHtml;
       const headers = {
         'Content-Type': 'text/html; charset=utf-8',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=300',
         'Access-Control-Allow-Origin': '*',
         ...extraHeaders
       };

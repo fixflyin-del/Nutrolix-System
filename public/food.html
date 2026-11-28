@@ -2055,7 +2055,8 @@
         const tid = setTimeout(() => ac.abort(), timeoutMs);
         try {
           const sep = url.includes('?') ? '&' : '?';
-          const res = await fetch(`${url}${sep}t=${Date.now()}_r${i}`, { cache: 'no-store', signal: ac.signal });
+          const fetchUrl = i === 0 ? url : `${url}${sep}_r=${i}`;
+          const res = await fetch(fetchUrl, { signal: ac.signal });
           clearTimeout(tid);
           if (res && res.ok) return await res.json();
           lastErr = new Error('HTTP ' + (res ? res.status : '0'));

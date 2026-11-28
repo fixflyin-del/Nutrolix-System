@@ -686,10 +686,10 @@
         renderProduct(p, list);
       }
 
-      // Non-blocking background fetch with no-store cache
+      // Non-blocking background fetch using Edge-cached catalog endpoint
       const host = window.NUTROLIX_API_HOST || '';
       if (window.location.protocol !== 'file:' || host) {
-        fetch(host + '/api/nutrition-products?t=' + Date.now(), { cache: 'no-store' })
+        fetch(host + '/api/nutrition-products')
           .then(res => res.ok ? res.json() : null)
           .then(remoteList => {
             if (remoteList && Array.isArray(remoteList) && remoteList.length) {

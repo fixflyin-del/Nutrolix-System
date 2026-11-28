@@ -23,6 +23,7 @@ import com.google.firebase.FirebaseApp
 import com.google.firebase.firestore.DocumentSnapshot
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Query
 import kotlinx.coroutines.*
 import org.json.JSONArray
 import org.json.JSONObject
@@ -503,7 +504,10 @@ class AdminOrderBackgroundService : Service() {
     if (defaultFirestoreListener == null) {
       try {
         val defaultDb = FirebaseFirestore.getInstance()
-        defaultFirestoreListener = defaultDb.collection("orders").addSnapshotListener { snapshot, error ->
+        defaultFirestoreListener = defaultDb.collection("orders")
+          .orderBy("timestamp", Query.Direction.DESCENDING)
+          .limit(20)
+          .addSnapshotListener { snapshot, error ->
           if (error != null) {
             val msg = error.message ?: ""
             Log.w(TAG, "Default Firestore listen notice: $msg")
@@ -526,7 +530,10 @@ class AdminOrderBackgroundService : Service() {
       try {
         val namedDb = firestoreService?.db
         if (namedDb != null) {
-          namedFirestoreListener = namedDb.collection("orders").addSnapshotListener { snapshot, error ->
+          namedFirestoreListener = namedDb.collection("orders")
+            .orderBy("timestamp", Query.Direction.DESCENDING)
+            .limit(20)
+            .addSnapshotListener { snapshot, error ->
             if (error != null) {
               Log.w(TAG, "Named Firestore listen notice: ${error.message}")
               return@addSnapshotListener
